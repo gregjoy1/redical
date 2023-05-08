@@ -1,0 +1,8 @@
+/target
+
+**/*.swp
+**/*.swo
+**/*.swn
+**/.*.swp
+**/.*.swo
+**/.*.swn
