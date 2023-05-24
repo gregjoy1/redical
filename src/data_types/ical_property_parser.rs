@@ -44,23 +44,23 @@ impl PartialEq for ParsedProperty<'_> {
 
 }
 
-pub fn is_name_char(chr: u8) -> bool {
-    (chr >= 0x30 && chr <= 0x39) ||
-    (chr >= 0x41 && chr <= 0x5A) ||
-    (chr >= 0x61 && chr <= 0x7A) ||
-    chr == 0x2D
+pub fn is_name_char(chr: char) -> bool {
+    (chr >= '\x30' && chr <= '\x39') ||
+    (chr >= '\x41' && chr <= '\x5A') ||
+    (chr >= '\x61' && chr <= '\x7A') ||
+    chr == '\x2D'
 }
 
 // iana-token    = 1*(ALPHA / DIGIT / "-")
 // ; iCalendar identifier registered with IANA
-fn iana_token(input: &[u8]) -> IResult<&[u8], &[u8]> {
+fn iana_token(input: &str) -> IResult<&str, &str> {
     take_while1(is_name_char)(input)
 }
 // x-name        = "X-" [vendorid "-"] 1*(ALPHA / DIGIT / "-")
 // ; Reserved for experimental use.
 // vendorid      = 3*(ALPHA / DIGIT)
 // ; Vendor identification
-fn x_name(input: &[u8]) -> IResult<&[u8], &[u8]> {
+fn x_name(input: &str) -> IResult<&str, &str> {
     recognize(
         preceded(
             tag_no_case("X-"),
@@ -70,24 +70,21 @@ fn x_name(input: &[u8]) -> IResult<&[u8], &[u8]> {
 }
 
 // name          = iana-token / x-name
-fn name(input: &[u8]) -> IResult<&[u8], &str> {
-    map(
-        alt(
-            (
-                iana_token,
-                x_name
-            )
-        ),
-        |parsed_name| str::from_utf8(parsed_name).unwrap()
+fn name(input: &str) -> IResult<&str, &str> {
+    alt(
+        (
+            iana_token,
+            x_name
+        )
     )(input)
 }
 
-fn params(input: &[u8]) -> IResult<&[u8], HashMap<&str, Vec<&str>>> {
+fn params(input: &str) -> IResult<&str, HashMap<&str, Vec<&str>>> {
     map(
         separated_list1(semicolon_delimeter, param),
         |tuple_vec| {
             tuple_vec.into_iter()
-                     .map(|(key, value)| (str::from_utf8(key).unwrap(), value))
+                     .map(|(key, value)| (key, value))
                      .collect()
         }
     )(input)
@@ -97,7 +94,7 @@ fn params(input: &[u8]) -> IResult<&[u8], HashMap<&str, Vec<&str>>> {
 // ; Each property defines the specific ABNF for the parameters
 // ; allowed on the property.  Refer to specific properties for
 // ; precise parameter ABNF.
-fn param(input: &[u8]) -> IResult<&[u8], (&[u8], Vec<&str>)> {
+fn param(input: &str) -> IResult<&str, (&str, Vec<&str>)> {
     separated_pair(
         param_name,
         char('='),
@@ -109,7 +106,7 @@ fn param(input: &[u8]) -> IResult<&[u8], (&[u8], Vec<&str>)> {
 }
 
 // param-name    = iana-token / x-name
-fn param_name(input: &[u8]) -> IResult<&[u8], &[u8]> {
+fn param_name(input: &str) -> IResult<&str, &str> {
     alt(
         (
             iana_token,
@@ -119,24 +116,21 @@ fn param_name(input: &[u8]) -> IResult<&[u8], &[u8]> {
 }
 
 // param-value   = paramtext / quoted-string
-fn param_value(input: &[u8]) -> IResult<&[u8], &str> {
-    map(
-        alt(
-            (
-                param_text,
-                quoted_string
-            )
-        ),
-        |value| str::from_utf8(value).unwrap()
+fn param_value(input: &str) -> IResult<&str, &str> {
+    alt(
+        (
+            param_text,
+            quoted_string
+        )
     )(input)
 }
 
 // paramtext     = *SAFE-CHAR
-fn param_text(input: &[u8]) -> IResult<&[u8], &[u8]> {
+fn param_text(input: &str) -> IResult<&str, &str> {
     take_while1(is_safe_char)(input)
 }
 
-fn values(input: &[u8]) -> IResult<&[u8], Vec<&str>> {
+fn values(input: &str) -> IResult<&str, Vec<&str>> {
     separated_list1(
         char(','),
         value
@@ -144,15 +138,12 @@ fn values(input: &[u8]) -> IResult<&[u8], Vec<&str>> {
 }
 
 // value         = *VALUE-CHAR
-fn value(input: &[u8]) -> IResult<&[u8], &str> {
-    map(
-        take_while1(is_value_char),
-        |parsed_value| str::from_utf8(parsed_value).unwrap()
-    )(input)
+fn value(input: &str) -> IResult<&str, &str> {
+    take_while1(is_value_char)(input)
 }
 
 // quoted-string = DQUOTE *QSAFE-CHAR DQUOTE
-fn quoted_string(input: &[u8]) -> IResult<&[u8], &[u8]> {
+fn quoted_string(input: &str) -> IResult<&str, &str> {
     delimited(
         char('"'),
         quote_safe_char,
@@ -162,75 +153,75 @@ fn quoted_string(input: &[u8]) -> IResult<&[u8], &[u8]> {
 
 // QSAFE-CHAR    = WSP / %x21 / %x23-7E / NON-US-ASCII
 // ; Any character except CONTROL and DQUOTE
-fn is_quote_safe_char(chr: u8) -> bool {
+fn is_quote_safe_char(chr: char) -> bool {
     is_white_space_char(chr)    ||
-    chr == 0x21                 ||
-    (chr >= 0x23 && chr <=0x7E) ||
+    chr == '\x21'                 ||
+    (chr >= '\x23' && chr <='\x7E') ||
     is_non_us_ascii_char(chr)
 }
 
-fn quote_safe_char(input: &[u8]) -> IResult<&[u8], &[u8]> {
+fn quote_safe_char(input: &str) -> IResult<&str, &str> {
     take_while(is_quote_safe_char)(input)
 }
 
 // SAFE-CHAR     = WSP / %x21 / %x23-2B / %x2D-39 / %x3C-7E / NON-US-ASCII
 // ; Any character except CONTROL, DQUOTE, ";", ":", ","
-fn is_safe_char(chr: u8) -> bool {
-    is_white_space_char(chr)     ||
-    chr == 0x21                  ||
-    (chr >= 0x23 && chr <= 0x2B) ||
-    (chr >= 0x2D && chr <= 0x39) ||
-    (chr >= 0x3C && chr <= 0x7E) ||
+fn is_safe_char(chr: char) -> bool {
+    is_white_space_char(chr)         ||
+    chr == '\x21'                    ||
+    (chr >= '\x23' && chr <= '\x2B') ||
+    (chr >= '\x2D' && chr <= '\x39') ||
+    (chr >= '\x3C' && chr <= '\x7E') ||
     is_non_us_ascii_char(chr)
 }
 
 // VALUE-CHAR    = WSP / %x21-7E / NON-US-ASCII
-fn is_value_char(chr: u8) -> bool {
+fn is_value_char(chr: char) -> bool {
     is_white_space_char(chr) || is_ascii_char(chr) || is_non_us_ascii_char(chr)
 }
 
-fn is_white_space_char(chr: u8) -> bool {
-    chr == 0x09 || // TAB
-    chr == 0x0A || // LF
-    chr == 0x0C || // FF
-    chr == 0x0D || // CR
-    chr == 0x20    // SPACE
+fn is_white_space_char(chr: char) -> bool {
+    chr == '\x09' || // TAB
+    chr == '\x0A' || // LF
+    chr == '\x0C' || // FF
+    chr == '\x0D' || // CR
+    chr == '\x20'    // SPACE
 }
 
 // ; Any textual character
 // %x21-7E
-fn is_ascii_char(chr: u8) -> bool {
-    chr >= 0x21 && chr <= 0x7E
+fn is_ascii_char(chr: char) -> bool {
+    chr >= '\x21' && chr <= '\x7E'
 }
 
 // NON-US-ASCII  = UTF8-2 / UTF8-3 / UTF8-4
 // ; UTF8-2, UTF8-3, and UTF8-4 are defined in [RFC3629]
-fn is_non_us_ascii_char(chr: u8) -> bool {
-    chr >= 0x80
+fn is_non_us_ascii_char(chr: char) -> bool {
+    chr > '\x7f'
 }
 
 // CONTROL       = %x00-08 / %x0A-1F / %x7F
-fn is_control_char(chr: u8) -> bool {
-    chr <= 0x08 || chr >= 0x0A && chr <= 0x1F || chr == 0x7F
+fn is_control_char(chr: char) -> bool {
+    chr <= '\x08' || chr >= '\x0A' && chr <= '\x1F' || chr == '\x7F'
 }
 
-fn is_colon_delimeter(chr: u8) -> bool {
-    chr == 0x3A
+fn is_colon_delimeter(chr: char) -> bool {
+    chr == '\x3A'
 }
 
-fn is_semicolon_delimeter(chr: u8) -> bool {
-    chr == 0x3B
+fn is_semicolon_delimeter(chr: char) -> bool {
+    chr == '\x3B'
 }
 
-fn colon_delimeter(input: &[u8]) -> IResult<&[u8], &[u8]> {
-    tag(&[0x3A])(input)
+fn colon_delimeter(input: &str) -> IResult<&str, &str> {
+    tag(":")(input)
 }
 
-fn semicolon_delimeter(input: &[u8]) -> IResult<&[u8], &[u8]> {
-    tag(&[0x3B])(input)
+fn semicolon_delimeter(input: &str) -> IResult<&str, &str> {
+    tag(";")(input)
 }
 
-fn parse_property_parameters(input: &[u8]) -> IResult<&[u8], Option<HashMap<&str, Vec<&str>>>> {
+fn parse_property_parameters(input: &str) -> IResult<&str, Option<HashMap<&str, Vec<&str>>>> {
     opt(
         preceded(
             semicolon_delimeter,
@@ -239,7 +230,7 @@ fn parse_property_parameters(input: &[u8]) -> IResult<&[u8], Option<HashMap<&str
     )(input)
 }
 
-fn parse_property(input: &[u8]) -> IResult<&[u8], ParsedProperty> {
+fn parse_property(input: &str) -> IResult<&str, ParsedProperty> {
     let (remaining, parsed_name) = name(input)?;
 
     let (remaining, parsed_params) = parse_property_parameters(remaining)?;
@@ -266,12 +257,12 @@ mod test {
 
     #[test]
     fn test_parse_property() {
-        let data: &[u8] = "RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH".as_bytes();
+        let data: &str = "RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH";
 
         assert_eq!(
             parse_property(data).unwrap(),
             (
-                "".as_bytes(),
+                "",
                 ParsedProperty {
                     name: Some("RRULE"),
                     params: None,
@@ -293,17 +284,17 @@ mod test {
         assert_eq!(
             recognize(parse_property)(data).unwrap(),
             (
-                "".as_bytes(),
-                "RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH".as_bytes()
+                "",
+                "RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH"
             )
         );
 
-        let data: &[u8] = "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA".as_bytes();
+        let data: &str = "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA";
 
         assert_eq!(
             parse_property(data).unwrap(),
             (
-                "".as_bytes(),
+                "",
                 ParsedProperty {
                     name: Some("DESCRIPTION"),
                     params: Some(
@@ -326,8 +317,8 @@ mod test {
         assert_eq!(
             recognize(parse_property)(data).unwrap(),
             (
-                "".as_bytes(),
-                "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA".as_bytes()
+                "",
+                "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA"
             )
         );
     }
