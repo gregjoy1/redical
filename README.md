@@ -43,6 +43,8 @@ Example to indicate event with queryable:
 * Child/Membership relationship to calendars identified with either `FREE_TEXT_CALENDAR_X_REF`, or `FREE_TEXT_CALENDAR_Y_REF`
 * Proprietary vendor specific relationship to vendor specific entity identified with either `PROPRIETARY_VENDOR_ENTITY_REF`
 
+'UID:uid1@example.com DTSTAMP:19970714T170000Z ORGANIZER;CN=John Doe:MAILTO:john.doe@example.com DTSTART:19970714T170000Z DTEND:19970715T040000Z SUMMARY:Bastille Day Party GEO:48.85299;2.36885'
+
 ```
 RELATED-TO;RELTYPE=SIBLING:FREE_TEXT_EVENT_REF
 

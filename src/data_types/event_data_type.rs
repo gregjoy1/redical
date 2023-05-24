@@ -13,7 +13,6 @@ use std::{
 pub struct Event {
     pub uuid:  String,
     pub other: String
-
 }
 
 pub const EVENT_DATA_TYPE_NAME:    &str = "RICAL_EVT";
