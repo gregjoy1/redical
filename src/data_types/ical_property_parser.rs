@@ -14,34 +14,83 @@ use nom::{
 };
 
 #[derive(Debug)]
-pub enum ParsedPropertyError<'a> {
+pub enum ParsedPropertyContentError<'a> {
     ParseError { message: &'a str },
 }
 
-#[derive(Debug)]
-pub struct ParsedProperty<'a> {
+#[derive(Debug, PartialEq)]
+pub struct ParsedPropertyContent<'a> {
     /// Property name.
     pub name: Option<&'a str>,
 
     /// HashMap of parameters (before : delimiter).
     pub params: Option<HashMap<&'a str, Vec<&'a str>>>,
 
-    /// HashMap of value parameters (after : delimiter).
-    pub value_params: Option<HashMap<&'a str, Vec<&'a str>>>,
-
     /// Property value.
-    pub value: Option<Vec<&'a str>>,
+    pub value: ParsedValue<'a>,
+
+    /// The whole property content line.
+    pub content_line: &'a str,
 }
 
-impl PartialEq for ParsedProperty<'_> {
+#[derive(Debug, PartialEq)]
+pub enum ParsedProperty<'a> {
+    Categories(ParsedPropertyContent<'a>),
+    RRule(ParsedPropertyContent<'a>),
+    Description(ParsedPropertyContent<'a>),
+    RelatedTo(ParsedPropertyContent<'a>),
+    Other(ParsedPropertyContent<'a>),
+}
 
-    fn eq(&self, other: &Self) -> bool {
-        self.name == other.name &&
-        self.params == other.params &&
-        self.value_params == other.value_params &&
-        self.value == other.value
+#[derive(Debug, PartialEq)]
+pub enum ParsedValue<'a> {
+    List(Vec<&'a str>),
+    Single(&'a str),
+    Params(HashMap<&'a str, Vec<&'a str>>)
+}
+
+impl<'a> ParsedValue<'a> {
+
+    pub fn parse_list(input: &'a str) -> IResult<&'a str, Self> {
+        let (remaining, parsed_value_list) = separated_list1(
+            char(','),
+            alt(
+                (
+                    param_text,
+                    quoted_string
+                )
+            )
+        )(input)?;
+
+        Ok(
+            (
+                remaining,
+                Self::List(parsed_value_list)
+            )
+        )
     }
 
+    pub fn parse_single(input: &'a str) -> IResult<&'a str, Self> {
+        let (remaining, parsed_single_value) = value(input)?;
+
+        Ok(
+            (
+                remaining,
+                Self::Single(parsed_single_value)
+            )
+        )
+    }
+
+    pub fn parse_params(input: &'a str) -> IResult<&'a str, Self> {
+        let (remaining, parsed_param_value) = params(input)?;
+
+        Ok(
+            (
+                remaining,
+                Self::Params(parsed_param_value)
+            )
+        )
+    }
 }
 
 pub fn is_name_char(chr: char) -> bool {
@@ -230,30 +279,160 @@ fn parse_property_parameters(input: &str) -> IResult<&str, Option<HashMap<&str, 
     )(input)
 }
 
-fn parse_property(input: &str) -> IResult<&str, ParsedProperty> {
+fn consumed_input_string<'a>(original_input: &'a str, remaining_input: &'a str) -> &'a str {
+    let consumed_input = original_input.len() - remaining_input.len();
+
+    &original_input[..consumed_input]
+}
+
+fn parse_property_content(input: &str) -> IResult<&str, ParsedPropertyContent> {
     let (remaining, parsed_name) = name(input)?;
 
     let (remaining, parsed_params) = parse_property_parameters(remaining)?;
 
     let (remaining, _) = colon_delimeter(remaining)?;
 
-    let (remaining, parsed_value_params) = opt(params)(remaining)?;
+    let (remaining, parsed_value) = ParsedValue::parse_single(remaining)?;
 
-    let (remaining, parsed_value) = opt(values)(remaining)?;
+    let parsed_content_line = consumed_input_string(input, remaining);
 
-    let parsed_property = ParsedProperty {
+    let parsed_property = ParsedPropertyContent {
         name: Some(parsed_name),
         params: parsed_params,
-        value_params: parsed_value_params,
         value: parsed_value,
+        content_line: parsed_content_line
     };
 
     Ok((remaining, parsed_property))
 }
 
+fn parse_rrule_property_content(input: &str) -> IResult<&str, ParsedPropertyContent> {
+    let (remaining, parsed_name) = tag("RRULE")(input)?;
+
+    let (remaining, _) = colon_delimeter(remaining)?;
+
+    let (remaining, parsed_value) = ParsedValue::parse_params(remaining)?;
+
+    let parsed_content_line = consumed_input_string(input, remaining);
+
+    let parsed_property = ParsedPropertyContent {
+        name: Some(parsed_name),
+        params: None,
+        value: parsed_value,
+        content_line: parsed_content_line
+    };
+
+    Ok((remaining, parsed_property))
+}
+
+fn parse_description_property_content(input: &str) -> IResult<&str, ParsedPropertyContent> {
+    let (remaining, parsed_name) = tag("DESCRIPTION")(input)?;
+
+    let (remaining, parsed_params) = parse_property_parameters(remaining)?;
+
+    let (remaining, _) = colon_delimeter(remaining)?;
+
+    let (remaining, parsed_value) = ParsedValue::parse_single(remaining)?;
+
+    let parsed_content_line = consumed_input_string(input, remaining);
+
+    let parsed_property = ParsedPropertyContent {
+        name: Some(parsed_name),
+        params: parsed_params,
+        value: parsed_value,
+        content_line: parsed_content_line
+    };
+
+    Ok((remaining, parsed_property))
+}
+
+fn parse_categories_property_content(input: &str) -> IResult<&str, ParsedPropertyContent> {
+    let (remaining, parsed_name) = tag("CATEGORIES")(input)?;
+
+    let (remaining, parsed_params) = parse_property_parameters(remaining)?;
+
+    let (remaining, _) = colon_delimeter(remaining)?;
+
+    let (remaining, parsed_value_list) = ParsedValue::parse_list(remaining)?;
+
+    let parsed_content_line = consumed_input_string(input, remaining);
+
+    let parsed_property = ParsedPropertyContent {
+        name: Some(parsed_name),
+        params: parsed_params,
+        value: parsed_value_list,
+        content_line: parsed_content_line
+    };
+
+    Ok((remaining, parsed_property))
+}
+
+fn parse_related_to_property_content(input: &str) -> IResult<&str, ParsedPropertyContent> {
+    let (remaining, parsed_name) = tag("RELATED-TO")(input)?;
+
+    let (remaining, parsed_params) = parse_property_parameters(remaining)?;
+
+    let (remaining, _) = colon_delimeter(remaining)?;
+
+    let (remaining, parsed_value_list) = ParsedValue::parse_list(remaining)?;
+
+    let parsed_content_line = consumed_input_string(input, remaining);
+
+    let parsed_property = ParsedPropertyContent {
+        name: Some(parsed_name),
+        params: parsed_params,
+        value: parsed_value_list,
+        content_line: parsed_content_line
+    };
+
+    Ok((remaining, parsed_property))
+}
+
+fn parse_property(input: &str) -> IResult<&str, ParsedProperty> {
+    alt(
+        (
+            map(parse_rrule_property_content, ParsedProperty::RRule),
+            map(parse_description_property_content, ParsedProperty::Description),
+            map(parse_categories_property_content, ParsedProperty::Categories),
+            map(parse_related_to_property_content, ParsedProperty::RelatedTo),
+            map(parse_property_content, ParsedProperty::Other),
+        )
+    )(input)
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
+
+    #[test]
+    fn test_parsed_value_enum() {
+        let data: &str = "MO,TU,TH";
+
+        assert_eq!(
+            ParsedValue::parse_list(data).unwrap(),
+            (
+                "",
+                ParsedValue::List(
+                    vec![
+                        "MO",
+                        "TU",
+                        "TH"
+                    ]
+                )
+            )
+        );
+
+        assert_eq!(
+
+            ParsedValue::parse_single(data).unwrap(),
+            (
+                "",
+                ParsedValue::Single(
+                    "MO,TU,TH"
+                )
+            )
+        );
+    }
 
     #[test]
     fn test_parse_property() {
@@ -263,29 +442,23 @@ mod test {
             parse_property(data).unwrap(),
             (
                 "",
-                ParsedProperty {
-                    name: Some("RRULE"),
-                    params: None,
-                    value_params: Some(
-                        HashMap::from(
-                            [
-                                ("FREQ", vec!["WEEKLY"]),
-                                ("UNTIL", vec!["20211231T183000Z"]),
-                                ("INTERVAL", vec!["1"]),
-                                ("BYDAY", vec!["TU","TH"])
-                            ]
-                        )
-                    ),
-                    value: None
-                }
-            )
-        );
-
-        assert_eq!(
-            recognize(parse_property)(data).unwrap(),
-            (
-                "",
-                "RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH"
+                ParsedProperty::RRule(
+                    ParsedPropertyContent {
+                        name: Some("RRULE"),
+                        params: None,
+                        value: ParsedValue::Params(
+                            HashMap::from(
+                                [
+                                    ("FREQ", vec!["WEEKLY"]),
+                                    ("UNTIL", vec!["20211231T183000Z"]),
+                                    ("INTERVAL", vec!["1"]),
+                                    ("BYDAY", vec!["TU","TH"])
+                                ]
+                            )
+                        ),
+                        content_line: "RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH"
+                    }
+                )
             )
         );
 
@@ -295,7 +468,110 @@ mod test {
             parse_property(data).unwrap(),
             (
                 "",
-                ParsedProperty {
+                ParsedProperty::Description(
+                    ParsedPropertyContent {
+                        name: Some("DESCRIPTION"),
+                        params: Some(
+                            HashMap::from(
+                                [
+                                    ("ALTREP", vec!["cid:part1.0001@example.org"]),
+                                ]
+                            )
+                        ),
+                        value: ParsedValue::Single(
+                            "The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA"
+                        ),
+                        content_line: "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA"
+                    }
+                )
+            )
+        );
+
+        let data: &str = "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,\"CATEGORY THREE\"";
+
+        assert_eq!(
+            parse_property(data).unwrap(),
+            (
+                "",
+                ParsedProperty::Categories(
+                    ParsedPropertyContent {
+                        name: Some("CATEGORIES"),
+                        params: None,
+                        value: ParsedValue::List(
+                            vec![
+                                "CATEGORY_ONE",
+                                "CATEGORY_TWO",
+                                "CATEGORY THREE",
+                            ]
+                        ),
+                        content_line: "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,\"CATEGORY THREE\""
+                    }
+                )
+            )
+        );
+    }
+
+    #[test]
+    fn test_parse_rrule_property_content() {
+        let data: &str = "RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH";
+
+        assert_eq!(
+            parse_rrule_property_content(data).unwrap(),
+            (
+                "",
+                ParsedPropertyContent {
+                    name: Some("RRULE"),
+                    params: None,
+                    value: ParsedValue::Params(
+                        HashMap::from(
+                            [
+                                ("FREQ", vec!["WEEKLY"]),
+                                ("UNTIL", vec!["20211231T183000Z"]),
+                                ("INTERVAL", vec!["1"]),
+                                ("BYDAY", vec!["TU","TH"])
+                            ]
+                        )
+                    ),
+                    content_line: "RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH"
+                }
+            )
+        );
+    }
+
+    #[test]
+    fn test_parse_property_content() {
+        let data: &str = "RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH";
+
+        assert_eq!(
+            parse_property_content(data).unwrap(),
+            (
+                "",
+                ParsedPropertyContent {
+                    name: Some("RRULE"),
+                    params: None,
+                    value: ParsedValue::Single(
+                        "FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH"
+                    ),
+                    content_line: "RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH"
+                }
+            )
+        );
+
+        assert_eq!(
+            recognize(parse_property_content)(data).unwrap(),
+            (
+                "",
+                "RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH"
+            )
+        );
+
+        let data: &str = "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA";
+
+        assert_eq!(
+            parse_property_content(data).unwrap(),
+            (
+                "",
+                ParsedPropertyContent {
                     name: Some("DESCRIPTION"),
                     params: Some(
                         HashMap::from(
@@ -304,18 +580,16 @@ mod test {
                             ]
                         )
                     ),
-                    value_params: None,
-                    value: Some(
-                        vec![
-                            "The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA"
-                        ]
-                    )
+                    value: ParsedValue::Single(
+                        "The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA"
+                    ),
+                    content_line: "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA"
                 }
             )
         );
 
         assert_eq!(
-            recognize(parse_property)(data).unwrap(),
+            recognize(parse_property_content)(data).unwrap(),
             (
                 "",
                 "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA"
