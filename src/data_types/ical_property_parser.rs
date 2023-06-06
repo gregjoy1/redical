@@ -8,7 +8,7 @@ use nom::{
     sequence::{preceded, delimited, terminated, tuple, separated_pair},
     branch::alt,
     combinator::{cut, opt, recognize, map},
-    bytes::complete::{take_while, take_while1, tag, tag_no_case, escaped},
+    bytes::complete::{take_while, take, take_while1, tag, tag_no_case, escaped},
     character::complete::{char, alphanumeric1, one_of, space1},
     IResult
 };
@@ -37,6 +37,12 @@ pub struct ParsedPropertyContent<'a> {
 pub enum ParsedProperty<'a> {
     Categories(ParsedPropertyContent<'a>),
     RRule(ParsedPropertyContent<'a>),
+    ExRule(ParsedPropertyContent<'a>),
+    RDate(ParsedPropertyContent<'a>),
+    ExDate(ParsedPropertyContent<'a>),
+    Duration(ParsedPropertyContent<'a>),
+    DtStart(ParsedPropertyContent<'a>),
+    DtEnd(ParsedPropertyContent<'a>),
     Description(ParsedPropertyContent<'a>),
     RelatedTo(ParsedPropertyContent<'a>),
     Other(ParsedPropertyContent<'a>),
@@ -120,10 +126,13 @@ fn x_name(input: &str) -> IResult<&str, &str> {
 
 // name          = iana-token / x-name
 fn name(input: &str) -> IResult<&str, &str> {
-    alt(
-        (
-            iana_token,
-            x_name
+    preceded(
+        take_while(is_white_space_char),
+        alt(
+            (
+                iana_token,
+                x_name
+            )
         )
     )(input)
 }
@@ -176,7 +185,28 @@ fn param_value(input: &str) -> IResult<&str, &str> {
 
 // paramtext     = *SAFE-CHAR
 fn param_text(input: &str) -> IResult<&str, &str> {
-    take_while1(is_safe_char)(input)
+    let next_property_index: usize = match find_next_property_in_unquoted_value(input) {
+        Some(found_property_index) => {
+            println!("param_text -- found_property_index - {found_property_index} -- {:#?}", &input[..=found_property_index]);
+            found_property_index
+        },
+        None => {
+            println!("param_text -- not found_property_index -- {:#?}", input);
+            input.len()
+        }
+    };
+
+    let (_remaining, extracted_param_text) = take_while1(is_safe_char)(input)?;
+
+    let extracted_param_text_index = extracted_param_text.len();
+
+    let split_at_index = std::cmp::min(next_property_index, extracted_param_text_index);
+
+    println!("param_text - min - {split_at_index} - next_property_index {next_property_index} - extracted_param_text_index {extracted_param_text_index} - input: {input}");
+
+    let result = input.split_at(split_at_index);
+
+    Ok((result.1, result.0))
 }
 
 fn values(input: &str) -> IResult<&str, Vec<&str>> {
@@ -188,7 +218,28 @@ fn values(input: &str) -> IResult<&str, Vec<&str>> {
 
 // value         = *VALUE-CHAR
 fn value(input: &str) -> IResult<&str, &str> {
-    take_while1(is_value_char)(input)
+    let next_property_index: usize = match find_next_property_in_unquoted_value(input) {
+        Some(found_property_index) => {
+            println!("value -- found_property_index - {found_property_index} -- {:#?}", &input[..=found_property_index]);
+            found_property_index
+        },
+        None => {
+            println!("value -- not found_property_index -- {:#?}", input);
+            input.len()
+        }
+    };
+
+    let (_remaining, extracted_value) = take_while1(is_value_char)(input)?;
+
+    let extracted_value_index = extracted_value.len();
+
+    let split_at_index = std::cmp::min(next_property_index, extracted_value_index);
+
+    println!("value - min - {split_at_index} - next_property_index {next_property_index} - extracted_value_index {extracted_value_index} - input: {input}");
+
+    let result = input.split_at(split_at_index);
+
+    Ok((result.1, result.0))
 }
 
 // quoted-string = DQUOTE *QSAFE-CHAR DQUOTE
@@ -227,6 +278,10 @@ fn is_safe_char(chr: char) -> bool {
 // VALUE-CHAR    = WSP / %x21-7E / NON-US-ASCII
 fn is_value_char(chr: char) -> bool {
     is_white_space_char(chr) || is_ascii_char(chr) || is_non_us_ascii_char(chr)
+}
+
+fn white_space(input: &str) -> IResult<&str, &str> {
+    take_while(is_white_space_char)(input)
 }
 
 fn is_white_space_char(chr: char) -> bool {
@@ -325,6 +380,141 @@ fn parse_rrule_property_content(input: &str) -> IResult<&str, ParsedPropertyCont
     Ok((remaining, parsed_property))
 }
 
+fn parse_exrule_property_content(input: &str) -> IResult<&str, ParsedPropertyContent> {
+    let (remaining, parsed_name) = tag("EXRULE")(input)?;
+
+    let (remaining, _) = colon_delimeter(remaining)?;
+
+    let (remaining, parsed_value) = ParsedValue::parse_params(remaining)?;
+
+    let parsed_content_line = consumed_input_string(input, remaining);
+
+    let parsed_property = ParsedPropertyContent {
+        name: Some(parsed_name),
+        params: None,
+        value: parsed_value,
+        content_line: parsed_content_line
+    };
+
+    Ok((remaining, parsed_property))
+}
+
+// TODO: parse exact date format
+// https://www.kanzaki.com/docs/ical/dateTime.html
+fn parse_rdate_property_content(input: &str) -> IResult<&str, ParsedPropertyContent> {
+    let (remaining, parsed_name) = tag("RDATE")(input)?;
+
+    let (remaining, parsed_params) = parse_property_parameters(remaining)?;
+
+    let (remaining, _) = colon_delimeter(remaining)?;
+
+    let (remaining, parsed_value_list) = ParsedValue::parse_list(remaining)?;
+
+    let parsed_content_line = consumed_input_string(input, remaining);
+
+    let parsed_property = ParsedPropertyContent {
+        name: Some(parsed_name),
+        params: parsed_params,
+        value: parsed_value_list,
+        content_line: parsed_content_line
+    };
+
+    Ok((remaining, parsed_property))
+}
+
+// TODO: parse exact date format
+// https://www.kanzaki.com/docs/ical/dateTime.html
+fn parse_exdate_property_content(input: &str) -> IResult<&str, ParsedPropertyContent> {
+    let (remaining, parsed_name) = tag("EXDATE")(input)?;
+
+    let (remaining, parsed_params) = parse_property_parameters(remaining)?;
+
+    let (remaining, _) = colon_delimeter(remaining)?;
+
+    let (remaining, parsed_value_list) = ParsedValue::parse_list(remaining)?;
+
+    let parsed_content_line = consumed_input_string(input, remaining);
+
+    let parsed_property = ParsedPropertyContent {
+        name: Some(parsed_name),
+        params: parsed_params,
+        value: parsed_value_list,
+        content_line: parsed_content_line
+    };
+
+    Ok((remaining, parsed_property))
+}
+
+// TODO: parse exact duration format
+// https://icalendar.org/iCalendar-RFC-5545/3-3-6-duration.html
+// https://www.kanzaki.com/docs/ical/duration.html
+fn parse_duration_property_content(input: &str) -> IResult<&str, ParsedPropertyContent> {
+    let (remaining, parsed_name) = tag("DURATION")(input)?;
+
+    let (remaining, parsed_params) = parse_property_parameters(remaining)?;
+
+    let (remaining, _) = colon_delimeter(remaining)?;
+
+    let (remaining, parsed_value_list) = ParsedValue::parse_single(remaining)?;
+
+    let parsed_content_line = consumed_input_string(input, remaining);
+
+    let parsed_property = ParsedPropertyContent {
+        name: Some(parsed_name),
+        params: parsed_params,
+        value: parsed_value_list,
+        content_line: parsed_content_line
+    };
+
+    Ok((remaining, parsed_property))
+}
+
+// TODO: parse exact datetime format
+// https://www.kanzaki.com/docs/ical/dtstart.html
+fn parse_dtstart_property_content(input: &str) -> IResult<&str, ParsedPropertyContent> {
+    let (remaining, parsed_name) = tag("DTSTART")(input)?;
+
+    let (remaining, parsed_params) = parse_property_parameters(remaining)?;
+
+    let (remaining, _) = colon_delimeter(remaining)?;
+
+    let (remaining, parsed_value_list) = ParsedValue::parse_single(remaining)?;
+
+    let parsed_content_line = consumed_input_string(input, remaining);
+
+    let parsed_property = ParsedPropertyContent {
+        name: Some(parsed_name),
+        params: parsed_params,
+        value: parsed_value_list,
+        content_line: parsed_content_line
+    };
+
+    Ok((remaining, parsed_property))
+}
+
+// TODO: parse exact datetime format
+// https://www.kanzaki.com/docs/ical/dtend.html
+fn parse_dtend_property_content(input: &str) -> IResult<&str, ParsedPropertyContent> {
+    let (remaining, parsed_name) = tag("DTEND")(input)?;
+
+    let (remaining, parsed_params) = parse_property_parameters(remaining)?;
+
+    let (remaining, _) = colon_delimeter(remaining)?;
+
+    let (remaining, parsed_value_list) = ParsedValue::parse_single(remaining)?;
+
+    let parsed_content_line = consumed_input_string(input, remaining);
+
+    let parsed_property = ParsedPropertyContent {
+        name: Some(parsed_name),
+        params: parsed_params,
+        value: parsed_value_list,
+        content_line: parsed_content_line
+    };
+
+    Ok((remaining, parsed_property))
+}
+
 fn parse_description_property_content(input: &str) -> IResult<&str, ParsedPropertyContent> {
     let (remaining, parsed_name) = tag("DESCRIPTION")(input)?;
 
@@ -389,9 +579,16 @@ fn parse_related_to_property_content(input: &str) -> IResult<&str, ParsedPropert
 }
 
 fn parse_property(input: &str) -> IResult<&str, ParsedProperty> {
+    println!("parse_property - input - {input}");
     alt(
         (
             map(parse_rrule_property_content, ParsedProperty::RRule),
+            map(parse_exrule_property_content, ParsedProperty::ExRule),
+            map(parse_rdate_property_content, ParsedProperty::RDate),
+            map(parse_exdate_property_content, ParsedProperty::ExDate),
+            map(parse_duration_property_content, ParsedProperty::Duration),
+            map(parse_dtstart_property_content, ParsedProperty::DtStart),
+            map(parse_dtend_property_content, ParsedProperty::DtEnd),
             map(parse_description_property_content, ParsedProperty::Description),
             map(parse_categories_property_content, ParsedProperty::Categories),
             map(parse_related_to_property_content, ParsedProperty::RelatedTo),
@@ -400,9 +597,108 @@ fn parse_property(input: &str) -> IResult<&str, ParsedProperty> {
     )(input)
 }
 
+fn take_until_next_property(input: &str) -> IResult<&str, &str> {
+    match find_next_property_in_unquoted_value(input) {
+        Some(found_property_index) => {
+            take(found_property_index)(input)
+        },
+        None => {
+            Ok(("", input))
+        }
+    }
+}
+
+fn find_next_property_in_unquoted_value(input: &str) -> Option<usize> {
+    enum State {
+        Unset,
+        WhiteSpace,
+        NameChar
+    }
+
+    let mut state = State::Unset;
+
+    let mut found_index = None;
+
+    for (index, input_char) in input.chars().enumerate() {
+        match state {
+            State::Unset if is_white_space_char(input_char) => {
+                // println!("index - {index} input_char - {input_char} -- State::Unset if is_white_space_char");
+                state = State::WhiteSpace;
+                found_index = Some(index);
+            },
+
+            State::Unset => {
+                // println!("index - {index} input_char - {input_char} -- State::Unset");
+                state = State::Unset;
+                found_index = None;
+            },
+
+            State::WhiteSpace if is_white_space_char(input_char) => {
+                // println!("index - {index} input_char - {input_char} -- State::WhiteSpace if is_white_space_char");
+            },
+
+            State::WhiteSpace if is_name_char(input_char) => {
+                // println!("index - {index} input_char - {input_char} -- State::WhiteSpace if is_name_char");
+                state = State::NameChar;
+            },
+
+            State::WhiteSpace => {
+                // println!("index - {index} input_char - {input_char} -- State::WhiteSpace");
+                state = State::Unset;
+                found_index = None;
+            },
+
+            State::NameChar if ";:".contains(input_char) => {
+                // println!("index - {index} input_char - {input_char} -- State::NameChar if ;:");
+
+                match parse_property_content(&input[found_index.unwrap()..]) {
+                    Ok(_) => {
+                        // println!("index - {index} input_char - {input_char} -- State::NameChar if ;: -- parsed_property_content Ok -- {:#?}", &input[found_index.unwrap()..]);
+                        return found_index;
+                    },
+                    Err(_) => {
+                        // println!("index - {index} input_char - {input_char} -- State::NameChar if ;: -- parsed_property_content Err -- {:#?}", &input[found_index.unwrap()..]);
+                    }
+                }
+
+                break;
+            },
+
+            State::NameChar if is_white_space_char(input_char) => {
+                // println!("index - {index} input_char - {input_char} -- State::NameChar if is_white_space_char");
+                state = State::WhiteSpace;
+                found_index = Some(index);
+            },
+
+            State::NameChar if is_name_char(input_char) => {
+                // println!("index - {index} input_char - {input_char} -- State::NameChar if is_name_char");
+            },
+
+            State::NameChar => {
+                // println!("index - {index} input_char - {input_char} -- State::NameChar");
+                state = State::Unset;
+                found_index = None;
+            }
+        }
+    }
+
+    None
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
+
+    #[test]
+    fn test_find_next_property_in_unquoted_value() {
+        let data: &str = "The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA; DETAILS: Some random facts...";
+
+        assert_eq!(find_next_property_in_unquoted_value(data), None);
+
+        let data: &str = "The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH";
+
+        assert_eq!(find_next_property_in_unquoted_value(data), Some(58));
+    }
 
     #[test]
     fn test_parsed_value_enum() {
@@ -423,7 +719,6 @@ mod test {
         );
 
         assert_eq!(
-
             ParsedValue::parse_single(data).unwrap(),
             (
                 "",
@@ -507,6 +802,73 @@ mod test {
                         content_line: "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,\"CATEGORY THREE\""
                     }
                 )
+            )
+        );
+
+        println!("==============================");
+
+        let data: &str = "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,\"CATEGORY THREE\"";
+
+        assert_eq!(
+            terminated(
+                separated_list1(
+                    tag(" "),
+                    parse_property
+                ),
+                opt(tag(" ")),
+
+            )(data).unwrap(),
+            (
+                "",
+                vec![
+                    ParsedProperty::Description(
+                        ParsedPropertyContent {
+                            name: Some("DESCRIPTION"),
+                            params: Some(
+                                HashMap::from(
+                                    [
+                                        ("ALTREP", vec!["cid:part1.0001@example.org"]),
+                                    ]
+                                )
+                            ),
+                            value: ParsedValue::Single(
+                                "The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA"
+                            ),
+                            content_line: "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA"
+                        }
+                    ),
+                    ParsedProperty::RRule(
+                        ParsedPropertyContent {
+                            name: Some("RRULE"),
+                            params: None,
+                            value: ParsedValue::Params(
+                                HashMap::from(
+                                    [
+                                        ("FREQ", vec!["WEEKLY"]),
+                                        ("UNTIL", vec!["20211231T183000Z"]),
+                                        ("INTERVAL", vec!["1"]),
+                                        ("BYDAY", vec!["TU","TH"])
+                                    ]
+                                )
+                            ),
+                            content_line: "RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH"
+                        }
+                    ),
+                    ParsedProperty::Categories(
+                        ParsedPropertyContent {
+                            name: Some("CATEGORIES"),
+                            params: None,
+                            value: ParsedValue::List(
+                                vec![
+                                    "CATEGORY_ONE",
+                                    "CATEGORY_TWO",
+                                    "CATEGORY THREE",
+                                ]
+                            ),
+                            content_line: "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,\"CATEGORY THREE\""
+                        }
+                    )
+                ]
             )
         );
     }
