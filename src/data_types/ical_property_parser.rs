@@ -99,6 +99,16 @@ impl<'a> ParsedValue<'a> {
     }
 }
 
+pub fn parse_properties(input: &str) -> IResult<&str, Vec<ParsedProperty>> {
+    terminated(
+        separated_list1(
+            tag(" "),
+            parse_property
+        ),
+        opt(tag(" ")),
+    )(input)
+}
+
 pub fn is_name_char(chr: char) -> bool {
     (chr >= '\x30' && chr <= '\x39') ||
     (chr >= '\x41' && chr <= '\x5A') ||
@@ -804,20 +814,13 @@ mod test {
                 )
             )
         );
+    }
 
-        println!("==============================");
-
+    fn test_parse_properties() {
         let data: &str = "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,\"CATEGORY THREE\"";
 
         assert_eq!(
-            terminated(
-                separated_list1(
-                    tag(" "),
-                    parse_property
-                ),
-                opt(tag(" ")),
-
-            )(data).unwrap(),
+            parse_properties(data).unwrap(),
             (
                 "",
                 vec![
