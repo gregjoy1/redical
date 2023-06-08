@@ -1,3 +1,4 @@
+use serde::{Serialize, Deserialize};
 use std::option::Option;
 use std::collections::HashMap;
 use std::str;
@@ -18,7 +19,7 @@ pub enum ParsedPropertyContentError<'a> {
     ParseError { message: &'a str },
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct ParsedPropertyContent<'a> {
     /// Property name.
     pub name: Option<&'a str>,
@@ -33,8 +34,9 @@ pub struct ParsedPropertyContent<'a> {
     pub content_line: &'a str,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub enum ParsedProperty<'a> {
+    #[serde(borrow)]
     Categories(ParsedPropertyContent<'a>),
     RRule(ParsedPropertyContent<'a>),
     ExRule(ParsedPropertyContent<'a>),
@@ -48,7 +50,7 @@ pub enum ParsedProperty<'a> {
     Other(ParsedPropertyContent<'a>),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub enum ParsedValue<'a> {
     List(Vec<&'a str>),
     Single(&'a str),

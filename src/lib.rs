@@ -16,6 +16,7 @@ fn args_test(_: &Context, args: Vec<RedisString>) -> RedisResult {
     Ok(RedisValue::Array(response))
 }
 
+/*
 fn event_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     if args.len() < 2 {
         return Err(RedisError::WrongArity);
@@ -44,6 +45,7 @@ fn event_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
 
     Ok(other.into())
 }
+*/
 
 fn event_get(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     if args.len() < 1 {
@@ -74,7 +76,7 @@ redis_module! {
     ],
     commands:   [
         ["args.test", args_test, "", 0, 0, 0],
-        ["event.set", event_set, "", 0, 0, 0],
+        // ["event.set", event_set, "", 0, 0, 0],
         ["event.get", event_get, "", 0, 0, 0],
     ],
 }

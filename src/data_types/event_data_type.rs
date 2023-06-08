@@ -1,4 +1,4 @@
-use serde::{Serialize, Deserialize};
+use crate::Event;
 
 use redis_module::{
     native_types::RedisType, raw, RedisModuleIO, RedisModuleString, RedisModuleTypeMethods,
@@ -8,12 +8,6 @@ use std::{
     ffi::{c_int, c_void},
     ptr::null_mut,
 };
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Event {
-    pub uuid:  String,
-    pub other: String
-}
 
 pub const EVENT_DATA_TYPE_NAME:    &str = "RICAL_EVT";
 pub const EVENT_DATA_TYPE_VERSION: i32  = 1;
