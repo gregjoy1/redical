@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use rrule::RRuleSet;
+
 use serde::{Serialize, Deserialize};
 
 use crate::data_types::ical_property_parser::{parse_properties, ParsedProperty, ParsedPropertyContent, ParsedValue};
@@ -39,7 +41,7 @@ impl<'a> Event<'a> {
 
     pub fn parse_ical<'de: 'a>(input: &str) -> Result<Event<'a>, String> {
         match parse_properties(input) {
-            Ok((remaining, parsed_properties)) => {
+            Ok((_, parsed_properties)) => {
                 let new_event: &mut Event = &mut Event::new();
 
                 parsed_properties.into_iter()
@@ -69,6 +71,63 @@ impl<'a> Event<'a> {
         match attribute {
             Some(properties) => { properties.push(parsed_property) },
             None => { *attribute = Some(vec![parsed_property]) }
+        }
+    }
+
+    fn build_ical(&self) -> String {
+        let mut ical_parts = vec![];
+
+        if self.dtstart.is_some() {
+            self.dtstart.clone().unwrap().into_iter().for_each(|parsed_property| {
+                match parsed_property {
+                    ParsedProperty::DtStart(parsed_property_content) => { ical_parts.push(parsed_property_content.content_line) },
+                    _ => {}
+                }
+            });
+        }
+        if self.rrule.is_some() {
+            self.rrule.clone().unwrap().into_iter().for_each(|parsed_property| {
+                match parsed_property {
+                    ParsedProperty::RRule(parsed_property_content) => { ical_parts.push(parsed_property_content.content_line) },
+                    _ => {}
+                }
+            });
+        }
+
+        if self.exrule.is_some() {
+            self.exrule.clone().unwrap().into_iter().for_each(|parsed_property| {
+                match parsed_property {
+                    ParsedProperty::ExRule(parsed_property_content) => { ical_parts.push(parsed_property_content.content_line) },
+                    _ => {}
+                }
+            });
+        }
+
+        if self.rdate.is_some() {
+            self.rdate.clone().unwrap().into_iter().for_each(|parsed_property| {
+                match parsed_property {
+                    ParsedProperty::RDate(parsed_property_content) => { ical_parts.push(parsed_property_content.content_line) },
+                    _ => {}
+                }
+            });
+        }
+
+        if self.exdate.is_some() {
+            self.exdate.clone().unwrap().into_iter().for_each(|parsed_property| {
+                match parsed_property {
+                    ParsedProperty::ExDate(parsed_property_content) => { ical_parts.push(parsed_property_content.content_line) },
+                    _ => {}
+                }
+            });
+        }
+
+        ical_parts.join("\n")
+    }
+
+    fn validate_rrule(&self) -> bool {
+        match self.build_ical().parse::<RRuleSet>() {
+            Ok(_) => { true },
+            Err(_) => { false }
         }
     }
 }
@@ -152,5 +211,107 @@ mod test {
                 related_to:  None,
             }
         );
+    }
+
+    #[test]
+    fn test_validate_rrule() {
+        let ical: &str = "RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH DTSTART:16010101T020000";
+
+        let parsed_event = Event::parse_ical(ical).unwrap();
+
+        assert_eq!(
+            parsed_event,
+            Event {
+                properties:  HashMap::from([]),
+                categories:  None,
+                rrule:       Some(
+                    vec![
+                        ParsedProperty::RRule(
+                            ParsedPropertyContent {
+                                name: Some("RRULE"),
+                                params: None,
+                                value: ParsedValue::Params(
+                                    HashMap::from(
+                                        [
+                                            ("FREQ", vec!["WEEKLY"]),
+                                            ("UNTIL", vec!["20211231T183000Z"]),
+                                            ("INTERVAL", vec!["1"]),
+                                            ("BYDAY", vec!["TU","TH"])
+                                        ]
+                                    )
+                                ),
+                                content_line: "RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH"
+                            }
+                        )
+                    ]
+                ),
+                exrule:      None,
+                rdate:       None,
+                exdate:      None,
+                duration:    None,
+                dtstart:     Some(
+                    vec![
+                        ParsedProperty::DtStart(
+                            ParsedPropertyContent {
+                                name: Some("DTSTART"),
+                                params: None,
+                                value: ParsedValue::Single(
+                                    "16010101T020000"
+                                ),
+                                content_line: "DTSTART:16010101T020000"
+                            }
+                        )
+                    ]
+                ),
+                dtend:       None,
+                description: None,
+                related_to:  None,
+            }
+        );
+
+        assert!(parsed_event.validate_rrule());
+
+        let ical: &str = "RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH";
+
+        let parsed_event = Event::parse_ical(ical).unwrap();
+
+        assert_eq!(
+            parsed_event,
+            Event {
+                properties:  HashMap::from([]),
+                categories:  None,
+                rrule:       Some(
+                    vec![
+                        ParsedProperty::RRule(
+                            ParsedPropertyContent {
+                                name: Some("RRULE"),
+                                params: None,
+                                value: ParsedValue::Params(
+                                    HashMap::from(
+                                        [
+                                            ("FREQ", vec!["WEEKLY"]),
+                                            ("UNTIL", vec!["20211231T183000Z"]),
+                                            ("INTERVAL", vec!["1"]),
+                                            ("BYDAY", vec!["TU","TH"])
+                                        ]
+                                    )
+                                ),
+                                content_line: "RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH"
+                            }
+                        )
+                    ]
+                ),
+                exrule:      None,
+                rdate:       None,
+                exdate:      None,
+                duration:    None,
+                dtstart:     None,
+                dtend:       None,
+                description: None,
+                related_to:  None,
+            }
+        );
+
+        assert_eq!(parsed_event.validate_rrule(), false);
     }
 }
