@@ -50,6 +50,26 @@ pub enum ParsedProperty<'a> {
     Other(ParsedPropertyContent<'a>),
 }
 
+impl<'a> ParsedProperty<'a> {
+
+    pub fn content_line(&self) -> &'a str {
+        match self {
+            ParsedProperty::Categories(parsed_property_content)  => { parsed_property_content.content_line },
+            ParsedProperty::RRule(parsed_property_content)       => { parsed_property_content.content_line },
+            ParsedProperty::ExRule(parsed_property_content)      => { parsed_property_content.content_line },
+            ParsedProperty::RDate(parsed_property_content)       => { parsed_property_content.content_line },
+            ParsedProperty::ExDate(parsed_property_content)      => { parsed_property_content.content_line },
+            ParsedProperty::Duration(parsed_property_content)    => { parsed_property_content.content_line },
+            ParsedProperty::DtStart(parsed_property_content)     => { parsed_property_content.content_line },
+            ParsedProperty::DtEnd(parsed_property_content)       => { parsed_property_content.content_line },
+            ParsedProperty::Description(parsed_property_content) => { parsed_property_content.content_line },
+            ParsedProperty::RelatedTo(parsed_property_content)   => { parsed_property_content.content_line },
+            ParsedProperty::Other(parsed_property_content)       => { parsed_property_content.content_line }
+        }
+    }
+
+}
+
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub enum ParsedValue<'a> {
     List(Vec<&'a str>),

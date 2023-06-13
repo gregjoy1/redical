@@ -9,17 +9,17 @@ use crate::data_types::ical_property_parser::{parse_properties, ParsedProperty, 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Event<'a> {
     #[serde(borrow)]
-    pub properties:  HashMap<&'a str, Vec<ParsedProperty<'a>>>,
-    pub categories:  Option<Vec<ParsedProperty<'a>>>,
-    pub rrule:       Option<Vec<ParsedProperty<'a>>>,
-    pub exrule:      Option<Vec<ParsedProperty<'a>>>,
-    pub rdate:       Option<Vec<ParsedProperty<'a>>>,
-    pub exdate:      Option<Vec<ParsedProperty<'a>>>,
-    pub duration:    Option<Vec<ParsedProperty<'a>>>,
-    pub dtstart:     Option<Vec<ParsedProperty<'a>>>,
-    pub dtend:       Option<Vec<ParsedProperty<'a>>>,
-    pub description: Option<Vec<ParsedProperty<'a>>>,
-    pub related_to:  Option<Vec<ParsedProperty<'a>>>,
+    pub properties:  HashMap<&'a str, Vec<String>>,
+    pub categories:  Option<Vec<String>>,
+    pub rrule:       Option<Vec<String>>,
+    pub exrule:      Option<Vec<String>>,
+    pub rdate:       Option<Vec<String>>,
+    pub exdate:      Option<Vec<String>>,
+    pub duration:    Option<Vec<String>>,
+    pub dtstart:     Option<Vec<String>>,
+    pub dtend:       Option<Vec<String>>,
+    pub description: Option<Vec<String>>,
+    pub related_to:  Option<Vec<String>>,
 }
 
 impl<'a> Event<'a> {
@@ -47,17 +47,26 @@ impl<'a> Event<'a> {
                 parsed_properties.into_iter()
                     .for_each(|parsed_property: ParsedProperty| {
                         match parsed_property {
-                            ParsedProperty::Categories(_)  => { Event::append_to(&mut new_event.categories, parsed_property) },
-                            ParsedProperty::RRule(_)       => { Event::append_to(&mut new_event.rrule, parsed_property) },
-                            ParsedProperty::ExRule(_)      => { Event::append_to(&mut new_event.exrule, parsed_property) },
-                            ParsedProperty::RDate(_)       => { Event::append_to(&mut new_event.rdate, parsed_property) },
-                            ParsedProperty::ExDate(_)      => { Event::append_to(&mut new_event.exdate, parsed_property) },
-                            ParsedProperty::Duration(_)    => { Event::append_to(&mut new_event.duration, parsed_property) },
-                            ParsedProperty::DtStart(_)     => { Event::append_to(&mut new_event.dtstart, parsed_property) },
-                            ParsedProperty::DtEnd(_)       => { Event::append_to(&mut new_event.dtend, parsed_property) },
-                            ParsedProperty::Description(_) => { Event::append_to(&mut new_event.description, parsed_property) },
-                            ParsedProperty::RelatedTo(_)   => { Event::append_to(&mut new_event.related_to, parsed_property) },
-                            ParsedProperty::Other(_)       => { Event::append_to(&mut new_event.categories, parsed_property) }
+                            ParsedProperty::Categories(content)  => {
+                                match content.value {
+                                    ParsedValue::List(list) => {
+                                        list.iter().for_each(|category| {
+                                            Event::append_to(&mut new_event.categories, *category)
+                                        });
+                                    },
+                                    _ => {}
+                                }
+                            },
+                            ParsedProperty::RRule(content)       => { Event::append_to(&mut new_event.rrule, content.content_line) },
+                            ParsedProperty::ExRule(content)      => { Event::append_to(&mut new_event.exrule, content.content_line) },
+                            ParsedProperty::RDate(content)       => { Event::append_to(&mut new_event.rdate, content.content_line) },
+                            ParsedProperty::ExDate(content)      => { Event::append_to(&mut new_event.exdate, content.content_line) },
+                            ParsedProperty::Duration(content)    => { Event::append_to(&mut new_event.duration, content.content_line) },
+                            ParsedProperty::DtStart(content)     => { Event::append_to(&mut new_event.dtstart, content.content_line) },
+                            ParsedProperty::DtEnd(content)       => { Event::append_to(&mut new_event.dtend, content.content_line) },
+                            ParsedProperty::Description(content) => { Event::append_to(&mut new_event.description, content.content_line) },
+                            ParsedProperty::RelatedTo(content)   => { Event::append_to(&mut new_event.related_to, content.content_line) },
+                            ParsedProperty::Other(content)       => { } // TODO
                         }
                     });
 
@@ -67,10 +76,12 @@ impl<'a> Event<'a> {
         }
     }
 
-    fn append_to(attribute: &mut Option<Vec<ParsedProperty<'a>>>, parsed_property: ParsedProperty<'a>) {
+    fn append_to(attribute: &mut Option<Vec<String>>, content: &'a str) {
+        let content = String::from(content);
+
         match attribute {
-            Some(properties) => { properties.push(parsed_property) },
-            None => { *attribute = Some(vec![parsed_property]) }
+            Some(properties) => { properties.push(content) },
+            None => { *attribute = Some(vec![content]) }
         }
     }
 
@@ -78,46 +89,31 @@ impl<'a> Event<'a> {
         let mut ical_parts = vec![];
 
         if self.dtstart.is_some() {
-            self.dtstart.clone().unwrap().into_iter().for_each(|parsed_property| {
-                match parsed_property {
-                    ParsedProperty::DtStart(parsed_property_content) => { ical_parts.push(parsed_property_content.content_line) },
-                    _ => {}
-                }
+            self.dtstart.clone().unwrap().into_iter().for_each(|content_line| {
+                ical_parts.push(content_line);
             });
         }
         if self.rrule.is_some() {
-            self.rrule.clone().unwrap().into_iter().for_each(|parsed_property| {
-                match parsed_property {
-                    ParsedProperty::RRule(parsed_property_content) => { ical_parts.push(parsed_property_content.content_line) },
-                    _ => {}
-                }
+            self.rrule.clone().unwrap().into_iter().for_each(|content_line| {
+                ical_parts.push(content_line);
             });
         }
 
         if self.exrule.is_some() {
-            self.exrule.clone().unwrap().into_iter().for_each(|parsed_property| {
-                match parsed_property {
-                    ParsedProperty::ExRule(parsed_property_content) => { ical_parts.push(parsed_property_content.content_line) },
-                    _ => {}
-                }
+            self.exrule.clone().unwrap().into_iter().for_each(|content_line| {
+                ical_parts.push(content_line);
             });
         }
 
         if self.rdate.is_some() {
-            self.rdate.clone().unwrap().into_iter().for_each(|parsed_property| {
-                match parsed_property {
-                    ParsedProperty::RDate(parsed_property_content) => { ical_parts.push(parsed_property_content.content_line) },
-                    _ => {}
-                }
+            self.rdate.clone().unwrap().into_iter().for_each(|content_line| {
+                ical_parts.push(content_line);
             });
         }
 
         if self.exdate.is_some() {
-            self.exdate.clone().unwrap().into_iter().for_each(|parsed_property| {
-                match parsed_property {
-                    ParsedProperty::ExDate(parsed_property_content) => { ical_parts.push(parsed_property_content.content_line) },
-                    _ => {}
-                }
+            self.exdate.clone().unwrap().into_iter().for_each(|content_line| {
+                ical_parts.push(content_line);
             });
         }
 
@@ -145,41 +141,14 @@ mod test {
                 properties:  HashMap::from([]),
                 categories:  Some(
                     vec![
-                        ParsedProperty::Categories(
-                            ParsedPropertyContent {
-                                name: Some("CATEGORIES"),
-                                params: None,
-                                value: ParsedValue::List(
-                                    vec![
-                                    "CATEGORY_ONE",
-                                    "CATEGORY_TWO",
-                                    "CATEGORY THREE",
-                                    ]
-                                ),
-                                content_line: "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,\"CATEGORY THREE\""
-                            }
-                        )
+                        String::from("CATEGORY_ONE"),
+                        String::from("CATEGORY_TWO"),
+                        String::from("CATEGORY THREE")
                     ]
                 ),
                 rrule:       Some(
                     vec![
-                        ParsedProperty::RRule(
-                            ParsedPropertyContent {
-                                name: Some("RRULE"),
-                                params: None,
-                                value: ParsedValue::Params(
-                                    HashMap::from(
-                                        [
-                                        ("FREQ", vec!["WEEKLY"]),
-                                        ("UNTIL", vec!["20211231T183000Z"]),
-                                        ("INTERVAL", vec!["1"]),
-                                        ("BYDAY", vec!["TU","TH"])
-                                        ]
-                                    )
-                                ),
-                                content_line: "RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH"
-                            }
-                        )
+                        String::from("RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH")
                     ]
                 ),
                 exrule:      None,
@@ -190,22 +159,7 @@ mod test {
                 dtend:       None,
                 description: Some(
                     vec![
-                        ParsedProperty::Description(
-                            ParsedPropertyContent {
-                                name: Some("DESCRIPTION"),
-                                params: Some(
-                                    HashMap::from(
-                                        [
-                                        ("ALTREP", vec!["cid:part1.0001@example.org"]),
-                                        ]
-                                    )
-                                ),
-                                value: ParsedValue::Single(
-                                    "The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA"
-                                ),
-                                content_line: "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA"
-                            }
-                        )
+                        String::from("DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA")
                     ]
                 ),
                 related_to:  None,
@@ -226,23 +180,7 @@ mod test {
                 categories:  None,
                 rrule:       Some(
                     vec![
-                        ParsedProperty::RRule(
-                            ParsedPropertyContent {
-                                name: Some("RRULE"),
-                                params: None,
-                                value: ParsedValue::Params(
-                                    HashMap::from(
-                                        [
-                                            ("FREQ", vec!["WEEKLY"]),
-                                            ("UNTIL", vec!["20211231T183000Z"]),
-                                            ("INTERVAL", vec!["1"]),
-                                            ("BYDAY", vec!["TU","TH"])
-                                        ]
-                                    )
-                                ),
-                                content_line: "RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH"
-                            }
-                        )
+                        String::from("RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH")
                     ]
                 ),
                 exrule:      None,
@@ -251,16 +189,7 @@ mod test {
                 duration:    None,
                 dtstart:     Some(
                     vec![
-                        ParsedProperty::DtStart(
-                            ParsedPropertyContent {
-                                name: Some("DTSTART"),
-                                params: None,
-                                value: ParsedValue::Single(
-                                    "16010101T020000"
-                                ),
-                                content_line: "DTSTART:16010101T020000"
-                            }
-                        )
+                        String::from("DTSTART:16010101T020000")
                     ]
                 ),
                 dtend:       None,
@@ -282,23 +211,7 @@ mod test {
                 categories:  None,
                 rrule:       Some(
                     vec![
-                        ParsedProperty::RRule(
-                            ParsedPropertyContent {
-                                name: Some("RRULE"),
-                                params: None,
-                                value: ParsedValue::Params(
-                                    HashMap::from(
-                                        [
-                                            ("FREQ", vec!["WEEKLY"]),
-                                            ("UNTIL", vec!["20211231T183000Z"]),
-                                            ("INTERVAL", vec!["1"]),
-                                            ("BYDAY", vec!["TU","TH"])
-                                        ]
-                                    )
-                                ),
-                                content_line: "RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH"
-                            }
-                        )
+                        String::from("RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH")
                     ]
                 ),
                 exrule:      None,
