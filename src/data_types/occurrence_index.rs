@@ -6,20 +6,20 @@ pub enum OccurrenceIndexValue {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct OccurrenceIndex {
+pub struct OccurrenceIndex<T> {
     pub base_timestamp: Option<i64>,
-    pub timestamp_offsets: BTreeMap<i64, OccurrenceIndexValue>,
+    pub timestamp_offsets: BTreeMap<i64, T>,
 }
 
-impl OccurrenceIndex {
-    pub fn new() -> OccurrenceIndex {
+impl<T> OccurrenceIndex<T> {
+    pub fn new() -> OccurrenceIndex<T> {
         OccurrenceIndex {
             base_timestamp: None,
             timestamp_offsets: BTreeMap::new()
         }
     }
 
-    pub fn insert(&mut self, occurrence: i64, value: OccurrenceIndexValue) {
+    pub fn insert(&mut self, occurrence: i64, value: T) {
         match self.base_timestamp {
             Some(base_timestamp) => {
                 self.timestamp_offsets.insert(occurrence - base_timestamp, value);
@@ -44,7 +44,7 @@ impl OccurrenceIndex {
         }
     }
 
-    pub fn get(&mut self, occurrence: i64) -> Option<&OccurrenceIndexValue> {
+    pub fn get(&mut self, occurrence: i64) -> Option<&T> {
         match self.base_timestamp {
             Some(base_timestamp) => {
                 self.timestamp_offsets.get(&(occurrence - base_timestamp))
@@ -55,7 +55,7 @@ impl OccurrenceIndex {
         }
     }
 
-    pub fn iter(&self) -> OccurrenceIndexIter {
+    pub fn iter(&self) -> OccurrenceIndexIter<T> {
         OccurrenceIndexIter {
             base_timestamp: &self.base_timestamp,
             timestamp_offsets_iter: self.timestamp_offsets.iter()
@@ -64,13 +64,13 @@ impl OccurrenceIndex {
 }
 
 #[derive(Debug)]
-pub struct OccurrenceIndexIter<'a> {
+pub struct OccurrenceIndexIter<'a, T> {
     pub base_timestamp: &'a Option<i64>,
-    pub timestamp_offsets_iter: btree_map::Iter<'a, i64, OccurrenceIndexValue>,
+    pub timestamp_offsets_iter: btree_map::Iter<'a, i64, T>,
 }
 
-impl<'a> Iterator for OccurrenceIndexIter<'a> {
-    type Item = (i64, &'a OccurrenceIndexValue);
+impl<'a, T> Iterator for OccurrenceIndexIter<'a, T> {
+    type Item = (i64, &'a T);
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.base_timestamp {
@@ -98,7 +98,7 @@ mod test {
     #[test]
     fn test_occurrence_index_new() {
         assert_eq!(
-            OccurrenceIndex::new(),
+            OccurrenceIndex::<OccurrenceIndexValue>::new(),
             OccurrenceIndex {
                 base_timestamp: None,
                 timestamp_offsets: BTreeMap::new(),
@@ -108,10 +108,10 @@ mod test {
 
     #[test]
     fn test_occurrence_index_insert() {
-        let mut occurrence_index = OccurrenceIndex::new();
+        let mut occurrence_index = OccurrenceIndex::<OccurrenceIndexValue>::new();
 
         assert_eq!(
-            OccurrenceIndex::new(),
+            OccurrenceIndex::<OccurrenceIndexValue>::new(),
             OccurrenceIndex {
                 base_timestamp: None,
                 timestamp_offsets: BTreeMap::new(),
@@ -267,7 +267,7 @@ mod test {
 
     #[test]
     fn test_occurrence_index_iter() {
-        let occurrence_index = OccurrenceIndex {
+        let occurrence_index: OccurrenceIndex<OccurrenceIndexValue> = OccurrenceIndex {
             base_timestamp: None,
             timestamp_offsets: BTreeMap::new()
         };
