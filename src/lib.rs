@@ -33,7 +33,7 @@ fn event_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
 
     ctx.log_debug(format!("key: {key_name}, other: {other}").as_str());
 
-    match Event::parse_ical(other.as_str()) {
+    match Event::parse_ical(key_name.try_as_str()?,other.as_str()) {
         Ok(event) => {
             key.set_value(&EVENT_DATA_TYPE, event)?;
 

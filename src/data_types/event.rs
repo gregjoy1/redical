@@ -15,8 +15,7 @@ use std::collections::BTreeMap;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Event<'a> {
-    #[serde(borrow)]
-    pub properties:  HashMap<&'a str, Vec<String>>,
+    pub uuid:        String,
     pub categories:  Option<Vec<String>>,
     pub rrule:       Option<Vec<String>>,
     pub exrule:      Option<Vec<String>>,
@@ -27,11 +26,15 @@ pub struct Event<'a> {
     pub dtend:       Option<Vec<String>>,
     pub description: Option<Vec<String>>,
     pub related_to:  Option<Vec<String>>,
+
+    #[serde(borrow)]
+    pub properties:  HashMap<&'a str, Vec<String>>,
 }
 
 impl<'a> Event<'a> {
-    pub fn new() -> Event<'a> {
+    pub fn new(uuid: String) -> Event<'a> {
         Event {
+            uuid,
             properties:  HashMap::new(),
             categories:  None,
             rrule:       None,
@@ -46,10 +49,10 @@ impl<'a> Event<'a> {
         }
     }
 
-    pub fn parse_ical<'de: 'a>(input: &str) -> Result<Event<'a>, String> {
+    pub fn parse_ical<'de: 'a>(uuid: &str, input: &str) -> Result<Event<'a>, String> {
         match parse_properties(input) {
             Ok((_, parsed_properties)) => {
-                let new_event: &mut Event = &mut Event::new();
+                let new_event: &mut Event = &mut Event::new(String::from(uuid));
 
                 parsed_properties.into_iter()
                     .for_each(|parsed_property: ParsedProperty| {
@@ -171,8 +174,9 @@ mod test {
         let ical: &str = "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,\"CATEGORY THREE\"";
 
         assert_eq!(
-            Event::parse_ical(ical).unwrap(),
+            Event::parse_ical("event_UUID", ical).unwrap(),
             Event {
+                uuid:        String::from("event_UUID"),
                 properties:  HashMap::from([]),
                 categories:  Some(
                     vec![
@@ -206,11 +210,12 @@ mod test {
     fn test_build_occurrence_index() {
         let ical: &str = "RRULE:FREQ=WEEKLY;UNTIL=20210331T183000Z;INTERVAL=1;BYDAY=TU DTSTART:20201231T183000Z";
 
-        let parsed_event = Event::parse_ical(ical).unwrap();
+        let parsed_event = Event::parse_ical("event_UUID", ical).unwrap();
 
         assert_eq!(
             parsed_event,
             Event {
+                uuid:        String::from("event_UUID"),
                 properties:  HashMap::from([]),
                 categories:  None,
                 rrule:       Some(
@@ -283,11 +288,12 @@ mod test {
     fn test_validate_rrule() {
         let ical: &str = "RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH DTSTART:16010101T020000";
 
-        let parsed_event = Event::parse_ical(ical).unwrap();
+        let parsed_event = Event::parse_ical("event_UUID", ical).unwrap();
 
         assert_eq!(
             parsed_event,
             Event {
+                uuid:        String::from("event_UUID"),
                 properties:  HashMap::from([]),
                 categories:  None,
                 rrule:       Some(
@@ -314,11 +320,12 @@ mod test {
 
         let ical: &str = "RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH";
 
-        let parsed_event = Event::parse_ical(ical).unwrap();
+        let parsed_event = Event::parse_ical("event_UUID", ical).unwrap();
 
         assert_eq!(
             parsed_event,
             Event {
+                uuid:        String::from("event_UUID"),
                 properties:  HashMap::from([]),
                 categories:  None,
                 rrule:       Some(
