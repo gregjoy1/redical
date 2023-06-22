@@ -17,6 +17,8 @@ serde = { version = "1.0.162", features = ["derive"] }
 libc = "0.2"
 nom = "6.0"
 rrule = "0.10"
+chrono = "0.4.19"
+chrono-tz = "0.6.1"
 
 [features]
 # Workaround to allow cfg(feature = "test") in redismodue-rs dependencies:

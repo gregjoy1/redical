@@ -1,10 +1,17 @@
 use std::collections::HashMap;
 
-use rrule::RRuleSet;
+use rrule::{RRuleSet, RRuleError, RRuleSetIter};
 
 use serde::{Serialize, Deserialize};
 
+use chrono::prelude::*;
+use chrono::{DateTime, Utc, Months, Days};
+
 use crate::data_types::ical_property_parser::{parse_properties, ParsedProperty, ParsedPropertyContent, ParsedValue};
+
+use crate::data_types::occurrence_index::{OccurrenceIndex, OccurrenceIndexValue, OccurrenceIndexIter};
+
+use std::collections::BTreeMap;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Event<'a> {
@@ -85,7 +92,7 @@ impl<'a> Event<'a> {
         }
     }
 
-    fn build_ical(&self) -> String {
+    fn parse_rrule(&self) -> Result<RRuleSet, RRuleError> {
         let mut ical_parts = vec![];
 
         if self.dtstart.is_some() {
@@ -93,6 +100,7 @@ impl<'a> Event<'a> {
                 ical_parts.push(content_line);
             });
         }
+
         if self.rrule.is_some() {
             self.rrule.clone().unwrap().into_iter().for_each(|content_line| {
                 ical_parts.push(content_line);
@@ -117,14 +125,41 @@ impl<'a> Event<'a> {
             });
         }
 
-        ical_parts.join("\n")
+        ical_parts.join("\n").parse::<RRuleSet>()
+    }
+
+    pub fn build_occurrence_index(&self, max_count: usize) -> Result<OccurrenceIndex<OccurrenceIndexValue>, RRuleError> {
+        let rrule_set = self.parse_rrule()?;
+        let rrule_set_iter = rrule_set.into_iter();
+
+        let mut occurrence_index: OccurrenceIndex<OccurrenceIndexValue> = OccurrenceIndex::new();
+
+        let max_datetime = self.get_max_datetime();
+
+        for next_datetime in rrule_set_iter.take(max_count) {
+            if next_datetime.gt(&max_datetime) {
+                break;
+            }
+
+            occurrence_index.insert(next_datetime.timestamp(), OccurrenceIndexValue::Occurrence);
+        }
+
+        Ok(occurrence_index)
+    }
+
+    fn get_max_datetime(&self) -> DateTime<Utc> {
+        // TODO: Get max extrapolation window from redis module config.
+        Utc::now().checked_add_months(Months::new(12))
+                  .and_then(|date_time| date_time.checked_add_days(Days::new(1)))
+                  .and_then(|date_time| date_time.with_hour(0))
+                  .and_then(|date_time| date_time.with_minute(0))
+                  .and_then(|date_time| date_time.with_second(0))
+                  .and_then(|date_time| date_time.with_nanosecond(0))
+                  .unwrap()
     }
 
     fn validate_rrule(&self) -> bool {
-        match self.build_ical().parse::<RRuleSet>() {
-            Ok(_) => { true },
-            Err(_) => { false }
-        }
+        self.parse_rrule().is_ok()
     }
 }
 
@@ -164,6 +199,83 @@ mod test {
                 ),
                 related_to:  None,
             }
+        );
+    }
+
+    #[test]
+    fn test_build_occurrence_index() {
+        let ical: &str = "RRULE:FREQ=WEEKLY;UNTIL=20210331T183000Z;INTERVAL=1;BYDAY=TU DTSTART:20201231T183000Z";
+
+        let parsed_event = Event::parse_ical(ical).unwrap();
+
+        assert_eq!(
+            parsed_event,
+            Event {
+                properties:  HashMap::from([]),
+                categories:  None,
+                rrule:       Some(
+                    vec![
+                        String::from("RRULE:FREQ=WEEKLY;UNTIL=20210331T183000Z;INTERVAL=1;BYDAY=TU")
+                    ]
+                ),
+                exrule:      None,
+                rdate:       None,
+                exdate:      None,
+                duration:    None,
+                dtstart:     Some(
+                    vec![
+                        String::from("DTSTART:20201231T183000Z")
+                    ]
+                ),
+                dtend:       None,
+                description: None,
+                related_to:  None,
+            }
+        );
+
+        let occurrence_index = parsed_event.build_occurrence_index(100);
+
+        assert_eq!(
+            occurrence_index,
+            Ok(
+                OccurrenceIndex {
+                    base_timestamp: Some(1609871400),
+                    timestamp_offsets: BTreeMap::from(
+                        [
+                            (0, OccurrenceIndexValue::Occurrence),
+                            (604800, OccurrenceIndexValue::Occurrence),
+                            (1209600, OccurrenceIndexValue::Occurrence),
+                            (1814400, OccurrenceIndexValue::Occurrence),
+                            (2419200, OccurrenceIndexValue::Occurrence),
+                            (3024000, OccurrenceIndexValue::Occurrence),
+                            (3628800, OccurrenceIndexValue::Occurrence),
+                            (4233600, OccurrenceIndexValue::Occurrence),
+                            (4838400, OccurrenceIndexValue::Occurrence),
+                            (5443200, OccurrenceIndexValue::Occurrence),
+                            (6048000, OccurrenceIndexValue::Occurrence),
+                            (6652800, OccurrenceIndexValue::Occurrence),
+                            (7257600, OccurrenceIndexValue::Occurrence),
+                        ]
+                    )
+                }
+            )
+        );
+
+        let occurrence_index = parsed_event.build_occurrence_index(2);
+
+        assert_eq!(
+            occurrence_index,
+            Ok(
+                OccurrenceIndex {
+                    base_timestamp: Some(1609871400),
+                    timestamp_offsets: BTreeMap::from(
+                        [
+                            (0, OccurrenceIndexValue::Occurrence),
+                            (604800, OccurrenceIndexValue::Occurrence),
+                        ]
+                    )
+                }
+            )
         );
     }
 

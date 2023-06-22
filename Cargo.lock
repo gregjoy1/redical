@@ -566,6 +566,8 @@ name = "redical"
 version = "0.1.0"
 dependencies = [
  "bincode",
+ "chrono",
+ "chrono-tz",
  "libc",
  "nom 6.1.2",
  "redis-module",
