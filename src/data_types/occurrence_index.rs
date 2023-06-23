@@ -1,11 +1,13 @@
+use serde::{Serialize, Deserialize};
+
 use std::collections::{BTreeMap, btree_map};
 
-#[derive(Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub enum OccurrenceIndexValue {
     Occurrence
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct OccurrenceIndex<T> {
     pub base_timestamp: Option<i64>,
     pub timestamp_offsets: BTreeMap<i64, T>,

@@ -29,23 +29,26 @@ pub struct Event<'a> {
 
     #[serde(borrow)]
     pub properties:  HashMap<&'a str, Vec<String>>,
+
+    pub occurrence_index: Option<OccurrenceIndex<OccurrenceIndexValue>>,
 }
 
 impl<'a> Event<'a> {
     pub fn new(uuid: String) -> Event<'a> {
         Event {
             uuid,
-            properties:  HashMap::new(),
-            categories:  None,
-            rrule:       None,
-            exrule:      None,
-            rdate:       None,
-            exdate:      None,
-            duration:    None,
-            dtstart:     None,
-            dtend:       None,
-            description: None,
-            related_to:  None,
+            properties:       HashMap::new(),
+            categories:       None,
+            rrule:            None,
+            exrule:           None,
+            rdate:            None,
+            exdate:           None,
+            duration:         None,
+            dtstart:          None,
+            dtend:            None,
+            description:      None,
+            related_to:       None,
+            occurrence_index: None,
         }
     }
 
@@ -131,7 +134,7 @@ impl<'a> Event<'a> {
         ical_parts.join("\n").parse::<RRuleSet>()
     }
 
-    pub fn build_occurrence_index(&self, max_count: usize) -> Result<OccurrenceIndex<OccurrenceIndexValue>, RRuleError> {
+    pub fn rebuild_occurrence_index(&mut self, max_count: usize) -> Result<&Self, RRuleError> {
         let rrule_set = self.parse_rrule()?;
         let rrule_set_iter = rrule_set.into_iter();
 
@@ -147,7 +150,9 @@ impl<'a> Event<'a> {
             occurrence_index.insert(next_datetime.timestamp(), OccurrenceIndexValue::Occurrence);
         }
 
-        Ok(occurrence_index)
+        self.occurrence_index = Some(occurrence_index);
+
+        Ok(self)
     }
 
     fn get_max_datetime(&self) -> DateTime<Utc> {
@@ -176,73 +181,77 @@ mod test {
         assert_eq!(
             Event::parse_ical("event_UUID", ical).unwrap(),
             Event {
-                uuid:        String::from("event_UUID"),
-                properties:  HashMap::from([]),
-                categories:  Some(
+                uuid:             String::from("event_UUID"),
+                properties:       HashMap::from([]),
+                categories:       Some(
                     vec![
                         String::from("CATEGORY_ONE"),
                         String::from("CATEGORY_TWO"),
                         String::from("CATEGORY THREE")
                     ]
                 ),
-                rrule:       Some(
+                rrule:            Some(
                     vec![
                         String::from("RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH")
                     ]
                 ),
-                exrule:      None,
-                rdate:       None,
-                exdate:      None,
-                duration:    None,
-                dtstart:     None,
-                dtend:       None,
-                description: Some(
+                exrule:           None,
+                rdate:            None,
+                exdate:           None,
+                duration:         None,
+                dtstart:          None,
+                dtend:            None,
+                description:      Some(
                     vec![
                         String::from("DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA")
                     ]
                 ),
-                related_to:  None,
+                related_to:       None,
+                occurrence_index: None,
             }
         );
     }
 
     #[test]
-    fn test_build_occurrence_index() {
+    fn retest_build_occurrence_index() {
         let ical: &str = "RRULE:FREQ=WEEKLY;UNTIL=20210331T183000Z;INTERVAL=1;BYDAY=TU DTSTART:20201231T183000Z";
 
-        let parsed_event = Event::parse_ical("event_UUID", ical).unwrap();
+        let mut parsed_event = Event::parse_ical("event_UUID", ical).unwrap();
 
         assert_eq!(
             parsed_event,
             Event {
-                uuid:        String::from("event_UUID"),
-                properties:  HashMap::from([]),
-                categories:  None,
-                rrule:       Some(
+                uuid:             String::from("event_UUID"),
+                properties:       HashMap::from([]),
+                categories:       None,
+                rrule:            Some(
                     vec![
                         String::from("RRULE:FREQ=WEEKLY;UNTIL=20210331T183000Z;INTERVAL=1;BYDAY=TU")
                     ]
                 ),
-                exrule:      None,
-                rdate:       None,
-                exdate:      None,
-                duration:    None,
-                dtstart:     Some(
+                exrule:           None,
+                rdate:            None,
+                exdate:           None,
+                duration:         None,
+                dtstart:          Some(
                     vec![
                         String::from("DTSTART:20201231T183000Z")
                     ]
                 ),
-                dtend:       None,
-                description: None,
-                related_to:  None,
+                dtend:            None,
+                description:      None,
+                related_to:       None,
+                occurrence_index: None,
             }
         );
 
-        let occurrence_index = parsed_event.build_occurrence_index(100);
+        assert!(
+            parsed_event.rebuild_occurrence_index(100).is_ok()
+        );
 
         assert_eq!(
-            occurrence_index,
-            Ok(
+            parsed_event.occurrence_index,
+            Some(
                 OccurrenceIndex {
                     base_timestamp: Some(1609871400),
                     timestamp_offsets: BTreeMap::from(
@@ -266,11 +275,13 @@ mod test {
             )
         );
 
-        let occurrence_index = parsed_event.build_occurrence_index(2);
+        assert!(
+            parsed_event.rebuild_occurrence_index(2).is_ok()
+        );
 
         assert_eq!(
-            occurrence_index,
-            Ok(
+            parsed_event.occurrence_index,
+            Some(
                 OccurrenceIndex {
                     base_timestamp: Some(1609871400),
                     timestamp_offsets: BTreeMap::from(
@@ -293,26 +304,27 @@ mod test {
         assert_eq!(
             parsed_event,
             Event {
-                uuid:        String::from("event_UUID"),
-                properties:  HashMap::from([]),
-                categories:  None,
-                rrule:       Some(
+                uuid:             String::from("event_UUID"),
+                properties:       HashMap::from([]),
+                categories:       None,
+                rrule:            Some(
                     vec![
                         String::from("RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH")
                     ]
                 ),
-                exrule:      None,
-                rdate:       None,
-                exdate:      None,
-                duration:    None,
-                dtstart:     Some(
+                exrule:           None,
+                rdate:            None,
+                exdate:           None,
+                duration:         None,
+                dtstart:          Some(
                     vec![
                         String::from("DTSTART:16010101T020000")
                     ]
                 ),
-                dtend:       None,
-                description: None,
-                related_to:  None,
+                dtend:            None,
+                description:      None,
+                related_to:       None,
+                occurrence_index: None,
             }
         );
 
@@ -325,22 +337,23 @@ mod test {
         assert_eq!(
             parsed_event,
             Event {
-                uuid:        String::from("event_UUID"),
-                properties:  HashMap::from([]),
-                categories:  None,
-                rrule:       Some(
+                uuid:             String::from("event_UUID"),
+                properties:       HashMap::from([]),
+                categories:       None,
+                rrule:            Some(
                     vec![
                         String::from("RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH")
                     ]
                 ),
-                exrule:      None,
-                rdate:       None,
-                exdate:      None,
-                duration:    None,
-                dtstart:     None,
-                dtend:       None,
-                description: None,
-                related_to:  None,
+                exrule:           None,
+                rdate:            None,
+                exdate:           None,
+                duration:         None,
+                dtstart:          None,
+                dtend:            None,
+                description:      None,
+                related_to:       None,
+                occurrence_index: None,
             }
         );
 

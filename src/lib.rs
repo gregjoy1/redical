@@ -34,11 +34,19 @@ fn event_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     ctx.log_debug(format!("key: {key_name}, other: {other}").as_str());
 
     match Event::parse_ical(key_name.try_as_str()?,other.as_str()) {
-        Ok(event) => {
-            key.set_value(&EVENT_DATA_TYPE, event)?;
+        Ok(mut event) => {
+
+            match event.rebuild_occurrence_index(1000) {
+                Ok(event) => {
+                    key.set_value(&EVENT_DATA_TYPE, event)?;
+                },
+                Err(error) => {
+                    return Err(RedisError::String(error.to_string()));
+                }
+            }
 
             Ok(other.into())
-        }
+        },
         Err(error) => {
             Err(RedisError::String(error))
         }
