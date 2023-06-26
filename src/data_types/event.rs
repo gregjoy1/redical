@@ -79,7 +79,7 @@ impl<'a> Event<'a> {
                             ParsedProperty::DtEnd(content)       => { Event::append_to(&mut new_event.dtend, content.content_line) },
                             ParsedProperty::Description(content) => { Event::append_to(&mut new_event.description, content.content_line) },
                             ParsedProperty::RelatedTo(content)   => { Event::append_to(&mut new_event.related_to, content.content_line) },
-                            ParsedProperty::Other(content)       => { } // TODO
+                            ParsedProperty::Other(_content)      => { } // TODO
                         }
                     });
 
