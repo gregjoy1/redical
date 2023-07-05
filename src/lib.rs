@@ -36,7 +36,7 @@ fn event_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     match Event::parse_ical(key_name.try_as_str()?,other.as_str()) {
         Ok(mut event) => {
 
-            match event.rebuild_occurrence_index(1000) {
+            match event.rebuild_occurrence_cache(1000) {
                 Ok(event) => {
                     key.set_value(&EVENT_DATA_TYPE, event)?;
                 },
