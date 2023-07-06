@@ -27,17 +27,17 @@ fn property_option_set_or_insert<'a>(property_option: &mut Option<Vec<String>>, 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct EventOccurrenceOverrides<'a> {
     #[serde(borrow)]
-    pub detached: Option<OccurrenceIndex<EventOccurrenceOverride<'a>>>,
+    pub detached: OccurrenceIndex<EventOccurrenceOverride<'a>>,
 
     #[serde(borrow)]
-    pub current:  Option<OccurrenceIndex<EventOccurrenceOverride<'a>>>,
+    pub current:  OccurrenceIndex<EventOccurrenceOverride<'a>>,
 }
 
 impl<'a> EventOccurrenceOverrides<'a> {
     pub fn new() -> EventOccurrenceOverrides<'a> {
         EventOccurrenceOverrides {
-            detached: None,
-            current:  None,
+            detached: OccurrenceIndex::new(),
+            current:  OccurrenceIndex::new(),
         }
     }
 }
@@ -210,7 +210,7 @@ pub struct Event<'a> {
     #[serde(borrow)]
     pub passive_properties:  PassiveProperties<'a>,
 
-    pub overrides:           Option<EventOccurrenceOverrides<'a>>,
+    pub overrides:           EventOccurrenceOverrides<'a>,
     pub occurrence_cache:    Option<OccurrenceIndex<OccurrenceIndexValue>>,
 }
 
@@ -224,7 +224,7 @@ impl<'a> Event<'a> {
 
             passive_properties:  PassiveProperties::new(),
 
-            overrides:           None,
+            overrides:           EventOccurrenceOverrides::new(),
             occurrence_cache:    None,
         }
     }
@@ -273,13 +273,65 @@ impl<'a> Event<'a> {
         }
     }
 
-    fn append_to(attribute: &mut Option<Vec<String>>, content: &'a str) {
-        let content = String::from(content);
+    pub fn override_occurrence(&mut self, timestamp: i64, event_occurrence_override: &'a EventOccurrenceOverride) -> Result<&Self, String> {
+        match &mut self.occurrence_cache {
+            Some(occurrence_cache) => {
 
-        match attribute {
-            Some(properties) => { properties.push(content) },
-            None => { *attribute = Some(vec![content]) }
+                match occurrence_cache.get(timestamp) {
+                    Some(OccurrenceIndexValue::Occurrence) => {
+                        // TODO: update indexes
+                        occurrence_cache.insert(timestamp, OccurrenceIndexValue::Override);
+
+                        self.overrides.current.insert(timestamp, event_occurrence_override.clone());
+                    },
+                    Some(OccurrenceIndexValue::Override) => {
+                        // TODO: update indexes
+
+                        self.overrides.current.insert(timestamp, event_occurrence_override.clone());
+                    },
+                    None => {
+                        return Err(String::from(format!("No overridable occurrence exists for timestamp: {timestamp}")));
+                    }
+                }
+
+            },
+            None => {
+                return Err(String::from(format!("No overridable occurrence exists for timestamp: {timestamp}")));
+            }
         }
+
+        Ok(self)
+    }
+
+    pub fn remove_occurrence_override(&mut self, timestamp: i64) -> Result<&Self, String> {
+        match &mut self.occurrence_cache {
+            Some(occurrence_cache) => {
+
+                match occurrence_cache.get(timestamp) {
+                    Some(OccurrenceIndexValue::Occurrence) => {
+                        // TODO: update indexes
+
+                        return Err(String::from(format!("No occurrence override exists for timestamp: {timestamp}")));
+                    },
+                    Some(OccurrenceIndexValue::Override) => {
+                        // TODO: update indexes
+
+                        occurrence_cache.insert(timestamp, OccurrenceIndexValue::Occurrence);
+
+                        self.overrides.current.remove(timestamp);
+                    },
+                    None => {
+                        return Err(String::from(format!("No overridable occurrence exists for timestamp: {timestamp}")));
+                    }
+                }
+
+            },
+            None => {
+                return Err(String::from(format!("No overridable occurrence exists for timestamp: {timestamp}")));
+            }
+        }
+
+        Ok(self)
     }
 
     pub fn rebuild_occurrence_cache(&mut self, max_count: usize) -> Result<&Self, RRuleError> {
@@ -365,7 +417,7 @@ mod test {
                                 )
                 },
 
-                overrides:           None,
+                overrides:           EventOccurrenceOverrides::new(),
                 occurrence_cache:    None,
             }
         );
@@ -404,7 +456,7 @@ mod test {
 
                 passive_properties:  PassiveProperties::new(),
 
-                overrides:           None,
+                overrides:           EventOccurrenceOverrides::new(),
                 occurrence_cache:    None,
             }
         );
@@ -492,7 +544,7 @@ mod test {
 
                 passive_properties:  PassiveProperties::new(),
 
-                overrides:           None,
+                overrides:           EventOccurrenceOverrides::new(),
                 occurrence_cache:    None,
             }
         );
@@ -526,11 +578,185 @@ mod test {
 
                 passive_properties:  PassiveProperties::new(),
 
-                overrides:           None,
+                overrides:           EventOccurrenceOverrides::new(),
                 occurrence_cache:    None,
             }
         );
 
         assert_eq!(parsed_event.schedule_properties.validate_rrule(), false);
+    }
+
+    #[test]
+    fn test_occurrence_override_insertion_and_deletion() {
+        let ical: &str = "RRULE:FREQ=WEEKLY;UNTIL=20210331T183000Z;INTERVAL=1;BYDAY=TU DTSTART:20201231T183000Z";
+
+        let mut parsed_event = Event::parse_ical("event_UUID", ical).unwrap();
+
+        assert!(
+            parsed_event.rebuild_occurrence_cache(2).is_ok()
+        );
+
+        assert_eq!(
+            parsed_event.occurrence_cache,
+            Some(
+                OccurrenceIndex {
+                    base_timestamp: Some(1609871400),
+                    timestamp_offsets: BTreeMap::from(
+                        [
+                            (0, OccurrenceIndexValue::Occurrence),
+                            (604800, OccurrenceIndexValue::Occurrence),
+                        ]
+                    )
+                }
+            )
+        );
+
+        let event_occurrence_override = EventOccurrenceOverride {
+            properties:  HashMap::from([]),
+            categories:  Some(
+                vec![
+                    String::from("CATEGORY_ONE"),
+                    String::from("CATEGORY_TWO"),
+                    String::from("CATEGORY THREE")
+                ]
+            ),
+            duration:    None,
+            dtstart:     None,
+            dtend:       None,
+            description: Some(String::from("DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA")),
+            related_to:  None
+        };
+
+        assert_eq!(
+            parsed_event.override_occurrence(1234, &event_occurrence_override),
+            Err(
+                String::from("No overridable occurrence exists for timestamp: 1234")
+            )
+        );
+
+        assert_eq!(
+            parsed_event.override_occurrence(1610476200, &event_occurrence_override),
+            Ok(
+                &Event {
+                    uuid:                String::from("event_UUID"),
+
+                    schedule_properties: ScheduleProperties {
+                        rrule:            Some(
+                            vec![
+                                String::from("RRULE:FREQ=WEEKLY;UNTIL=20210331T183000Z;INTERVAL=1;BYDAY=TU")
+                            ]
+                        ),
+                        exrule:           None,
+                        rdate:            None,
+                        exdate:           None,
+                        duration:         None,
+                        dtstart:          Some(
+                            vec![
+                                String::from("DTSTART:20201231T183000Z")
+                            ]
+                        ),
+                        dtend:            None,
+                    },
+
+                    indexed_properties:  IndexedProperties::new(),
+
+                    passive_properties:  PassiveProperties::new(),
+
+                    overrides:           EventOccurrenceOverrides {
+                        detached: OccurrenceIndex::new(),
+                        current:  OccurrenceIndex::new_with_value(
+                            1610476200,
+                            EventOccurrenceOverride {
+                                properties:  HashMap::from([]),
+                                categories:  Some(
+                                    vec![
+                                        String::from("CATEGORY_ONE"),
+                                        String::from("CATEGORY_TWO"),
+                                        String::from("CATEGORY THREE")
+                                    ]
+                                ),
+                                duration:    None,
+                                dtstart:     None,
+                                dtend:       None,
+                                description: Some(String::from("DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA")),
+                                related_to:  None
+                            }
+                        ),
+                    },
+                    occurrence_cache:    Some(
+                        OccurrenceIndex {
+                            base_timestamp: Some(1609871400),
+                            timestamp_offsets: BTreeMap::from(
+                                [
+                                    (0, OccurrenceIndexValue::Occurrence),
+                                    (604800, OccurrenceIndexValue::Override),
+                                ]
+                            )
+                        }
+                    ),
+                }
+            )
+        );
+
+        assert_eq!(
+            parsed_event.remove_occurrence_override(1234),
+            Err(
+                String::from("No overridable occurrence exists for timestamp: 1234")
+            )
+        );
+
+        assert_eq!(
+            parsed_event.remove_occurrence_override(1609871400),
+            Err(
+                String::from("No occurrence override exists for timestamp: 1609871400")
+            )
+        );
+
+        assert_eq!(
+            parsed_event.remove_occurrence_override(1610476200),
+            Ok(
+                &Event {
+                    uuid:                String::from("event_UUID"),
+
+                    schedule_properties: ScheduleProperties {
+                        rrule:            Some(
+                            vec![
+                                String::from("RRULE:FREQ=WEEKLY;UNTIL=20210331T183000Z;INTERVAL=1;BYDAY=TU")
+                            ]
+                        ),
+                        exrule:           None,
+                        rdate:            None,
+                        exdate:           None,
+                        duration:         None,
+                        dtstart:          Some(
+                            vec![
+                                String::from("DTSTART:20201231T183000Z")
+                            ]
+                        ),
+                        dtend:            None,
+                    },
+
+                    indexed_properties:  IndexedProperties::new(),
+
+                    passive_properties:  PassiveProperties::new(),
+
+                    overrides:           EventOccurrenceOverrides {
+                        detached: OccurrenceIndex::new(),
+                        current:  OccurrenceIndex::new(),
+                    },
+                    occurrence_cache:    Some(
+                        OccurrenceIndex {
+                            base_timestamp: Some(1609871400),
+                            timestamp_offsets: BTreeMap::from(
+                                [
+                                    (0, OccurrenceIndexValue::Occurrence),
+                                    (604800, OccurrenceIndexValue::Occurrence),
+                                ]
+                            )
+                        }
+                    ),
+                }
+            )
+        );
     }
 }

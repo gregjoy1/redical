@@ -4,7 +4,8 @@ use std::collections::{BTreeMap, btree_map};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub enum OccurrenceIndexValue {
-    Occurrence
+    Occurrence,
+    Override
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
@@ -19,6 +20,14 @@ impl<T> OccurrenceIndex<T> {
             base_timestamp: None,
             timestamp_offsets: BTreeMap::new()
         }
+    }
+
+    pub fn new_with_value(occurrence: i64, value: T) -> OccurrenceIndex<T> {
+        let mut occurrence_index = OccurrenceIndex::new();
+
+        occurrence_index.insert(occurrence, value);
+
+        occurrence_index
     }
 
     pub fn insert(&mut self, occurrence: i64, value: T) {
@@ -55,6 +64,10 @@ impl<T> OccurrenceIndex<T> {
                 None
             }
         }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.timestamp_offsets.is_empty()
     }
 
     pub fn iter(&self) -> OccurrenceIndexIter<T> {
