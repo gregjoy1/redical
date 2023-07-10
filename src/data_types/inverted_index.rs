@@ -15,6 +15,33 @@ pub struct InvertedIndexTerm {
 
 impl InvertedIndexTerm {
 
+    pub fn merge(inverted_index_term_a: InvertedIndexTerm, inverted_index_term_b: InvertedIndexTerm) -> InvertedIndexTerm {
+        let events_a = inverted_index_term_a.events;
+        let events_b = inverted_index_term_b.events;
+
+        let mut compound_events = HashMap::<String, IndexedEvent>::new();
+
+        // TODO:
+        //   * Iterate on the smallest events HashMap for efficiency
+        //   * clone()/borrowing etc
+
+        for (event_uuid, indexed_event_a) in events_a.iter() {
+            if let Some(indexed_event_b) = events_b.get(event_uuid) {
+                compound_events.insert(
+                    event_uuid.clone(),
+                    IndexedEvent::merge(
+                        indexed_event_a.clone(),
+                        indexed_event_b.clone()
+                    )
+                );
+            }
+        }
+
+        InvertedIndexTerm {
+            events: compound_events
+        }
+    }
+
     pub fn include_event_occurrence(&self, event_uuid: String, occurrence: i64) -> bool {
         match self.events.get(&event_uuid) {
             Some(indexed_event) => indexed_event.include_event_occurrence(occurrence),
@@ -233,6 +260,55 @@ impl IndexedEvent {
 
 mod test {
     use super::*;
+
+    #[test]
+    fn test_inverted_index_term_merge() {
+
+        assert_eq!(
+            InvertedIndexTerm::merge(
+                InvertedIndexTerm {
+                    events:
+                        HashMap::from([
+                            (String::from("event_one"),   IndexedEvent::Include(Some(HashSet::from([100, 200])))),
+                            (String::from("event_two"),   IndexedEvent::Include(Some(HashSet::from([100, 200])))),
+                            (String::from("event_three"), IndexedEvent::Exclude(Some(HashSet::from([100, 200])))),
+                            (String::from("event_four"),  IndexedEvent::Exclude(Some(HashSet::from([100, 200])))),
+                            (String::from("event_five"),  IndexedEvent::Include(Some(HashSet::from([100, 200])))),
+                            (String::from("event_six"),   IndexedEvent::Include(Some(HashSet::from([100, 200])))),
+                            (String::from("event_seven"), IndexedEvent::Exclude(Some(HashSet::from([100, 200])))),
+                            (String::from("event_eight"), IndexedEvent::Exclude(None)),
+                            (String::from("event_nine"),  IndexedEvent::Exclude(None))
+                        ])
+                },
+                InvertedIndexTerm {
+                    events:
+                        HashMap::from([
+                            (String::from("event_one"),   IndexedEvent::Exclude(Some(HashSet::from([100, 200])))),
+                            (String::from("event_two"),   IndexedEvent::Include(Some(HashSet::from([200, 300])))),
+                            (String::from("event_three"), IndexedEvent::Exclude(Some(HashSet::from([200, 300])))),
+                            (String::from("event_four"),  IndexedEvent::Exclude(None)),
+                            (String::from("event_five"),  IndexedEvent::Include(None)),
+                            (String::from("event_six"),   IndexedEvent::Exclude(None)),
+                            (String::from("event_seven"), IndexedEvent::Include(None)),
+                            (String::from("event_eight"), IndexedEvent::Include(None)),
+                        ]),
+                }
+            ),
+            InvertedIndexTerm {
+                events:
+                    HashMap::from([
+                        (String::from("event_one"),   IndexedEvent::Exclude(None)),
+                        (String::from("event_two"),   IndexedEvent::Include(Some(HashSet::from([100, 200, 300])))),
+                        (String::from("event_three"), IndexedEvent::Exclude(Some(HashSet::from([200])))),
+                        (String::from("event_four"),  IndexedEvent::Exclude(None)),
+                        (String::from("event_five"),  IndexedEvent::Include(Some(HashSet::from([100, 200])))),
+                        (String::from("event_six"),   IndexedEvent::Exclude(None)),
+                        (String::from("event_seven"), IndexedEvent::Exclude(Some(HashSet::from([100, 200])))),
+                        (String::from("event_eight"), IndexedEvent::Exclude(None)),
+                    ]),
+            },
+        );
+    }
 
     #[test]
     fn test_indexed_event_merge() {
