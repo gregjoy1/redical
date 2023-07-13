@@ -30,6 +30,16 @@ impl<T> OccurrenceIndex<T> {
         occurrence_index
     }
 
+    pub fn new_with_values(entries: Vec<(i64, T)>) -> OccurrenceIndex<T> {
+        let mut occurrence_index = OccurrenceIndex::new();
+
+        entries.into_iter().for_each(|entry| {
+            occurrence_index.insert(entry.0, entry.1);
+        });
+
+        occurrence_index
+    }
+
     pub fn insert(&mut self, occurrence: i64, value: T) {
         match self.base_timestamp {
             Some(base_timestamp) => {

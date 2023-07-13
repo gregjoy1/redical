@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashSet, HashMap};
 
 use rrule::{RRuleSet, RRuleError, RRuleSetIter};
 
@@ -14,6 +14,8 @@ use crate::data_types::occurrence_index::{OccurrenceIndex, OccurrenceIndexValue,
 use crate::data_types::event_occurrence_override::{EventOccurrenceOverride};
 
 use std::collections::BTreeMap;
+
+use crate::data_types::inverted_index::IndexedEvent;
 
 fn property_option_set_or_insert<'a>(property_option: &mut Option<Vec<String>>, content: &'a str) {
     let content = String::from(content);
@@ -212,6 +214,7 @@ pub struct Event<'a> {
 
     pub overrides:           EventOccurrenceOverrides<'a>,
     pub occurrence_cache:    Option<OccurrenceIndex<OccurrenceIndexValue>>,
+    pub indexed_categories:  Option<IndexedCategories>,
 }
 
 impl<'a> Event<'a> {
@@ -226,6 +229,7 @@ impl<'a> Event<'a> {
 
             overrides:           EventOccurrenceOverrides::new(),
             occurrence_cache:    None,
+            indexed_categories:  None
         }
     }
 
@@ -367,8 +371,210 @@ impl<'a> Event<'a> {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub struct IndexedCategories {
+    pub categories: HashMap<String, IndexedEvent>
+}
+
+impl<'a> From<&Event<'a>> for IndexedCategories {
+
+    fn from(event: &Event) -> IndexedCategories {
+        let mut indexed_categories: HashMap<String, IndexedEvent> = HashMap::new();
+
+        match event.indexed_properties.categories.clone() {
+            Some(categories) => {
+                for category in categories.iter() {
+                    indexed_categories.insert(category.clone(), IndexedEvent::Include(None));
+                }
+            },
+            _ => {}
+        }
+
+        let indexed_categories_set: HashSet<String> = indexed_categories.clone().into_keys().collect();
+
+        for (timestamp, event_override) in event.overrides.current.iter() {
+            match &event_override.categories {
+                Some(override_categories) => {
+                    let override_categories_set: HashSet<String> = override_categories.clone().iter().map(|category| category.clone()).collect();
+
+                    for excluded_category in indexed_categories_set.difference(&override_categories_set) {
+                        indexed_categories.get_mut(excluded_category).and_then(|indexed_category| Some(indexed_category.insert_exception(timestamp)));
+                    }
+
+                    for included_category in override_categories_set.difference(&indexed_categories_set) {
+                        indexed_categories.entry(included_category.clone())
+                                          .and_modify(|indexed_category| {
+                                              indexed_category.insert_exception(timestamp);
+                                          })
+                                          .or_insert(IndexedEvent::Exclude(Some(HashSet::from([timestamp]))));
+                    }
+                },
+                None => {
+                    continue;
+                }
+            }
+        }
+
+        IndexedCategories {
+            categories: indexed_categories
+        }
+    }
+
+}
+
 mod test {
     use super::*;
+
+    #[test]
+    fn test_indexed_categories() {
+        let event = Event {
+            uuid: String::from("event_UUID"),
+
+            schedule_properties: ScheduleProperties {
+                rrule:    None,
+                exrule:   None,
+                rdate:    None,
+                exdate:   None,
+                duration: None,
+                dtstart:  None,
+                dtend:    None,
+            },
+
+            indexed_properties: IndexedProperties {
+                related_to: None,
+                categories: Some(
+                    vec![
+                        String::from("CATEGORY_ONE"),
+                        String::from("CATEGORY_TWO"),
+                        String::from("CATEGORY_THREE")
+                    ]
+                ),
+            },
+
+            passive_properties: PassiveProperties {
+                properties: HashMap::new()
+            },
+
+            overrides: EventOccurrenceOverrides {
+                detached: OccurrenceIndex::new(),
+                current:  OccurrenceIndex::new_with_values(
+                    vec![
+                        // Override 100 has all event categories plus CATEGORY_FOUR
+                        (
+                            100,
+                            EventOccurrenceOverride {
+                                properties:  HashMap::from([]),
+                                categories:  Some(
+                                    vec![
+                                        String::from("CATEGORY_ONE"),
+                                        String::from("CATEGORY_TWO"),
+                                        String::from("CATEGORY_THREE"),
+                                        String::from("CATEGORY_FOUR"),
+                                    ]
+                                ),
+                                duration:    None,
+                                dtstart:     None,
+                                dtend:       None,
+                                description: None,
+                                related_to:  None
+                            }
+                        ),
+
+                        // Override 200 has only some event categories (missing CATEGORY_THREE)
+                        (
+                            200,
+                            EventOccurrenceOverride {
+                                properties:  HashMap::from([]),
+                                categories:  Some(
+                                    vec![
+                                        String::from("CATEGORY_ONE"),
+                                        String::from("CATEGORY_TWO"),
+                                    ]
+                                ),
+                                duration:    None,
+                                dtstart:     None,
+                                dtend:       None,
+                                description: None,
+                                related_to:  None
+                            }
+                        ),
+
+                        // Override 300 has no overridden categories
+                        (
+                            300,
+                            EventOccurrenceOverride {
+                                properties:  HashMap::from([]),
+                                categories:  None,
+                                duration:    None,
+                                dtstart:     None,
+                                dtend:       None,
+                                description: None,
+                                related_to:  None
+                            }
+                        ),
+
+                        // Override 400 has removed all categories
+                        (
+                            400,
+                            EventOccurrenceOverride {
+                                properties:  HashMap::from([]),
+                                categories:  Some(vec![]),
+                                duration:    None,
+                                dtstart:     None,
+                                dtend:       None,
+                                description: None,
+                                related_to:  None
+                            }
+                        ),
+
+                        // Override 500 has no base event categories, but does have CATEGORY_FOUR
+                        (
+                            500,
+                            EventOccurrenceOverride {
+                                properties:  HashMap::from([]),
+                                categories:  Some(
+                                    vec![
+                                        String::from("CATEGORY_FOUR"),
+                                    ]
+                                ),
+                                duration:    None,
+                                dtstart:     None,
+                                dtend:       None,
+                                description: None,
+                                related_to:  None
+                            }
+                        ),
+                    ]
+                ),
+            },
+            occurrence_cache:   None,
+            indexed_categories: None,
+        };
+
+        assert_eq!(
+            IndexedCategories::from(&event),
+            IndexedCategories {
+                categories: HashMap::from([
+                                (
+                                    String::from("CATEGORY_ONE"),
+                                    IndexedEvent::Include(Some(HashSet::from([400, 500]))),
+                                ),
+                                (
+                                    String::from("CATEGORY_TWO"),
+                                    IndexedEvent::Include(Some(HashSet::from([400, 500]))),
+                                ),
+                                (
+                                    String::from("CATEGORY_THREE"),
+                                    IndexedEvent::Include(Some(HashSet::from([200, 400, 500]))),
+                                ),
+                                (
+                                    String::from("CATEGORY_FOUR"),
+                                    IndexedEvent::Exclude(Some(HashSet::from([100, 500]))),
+                                ),
+                            ])
+            }
+        );
+    }
 
     #[test]
     fn test_parse_ical() {
@@ -419,6 +625,7 @@ mod test {
 
                 overrides:           EventOccurrenceOverrides::new(),
                 occurrence_cache:    None,
+                indexed_categories:  None,
             }
         );
     }
@@ -458,6 +665,7 @@ mod test {
 
                 overrides:           EventOccurrenceOverrides::new(),
                 occurrence_cache:    None,
+                indexed_categories:  None,
             }
         );
 
@@ -546,6 +754,7 @@ mod test {
 
                 overrides:           EventOccurrenceOverrides::new(),
                 occurrence_cache:    None,
+                indexed_categories:  None,
             }
         );
 
@@ -580,6 +789,7 @@ mod test {
 
                 overrides:           EventOccurrenceOverrides::new(),
                 occurrence_cache:    None,
+                indexed_categories:  None,
             }
         );
 
@@ -694,6 +904,7 @@ mod test {
                             )
                         }
                     ),
+                    indexed_categories:  None,
                 }
             )
         );
@@ -755,6 +966,7 @@ mod test {
                             )
                         }
                     ),
+                    indexed_categories:  None,
                 }
             )
         );
