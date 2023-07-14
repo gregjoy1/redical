@@ -422,6 +422,75 @@ impl<'a> From<&Event<'a>> for IndexedCategories {
 
 }
 
+impl IndexedCategories {
+
+    fn get_event_categories(&self) -> HashSet<String> {
+        let mut indexed_categories_set: HashSet<String> = HashSet::new();
+
+        for (category, indexed_event) in self.categories.iter() {
+            match indexed_event {
+                IndexedEvent::Include(_) => {
+                    indexed_categories_set.insert(category.clone());
+                },
+
+                _ => {
+                    continue;
+                }
+            }
+        }
+
+        indexed_categories_set
+    }
+
+    fn insert_overrides(&mut self, overrides: OccurrenceIndex<EventOccurrenceOverride>) {
+        for (timestamp, event_override) in overrides.iter() {
+            // TODO
+        }
+    }
+
+    fn insert_override(&mut self, timestamp: i64, event_override: &EventOccurrenceOverride) {
+        if event_override.categories.is_none() {
+            return;
+        }
+
+        let indexed_categories_set = self.get_event_categories();
+
+        let override_categories_set: HashSet<String> = event_override.categories.as_ref()
+                                                                                .unwrap()
+                                                                                .into_iter()
+                                                                                .map(|category| category.clone())
+                                                                                .collect();
+
+        match &event_override.categories {
+            Some(override_categories) => {
+                for excluded_category in indexed_categories_set.difference(&override_categories_set) {
+                    self.categories.get_mut(excluded_category).and_then(|indexed_category| Some(indexed_category.insert_exception(timestamp)));
+                }
+
+                for included_category in override_categories_set.difference(&indexed_categories_set) {
+                    self.categories.entry(included_category.clone())
+                                   .and_modify(|indexed_category| {
+                                       indexed_category.insert_exception(timestamp);
+                                   })
+                                   .or_insert(IndexedEvent::Exclude(Some(HashSet::from([timestamp]))));
+                }
+            },
+            None => {}
+        }
+    }
+
+    fn remove_override(&mut self, timestamp: i64) {
+        self.categories.retain(|_, indexed_event| {
+            if indexed_event.remove_exception(timestamp) && indexed_event.is_empty_exclude() {
+                false
+            } else {
+                true
+            }
+        });
+    }
+
+}
+
 mod test {
     use super::*;
 
@@ -551,8 +620,10 @@ mod test {
             indexed_categories: None,
         };
 
+        let mut indexed_categories = IndexedCategories::from(&event);
+
         assert_eq!(
-            IndexedCategories::from(&event),
+            indexed_categories,
             IndexedCategories {
                 categories: HashMap::from([
                                 (
@@ -570,6 +641,108 @@ mod test {
                                 (
                                     String::from("CATEGORY_FOUR"),
                                     IndexedEvent::Exclude(Some(HashSet::from([100, 500]))),
+                                ),
+                            ])
+            }
+        );
+
+        indexed_categories.insert_override(
+            600,
+            &EventOccurrenceOverride {
+                properties:  HashMap::from([]),
+                categories:  Some(
+                    vec![
+                        String::from("CATEGORY_ONE"),
+                        String::from("CATEGORY_FIVE"),
+                    ]
+                ),
+                duration:    None,
+                dtstart:     None,
+                dtend:       None,
+                description: None,
+                related_to:  None
+            }
+        );
+
+        assert_eq!(
+            indexed_categories,
+            IndexedCategories {
+                categories: HashMap::from([
+                                (
+                                    String::from("CATEGORY_ONE"),
+                                    IndexedEvent::Include(Some(HashSet::from([400, 500]))),
+                                ),
+                                (
+                                    String::from("CATEGORY_TWO"),
+                                    IndexedEvent::Include(Some(HashSet::from([400, 500, 600]))),
+                                ),
+                                (
+                                    String::from("CATEGORY_THREE"),
+                                    IndexedEvent::Include(Some(HashSet::from([200, 400, 500, 600]))),
+                                ),
+                                (
+                                    String::from("CATEGORY_FOUR"),
+                                    IndexedEvent::Exclude(Some(HashSet::from([100, 500]))),
+                                ),
+                                (
+                                    String::from("CATEGORY_FIVE"),
+                                    IndexedEvent::Exclude(Some(HashSet::from([600]))),
+                                ),
+                            ])
+            }
+        );
+
+        indexed_categories.remove_override(100);
+
+        assert_eq!(
+            indexed_categories,
+            IndexedCategories {
+                categories: HashMap::from([
+                                (
+                                    String::from("CATEGORY_ONE"),
+                                    IndexedEvent::Include(Some(HashSet::from([400, 500]))),
+                                ),
+                                (
+                                    String::from("CATEGORY_TWO"),
+                                    IndexedEvent::Include(Some(HashSet::from([400, 500, 600]))),
+                                ),
+                                (
+                                    String::from("CATEGORY_THREE"),
+                                    IndexedEvent::Include(Some(HashSet::from([200, 400, 500, 600]))),
+                                ),
+                                (
+                                    String::from("CATEGORY_FOUR"),
+                                    IndexedEvent::Exclude(Some(HashSet::from([500]))),
+                                ),
+                                (
+                                    String::from("CATEGORY_FIVE"),
+                                    IndexedEvent::Exclude(Some(HashSet::from([600]))),
+                                ),
+                            ])
+            }
+        );
+
+        indexed_categories.remove_override(500);
+
+        assert_eq!(
+            indexed_categories,
+            IndexedCategories {
+                categories: HashMap::from([
+                                (
+                                    String::from("CATEGORY_ONE"),
+                                    IndexedEvent::Include(Some(HashSet::from([400]))),
+                                ),
+                                (
+                                    String::from("CATEGORY_TWO"),
+                                    IndexedEvent::Include(Some(HashSet::from([400, 600]))),
+                                ),
+                                (
+                                    String::from("CATEGORY_THREE"),
+                                    IndexedEvent::Include(Some(HashSet::from([200, 400, 600]))),
+                                ),
+                                (
+                                    String::from("CATEGORY_FIVE"),
+                                    IndexedEvent::Exclude(Some(HashSet::from([600]))),
                                 ),
                             ])
             }

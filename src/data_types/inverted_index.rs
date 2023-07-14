@@ -194,6 +194,15 @@ impl IndexedEvent {
         }
     }
 
+    pub fn is_empty_exclude(&self) -> bool {
+        match self {
+            IndexedEvent::Include(_) => false,
+            IndexedEvent::Exclude(overrides) => {
+                overrides.is_none()
+            }
+        }
+    }
+
     pub fn include_event_occurrence(&self, occurrence: i64) -> bool {
         match self {
             IndexedEvent::Include(_) => !self.contains_exception(occurrence),
