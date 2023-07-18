@@ -283,14 +283,11 @@ impl<'a> Event<'a> {
 
                 match occurrence_cache.get(timestamp) {
                     Some(OccurrenceIndexValue::Occurrence) => {
-                        // TODO: update indexes
                         occurrence_cache.insert(timestamp, OccurrenceIndexValue::Override);
 
                         self.overrides.current.insert(timestamp, event_occurrence_override.clone());
                     },
                     Some(OccurrenceIndexValue::Override) => {
-                        // TODO: update indexes
-
                         self.overrides.current.insert(timestamp, event_occurrence_override.clone());
                     },
                     None => {
@@ -298,6 +295,11 @@ impl<'a> Event<'a> {
                     }
                 }
 
+                if let Some(ref mut indexed_categories) = self.indexed_categories {
+                    indexed_categories.insert_override(timestamp, event_occurrence_override);
+                } else {
+                    self.indexed_categories = Some(IndexedCategories::from(&*self));
+                }
             },
             None => {
                 return Err(String::from(format!("No overridable occurrence exists for timestamp: {timestamp}")));
@@ -313,16 +315,18 @@ impl<'a> Event<'a> {
 
                 match occurrence_cache.get(timestamp) {
                     Some(OccurrenceIndexValue::Occurrence) => {
-                        // TODO: update indexes
-
                         return Err(String::from(format!("No occurrence override exists for timestamp: {timestamp}")));
                     },
                     Some(OccurrenceIndexValue::Override) => {
-                        // TODO: update indexes
-
                         occurrence_cache.insert(timestamp, OccurrenceIndexValue::Occurrence);
 
                         self.overrides.current.remove(timestamp);
+
+                        if let Some(ref mut indexed_categories) = self.indexed_categories {
+                            indexed_categories.remove_override(timestamp);
+                        } else {
+                            self.indexed_categories = Some(IndexedCategories::from(&*self));
+                        }
                     },
                     None => {
                         return Err(String::from(format!("No overridable occurrence exists for timestamp: {timestamp}")));
@@ -334,6 +338,12 @@ impl<'a> Event<'a> {
                 return Err(String::from(format!("No overridable occurrence exists for timestamp: {timestamp}")));
             }
         }
+
+        Ok(self)
+    }
+
+    pub fn rebuild_category_index(&mut self, max_count: usize) -> Result<&Self, String> {
+        self.indexed_categories = Some(IndexedCategories::from(&*self));
 
         Ok(self)
     }
