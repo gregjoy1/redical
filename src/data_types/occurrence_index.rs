@@ -117,6 +117,7 @@ impl<'a, T> Iterator for OccurrenceIndexIter<'a, T> {
     }
 }
 
+#[cfg(test)]
 mod test {
     use super::*;
 

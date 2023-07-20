@@ -1,4 +1,4 @@
-dump.rdb
+**/*.rdb
 /target
 
 **/*.swp

@@ -17,9 +17,9 @@ pub static EVENT_DATA_TYPE: RedisType = RedisType::new(
     EVENT_DATA_TYPE_VERSION,
     RedisModuleTypeMethods {
         version:           redis_module::TYPE_METHOD_VERSION,
-        rdb_load:          Some(rdb_load),
-        rdb_save:          Some(rdb_save),
-        aof_rewrite:       Some(aof_rewrite),
+        rdb_load:          None, // Some(rdb_load),
+        rdb_save:          None, // Some(rdb_save),
+        aof_rewrite:       None, // Some(aof_rewrite),
         mem_usage:         Some(mem_usage),
         digest:            None,
         free:              Some(free),
@@ -29,7 +29,12 @@ pub static EVENT_DATA_TYPE: RedisType = RedisType::new(
         free_effort:       None,
         unlink:            None,
         copy:              Some(copy),
-        defrag:            None
+        defrag:            None,
+
+        copy2:             None,
+        free_effort2:      None,
+        mem_usage2:        None,
+        unlink2:           None,
     }
 );
 
@@ -69,11 +74,14 @@ unsafe extern "C" fn mem_usage(_value: *const c_void) -> usize {
 
 unsafe extern "C" fn free(value: *mut c_void) {
     if value.is_null() {
+        println!("Event data type - free - is null");
         // on Redis 6.0 we might get a NULL value here, so we need to handle it.
         return;
     }
 
     let event = value.cast::<Event>();
+
+    println!("Event data type - free - event : {:#?}", event);
 
     std::mem::drop(Box::from_raw(event));
 }

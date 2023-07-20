@@ -173,22 +173,21 @@ impl IndexedProperties {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct PassiveProperties<'a> {
-    #[serde(borrow)]
-    pub properties: HashMap<&'a str, Vec<String>>
+pub struct PassiveProperties {
+    pub properties: HashMap<String, Vec<String>>
 }
 
-impl<'a> PassiveProperties<'a> {
-    pub fn new() -> PassiveProperties<'a> {
+impl PassiveProperties {
+    pub fn new() -> PassiveProperties {
         PassiveProperties {
             properties:  HashMap::new(),
         }
     }
 
-    pub fn insert(&mut self, property: ParsedProperty<'a>) -> Result<&Self, String> {
+    pub fn insert(&mut self, property: ParsedProperty) -> Result<&Self, String> {
         match property {
             ParsedProperty::Description(content) | ParsedProperty::Other(content)  => {
-                self.properties.entry(&content.name.unwrap())
+                self.properties.entry(String::from(content.name.unwrap()))
                                .and_modify(|content_lines| content_lines.push(String::from(content.content_line)))
                                .or_insert(vec![String::from(content.content_line)]);
 
@@ -209,9 +208,9 @@ pub struct Event<'a> {
     pub schedule_properties: ScheduleProperties,
     pub indexed_properties:  IndexedProperties,
 
-    #[serde(borrow)]
-    pub passive_properties:  PassiveProperties<'a>,
+    pub passive_properties:  PassiveProperties,
 
+    #[serde(borrow)]
     pub overrides:           EventOccurrenceOverrides<'a>,
     pub occurrence_cache:    Option<OccurrenceIndex<OccurrenceIndexValue>>,
     pub indexed_categories:  Option<IndexedCategories>,
@@ -501,6 +500,7 @@ impl IndexedCategories {
 
 }
 
+#[cfg(test)]
 mod test {
     use super::*;
 
@@ -797,7 +797,7 @@ mod test {
                     properties: HashMap::from(
                                     [
                                         (
-                                            "DESCRIPTION",
+                                            String::from("DESCRIPTION"),
                                             vec![
                                                 String::from("DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA")
                                             ]
@@ -1010,7 +1010,7 @@ mod test {
                 vec![
                     String::from("CATEGORY_ONE"),
                     String::from("CATEGORY_TWO"),
-                    String::from("CATEGORY THREE")
+                    String::from("CATEGORY_THREE")
                 ]
             ),
             duration:    None,
@@ -1065,7 +1065,7 @@ mod test {
                                     vec![
                                         String::from("CATEGORY_ONE"),
                                         String::from("CATEGORY_TWO"),
-                                        String::from("CATEGORY THREE")
+                                        String::from("CATEGORY_THREE")
                                     ]
                                 ),
                                 duration:    None,
@@ -1087,7 +1087,24 @@ mod test {
                             )
                         }
                     ),
-                    indexed_categories:  None,
+                    indexed_categories:  Some(
+                        IndexedCategories {
+                            categories: HashMap::from([
+                                            (
+                                                String::from("CATEGORY_ONE"),
+                                                IndexedEvent::Exclude(Some(HashSet::from([1610476200]))),
+                                            ),
+                                            (
+                                                String::from("CATEGORY_TWO"),
+                                                IndexedEvent::Exclude(Some(HashSet::from([1610476200]))),
+                                            ),
+                                            (
+                                                String::from("CATEGORY_THREE"),
+                                                IndexedEvent::Exclude(Some(HashSet::from([1610476200]))),
+                                            ),
+                                        ])
+                        }
+                    ),
                 }
             )
         );
@@ -1149,7 +1166,11 @@ mod test {
                             )
                         }
                     ),
-                    indexed_categories:  None,
+                    indexed_categories:  Some(
+                        IndexedCategories {
+                            categories: HashMap::new()
+                        }
+                    ),
                 }
             )
         );

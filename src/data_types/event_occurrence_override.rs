@@ -79,6 +79,7 @@ impl<'a> EventOccurrenceOverride<'a> {
     }
 }
 
+#[cfg(test)]
 mod test {
     use super::*;
 
