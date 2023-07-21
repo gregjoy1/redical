@@ -65,7 +65,7 @@ impl InvertedIndexTerm {
                 Ok(indexed_event)
             },
             None => {
-                Err(String::from(format!("Could not insert exception for non-existent event with UUID: {event_uuid}")))
+                Err(format!("Could not insert exception for non-existent event with UUID: {event_uuid}"))
             }
         }
     }
@@ -78,7 +78,7 @@ impl InvertedIndexTerm {
                 Ok(indexed_event)
             },
             None => {
-                Err(String::from(format!("Could not remove exception for non-existent event with UUID: {event_uuid}")))
+                Err(format!("Could not remove exception for non-existent event with UUID: {event_uuid}"))
             }
         }
     }

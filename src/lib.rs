@@ -2,7 +2,7 @@ use redis_module::{redis_module, Context, NextArg, RedisValue, RedisResult, Redi
 
 mod data_types;
 
-use data_types::{EVENT_DATA_TYPE, Event, EventOccurrenceOverride};
+use data_types::{EVENT_DATA_TYPE, Event, EventOccurrenceOverride, OccurrenceIndexValue};
 
 fn args_test<'a>(_: &Context, args: Vec<RedisString>) -> RedisResult {
     let response = args.into_iter().map(|arg| RedisValue::SimpleString(arg.to_string())).collect();
@@ -62,7 +62,7 @@ fn event_get(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
 
     match key.get_value::<Event>(&EVENT_DATA_TYPE)? {
         None                    => Ok(RedisValue::Null),
-        Some(event) => Ok(RedisValue::BulkString(format!("event: {:#?}", event)))
+        Some(event) => Ok(RedisValue::BulkString(format!("event: {:?}", event)))
     }
 }
 
@@ -88,8 +88,13 @@ fn event_occurrences_list(ctx: &Context, args: Vec<RedisString>) -> RedisResult 
                     Ok(
                         RedisValue::Array(
                             occurrence_cache.iter()
-                                       .map(|(timestamp, _)| RedisValue::Integer(timestamp))
-                                       .collect()
+                                            .map(|(timestamp, value)| {
+                                                match value {
+                                                    OccurrenceIndexValue::Occurrence => RedisValue::SimpleString(format!("{timestamp} - occurrence")),
+                                                    OccurrenceIndexValue::Override   => RedisValue::SimpleString(format!("{timestamp} - override")),
+                                                }
+                                            })
+                                            .collect()
                         )
                     )
                 },
@@ -115,6 +120,7 @@ fn event_override_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
 
     let key = ctx.open_key_writable(&key_name);
 
+    // TODO: properly parse this into unix timestamp - allow date time strings
     let timestamp = args.next_i64()?;
 
     let other: String = args.map(|arg| arg.try_as_str().unwrap_or("")).collect::<Vec<&str>>().join(" ").as_str().to_owned();
@@ -127,7 +133,7 @@ fn event_override_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
 
                 match event.override_occurrence(timestamp, &event_occurrence_override) {
                     Ok(updated_event) => {
-                        key.set_value(&EVENT_DATA_TYPE, updated_event)?;
+                        key.set_value(&EVENT_DATA_TYPE, updated_event.clone())?;
                     },
 
                     Err(error) => {
@@ -167,7 +173,7 @@ fn event_override_del(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
 
         match event.remove_occurrence_override(timestamp) {
             Ok(updated_event) => {
-                key.set_value(&EVENT_DATA_TYPE, updated_event)?;
+                key.set_value(&EVENT_DATA_TYPE, updated_event.clone())?;
             },
 
             Err(error) => {

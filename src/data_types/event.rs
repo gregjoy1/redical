@@ -288,7 +288,7 @@ impl<'a> Event<'a> {
                         self.overrides.current.insert(timestamp, event_occurrence_override.clone());
                     },
                     None => {
-                        return Err(String::from(format!("No overridable occurrence exists for timestamp: {timestamp}")));
+                        return Err(format!("No overridable occurrence exists for timestamp: {timestamp}"));
                     }
                 }
 
@@ -299,7 +299,7 @@ impl<'a> Event<'a> {
                 }
             },
             None => {
-                return Err(String::from(format!("No overridable occurrence exists for timestamp: {timestamp}")));
+                return Err(format!("No overridable occurrence exists for timestamp: {timestamp}"));
             }
         }
 
@@ -312,7 +312,7 @@ impl<'a> Event<'a> {
 
                 match occurrence_cache.get(timestamp) {
                     Some(OccurrenceIndexValue::Occurrence) => {
-                        return Err(String::from(format!("No occurrence override exists for timestamp: {timestamp}")));
+                        return Err(format!("No occurrence override exists for timestamp: {timestamp}"));
                     },
                     Some(OccurrenceIndexValue::Override) => {
                         occurrence_cache.insert(timestamp, OccurrenceIndexValue::Occurrence);
@@ -326,13 +326,13 @@ impl<'a> Event<'a> {
                         }
                     },
                     None => {
-                        return Err(String::from(format!("No overridable occurrence exists for timestamp: {timestamp}")));
+                        return Err(format!("No overridable occurrence exists for timestamp: {timestamp}"));
                     }
                 }
 
             },
             None => {
-                return Err(String::from(format!("No overridable occurrence exists for timestamp: {timestamp}")));
+                return Err(format!("No overridable occurrence exists for timestamp: {timestamp}"));
             }
         }
 
