@@ -4,12 +4,6 @@ mod data_types;
 
 use data_types::{EVENT_DATA_TYPE, Event, EventOccurrenceOverride};
 
-#[macro_use]
-extern crate redis_module;
-
-pub const MODULE_NAME:    &str = "RediCal";
-pub const MODULE_VERSION: u32 = 1;
-
 fn args_test<'a>(_: &Context, args: Vec<RedisString>) -> RedisResult {
     let response = args.into_iter().map(|arg| RedisValue::SimpleString(arg.to_string())).collect();
 
@@ -38,7 +32,7 @@ fn event_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
 
             match event.rebuild_occurrence_cache(1000) {
                 Ok(event) => {
-                    key.set_value(&EVENT_DATA_TYPE, event)?;
+                    key.set_value(&EVENT_DATA_TYPE, event.clone())?;
                 },
                 Err(error) => {
                     return Err(RedisError::String(error.to_string()));
@@ -68,7 +62,7 @@ fn event_get(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
 
     match key.get_value::<Event>(&EVENT_DATA_TYPE)? {
         None                    => Ok(RedisValue::Null),
-        Some(event) => Ok(RedisValue::BulkString(format!("event: {:#?}", event.indexed_properties.categories)))
+        Some(event) => Ok(RedisValue::BulkString(format!("event: {:#?}", event)))
     }
 }
 
@@ -187,6 +181,9 @@ fn event_override_del(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
         Err(RedisError::String("No event with UUID: '{key}' found".to_string()))
     }
 }
+
+pub const MODULE_NAME:    &str = "RediCal";
+pub const MODULE_VERSION: u32 = 1;
 
 #[cfg(not(test))]
 redis_module! {

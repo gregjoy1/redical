@@ -1,19 +1,17 @@
 use std::collections::{HashSet, HashMap};
 
-use rrule::{RRuleSet, RRuleError, RRuleSetIter};
+use rrule::{RRuleSet, RRuleError};
 
 use serde::{Serialize, Deserialize};
 
 use chrono::prelude::*;
 use chrono::{DateTime, Utc, Months, Days};
 
-use crate::data_types::ical_property_parser::{parse_properties, ParsedProperty, ParsedPropertyContent, ParsedValue};
+use crate::data_types::ical_property_parser::{parse_properties, ParsedProperty, ParsedValue};
 
-use crate::data_types::occurrence_index::{OccurrenceIndex, OccurrenceIndexValue, OccurrenceIndexIter};
+use crate::data_types::occurrence_index::{OccurrenceIndex, OccurrenceIndexValue};
 
-use crate::data_types::event_occurrence_override::{EventOccurrenceOverride};
-
-use std::collections::BTreeMap;
+use crate::data_types::event_occurrence_override::EventOccurrenceOverride;
 
 use crate::data_types::inverted_index::IndexedEvent;
 
@@ -341,13 +339,13 @@ impl<'a> Event<'a> {
         Ok(self)
     }
 
-    pub fn rebuild_category_index(&mut self, max_count: usize) -> Result<&Self, String> {
+    pub fn rebuild_category_index(&mut self, max_count: usize) -> Result<&mut Self, String> {
         self.indexed_categories = Some(IndexedCategories::from(&*self));
 
         Ok(self)
     }
 
-    pub fn rebuild_occurrence_cache(&mut self, max_count: usize) -> Result<&Self, RRuleError> {
+    pub fn rebuild_occurrence_cache(&mut self, max_count: usize) -> Result<&mut Self, RRuleError> {
         let rrule_set = self.schedule_properties.parse_rrule()?;
         let rrule_set_iter = rrule_set.into_iter();
 
@@ -471,7 +469,7 @@ impl IndexedCategories {
                                                                                 .collect();
 
         match &event_override.categories {
-            Some(override_categories) => {
+            Some(_override_categories) => {
                 for excluded_category in indexed_categories_set.difference(&override_categories_set) {
                     self.categories.get_mut(excluded_category).and_then(|indexed_category| Some(indexed_category.insert_exception(timestamp)));
                 }
@@ -503,6 +501,8 @@ impl IndexedCategories {
 #[cfg(test)]
 mod test {
     use super::*;
+
+    use std::collections::BTreeMap;
 
     #[test]
     fn test_indexed_categories() {

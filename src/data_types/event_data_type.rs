@@ -17,9 +17,9 @@ pub static EVENT_DATA_TYPE: RedisType = RedisType::new(
     EVENT_DATA_TYPE_VERSION,
     RedisModuleTypeMethods {
         version:           redis_module::TYPE_METHOD_VERSION,
-        rdb_load:          None, // Some(rdb_load),
-        rdb_save:          None, // Some(rdb_save),
-        aof_rewrite:       None, // Some(aof_rewrite),
+        rdb_load:          Some(rdb_load),
+        rdb_save:          Some(rdb_save),
+        aof_rewrite:       Some(aof_rewrite),
         mem_usage:         Some(mem_usage),
         digest:            None,
         free:              Some(free),
@@ -79,11 +79,11 @@ unsafe extern "C" fn free(value: *mut c_void) {
         return;
     }
 
-    let event = value.cast::<Event>();
+    let event = value as *mut Event;
 
     println!("Event data type - free - event : {:#?}", event);
 
-    std::mem::drop(Box::from_raw(event));
+    drop(Box::from_raw(event));
 }
 
 unsafe extern "C" fn copy(
