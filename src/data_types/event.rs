@@ -274,6 +274,10 @@ impl<'a> Event<'a> {
         }
     }
 
+    fn category_update_callback(category: &String, indexed_event:  Option<&IndexedEvent>) {
+        println!("category_update_callback - category: {:#?} - indexed_event: {:#?}", *category, indexed_event);
+    }
+
     pub fn override_occurrence(&mut self, timestamp: i64, event_occurrence_override: &'a EventOccurrenceOverride) -> Result<&Self, String> {
         match &mut self.occurrence_cache {
             Some(occurrence_cache) => {
@@ -293,9 +297,18 @@ impl<'a> Event<'a> {
                 }
 
                 if let Some(ref mut indexed_categories) = self.indexed_categories {
-                    indexed_categories.insert_override(timestamp, event_occurrence_override);
+                    indexed_categories.insert_override(timestamp, event_occurrence_override, Self::category_update_callback);
                 } else {
-                    self.indexed_categories = Some(IndexedCategories::from(&*self));
+                    // TODO: improve...
+                    let indexed_categories = IndexedCategories::from(&*self);
+
+                    indexed_categories.categories
+                                      .iter()
+                                      .for_each(|(category, indexed_event)| {
+                                          Self::category_update_callback(category, Some(indexed_event));
+                                      });
+
+                    self.indexed_categories = Some(indexed_categories);
                 }
             },
             None => {
@@ -320,9 +333,18 @@ impl<'a> Event<'a> {
                         self.overrides.current.remove(timestamp);
 
                         if let Some(ref mut indexed_categories) = self.indexed_categories {
-                            indexed_categories.remove_override(timestamp);
+                            indexed_categories.remove_override(timestamp, Self::category_update_callback);
                         } else {
-                            self.indexed_categories = Some(IndexedCategories::from(&*self));
+                            // TODO: improve...
+                            let indexed_categories = IndexedCategories::from(&*self);
+
+                            indexed_categories.categories
+                                              .iter()
+                                              .for_each(|(category, indexed_event)| {
+                                                  Self::category_update_callback(category, Some(indexed_event));
+                                              });
+
+                            self.indexed_categories = Some(indexed_categories);
                         }
                     },
                     None => {
@@ -335,12 +357,6 @@ impl<'a> Event<'a> {
                 return Err(format!("No overridable occurrence exists for timestamp: {timestamp}"));
             }
         }
-
-        Ok(self)
-    }
-
-    pub fn rebuild_category_index(&mut self, max_count: usize) -> Result<&mut Self, String> {
-        self.indexed_categories = Some(IndexedCategories::from(&*self));
 
         Ok(self)
     }
@@ -449,13 +465,7 @@ impl IndexedCategories {
         indexed_categories_set
     }
 
-    fn insert_overrides(&mut self, overrides: OccurrenceIndex<EventOccurrenceOverride>) {
-        for (timestamp, event_override) in overrides.iter() {
-            // TODO
-        }
-    }
-
-    fn insert_override(&mut self, timestamp: i64, event_override: &EventOccurrenceOverride) {
+    fn insert_override(&mut self, timestamp: i64, event_override: &EventOccurrenceOverride, mut callback_fn: impl FnMut(&String, Option<&IndexedEvent>)) {
         if event_override.categories.is_none() {
             return;
         }
@@ -468,27 +478,46 @@ impl IndexedCategories {
                                                                                 .map(|category| category.clone())
                                                                                 .collect();
 
-        match &event_override.categories {
-            Some(_override_categories) => {
-                for excluded_category in indexed_categories_set.difference(&override_categories_set) {
-                    self.categories.get_mut(excluded_category).and_then(|indexed_category| Some(indexed_category.insert_exception(timestamp)));
-                }
+        // Check for event categories NOT present in the override, and add them as an exception to
+        // IndexedEvent::Include (include all except timestamp).
+        for excluded_category in indexed_categories_set.difference(&override_categories_set) {
+            self.categories.get_mut(excluded_category)
+                           .and_then(|indexed_category| {
+                               indexed_category.insert_exception(timestamp);
 
-                for included_category in override_categories_set.difference(&indexed_categories_set) {
-                    self.categories.entry(included_category.clone())
-                                   .and_modify(|indexed_category| {
-                                       indexed_category.insert_exception(timestamp);
-                                   })
-                                   .or_insert(IndexedEvent::Exclude(Some(HashSet::from([timestamp]))));
-                }
-            },
-            None => {}
+                               callback_fn(excluded_category, Some(indexed_category));
+
+                               Some(indexed_category)
+                           });
+        }
+
+        // Check for overridden categories NOT present in the event categories, and add them as an
+        // exception to IndexedEvent::Exclude (exclude all except timestamp).
+        for included_category in override_categories_set.difference(&indexed_categories_set) {
+            self.categories.entry(included_category.clone())
+                           .and_modify(|indexed_category| {
+                               indexed_category.insert_exception(timestamp);
+
+                               callback_fn(included_category, Some(indexed_category));
+                           })
+                           .or_insert_with(|| {
+                               let indexed_event = IndexedEvent::Exclude(
+                                   Some(
+                                       HashSet::from([timestamp])
+                                   )
+                               );
+
+                               callback_fn(included_category, Some(&indexed_event));
+
+                               indexed_event
+                           });
         }
     }
 
-    fn remove_override(&mut self, timestamp: i64) {
-        self.categories.retain(|_, indexed_event| {
+    fn remove_override(&mut self, timestamp: i64, mut callback_fn: impl FnMut(&String, Option<&IndexedEvent>)) {
+        self.categories.retain(|removed_category, indexed_event| {
             if indexed_event.remove_exception(timestamp) && indexed_event.is_empty_exclude() {
+                callback_fn(removed_category, None);
                 false
             } else {
                 true
@@ -656,6 +685,17 @@ mod test {
             }
         );
 
+        let mut insert_override_callback_values: Vec<(String, Option<IndexedEvent>)> = Vec::new();
+
+        let insert_override_callback = |category: &String, indexed_event: Option<&IndexedEvent>| {
+            insert_override_callback_values.push(
+                (
+                    category.clone(),
+                    indexed_event.map(|value_pointer| value_pointer.clone())
+                )
+            );
+        };
+
         indexed_categories.insert_override(
             600,
             &EventOccurrenceOverride {
@@ -671,7 +711,8 @@ mod test {
                 dtend:       None,
                 description: None,
                 related_to:  None
-            }
+            },
+            insert_override_callback
         );
 
         assert_eq!(
@@ -702,7 +743,27 @@ mod test {
             }
         );
 
-        indexed_categories.remove_override(100);
+        assert_eq!(
+            insert_override_callback_values,
+            vec![
+                (String::from("CATEGORY_TWO"),   Some(IndexedEvent::Include(Some(HashSet::from([500, 400, 600]))))),
+                (String::from("CATEGORY_THREE"), Some(IndexedEvent::Include(Some(HashSet::from([500, 600, 200, 400]))))),
+                (String::from("CATEGORY_FIVE"),  Some(IndexedEvent::Exclude(Some(HashSet::from([600]))))),
+            ]
+        );
+
+        let mut remove_override_callback_values: Vec<(String, Option<IndexedEvent>)> = Vec::new();
+
+        let mut remove_override_callback = |category: &String, indexed_event: Option<&IndexedEvent>| {
+            remove_override_callback_values.push(
+                (
+                    category.clone(),
+                    indexed_event.map(|value_pointer| value_pointer.clone())
+                )
+            );
+        };
+
+        indexed_categories.remove_override(100, &mut remove_override_callback);
 
         assert_eq!(
             indexed_categories,
@@ -732,7 +793,7 @@ mod test {
             }
         );
 
-        indexed_categories.remove_override(500);
+        indexed_categories.remove_override(500, &mut remove_override_callback);
 
         assert_eq!(
             indexed_categories,
@@ -756,6 +817,13 @@ mod test {
                                 ),
                             ])
             }
+        );
+
+        assert_eq!(
+            remove_override_callback_values,
+            vec![
+                (String::from("CATEGORY_FOUR"), None)
+            ]
         );
     }
 

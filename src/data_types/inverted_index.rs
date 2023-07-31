@@ -2,11 +2,7 @@ use serde::{Serialize, Deserialize};
 
 use std::collections::{HashMap, HashSet};
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub enum IndexedEvent {
-    Include(Option<HashSet<i64>>),
-    Exclude(Option<HashSet<i64>>),
-}
+use crate::data_types::event::{Event, IndexedCategories};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct InvertedIndexTerm {
@@ -87,6 +83,38 @@ impl InvertedIndexTerm {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct InvertedIndex {
     pub terms: HashMap<String, InvertedIndexTerm>,
+}
+
+impl InvertedIndex {
+
+    // pub fn insert_all_event(&mut self, event: Event) -> Result<&mut Self, String> {
+    //     if event.indexed_categories.is_none() {
+    //         return Ok(self);
+    //     }
+
+    //     let Some(indexed_categories) = event.indexed_categories;
+
+    //     for (category, indexed_event) in indexed_categories.categories.iter() {
+    //         move || {
+    //             self.terms.entry(*category).and_modify(|inverted_index_term| {
+    //                 inverted_index_term.events.insert(event.uuid, *indexed_event);
+    //             }).or_insert(
+    //                          InvertedIndexTerm {
+    //                     events: HashMap::from([ (event.uuid, *indexed_event) ])
+    //                 }
+    //             );
+    //         };
+    //     }
+
+    //     Ok(self)
+    // }
+
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub enum IndexedEvent {
+    Include(Option<HashSet<i64>>),
+    Exclude(Option<HashSet<i64>>),
 }
 
 impl IndexedEvent {

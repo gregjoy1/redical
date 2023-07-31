@@ -1,8 +1,8 @@
-use redis_module::{redis_module, Context, NextArg, RedisValue, RedisResult, RedisString, RedisError};
+use redis_module::{redis_module, Context, NextArg, RedisValue, RedisResult, RedisString, RedisError, NotifyEvent, Status};
 
 mod data_types;
 
-use data_types::{EVENT_DATA_TYPE, Event, EventOccurrenceOverride, OccurrenceIndexValue};
+use data_types::{EVENT_DATA_TYPE, CALENDAR_DATA_TYPE, Event, EventOccurrenceOverride, OccurrenceIndexValue};
 
 fn args_test<'a>(_: &Context, args: Vec<RedisString>) -> RedisResult {
     let response = args.into_iter().map(|arg| RedisValue::SimpleString(arg.to_string())).collect();
@@ -134,6 +134,14 @@ fn event_override_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
                 match event.override_occurrence(timestamp, &event_occurrence_override) {
                     Ok(updated_event) => {
                         key.set_value(&EVENT_DATA_TYPE, updated_event.clone())?;
+
+                        let status = ctx.notify_keyspace_event(NotifyEvent::GENERIC, "event.override_set", &key_name);
+                        match status {
+                            Status::Err => {
+                                return Err(RedisError::Str("Generic error"));
+                            },
+                            _ => {},
+                        }
                     },
 
                     Err(error) => {
@@ -188,6 +196,17 @@ fn event_override_del(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     }
 }
 
+fn on_event(ctx: &Context, event_type: NotifyEvent, event: &str, key: &[u8]) {
+    ctx.log_notice(
+        format!(
+            "Received event: {:?} on key: {} via event: {}",
+            event_type,
+            std::str::from_utf8(key).unwrap(),
+            event
+        ).as_str()
+    );
+}
+
 pub const MODULE_NAME:    &str = "RediCal";
 pub const MODULE_VERSION: u32 = 1;
 
@@ -197,7 +216,8 @@ redis_module! {
     version:    MODULE_VERSION,
     allocator:  (redis_module::alloc::RedisAlloc, redis_module::alloc::RedisAlloc),
     data_types: [
-        EVENT_DATA_TYPE
+        EVENT_DATA_TYPE,
+        CALENDAR_DATA_TYPE
     ],
     commands:   [
         ["args.test",              args_test, "", 0, 0, 0],
@@ -207,4 +227,7 @@ redis_module! {
         ["event.override_set",     event_override_set, "", 0, 0, 0],
         ["event.override_del",     event_override_del, "", 0, 0, 0],
     ],
+    event_handlers: [
+        [@STRING: on_event],
+    ]
 }
