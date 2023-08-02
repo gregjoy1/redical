@@ -571,14 +571,14 @@ mod test {
                         (
                             100,
                             EventOccurrenceOverride {
-                                properties:  HashMap::from([]),
+                                properties:  HashMap::new(),
                                 categories:  Some(
-                                    vec![
+                                    HashSet::from([
                                         String::from("CATEGORY_ONE"),
                                         String::from("CATEGORY_TWO"),
                                         String::from("CATEGORY_THREE"),
                                         String::from("CATEGORY_FOUR"),
-                                    ]
+                                    ])
                                 ),
                                 duration:    None,
                                 dtstart:     None,
@@ -592,12 +592,12 @@ mod test {
                         (
                             200,
                             EventOccurrenceOverride {
-                                properties:  HashMap::from([]),
+                                properties:  HashMap::new(),
                                 categories:  Some(
-                                    vec![
+                                    HashSet::from([
                                         String::from("CATEGORY_ONE"),
                                         String::from("CATEGORY_TWO"),
-                                    ]
+                                    ])
                                 ),
                                 duration:    None,
                                 dtstart:     None,
@@ -611,7 +611,7 @@ mod test {
                         (
                             300,
                             EventOccurrenceOverride {
-                                properties:  HashMap::from([]),
+                                properties:  HashMap::new(),
                                 categories:  None,
                                 duration:    None,
                                 dtstart:     None,
@@ -625,8 +625,8 @@ mod test {
                         (
                             400,
                             EventOccurrenceOverride {
-                                properties:  HashMap::from([]),
-                                categories:  Some(vec![]),
+                                properties:  HashMap::new(),
+                                categories:  Some(HashSet::new()),
                                 duration:    None,
                                 dtstart:     None,
                                 dtend:       None,
@@ -639,11 +639,11 @@ mod test {
                         (
                             500,
                             EventOccurrenceOverride {
-                                properties:  HashMap::from([]),
+                                properties:  HashMap::new(),
                                 categories:  Some(
-                                    vec![
+                                    HashSet::from([
                                         String::from("CATEGORY_FOUR"),
-                                    ]
+                                    ])
                                 ),
                                 duration:    None,
                                 dtstart:     None,
@@ -699,12 +699,12 @@ mod test {
         indexed_categories.insert_override(
             600,
             &EventOccurrenceOverride {
-                properties:  HashMap::from([]),
+                properties:  HashMap::new(),
                 categories:  Some(
-                    vec![
+                    HashSet::from([
                         String::from("CATEGORY_ONE"),
                         String::from("CATEGORY_FIVE"),
-                    ]
+                    ])
                 ),
                 duration:    None,
                 dtstart:     None,
@@ -1073,13 +1073,13 @@ mod test {
         );
 
         let event_occurrence_override = EventOccurrenceOverride {
-            properties:  HashMap::from([]),
+            properties:  HashMap::new(),
             categories:  Some(
-                vec![
+                HashSet::from([
                     String::from("CATEGORY_ONE"),
                     String::from("CATEGORY_TWO"),
                     String::from("CATEGORY_THREE")
-                ]
+                ])
             ),
             duration:    None,
             dtstart:     None,
@@ -1128,13 +1128,13 @@ mod test {
                         current:  OccurrenceIndex::new_with_value(
                             1610476200,
                             EventOccurrenceOverride {
-                                properties:  HashMap::from([]),
+                                properties:  HashMap::new(),
                                 categories:  Some(
-                                    vec![
+                                    HashSet::from([
                                         String::from("CATEGORY_ONE"),
                                         String::from("CATEGORY_TWO"),
                                         String::from("CATEGORY_THREE")
-                                    ]
+                                    ])
                                 ),
                                 duration:    None,
                                 dtstart:     None,

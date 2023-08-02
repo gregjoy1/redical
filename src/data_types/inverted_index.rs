@@ -2,16 +2,16 @@ use serde::{Serialize, Deserialize};
 
 use std::collections::{HashMap, HashSet};
 
-use crate::data_types::event::{Event, IndexedCategories};
+use crate::data_types::event::Event;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct InvertedIndexTerm {
+pub struct InvertedCalendarIndexTerm {
     pub events: HashMap<String, IndexedEvent>,
 }
 
-impl InvertedIndexTerm {
+impl InvertedCalendarIndexTerm {
 
-    pub fn merge(inverted_index_term_a: InvertedIndexTerm, inverted_index_term_b: InvertedIndexTerm) -> InvertedIndexTerm {
+    pub fn merge(inverted_index_term_a: InvertedCalendarIndexTerm, inverted_index_term_b: InvertedCalendarIndexTerm) -> InvertedCalendarIndexTerm {
         let events_a = inverted_index_term_a.events;
         let events_b = inverted_index_term_b.events;
 
@@ -26,14 +26,14 @@ impl InvertedIndexTerm {
                 compound_events.insert(
                     event_uuid.clone(),
                     IndexedEvent::merge(
-                        indexed_event_a.clone(),
-                        indexed_event_b.clone()
+                        indexed_event_a,
+                        indexed_event_b
                     )
                 );
             }
         }
 
-        InvertedIndexTerm {
+        InvertedCalendarIndexTerm {
             events: compound_events
         }
     }
@@ -80,12 +80,133 @@ impl InvertedIndexTerm {
     }
 }
 
+// Single layer inverted index (for one event) - indexed term - include/exclude
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct InvertedIndex {
-    pub terms: HashMap<String, InvertedIndexTerm>,
+pub struct InvertedEventIndex {
+    pub terms: HashMap<String, IndexedEvent>
 }
 
-impl InvertedIndex {
+impl InvertedEventIndex {
+
+    fn new_from_event_categories(event: &Event, callback_fn: &mut dyn FnMut(&String, Option<&IndexedEvent>)) -> InvertedEventIndex {
+        let mut indexed_categories = InvertedEventIndex {
+            terms: HashMap::new()
+        };
+
+        if let Some(ref categories) = event.indexed_properties.categories {
+            for category in categories.iter() {
+                indexed_categories.insert(&category, callback_fn);
+            }
+        }
+
+        for (timestamp, event_override) in event.overrides.current.iter() {
+            if let Some(override_categories_set) = &event_override.categories {
+                indexed_categories.insert_override(timestamp, override_categories_set, callback_fn);
+            }
+        }
+
+        indexed_categories
+    }
+
+    fn get_currently_indexed_terms(&self) -> HashSet<String> {
+        let mut indexed_terms_set: HashSet<String> = HashSet::new();
+
+        for (term, indexed_event) in self.terms.iter() {
+            match indexed_event {
+                IndexedEvent::Include(_) => {
+                    indexed_terms_set.insert(term.clone());
+                },
+
+                _ => {
+                    continue;
+                }
+            }
+        }
+
+        indexed_terms_set
+    }
+
+    fn insert(&mut self, term: &String, callback_fn: &mut dyn FnMut(&String, Option<&IndexedEvent>)) {
+        self.terms
+            .entry(term.clone())
+            .and_modify(|indexed_term| {
+                *indexed_term = IndexedEvent::merge(
+                    indexed_term,
+                    &IndexedEvent::Include(None)
+                );
+
+                callback_fn(&term, Some(indexed_term));
+            })
+            .or_insert_with(|| {
+                let indexed_event = IndexedEvent::Include(None);
+
+                callback_fn(&term, Some(&indexed_event));
+
+                indexed_event
+            });
+    }
+
+    fn insert_override(&mut self, timestamp: i64, override_terms_set: &HashSet<String>, callback_fn: &mut dyn FnMut(&String, Option<&IndexedEvent>)) {
+        let indexed_terms_set = self.get_currently_indexed_terms();
+
+        // Check for currently indexed terms NOT present in the override, and add them as an exception to
+        // IndexedEvent::Include (include all except timestamp).
+        for excluded_term in indexed_terms_set.difference(&override_terms_set) {
+            self.terms.get_mut(excluded_term)
+                      .and_then(|indexed_term| {
+                          indexed_term.insert_exception(timestamp);
+
+                          callback_fn(excluded_term, Some(indexed_term));
+
+                          Some(indexed_term)
+                      });
+        }
+
+        // Check for overridden terms NOT already currently indexed, and add them as an
+        // exception to IndexedEvent::Exclude (exclude all except timestamp).
+        for included_term in override_terms_set.difference(&indexed_terms_set) {
+            self.terms.entry(included_term.clone())
+                      .and_modify(|indexed_term| {
+                          indexed_term.insert_exception(timestamp);
+
+                          callback_fn(included_term, Some(indexed_term));
+                      })
+                      .or_insert_with(|| {
+                          let indexed_event = IndexedEvent::Exclude(
+                              Some(
+                                  HashSet::from([timestamp])
+                              )
+                          );
+
+                          callback_fn(included_term, Some(&indexed_event));
+
+                          indexed_event
+                      });
+        }
+    }
+
+    fn remove_override(&mut self, timestamp: i64, callback_fn: &mut dyn FnMut(&String, Option<&IndexedEvent>)) {
+        self.terms
+            .retain(|removed_term, indexed_event| {
+                if indexed_event.remove_exception(timestamp) && indexed_event.is_empty_exclude() {
+                    callback_fn(removed_term, None);
+
+                    false
+                } else {
+                    true
+                }
+            });
+    }
+
+}
+
+// Multi layer inverted index (for multiple events) - indexed term - event - include/exclude
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub struct InvertedCalendarIndex {
+    pub terms: HashMap<String, InvertedCalendarIndexTerm>,
+}
+
+impl InvertedCalendarIndex {
 
     // pub fn insert_all_event(&mut self, event: Event) -> Result<&mut Self, String> {
     //     if event.indexed_categories.is_none() {
@@ -99,7 +220,7 @@ impl InvertedIndex {
     //             self.terms.entry(*category).and_modify(|inverted_index_term| {
     //                 inverted_index_term.events.insert(event.uuid, *indexed_event);
     //             }).or_insert(
-    //                          InvertedIndexTerm {
+    //                          InvertedCalendarIndexTerm {
     //                     events: HashMap::from([ (event.uuid, *indexed_event) ])
     //                 }
     //             );
@@ -119,12 +240,12 @@ pub enum IndexedEvent {
 
 impl IndexedEvent {
 
-    pub fn merge(indexed_event_a: IndexedEvent, indexed_event_b: IndexedEvent) -> IndexedEvent {
+    pub fn merge(indexed_event_a: &IndexedEvent, indexed_event_b: &IndexedEvent) -> IndexedEvent {
 
         // Merging exceptions for same types (e.g. Include & Include, Exclude & Exclude).
-        fn merge_include_all_exception_sets(exceptions_a: Option<HashSet<i64>>, exceptions_b: Option<HashSet<i64>>) -> Option<HashSet<i64>> {
-            let exception_set_a = exceptions_a.unwrap_or(HashSet::new());
-            let exception_set_b = exceptions_b.unwrap_or(HashSet::new());
+        fn merge_include_all_exception_sets(exceptions_a: &Option<HashSet<i64>>, exceptions_b: &Option<HashSet<i64>>) -> Option<HashSet<i64>> {
+            let exception_set_a = exceptions_a.clone().unwrap_or(HashSet::new());
+            let exception_set_b = exceptions_b.clone().unwrap_or(HashSet::new());
 
             let compound_exception_set: HashSet<i64> =
                 exception_set_a.union(&exception_set_b)
@@ -140,9 +261,9 @@ impl IndexedEvent {
 
         // Merging exceptions for differing types:
         //  (e.g. (Include all - overrides) & (Exclude - overrides))
-        fn merge_exclude_all_exception_sets(exceptions_to_include_a: Option<HashSet<i64>>, exceptions_to_include_b: Option<HashSet<i64>>) -> Option<HashSet<i64>> {
-            let exception_set_to_include_a = exceptions_to_include_a.unwrap_or(HashSet::new());
-            let exception_set_to_include_b = exceptions_to_include_b.unwrap_or(HashSet::new());
+        fn merge_exclude_all_exception_sets(exceptions_to_include_a: &Option<HashSet<i64>>, exceptions_to_include_b: &Option<HashSet<i64>>) -> Option<HashSet<i64>> {
+            let exception_set_to_include_a = exceptions_to_include_a.clone().unwrap_or(HashSet::new());
+            let exception_set_to_include_b = exceptions_to_include_b.clone().unwrap_or(HashSet::new());
 
             // Take all exceptions to include and subtract all exceptions to exclude from it.
             // e.g.
@@ -164,9 +285,9 @@ impl IndexedEvent {
 
         // Merging exceptions for differing types:
         //  (e.g. (Include all - overrides) & (Exclude - overrides))
-        fn merge_unaligned_exception_sets(exceptions_to_include: Option<HashSet<i64>>, exceptions_to_exclude: Option<HashSet<i64>>) -> Option<HashSet<i64>> {
-            let exception_set_to_include = exceptions_to_include.unwrap_or(HashSet::new());
-            let exception_set_to_exclude = exceptions_to_exclude.unwrap_or(HashSet::new());
+        fn merge_unaligned_exception_sets(exceptions_to_include: &Option<HashSet<i64>>, exceptions_to_exclude: &Option<HashSet<i64>>) -> Option<HashSet<i64>> {
+            let exception_set_to_include = exceptions_to_include.clone().unwrap_or(HashSet::new());
+            let exception_set_to_exclude = exceptions_to_exclude.clone().unwrap_or(HashSet::new());
 
             // Take all exceptions to include and subtract all exceptions to exclude from it.
             // e.g.
@@ -303,8 +424,8 @@ mod test {
     fn test_inverted_index_term_merge() {
 
         assert_eq!(
-            InvertedIndexTerm::merge(
-                InvertedIndexTerm {
+            InvertedCalendarIndexTerm::merge(
+                InvertedCalendarIndexTerm {
                     events:
                         HashMap::from([
                             (String::from("event_one"),   IndexedEvent::Include(Some(HashSet::from([100, 200])))),
@@ -318,7 +439,7 @@ mod test {
                             (String::from("event_nine"),  IndexedEvent::Exclude(None))
                         ])
                 },
-                InvertedIndexTerm {
+                InvertedCalendarIndexTerm {
                     events:
                         HashMap::from([
                             (String::from("event_one"),   IndexedEvent::Exclude(Some(HashSet::from([100, 200])))),
@@ -332,7 +453,7 @@ mod test {
                         ]),
                 }
             ),
-            InvertedIndexTerm {
+            InvertedCalendarIndexTerm {
                 events:
                     HashMap::from([
                         (String::from("event_one"),   IndexedEvent::Exclude(None)),
@@ -352,64 +473,64 @@ mod test {
     fn test_indexed_event_merge() {
         assert_eq!(
             IndexedEvent::merge(
-                IndexedEvent::Include(Some(HashSet::from([100, 200]))),
-                IndexedEvent::Exclude(Some(HashSet::from([100, 200])))
+                &IndexedEvent::Include(Some(HashSet::from([100, 200]))),
+                &IndexedEvent::Exclude(Some(HashSet::from([100, 200])))
             ),
             IndexedEvent::Exclude(None),
         );
 
         assert_eq!(
             IndexedEvent::merge(
-                IndexedEvent::Include(Some(HashSet::from([100, 200]))),
-                IndexedEvent::Include(Some(HashSet::from([200, 300])))
+                &IndexedEvent::Include(Some(HashSet::from([100, 200]))),
+                &IndexedEvent::Include(Some(HashSet::from([200, 300])))
             ),
             IndexedEvent::Include(Some(HashSet::from([100, 200, 300])))
         );
 
         assert_eq!(
             IndexedEvent::merge(
-                IndexedEvent::Exclude(Some(HashSet::from([100, 200]))),
-                IndexedEvent::Exclude(Some(HashSet::from([200, 300])))
+                &IndexedEvent::Exclude(Some(HashSet::from([100, 200]))),
+                &IndexedEvent::Exclude(Some(HashSet::from([200, 300])))
             ),
             IndexedEvent::Exclude(Some(HashSet::from([200])))
         );
 
         assert_eq!(
             IndexedEvent::merge(
-                IndexedEvent::Exclude(Some(HashSet::from([100, 200]))),
-                IndexedEvent::Exclude(None)
+                &IndexedEvent::Exclude(Some(HashSet::from([100, 200]))),
+                &IndexedEvent::Exclude(None)
             ),
             IndexedEvent::Exclude(None)
         );
 
         assert_eq!(
             IndexedEvent::merge(
-                IndexedEvent::Include(Some(HashSet::from([100, 200]))),
-                IndexedEvent::Include(None)
+                &IndexedEvent::Include(Some(HashSet::from([100, 200]))),
+                &IndexedEvent::Include(None)
             ),
             IndexedEvent::Include(Some(HashSet::from([100, 200])))
         );
 
         assert_eq!(
             IndexedEvent::merge(
-                IndexedEvent::Include(Some(HashSet::from([100, 200]))),
-                IndexedEvent::Exclude(None)
+                &IndexedEvent::Include(Some(HashSet::from([100, 200]))),
+                &IndexedEvent::Exclude(None)
             ),
             IndexedEvent::Exclude(None)
         );
 
         assert_eq!(
             IndexedEvent::merge(
-                IndexedEvent::Exclude(Some(HashSet::from([100, 200]))),
-                IndexedEvent::Include(None)
+                &IndexedEvent::Exclude(Some(HashSet::from([100, 200]))),
+                &IndexedEvent::Include(None)
             ),
             IndexedEvent::Exclude(Some(HashSet::from([100, 200])))
         );
 
         assert_eq!(
             IndexedEvent::merge(
-                IndexedEvent::Exclude(None),
-                IndexedEvent::Include(None)
+                &IndexedEvent::Exclude(None),
+                &IndexedEvent::Include(None)
             ),
             IndexedEvent::Exclude(None)
         );

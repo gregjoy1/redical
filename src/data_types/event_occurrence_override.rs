@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use serde::{Serialize, Deserialize};
 
@@ -11,12 +11,12 @@ use std::collections::BTreeMap;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct EventOccurrenceOverride<'a> {
-    pub categories:  Option<Vec<String>>,
+    pub categories:  Option<HashSet<String>>,
     pub duration:    Option<String>,
     pub dtstart:     Option<String>,
     pub dtend:       Option<String>,
     pub description: Option<String>,
-    pub related_to:  Option<Vec<String>>,
+    pub related_to:  Option<HashSet<String>>,
 
     #[serde(borrow)]
     pub properties:  HashMap<&'a str, Vec<String>>
@@ -44,12 +44,12 @@ impl<'a> EventOccurrenceOverride<'a> {
                     .try_for_each(|parsed_property: ParsedProperty| {
                         match parsed_property {
                             ParsedProperty::Categories(content)  => {
-                                let mut categories: Vec<String> = vec![];
+                                let mut categories: HashSet<String> = HashSet::new();
 
                                 match content.value {
                                     ParsedValue::List(list) => {
                                         list.iter().for_each(|category| {
-                                            categories.push(String::from(*category));
+                                            categories.insert(String::from(*category));
                                         });
                                     },
                                     _ => {}
@@ -65,7 +65,7 @@ impl<'a> EventOccurrenceOverride<'a> {
                             ParsedProperty::DtStart(content)     => { new_override.dtstart     = Some(String::from(content.content_line)); },
                             ParsedProperty::DtEnd(content)       => { new_override.dtend       = Some(String::from(content.content_line)); },
                             ParsedProperty::Description(content) => { new_override.description = Some(String::from(content.content_line)); },
-                            ParsedProperty::RelatedTo(content)   => { new_override.related_to  = Some(vec![String::from(content.content_line)]); },
+                            ParsedProperty::RelatedTo(content)   => { new_override.related_to  = Some(HashSet::from([String::from(content.content_line)])); },
                             ParsedProperty::Other(_content)      => { } // TODO
                         }
 
@@ -99,11 +99,11 @@ mod test {
             EventOccurrenceOverride {
                 properties:       HashMap::from([]),
                 categories:       Some(
-                    vec![
+                    HashSet::from([
                         String::from("CATEGORY_ONE"),
                         String::from("CATEGORY_TWO"),
                         String::from("CATEGORY THREE")
-                    ]
+                    ])
                 ),
                 duration:         None,
                 dtstart:          None,
