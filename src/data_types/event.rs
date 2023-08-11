@@ -13,7 +13,7 @@ use crate::data_types::occurrence_index::{OccurrenceIndex, OccurrenceIndexValue}
 
 use crate::data_types::event_occurrence_override::EventOccurrenceOverride;
 
-use crate::data_types::inverted_index::{IndexedEvent, InvertedEventIndex, InvertedIndexListener};
+use crate::data_types::inverted_index::{IndexedConclusion, InvertedEventIndex, InvertedIndexListener};
 
 use crate::data_types::calendar::{CalendarIndexUpdater, CalendarCategoryIndexUpdater, CalendarRelatedToIndexUpdater};
 
@@ -276,8 +276,8 @@ impl<'a> Event<'a> {
         }
     }
 
-    fn category_update_callback(category: &String, indexed_event:  Option<&IndexedEvent>) {
-        println!("category_update_callback - category: {:#?} - indexed_event: {:#?}", *category, indexed_event);
+    fn category_update_callback(category: &String, indexed_conclusion:  Option<&IndexedConclusion>) {
+        println!("category_update_callback - category: {:#?} - indexed_conclusion: {:#?}", *category, indexed_conclusion);
     }
 
     pub fn override_occurrence(&mut self, timestamp: i64, event_occurrence_override: &'a EventOccurrenceOverride, calendar_index_updater: &mut CalendarIndexUpdater) -> Result<&Self, String> {
@@ -536,15 +536,15 @@ mod test {
         };
 
         struct CallbackContainer {
-            handle_update_values: Vec<(String, Option<IndexedEvent>)>
+            handle_update_values: Vec<(String, Option<IndexedConclusion>)>
         }
 
         impl InvertedIndexListener for CallbackContainer {
-            fn handle_update(&mut self, category: &String, indexed_event: Option<&IndexedEvent>) {
+            fn handle_update(&mut self, category: &String, indexed_conclusion: Option<&IndexedConclusion>) {
                 self.handle_update_values.push(
                     (
                         category.clone(),
-                        indexed_event.map(|value_pointer| value_pointer.clone())
+                        indexed_conclusion.map(|value_pointer| value_pointer.clone())
                     )
                 );
             }
@@ -568,19 +568,19 @@ mod test {
                 terms: HashMap::from([
                                 (
                                     String::from("CATEGORY_ONE"),
-                                    IndexedEvent::Include(Some(HashSet::from([400, 500]))),
+                                    IndexedConclusion::Include(Some(HashSet::from([400, 500]))),
                                 ),
                                 (
                                     String::from("CATEGORY_TWO"),
-                                    IndexedEvent::Include(Some(HashSet::from([400, 500]))),
+                                    IndexedConclusion::Include(Some(HashSet::from([400, 500]))),
                                 ),
                                 (
                                     String::from("CATEGORY_THREE"),
-                                    IndexedEvent::Include(Some(HashSet::from([200, 400, 500]))),
+                                    IndexedConclusion::Include(Some(HashSet::from([200, 400, 500]))),
                                 ),
                                 (
                                     String::from("CATEGORY_FOUR"),
-                                    IndexedEvent::Exclude(Some(HashSet::from([100, 500]))),
+                                    IndexedConclusion::Exclude(Some(HashSet::from([100, 500]))),
                                 ),
                             ])
             }
@@ -588,7 +588,7 @@ mod test {
 
         assert_eq!(callback_container.handle_update_values.len(), 12);
 
-        fn sort_by_category_name(array: Vec<(String, Option<IndexedEvent>)>) -> Vec<(String, Option<IndexedEvent>)> {
+        fn sort_by_category_name(array: Vec<(String, Option<IndexedConclusion>)>) -> Vec<(String, Option<IndexedConclusion>)> {
             let mut sorted_array = array.clone();
 
             sorted_array.sort_by_key(|(category_name, _)| category_name.clone());
@@ -602,15 +602,15 @@ mod test {
             vec![
                 (
                     String::from("CATEGORY_ONE"),
-                    Some(IndexedEvent::Include(None))
+                    Some(IndexedConclusion::Include(None))
                 ),
                 (
                     String::from("CATEGORY_THREE"),
-                    Some(IndexedEvent::Include(None))
+                    Some(IndexedConclusion::Include(None))
                 ),
                 (
                     String::from("CATEGORY_TWO"),
-                    Some(IndexedEvent::Include(None))
+                    Some(IndexedConclusion::Include(None))
                 ),
             ]
         );
@@ -621,7 +621,7 @@ mod test {
             vec![
                 (
                     String::from("CATEGORY_FOUR"),
-                    Some(IndexedEvent::Exclude(Some(HashSet::from([100]))))
+                    Some(IndexedConclusion::Exclude(Some(HashSet::from([100]))))
                 ),
             ]
         );
@@ -632,7 +632,7 @@ mod test {
             vec![
                 (
                     String::from("CATEGORY_THREE"),
-                    Some(IndexedEvent::Include(Some(HashSet::from([200]))))
+                    Some(IndexedConclusion::Include(Some(HashSet::from([200]))))
                 ),
             ]
         );
@@ -645,15 +645,15 @@ mod test {
             vec![
                 (
                     String::from("CATEGORY_ONE"),
-                    Some(IndexedEvent::Include(Some(HashSet::from([400]))))
+                    Some(IndexedConclusion::Include(Some(HashSet::from([400]))))
                 ),
                 (
                     String::from("CATEGORY_THREE"),
-                    Some(IndexedEvent::Include(Some(HashSet::from([400, 200]))))
+                    Some(IndexedConclusion::Include(Some(HashSet::from([400, 200]))))
                 ),
                 (
                     String::from("CATEGORY_TWO"),
-                    Some(IndexedEvent::Include(Some(HashSet::from([400]))))
+                    Some(IndexedConclusion::Include(Some(HashSet::from([400]))))
                 ),
             ]
         );
@@ -664,19 +664,19 @@ mod test {
             vec![
                 (
                     String::from("CATEGORY_FOUR"),
-                    Some(IndexedEvent::Exclude(Some(HashSet::from([500, 100]))))
+                    Some(IndexedConclusion::Exclude(Some(HashSet::from([500, 100]))))
                 ),
                 (
                     String::from("CATEGORY_ONE"),
-                    Some(IndexedEvent::Include(Some(HashSet::from([400, 500]))))
+                    Some(IndexedConclusion::Include(Some(HashSet::from([400, 500]))))
                 ),
                 (
                     String::from("CATEGORY_THREE"),
-                    Some(IndexedEvent::Include(Some(HashSet::from([400, 200, 500]))))
+                    Some(IndexedConclusion::Include(Some(HashSet::from([400, 200, 500]))))
                 ),
                 (
                     String::from("CATEGORY_TWO"),
-                    Some(IndexedEvent::Include(Some(HashSet::from([400, 500]))))
+                    Some(IndexedConclusion::Include(Some(HashSet::from([400, 500]))))
                 ),
             ]
         );
@@ -699,23 +699,23 @@ mod test {
                 terms: HashMap::from([
                                 (
                                     String::from("CATEGORY_ONE"),
-                                    IndexedEvent::Include(Some(HashSet::from([400, 500]))),
+                                    IndexedConclusion::Include(Some(HashSet::from([400, 500]))),
                                 ),
                                 (
                                     String::from("CATEGORY_TWO"),
-                                    IndexedEvent::Include(Some(HashSet::from([400, 500, 600]))),
+                                    IndexedConclusion::Include(Some(HashSet::from([400, 500, 600]))),
                                 ),
                                 (
                                     String::from("CATEGORY_THREE"),
-                                    IndexedEvent::Include(Some(HashSet::from([200, 400, 500, 600]))),
+                                    IndexedConclusion::Include(Some(HashSet::from([200, 400, 500, 600]))),
                                 ),
                                 (
                                     String::from("CATEGORY_FOUR"),
-                                    IndexedEvent::Exclude(Some(HashSet::from([100, 500]))),
+                                    IndexedConclusion::Exclude(Some(HashSet::from([100, 500]))),
                                 ),
                                 (
                                     String::from("CATEGORY_FIVE"),
-                                    IndexedEvent::Exclude(Some(HashSet::from([600]))),
+                                    IndexedConclusion::Exclude(Some(HashSet::from([600]))),
                                 ),
                             ])
             }
@@ -724,9 +724,9 @@ mod test {
         assert_eq!(
             sort_by_category_name(callback_container.handle_update_values.clone()),
             vec![
-                (String::from("CATEGORY_FIVE"),  Some(IndexedEvent::Exclude(Some(HashSet::from([600]))))),
-                (String::from("CATEGORY_THREE"), Some(IndexedEvent::Include(Some(HashSet::from([500, 600, 200, 400]))))),
-                (String::from("CATEGORY_TWO"),   Some(IndexedEvent::Include(Some(HashSet::from([500, 400, 600]))))),
+                (String::from("CATEGORY_FIVE"),  Some(IndexedConclusion::Exclude(Some(HashSet::from([600]))))),
+                (String::from("CATEGORY_THREE"), Some(IndexedConclusion::Include(Some(HashSet::from([500, 600, 200, 400]))))),
+                (String::from("CATEGORY_TWO"),   Some(IndexedConclusion::Include(Some(HashSet::from([500, 400, 600]))))),
             ]
         );
 
@@ -741,23 +741,23 @@ mod test {
                 terms: HashMap::from([
                                 (
                                     String::from("CATEGORY_ONE"),
-                                    IndexedEvent::Include(Some(HashSet::from([400, 500]))),
+                                    IndexedConclusion::Include(Some(HashSet::from([400, 500]))),
                                 ),
                                 (
                                     String::from("CATEGORY_TWO"),
-                                    IndexedEvent::Include(Some(HashSet::from([400, 500, 600]))),
+                                    IndexedConclusion::Include(Some(HashSet::from([400, 500, 600]))),
                                 ),
                                 (
                                     String::from("CATEGORY_THREE"),
-                                    IndexedEvent::Include(Some(HashSet::from([200, 400, 500, 600]))),
+                                    IndexedConclusion::Include(Some(HashSet::from([200, 400, 500, 600]))),
                                 ),
                                 (
                                     String::from("CATEGORY_FOUR"),
-                                    IndexedEvent::Exclude(Some(HashSet::from([500]))),
+                                    IndexedConclusion::Exclude(Some(HashSet::from([500]))),
                                 ),
                                 (
                                     String::from("CATEGORY_FIVE"),
-                                    IndexedEvent::Exclude(Some(HashSet::from([600]))),
+                                    IndexedConclusion::Exclude(Some(HashSet::from([600]))),
                                 ),
                             ])
             }
@@ -781,19 +781,19 @@ mod test {
                 terms: HashMap::from([
                                 (
                                     String::from("CATEGORY_ONE"),
-                                    IndexedEvent::Include(Some(HashSet::from([400]))),
+                                    IndexedConclusion::Include(Some(HashSet::from([400]))),
                                 ),
                                 (
                                     String::from("CATEGORY_TWO"),
-                                    IndexedEvent::Include(Some(HashSet::from([400, 600]))),
+                                    IndexedConclusion::Include(Some(HashSet::from([400, 600]))),
                                 ),
                                 (
                                     String::from("CATEGORY_THREE"),
-                                    IndexedEvent::Include(Some(HashSet::from([200, 400, 600]))),
+                                    IndexedConclusion::Include(Some(HashSet::from([200, 400, 600]))),
                                 ),
                                 (
                                     String::from("CATEGORY_FIVE"),
-                                    IndexedEvent::Exclude(Some(HashSet::from([600]))),
+                                    IndexedConclusion::Exclude(Some(HashSet::from([600]))),
                                 ),
                             ])
             }
@@ -1144,15 +1144,15 @@ mod test {
                             terms: HashMap::from([
                                             (
                                                 String::from("CATEGORY_ONE"),
-                                                IndexedEvent::Exclude(Some(HashSet::from([1610476200]))),
+                                                IndexedConclusion::Exclude(Some(HashSet::from([1610476200]))),
                                             ),
                                             (
                                                 String::from("CATEGORY_TWO"),
-                                                IndexedEvent::Exclude(Some(HashSet::from([1610476200]))),
+                                                IndexedConclusion::Exclude(Some(HashSet::from([1610476200]))),
                                             ),
                                             (
                                                 String::from("CATEGORY_THREE"),
-                                                IndexedEvent::Exclude(Some(HashSet::from([1610476200]))),
+                                                IndexedConclusion::Exclude(Some(HashSet::from([1610476200]))),
                                             ),
                                         ])
                         }
