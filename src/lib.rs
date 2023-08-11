@@ -2,7 +2,7 @@ use redis_module::{redis_module, Context, NextArg, RedisValue, RedisResult, Redi
 
 mod data_types;
 
-use data_types::{EVENT_DATA_TYPE, CALENDAR_DATA_TYPE, Event, EventOccurrenceOverride, OccurrenceIndexValue};
+use data_types::{EVENT_DATA_TYPE, CALENDAR_DATA_TYPE, Event, EventOccurrenceOverride, OccurrenceIndexValue, Calendar, CalendarIndexUpdater};
 
 fn args_test<'a>(_: &Context, args: Vec<RedisString>) -> RedisResult {
     let response = args.into_iter().map(|arg| RedisValue::SimpleString(arg.to_string())).collect();
@@ -131,7 +131,12 @@ fn event_override_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
         match EventOccurrenceOverride::parse_ical(other.as_str()) {
             Ok(event_occurrence_override) => {
 
-                match event.override_occurrence(timestamp, &event_occurrence_override) {
+                // TODO: Populate and validate this...
+                let calendars: Vec<Box<Calendar>> = vec![];
+
+                let mut calendar_index_updater = CalendarIndexUpdater::new(event.uuid.clone(), calendars);
+
+                match event.override_occurrence(timestamp, &event_occurrence_override, &mut calendar_index_updater) {
                     Ok(updated_event) => {
                         key.set_value(&EVENT_DATA_TYPE, updated_event.clone())?;
 
@@ -179,7 +184,12 @@ fn event_override_del(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
 
     if let Some(event) = key.get_value::<Event>(&EVENT_DATA_TYPE)? {
 
-        match event.remove_occurrence_override(timestamp) {
+        // TODO: Populate and validate this...
+        let calendars: Vec<Box<Calendar>> = vec![];
+
+        let mut calendar_index_updater = CalendarIndexUpdater::new(event.uuid.clone(), calendars);
+
+        match event.remove_occurrence_override(timestamp, &mut calendar_index_updater) {
             Ok(updated_event) => {
                 key.set_value(&EVENT_DATA_TYPE, updated_event.clone())?;
             },

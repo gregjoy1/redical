@@ -11,6 +11,23 @@ pub struct InvertedCalendarIndexTerm {
 
 impl InvertedCalendarIndexTerm {
 
+    pub fn new() -> Self {
+        InvertedCalendarIndexTerm {
+            events: HashMap::new()
+        }
+    }
+
+    pub fn new_with_event(event_uuid: String, indexed_event: IndexedEvent) -> Self {
+        let mut inverted_calendar_index_term = Self::new();
+
+        match indexed_event {
+            IndexedEvent::Include(exceptions) => inverted_calendar_index_term.insert_included_event(event_uuid, exceptions),
+            IndexedEvent::Exclude(exceptions) => inverted_calendar_index_term.insert_excluded_event(event_uuid, exceptions),
+        };
+
+        inverted_calendar_index_term
+    }
+
     pub fn merge(inverted_index_term_a: InvertedCalendarIndexTerm, inverted_index_term_b: InvertedCalendarIndexTerm) -> InvertedCalendarIndexTerm {
         let events_a = inverted_index_term_a.events;
         let events_b = inverted_index_term_b.events;
@@ -45,12 +62,18 @@ impl InvertedCalendarIndexTerm {
         }
     }
 
-    pub fn insert_included_event(&mut self, event_uuid: String) -> Option<IndexedEvent> {
-        self.events.insert(event_uuid, IndexedEvent::Include(None))
+    pub fn insert_included_event(&mut self, event_uuid: String, exceptions: Option<HashSet<i64>>) -> Option<IndexedEvent> {
+        self.events.insert(event_uuid, IndexedEvent::Include(exceptions))
     }
 
-    pub fn insert_excluded_event(&mut self, event_uuid: String) -> Option<IndexedEvent> {
-        self.events.insert(event_uuid, IndexedEvent::Exclude(None))
+    pub fn insert_excluded_event(&mut self, event_uuid: String, exceptions: Option<HashSet<i64>>) -> Option<IndexedEvent> {
+        self.events.insert(event_uuid, IndexedEvent::Exclude(exceptions))
+    }
+
+    pub fn remove_event(&mut self, event_uuid: String) -> Result<&mut Self, String> {
+        self.events.remove_entry(&event_uuid);
+
+        Ok(self)
     }
 
     pub fn insert_exception(&mut self, event_uuid: String, exception: i64) -> Result<&mut IndexedEvent, String> {
@@ -80,6 +103,10 @@ impl InvertedCalendarIndexTerm {
     }
 }
 
+pub trait InvertedIndexListener {
+    fn handle_update(&mut self, updated_term: &String, indexed_event: Option<&IndexedEvent>);
+}
+
 // Single layer inverted index (for one event) - indexed term - include/exclude
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct InvertedEventIndex {
@@ -88,20 +115,20 @@ pub struct InvertedEventIndex {
 
 impl InvertedEventIndex {
 
-    fn new_from_event_categories(event: &Event, callback_fn: &mut dyn FnMut(&String, Option<&IndexedEvent>)) -> InvertedEventIndex {
+    pub fn new_from_event_categories(event: &Event, inverted_index_listener: &mut dyn InvertedIndexListener) -> InvertedEventIndex {
         let mut indexed_categories = InvertedEventIndex {
             terms: HashMap::new()
         };
 
         if let Some(ref categories) = event.indexed_properties.categories {
             for category in categories.iter() {
-                indexed_categories.insert(&category, callback_fn);
+                indexed_categories.insert(&category, inverted_index_listener);
             }
         }
 
         for (timestamp, event_override) in event.overrides.current.iter() {
             if let Some(override_categories_set) = &event_override.categories {
-                indexed_categories.insert_override(timestamp, override_categories_set, callback_fn);
+                indexed_categories.insert_override(timestamp, override_categories_set, inverted_index_listener);
             }
         }
 
@@ -126,7 +153,7 @@ impl InvertedEventIndex {
         indexed_terms_set
     }
 
-    fn insert(&mut self, term: &String, callback_fn: &mut dyn FnMut(&String, Option<&IndexedEvent>)) {
+    pub fn insert(&mut self, term: &String, inverted_index_listener: &mut dyn InvertedIndexListener) {
         self.terms
             .entry(term.clone())
             .and_modify(|indexed_term| {
@@ -135,18 +162,18 @@ impl InvertedEventIndex {
                     &IndexedEvent::Include(None)
                 );
 
-                callback_fn(&term, Some(indexed_term));
+                inverted_index_listener.handle_update(&term, Some(indexed_term));
             })
             .or_insert_with(|| {
                 let indexed_event = IndexedEvent::Include(None);
 
-                callback_fn(&term, Some(&indexed_event));
+                inverted_index_listener.handle_update(&term, Some(&indexed_event));
 
                 indexed_event
             });
     }
 
-    fn insert_override(&mut self, timestamp: i64, override_terms_set: &HashSet<String>, callback_fn: &mut dyn FnMut(&String, Option<&IndexedEvent>)) {
+    pub fn insert_override(&mut self, timestamp: i64, override_terms_set: &HashSet<String>, inverted_index_listener: &mut dyn InvertedIndexListener) {
         let indexed_terms_set = self.get_currently_indexed_terms();
 
         // Check for currently indexed terms NOT present in the override, and add them as an exception to
@@ -156,7 +183,7 @@ impl InvertedEventIndex {
                       .and_then(|indexed_term| {
                           indexed_term.insert_exception(timestamp);
 
-                          callback_fn(excluded_term, Some(indexed_term));
+                          inverted_index_listener.handle_update(excluded_term, Some(indexed_term));
 
                           Some(indexed_term)
                       });
@@ -169,7 +196,7 @@ impl InvertedEventIndex {
                       .and_modify(|indexed_term| {
                           indexed_term.insert_exception(timestamp);
 
-                          callback_fn(included_term, Some(indexed_term));
+                          inverted_index_listener.handle_update(included_term, Some(indexed_term));
                       })
                       .or_insert_with(|| {
                           let indexed_event = IndexedEvent::Exclude(
@@ -178,18 +205,18 @@ impl InvertedEventIndex {
                               )
                           );
 
-                          callback_fn(included_term, Some(&indexed_event));
+                          inverted_index_listener.handle_update(included_term, Some(&indexed_event));
 
                           indexed_event
                       });
         }
     }
 
-    fn remove_override(&mut self, timestamp: i64, callback_fn: &mut dyn FnMut(&String, Option<&IndexedEvent>)) {
+    pub fn remove_override(&mut self, timestamp: i64, inverted_index_listener: &mut dyn InvertedIndexListener) {
         self.terms
             .retain(|removed_term, indexed_event| {
                 if indexed_event.remove_exception(timestamp) && indexed_event.is_empty_exclude() {
-                    callback_fn(removed_term, None);
+                    inverted_index_listener.handle_update(removed_term, None);
 
                     false
                 } else {
@@ -207,6 +234,36 @@ pub struct InvertedCalendarIndex {
 }
 
 impl InvertedCalendarIndex {
+
+    pub fn new() -> Self {
+        InvertedCalendarIndex {
+            terms: HashMap::new()
+        }
+    }
+
+    pub fn insert(&mut self, event_uuid: String, term: String, indexed_event: &IndexedEvent) -> Result<&mut Self, String> {
+        self.terms
+            .entry(term)
+            .and_modify(|term_events| {
+                match indexed_event {
+                    IndexedEvent::Include(exceptions) => term_events.insert_included_event(event_uuid.clone(), exceptions.clone()),
+                    IndexedEvent::Exclude(exceptions) => term_events.insert_excluded_event(event_uuid.clone(), exceptions.clone()),
+                };
+            })
+            .or_insert(InvertedCalendarIndexTerm::new_with_event(event_uuid.clone(), indexed_event.clone()));
+
+        Ok(self)
+    }
+
+    pub fn remove(&mut self, event_uuid: String, term: String) -> Result<&mut Self, String> {
+        self.terms
+            .entry(term)
+            .and_modify(|inverted_calendar_index_term| {
+                inverted_calendar_index_term.remove_event(event_uuid);
+            });
+
+        Ok(self)
+    }
 
     // pub fn insert_all_event(&mut self, event: Event) -> Result<&mut Self, String> {
     //     if event.indexed_categories.is_none() {
