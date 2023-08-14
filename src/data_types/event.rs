@@ -129,7 +129,7 @@ impl ScheduleProperties {
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct IndexedProperties {
-    pub related_to:  Option<Vec<String>>,
+    pub related_to:  Option<HashMap<String, HashSet<String>>>,
     pub categories:  Option<Vec<String>>
 }
 
@@ -160,9 +160,62 @@ impl IndexedProperties {
 
             // TODO: Break into pieces so that it can be indexed like categories.
             ParsedProperty::RelatedTo(content)  => {
-                property_option_set_or_insert(&mut self.related_to, content.content_line);
+                // TODO: improve
+                let default_reltype = String::from("PARENT");
 
-                Ok(self)
+                let reltype: String = match content.params {
+                    Some(params) => {
+                        match params.get(&"RELTYPE") {
+                            Some(values) => {
+                                if values.is_empty() {
+                                    default_reltype
+                                } else if values.len() == 1 {
+                                    String::from(values[0])
+                                } else {
+                                    return Err(String::from("Expected related_to RELTYPE to be a single value."))
+                                }
+                            },
+
+                            None => default_reltype
+                        }
+                    },
+
+                    None => default_reltype
+                };
+
+                match content.value {
+                    ParsedValue::List(list) => {
+                        list.iter().for_each(|related_to_uuid| {
+                            match &mut self.related_to {
+                                Some(related_to_map) => {
+                                    related_to_map.entry(reltype.clone())
+                                                  .and_modify(|reltype_uuids| { reltype_uuids.insert(String::from(*related_to_uuid)); })
+                                                  .or_insert(HashSet::from([String::from(*related_to_uuid)]));
+                                },
+
+                                None => {
+                                    self.related_to = Some(
+                                        HashMap::from(
+                                            [
+                                                (
+                                                    reltype.clone(),
+                                                    HashSet::from([
+                                                        String::from(*related_to_uuid)
+                                                    ])
+                                                )
+                                            ]
+                                        )
+                                    );
+                                }
+                            }
+                        });
+
+                        Ok(self)
+                    },
+                    _ => {
+                        Err(String::from("Expected related_to to have list value."))
+                    }
+                }
             },
 
             _ => {
@@ -1225,6 +1278,65 @@ mod test {
                     ),
                 }
             )
+        );
+    }
+
+    #[test]
+    fn test_related_to() {
+        let ical: &str = "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_One,redical//IndexedCalendar_Two RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Three,redical//IndexedCalendar_Two RELATED-TO:ParentUUID_One RELATED-TO;RELTYPE=PARENT:ParentUUID_Two RELATED-TO;RELTYPE=CHILD:ChildUUID";
+
+        let parsed_event = Event::parse_ical("event_UUID", ical).unwrap();
+
+        assert_eq!(
+            parsed_event,
+            Event {
+                uuid:                String::from("event_UUID"),
+
+                schedule_properties: ScheduleProperties {
+                    rrule:            None,
+                    exrule:           None,
+                    rdate:            None,
+                    exdate:           None,
+                    duration:         None,
+                    dtstart:          None,
+                    dtend:            None,
+                },
+
+                indexed_properties:  IndexedProperties {
+                    related_to: Some(
+                                    HashMap::from([
+                                        (
+                                            String::from("X-IDX-CAL"),
+                                            HashSet::from([
+                                                String::from("redical//IndexedCalendar_One"),
+                                                String::from("redical//IndexedCalendar_Two"),
+                                                String::from("redical//IndexedCalendar_Three"),
+                                            ])
+                                        ),
+                                        (
+                                            String::from("PARENT"),
+                                            HashSet::from([
+                                                String::from("ParentUUID_One"),
+                                                String::from("ParentUUID_Two"),
+                                            ])
+                                        ),
+                                        (
+                                            String::from("CHILD"),
+                                            HashSet::from([
+                                                String::from("ChildUUID"),
+                                            ])
+                                        )
+                                    ])
+                                ),
+                    categories: None
+                },
+
+                passive_properties:  PassiveProperties::new(),
+
+                overrides:           EventOccurrenceOverrides::new(),
+                occurrence_cache:    None,
+                indexed_categories:  None,
+            }
         );
     }
 
