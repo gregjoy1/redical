@@ -1227,4 +1227,55 @@ mod test {
             )
         );
     }
+
+    #[test]
+    fn benchmark_build_occurrence_cache() {
+        let ical: &str = "RRULE:FREQ=DAILY;UNTIL=20230331T183000Z;INTERVAL=1 DTSTART:20201231T183000Z";
+
+        let mut parsed_event = Event::parse_ical("event_UUID", ical).unwrap();
+
+        assert_eq!(
+            parsed_event,
+            Event {
+                uuid:                String::from("event_UUID"),
+
+                schedule_properties: ScheduleProperties {
+                    rrule:            Some(
+                        vec![
+                            String::from("RRULE:FREQ=DAILY;UNTIL=20230331T183000Z;INTERVAL=1")
+                        ]
+                    ),
+                    exrule:           None,
+                    rdate:            None,
+                    exdate:           None,
+                    duration:         None,
+                    dtstart:          Some(
+                        vec![
+                            String::from("DTSTART:20201231T183000Z")
+                        ]
+                    ),
+                    dtend:            None,
+                },
+
+                indexed_properties:  IndexedProperties::new(),
+
+                passive_properties:  PassiveProperties::new(),
+
+                overrides:           EventOccurrenceOverrides::new(),
+                occurrence_cache:    None,
+                indexed_categories:  None,
+            }
+        );
+
+        let start = std::time::Instant::now();
+
+        assert!(
+            // parsed_event.rebuild_occurrence_cache(65535).is_ok()
+            parsed_event.rebuild_occurrence_cache(8760).is_ok()
+        );
+
+        let duration = start.elapsed();
+
+        println!("Time elapsed in rebuild_occurrence_cache() is: {:?}", duration);
+    }
 }
