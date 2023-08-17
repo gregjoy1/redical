@@ -16,7 +16,7 @@ pub struct EventOccurrenceOverride<'a> {
     pub dtstart:     Option<String>,
     pub dtend:       Option<String>,
     pub description: Option<String>,
-    pub related_to:  Option<HashSet<String>>,
+    pub related_to:  Option<HashMap<String, HashSet<String>>>,
 
     #[serde(borrow)]
     pub properties:  HashMap<&'a str, Vec<String>>
@@ -57,6 +57,65 @@ impl<'a> EventOccurrenceOverride<'a> {
 
                                 new_override.categories = Some(categories);
                             },
+
+                            ParsedProperty::RelatedTo(content)   => {
+                                // TODO: improve
+                                let default_reltype = String::from("PARENT");
+
+                                let reltype: String = match content.params {
+                                    Some(params) => {
+                                        match params.get(&"RELTYPE") {
+                                            Some(values) => {
+                                                if values.is_empty() {
+                                                    default_reltype
+                                                } else if values.len() == 1 {
+                                                    String::from(values[0])
+                                                } else {
+                                                    return Err(String::from("Expected related_to RELTYPE to be a single value."))
+                                                }
+                                            },
+
+                                            None => default_reltype
+                                        }
+                                    },
+
+                                    None => default_reltype
+                                };
+
+                                match content.value {
+                                    ParsedValue::List(list) => {
+                                        list.iter().for_each(|related_to_uuid| {
+                                            match &mut new_override.related_to {
+                                                Some(related_to_map) => {
+                                                    related_to_map.entry(reltype.clone())
+                                                                  .and_modify(|reltype_uuids| { reltype_uuids.insert(String::from(*related_to_uuid)); })
+                                                                  .or_insert(HashSet::from([String::from(*related_to_uuid)]));
+                                                },
+
+                                                None => {
+                                                    new_override.related_to = Some(
+                                                        HashMap::from(
+                                                            [
+                                                                (
+                                                                    reltype.clone(),
+                                                                    HashSet::from([
+                                                                        String::from(*related_to_uuid)
+                                                                    ])
+                                                                )
+                                                            ]
+                                                        )
+                                                    );
+                                                }
+                                            }
+                                        });
+                                    },
+
+                                    _ => {
+                                        return Err(String::from("Expected related_to to have list value."));
+                                    }
+                                };
+                            },
+
                             ParsedProperty::RRule(_)  => { return Err(String::from("Event occurrence override does not expect an rrule property")); },
                             ParsedProperty::ExRule(_) => { return Err(String::from("Event occurrence override does not expect an exrule property")); },
                             ParsedProperty::RDate(_)  => { return Err(String::from("Event occurrence override does not expect an rdate property")); },
@@ -65,7 +124,6 @@ impl<'a> EventOccurrenceOverride<'a> {
                             ParsedProperty::DtStart(content)     => { new_override.dtstart     = Some(String::from(content.content_line)); },
                             ParsedProperty::DtEnd(content)       => { new_override.dtend       = Some(String::from(content.content_line)); },
                             ParsedProperty::Description(content) => { new_override.description = Some(String::from(content.content_line)); },
-                            ParsedProperty::RelatedTo(content)   => { new_override.related_to  = Some(HashSet::from([String::from(content.content_line)])); },
                             ParsedProperty::Other(_content)      => { } // TODO
                         }
 
@@ -76,6 +134,25 @@ impl<'a> EventOccurrenceOverride<'a> {
             },
             Err(err) => Err(err.to_string())
         }
+    }
+
+    // TODO: pull into DRY util to turn hash into set
+    pub fn build_override_related_to_set(&self) -> Option<HashSet::<String>> {
+        if self.related_to.is_none() {
+            return None;
+        }
+
+        let mut override_related_to_set = HashSet::<String>::new();
+
+        if let Some(override_related_to_map) = &self.related_to {
+            for (reltype, reltype_uuids) in override_related_to_map.iter() {
+                for reltype_uuid in reltype_uuids.iter() {
+                    override_related_to_set.insert(format!("{reltype}:{reltype_uuid}"));
+                }
+            }
+        }
+
+        Some(override_related_to_set)
     }
 }
 

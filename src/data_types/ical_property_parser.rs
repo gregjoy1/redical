@@ -219,11 +219,11 @@ fn param_value(input: &str) -> IResult<&str, &str> {
 fn param_text(input: &str) -> IResult<&str, &str> {
     let next_property_index: usize = match find_next_property_in_unquoted_value(input) {
         Some(found_property_index) => {
-            println!("param_text -- found_property_index - {found_property_index} -- {:#?}", &input[..=found_property_index]);
+            // println!("param_text -- found_property_index - {found_property_index} -- {:#?}", &input[..=found_property_index]);
             found_property_index
         },
         None => {
-            println!("param_text -- not found_property_index -- {:#?}", input);
+            // println!("param_text -- not found_property_index -- {:#?}", input);
             input.len()
         }
     };
@@ -234,7 +234,7 @@ fn param_text(input: &str) -> IResult<&str, &str> {
 
     let split_at_index = std::cmp::min(next_property_index, extracted_param_text_index);
 
-    println!("param_text - min - {split_at_index} - next_property_index {next_property_index} - extracted_param_text_index {extracted_param_text_index} - input: {input}");
+    // println!("param_text - min - {split_at_index} - next_property_index {next_property_index} - extracted_param_text_index {extracted_param_text_index} - input: {input}");
 
     let result = input.split_at(split_at_index);
 
@@ -252,11 +252,11 @@ fn values(input: &str) -> IResult<&str, Vec<&str>> {
 fn value(input: &str) -> IResult<&str, &str> {
     let next_property_index: usize = match find_next_property_in_unquoted_value(input) {
         Some(found_property_index) => {
-            println!("value -- found_property_index - {found_property_index} -- {:#?}", &input[..=found_property_index]);
+            // println!("value -- found_property_index - {found_property_index} -- {:#?}", &input[..=found_property_index]);
             found_property_index
         },
         None => {
-            println!("value -- not found_property_index -- {:#?}", input);
+            // println!("value -- not found_property_index -- {:#?}", input);
             input.len()
         }
     };
@@ -267,7 +267,7 @@ fn value(input: &str) -> IResult<&str, &str> {
 
     let split_at_index = std::cmp::min(next_property_index, extracted_value_index);
 
-    println!("value - min - {split_at_index} - next_property_index {next_property_index} - extracted_value_index {extracted_value_index} - input: {input}");
+    // println!("value - min - {split_at_index} - next_property_index {next_property_index} - extracted_value_index {extracted_value_index} - input: {input}");
 
     let result = input.split_at(split_at_index);
 
@@ -611,7 +611,7 @@ fn parse_related_to_property_content(input: &str) -> IResult<&str, ParsedPropert
 }
 
 fn parse_property(input: &str) -> IResult<&str, ParsedProperty> {
-    println!("parse_property - input - {input}");
+    // println!("parse_property - input - {input}");
     alt(
         (
             map(parse_rrule_property_content, ParsedProperty::RRule),

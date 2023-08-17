@@ -141,6 +141,16 @@ impl IndexedProperties {
         }
     }
 
+    pub fn indexed_calendars(&self) -> Option<HashSet<String>> {
+        if let Some(related_to_hashmap) = &self.related_to {
+            if let Some(connected_indexed_calendars) = related_to_hashmap.get("X-IDX-CAL") {
+                return Some(connected_indexed_calendars.clone());
+            }
+        }
+
+        None
+    }
+
     pub fn insert(&mut self, property: ParsedProperty) -> Result<&Self, String> {
         match property {
             ParsedProperty::Categories(content)  => {
@@ -267,6 +277,7 @@ pub struct Event<'a> {
     pub overrides:           EventOccurrenceOverrides<'a>,
     pub occurrence_cache:    Option<OccurrenceIndex<OccurrenceIndexValue>>,
     pub indexed_categories:  Option<InvertedEventIndex>,
+    pub indexed_related_to:  Option<InvertedEventIndex>,
 }
 
 impl<'a> Event<'a> {
@@ -281,7 +292,8 @@ impl<'a> Event<'a> {
 
             overrides:           EventOccurrenceOverrides::new(),
             occurrence_cache:    None,
-            indexed_categories:  None
+            indexed_categories:  None,
+            indexed_related_to:  None,
         }
     }
 
@@ -329,10 +341,6 @@ impl<'a> Event<'a> {
         }
     }
 
-    fn category_update_callback(category: &String, indexed_conclusion:  Option<&IndexedConclusion>) {
-        println!("category_update_callback - category: {:#?} - indexed_conclusion: {:#?}", *category, indexed_conclusion);
-    }
-
     pub fn override_occurrence(&mut self, timestamp: i64, event_occurrence_override: &'a EventOccurrenceOverride, calendar_index_updater: &mut CalendarIndexUpdater) -> Result<&Self, String> {
         match &mut self.occurrence_cache {
             Some(occurrence_cache) => {
@@ -368,6 +376,27 @@ impl<'a> Event<'a> {
                         InvertedEventIndex::new_from_event_categories(
                             self,
                             &mut calendar_category_index_updater
+                        )
+                    );
+                }
+
+                let mut calendar_related_to_index_updater = CalendarRelatedToIndexUpdater::new(calendar_index_updater);
+
+                if let Some(ref mut indexed_related_to) = self.indexed_related_to {
+
+                    if let Some(overridden_related_to_set) = &event_occurrence_override.build_override_related_to_set() {
+                        indexed_related_to.insert_override(
+                            timestamp,
+                            overridden_related_to_set,
+                            &mut calendar_related_to_index_updater
+                        );
+                    }
+
+                } else {
+                    self.indexed_related_to = Some(
+                        InvertedEventIndex::new_from_event_related_to(
+                            self,
+                            &mut calendar_related_to_index_updater
                         )
                     );
                 }
@@ -408,12 +437,28 @@ impl<'a> Event<'a> {
                                 )
                             );
                         }
+
+                        let mut calendar_related_to_index_updater = CalendarRelatedToIndexUpdater::new(calendar_index_updater);
+
+                        if let Some(ref mut indexed_related_to) = self.indexed_related_to {
+                            indexed_related_to.remove_override(
+                                timestamp,
+                                &mut calendar_related_to_index_updater
+                            );
+                        } else {
+                            self.indexed_related_to = Some(
+                                InvertedEventIndex::new_from_event_related_to(
+                                    &*self,
+                                    &mut calendar_related_to_index_updater
+                                )
+                            );
+                        }
                     },
+
                     None => {
                         return Err(format!("No overridable occurrence exists for timestamp: {timestamp}"));
                     }
                 }
-
             },
             None => {
                 return Err(format!("No overridable occurrence exists for timestamp: {timestamp}"));
@@ -586,6 +631,7 @@ mod test {
             },
             occurrence_cache:   None,
             indexed_categories: None,
+            indexed_related_to: None,
         };
 
         struct CallbackContainer {
@@ -911,6 +957,7 @@ mod test {
                 overrides:           EventOccurrenceOverrides::new(),
                 occurrence_cache:    None,
                 indexed_categories:  None,
+                indexed_related_to:  None,
             }
         );
     }
@@ -951,6 +998,7 @@ mod test {
                 overrides:           EventOccurrenceOverrides::new(),
                 occurrence_cache:    None,
                 indexed_categories:  None,
+                indexed_related_to:  None,
             }
         );
 
@@ -1040,6 +1088,7 @@ mod test {
                 overrides:           EventOccurrenceOverrides::new(),
                 occurrence_cache:    None,
                 indexed_categories:  None,
+                indexed_related_to:  None,
             }
         );
 
@@ -1075,6 +1124,7 @@ mod test {
                 overrides:           EventOccurrenceOverrides::new(),
                 occurrence_cache:    None,
                 indexed_categories:  None,
+                indexed_related_to:  None,
             }
         );
 
@@ -1123,7 +1173,7 @@ mod test {
         };
 
         // TODO: potentially test this interaction?!
-        let mut calendar_index_updater = CalendarIndexUpdater::new(parsed_event.uuid.clone(), vec![]);
+        let mut calendar_index_updater = CalendarIndexUpdater::new(parsed_event.uuid.clone(), vec![], vec![]);
 
         assert_eq!(
             parsed_event.override_occurrence(1234, &event_occurrence_override, &mut calendar_index_updater),
@@ -1210,6 +1260,11 @@ mod test {
                                         ])
                         }
                     ),
+                    indexed_related_to:  Some(
+                        InvertedEventIndex {
+                            terms: HashMap::from([])
+                        }
+                    )
                 }
             )
         );
@@ -1276,6 +1331,11 @@ mod test {
                             terms: HashMap::new()
                         }
                     ),
+                    indexed_related_to:  Some(
+                        InvertedEventIndex {
+                            terms: HashMap::new()
+                        }
+                    ),
                 }
             )
         );
@@ -1283,6 +1343,15 @@ mod test {
 
     #[test]
     fn test_related_to() {
+        let ical: &str = "RELATED-TO:ParentUUID_One RELATED-TO;RELTYPE=PARENT:ParentUUID_Two RELATED-TO;RELTYPE=CHILD:ChildUUID";
+
+        let parsed_event = Event::parse_ical("event_UUID", ical).unwrap();
+
+        assert_eq!(
+            parsed_event.indexed_properties.indexed_calendars(),
+            None
+        );
+
         let ical: &str = "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_One,redical//IndexedCalendar_Two RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Three,redical//IndexedCalendar_Two RELATED-TO:ParentUUID_One RELATED-TO;RELTYPE=PARENT:ParentUUID_Two RELATED-TO;RELTYPE=CHILD:ChildUUID";
 
         let parsed_event = Event::parse_ical("event_UUID", ical).unwrap();
@@ -1336,7 +1405,19 @@ mod test {
                 overrides:           EventOccurrenceOverrides::new(),
                 occurrence_cache:    None,
                 indexed_categories:  None,
+                indexed_related_to:  None,
             }
+        );
+
+        assert_eq!(
+            parsed_event.indexed_properties.indexed_calendars(),
+            Some(
+                HashSet::from([
+                    String::from("redical//IndexedCalendar_One"),
+                    String::from("redical//IndexedCalendar_Two"),
+                    String::from("redical//IndexedCalendar_Three"),
+                ])
+            )
         );
     }
 
@@ -1376,6 +1457,7 @@ mod test {
                 overrides:           EventOccurrenceOverrides::new(),
                 occurrence_cache:    None,
                 indexed_categories:  None,
+                indexed_related_to:  None,
             }
         );
 

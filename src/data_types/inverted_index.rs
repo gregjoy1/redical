@@ -135,6 +135,28 @@ impl InvertedEventIndex {
         indexed_categories
     }
 
+    pub fn new_from_event_related_to(event: &Event, inverted_index_listener: &mut dyn InvertedIndexListener) -> InvertedEventIndex {
+        let mut indexed_related_to = InvertedEventIndex {
+            terms: HashMap::new()
+        };
+
+        if let Some(ref related_to_map) = event.indexed_properties.related_to {
+            for (reltype, reltype_uuids) in related_to_map.iter() {
+                for reltype_uuid in reltype_uuids.iter() {
+                    indexed_related_to.insert(&format!("{reltype}:{reltype_uuid}"), inverted_index_listener);
+                }
+            }
+        }
+
+        for (timestamp, event_override) in event.overrides.current.iter() {
+            if let Some(override_related_to_set) = &event_override.build_override_related_to_set() {
+                indexed_related_to.insert_override(timestamp, &override_related_to_set, inverted_index_listener);
+            }
+        }
+
+        indexed_related_to
+    }
+
     fn get_currently_indexed_terms(&self) -> HashSet<String> {
         let mut indexed_terms_set: HashSet<String> = HashSet::new();
 

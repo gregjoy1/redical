@@ -30,6 +30,9 @@ fn event_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     match Event::parse_ical(key_name.try_as_str()?,other.as_str()) {
         Ok(mut event) => {
 
+            // TODO: Compare existing with new event to update calendars etc
+            // let existing_event = key.get_value::<Event>(&EVENT_DATA_TYPE)?;
+
             match event.rebuild_occurrence_cache(1000) {
                 Ok(event) => {
                     key.set_value(&EVENT_DATA_TYPE, event.clone())?;
@@ -132,9 +135,10 @@ fn event_override_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
             Ok(event_occurrence_override) => {
 
                 // TODO: Populate and validate this...
-                let calendars: Vec<Box<Calendar>> = vec![];
+                let connected_calendars: Vec<Box<Calendar>> = vec![];
+                let disconnected_calendars: Vec<Box<Calendar>> = vec![];
 
-                let mut calendar_index_updater = CalendarIndexUpdater::new(event.uuid.clone(), calendars);
+                let mut calendar_index_updater = CalendarIndexUpdater::new(event.uuid.clone(), connected_calendars, disconnected_calendars);
 
                 match event.override_occurrence(timestamp, &event_occurrence_override, &mut calendar_index_updater) {
                     Ok(updated_event) => {
@@ -185,9 +189,10 @@ fn event_override_del(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     if let Some(event) = key.get_value::<Event>(&EVENT_DATA_TYPE)? {
 
         // TODO: Populate and validate this...
-        let calendars: Vec<Box<Calendar>> = vec![];
+        let connected_calendars: Vec<Box<Calendar>> = vec![];
+        let disconnected_calendars: Vec<Box<Calendar>> = vec![];
 
-        let mut calendar_index_updater = CalendarIndexUpdater::new(event.uuid.clone(), calendars);
+        let mut calendar_index_updater = CalendarIndexUpdater::new(event.uuid.clone(), connected_calendars, disconnected_calendars);
 
         match event.remove_occurrence_override(timestamp, &mut calendar_index_updater) {
             Ok(updated_event) => {
