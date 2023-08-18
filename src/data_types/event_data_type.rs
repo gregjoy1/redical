@@ -1,4 +1,4 @@
-use crate::Event;
+use crate::data_types::Event;
 
 use redis_module::{
     native_types::RedisType, raw, RedisModuleIO, RedisModuleString, RedisModuleTypeMethods,
