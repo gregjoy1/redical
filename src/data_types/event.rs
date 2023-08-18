@@ -141,7 +141,7 @@ impl IndexedProperties {
         }
     }
 
-    pub fn indexed_calendars(&self) -> Option<HashSet<String>> {
+    pub fn get_indexed_calendars(&self) -> Option<HashSet<String>> {
         if let Some(related_to_hashmap) = &self.related_to {
             if let Some(connected_indexed_calendars) = related_to_hashmap.get("X-IDX-CAL") {
                 return Some(connected_indexed_calendars.clone());
@@ -341,6 +341,32 @@ impl<'a> Event<'a> {
         }
     }
 
+    pub fn rebuild_indexed_categories(&mut self, calendar_index_updater: &mut CalendarIndexUpdater) -> Result<&mut Self, String> {
+        let mut calendar_category_index_updater = CalendarCategoryIndexUpdater::new(calendar_index_updater);
+
+        self.indexed_categories = Some(
+            InvertedEventIndex::new_from_event_categories(
+                self,
+                &mut calendar_category_index_updater
+            )
+        );
+
+        Ok(self)
+    }
+
+    pub fn rebuild_indexed_related_to(&mut self, calendar_index_updater: &mut CalendarIndexUpdater) -> Result<&mut Self, String> {
+        let mut calendar_related_to_index_updater = CalendarRelatedToIndexUpdater::new(calendar_index_updater);
+
+        self.indexed_related_to = Some(
+            InvertedEventIndex::new_from_event_related_to(
+                self,
+                &mut calendar_related_to_index_updater
+            )
+        );
+
+        Ok(self)
+    }
+
     pub fn override_occurrence(&mut self, timestamp: i64, event_occurrence_override: &'a EventOccurrenceOverride, calendar_index_updater: &mut CalendarIndexUpdater) -> Result<&Self, String> {
         match &mut self.occurrence_cache {
             Some(occurrence_cache) => {
@@ -359,11 +385,11 @@ impl<'a> Event<'a> {
                     }
                 }
 
-                let mut calendar_category_index_updater = CalendarCategoryIndexUpdater::new(calendar_index_updater);
-
                 if let Some(ref mut indexed_categories) = self.indexed_categories {
 
                     if let Some(overridden_categories) = &event_occurrence_override.categories {
+                        let mut calendar_category_index_updater = CalendarCategoryIndexUpdater::new(calendar_index_updater);
+
                         indexed_categories.insert_override(
                             timestamp,
                             overridden_categories,
@@ -372,19 +398,14 @@ impl<'a> Event<'a> {
                     }
 
                 } else {
-                    self.indexed_categories = Some(
-                        InvertedEventIndex::new_from_event_categories(
-                            self,
-                            &mut calendar_category_index_updater
-                        )
-                    );
+                    self.rebuild_indexed_categories(calendar_index_updater);
                 }
-
-                let mut calendar_related_to_index_updater = CalendarRelatedToIndexUpdater::new(calendar_index_updater);
 
                 if let Some(ref mut indexed_related_to) = self.indexed_related_to {
 
                     if let Some(overridden_related_to_set) = &event_occurrence_override.build_override_related_to_set() {
+                        let mut calendar_related_to_index_updater = CalendarRelatedToIndexUpdater::new(calendar_index_updater);
+
                         indexed_related_to.insert_override(
                             timestamp,
                             overridden_related_to_set,
@@ -393,12 +414,7 @@ impl<'a> Event<'a> {
                     }
 
                 } else {
-                    self.indexed_related_to = Some(
-                        InvertedEventIndex::new_from_event_related_to(
-                            self,
-                            &mut calendar_related_to_index_updater
-                        )
-                    );
+                    self.rebuild_indexed_related_to(calendar_index_updater);
                 }
             },
             None => {
@@ -1348,7 +1364,7 @@ mod test {
         let parsed_event = Event::parse_ical("event_UUID", ical).unwrap();
 
         assert_eq!(
-            parsed_event.indexed_properties.indexed_calendars(),
+            parsed_event.indexed_properties.get_indexed_calendars(),
             None
         );
 
@@ -1410,7 +1426,7 @@ mod test {
         );
 
         assert_eq!(
-            parsed_event.indexed_properties.indexed_calendars(),
+            parsed_event.indexed_properties.get_indexed_calendars(),
             Some(
                 HashSet::from([
                     String::from("redical//IndexedCalendar_One"),

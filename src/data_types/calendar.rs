@@ -39,6 +39,14 @@ impl CalendarIndexUpdater {
 
         }
     }
+
+    pub fn is_any_connected_calendars(&self) -> bool {
+        self.connected_calendars.len() > 0
+    }
+
+    pub fn is_any_disconnected_calendars(&self) -> bool {
+        self.disconnected_calendars.len() > 0
+    }
 }
 
 #[derive(Debug)]
@@ -54,7 +62,7 @@ impl<'a> CalendarCategoryIndexUpdater<'a> {
         }
     }
 
-    fn remove_event_from_calendar(&mut self, original_event: &Event) -> Result<bool, String> {
+    pub fn remove_event_from_calendar(&mut self, original_event: &Event) -> Result<bool, String> {
         let original_uuid = &original_event.uuid;
         let current_uuid = &self.calendar_index_updater.event_uuid;
 
@@ -68,7 +76,7 @@ impl<'a> CalendarCategoryIndexUpdater<'a> {
                     // Update all calendars with None as indexed_conclusion so that it deletes the
                     // categories associated with the event which has now been disconnected from
                     // the calendar(s).
-                    Self::update_calendar(calendar, original_uuid.clone(), category.clone(), None);
+                    Self::update_calendar(calendar, original_uuid.clone(), category.clone(), None)?;
                 }
             }
         }
@@ -79,11 +87,11 @@ impl<'a> CalendarCategoryIndexUpdater<'a> {
     fn update_calendar(calendar: &mut Calendar, event_uuid: String, updated_term: String, indexed_conclusion: Option<&IndexedConclusion>) -> Result<bool, String> {
         match indexed_conclusion {
             Some(indexed_conclusion) => {
-                calendar.indexed_categories.insert(event_uuid, updated_term, indexed_conclusion);
+                calendar.indexed_categories.insert(event_uuid, updated_term, indexed_conclusion)?;
             },
 
             None => {
-                calendar.indexed_categories.remove(event_uuid, updated_term);
+                calendar.indexed_categories.remove(event_uuid, updated_term)?;
             }
         };
 
@@ -95,7 +103,8 @@ impl<'a> InvertedIndexListener for CalendarCategoryIndexUpdater<'a> {
 
     fn handle_update(&mut self, updated_term: &String, indexed_conclusion: Option<&IndexedConclusion>) {
         for calendar in self.calendar_index_updater.connected_calendars.iter_mut() {
-            Self::update_calendar(calendar, self.calendar_index_updater.event_uuid.clone(), updated_term.clone(), indexed_conclusion);
+            // TODO: handle error...
+            let _ = Self::update_calendar(calendar, self.calendar_index_updater.event_uuid.clone(), updated_term.clone(), indexed_conclusion);
         }
     }
 }
@@ -113,7 +122,7 @@ impl<'a> CalendarRelatedToIndexUpdater<'a> {
         }
     }
 
-    fn remove_event_from_calendar(&mut self, original_event: &Event) -> Result<bool, String> {
+    pub fn remove_event_from_calendar(&mut self, original_event: &Event) -> Result<bool, String> {
         let original_uuid = &original_event.uuid;
         let current_uuid = &self.calendar_index_updater.event_uuid;
 
@@ -127,7 +136,7 @@ impl<'a> CalendarRelatedToIndexUpdater<'a> {
                     // Update all calendars with None as indexed_conclusion so that it deletes the
                     // related_to associated with the event which has now been disconnected from
                     // the calendar(s).
-                    Self::update_calendar(calendar, original_uuid.clone(), related_to.clone(), None);
+                    Self::update_calendar(calendar, original_uuid.clone(), related_to.clone(), None)?;
                 }
             }
         }
@@ -138,11 +147,11 @@ impl<'a> CalendarRelatedToIndexUpdater<'a> {
     fn update_calendar(calendar: &mut Calendar, event_uuid: String, updated_term: String, indexed_conclusion: Option<&IndexedConclusion>) -> Result<bool, String> {
         match indexed_conclusion {
             Some(indexed_conclusion) => {
-                calendar.indexed_related_to.insert(event_uuid, updated_term, indexed_conclusion);
+                calendar.indexed_related_to.insert(event_uuid, updated_term, indexed_conclusion)?;
             },
 
             None => {
-                calendar.indexed_related_to.remove(event_uuid, updated_term);
+                calendar.indexed_related_to.remove(event_uuid, updated_term)?;
             }
         };
 
@@ -154,7 +163,8 @@ impl<'a> InvertedIndexListener for CalendarRelatedToIndexUpdater<'a> {
 
     fn handle_update(&mut self, updated_term: &String, indexed_conclusion: Option<&IndexedConclusion>) {
         for calendar in self.calendar_index_updater.connected_calendars.iter_mut() {
-            Self::update_calendar(calendar, self.calendar_index_updater.event_uuid.clone(), updated_term.clone(), indexed_conclusion);
+            // TODO: handle error...
+            let _ = Self::update_calendar(calendar, self.calendar_index_updater.event_uuid.clone(), updated_term.clone(), indexed_conclusion);
         }
     }
 }

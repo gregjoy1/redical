@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use std::hash::Hash;
 
 #[derive(Debug, Eq, PartialEq)]
-struct UpdatedSetMembers<T>
+pub struct UpdatedSetMembers<T>
 where
     T: Eq + PartialEq + Hash + Clone
 {
@@ -56,6 +56,14 @@ where
                 }
             },
         }
+    }
+
+    pub fn all_present_members(&self) -> HashSet<T> {
+        let mut present_members_set = self.maintained.clone();
+
+        present_members_set.extend(self.added.clone().into_iter());
+
+        present_members_set
     }
 }
 

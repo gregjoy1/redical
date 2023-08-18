@@ -2,12 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use serde::{Serialize, Deserialize};
 
-use chrono::prelude::*;
-use chrono::{DateTime, Utc, Months, Days};
-
-use crate::data_types::ical_property_parser::{parse_properties, ParsedProperty, ParsedPropertyContent, ParsedValue};
-
-use std::collections::BTreeMap;
+use crate::data_types::ical_property_parser::{parse_properties, ParsedProperty, ParsedValue};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct EventOccurrenceOverride<'a> {
