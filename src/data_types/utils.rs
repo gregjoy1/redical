@@ -1,5 +1,28 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
+
+pub fn hashmap_to_hashset(hash_map: Option<&HashMap<String, HashSet<String>>>) -> Option<HashSet<(String, String)>> {
+    hash_map.and_then(|hash_map| {
+        let mut set_members = HashSet::<(String, String)>::new();
+
+        for (key, values) in hash_map.iter() {
+            for value in values.iter() {
+                set_members.insert(
+                    (
+                        key.clone(),
+                        value.clone()
+                    )
+                );
+            }
+        }
+
+        if set_members.is_empty() {
+            None
+        } else {
+            Some(set_members)
+        }
+    })
+}
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct UpdatedSetMembers<T>
@@ -64,6 +87,14 @@ where
         present_members_set.extend(self.added.clone().into_iter());
 
         present_members_set
+    }
+
+    pub fn is_unchanged(&self) -> bool {
+        self.removed.is_empty() && self.added.is_empty()
+    }
+
+    pub fn is_changed(&self) -> bool {
+        !self.is_unchanged()
     }
 }
 

@@ -17,12 +17,12 @@ use crate::data_types::inverted_index::{IndexedConclusion, InvertedEventIndex, I
 
 use crate::data_types::calendar::{CalendarIndexUpdater, CalendarCategoryIndexUpdater, CalendarRelatedToIndexUpdater};
 
-fn property_option_set_or_insert<'a>(property_option: &mut Option<Vec<String>>, content: &'a str) {
+fn property_option_set_or_insert<'a>(property_option: &mut Option<HashSet<String>>, content: &'a str) {
     let content = String::from(content);
 
     match property_option {
-        Some(properties) => { properties.push(content) },
-        None => { *property_option = Some(vec![content]) }
+        Some(properties) => { properties.insert(content); },
+        None => { *property_option = Some(HashSet::from([content])); }
     }
 }
 
@@ -46,13 +46,13 @@ impl<'a> EventOccurrenceOverrides<'a> {
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct ScheduleProperties {
-    pub rrule:       Option<Vec<String>>,
-    pub exrule:      Option<Vec<String>>,
-    pub rdate:       Option<Vec<String>>,
-    pub exdate:      Option<Vec<String>>,
-    pub duration:    Option<Vec<String>>,
-    pub dtstart:     Option<Vec<String>>,
-    pub dtend:       Option<Vec<String>>,
+    pub rrule:       Option<HashSet<String>>,
+    pub exrule:      Option<HashSet<String>>,
+    pub rdate:       Option<HashSet<String>>,
+    pub exdate:      Option<HashSet<String>>,
+    pub duration:    Option<HashSet<String>>,
+    pub dtstart:     Option<HashSet<String>>,
+    pub dtend:       Option<HashSet<String>>,
 }
 
 impl ScheduleProperties {
@@ -130,7 +130,7 @@ impl ScheduleProperties {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct IndexedProperties {
     pub related_to:  Option<HashMap<String, HashSet<String>>>,
-    pub categories:  Option<Vec<String>>
+    pub categories:  Option<HashSet<String>>
 }
 
 impl IndexedProperties {
@@ -157,7 +157,21 @@ impl IndexedProperties {
                 match content.value {
                     ParsedValue::List(list) => {
                         list.iter().for_each(|category| {
-                            property_option_set_or_insert(&mut self.categories, *category);
+                            let category = String::from(*category);
+
+                            match &mut self.categories {
+                                Some(categories) => {
+                                    categories.insert(category);
+                                },
+
+                                None => {
+                                    self.categories = Some(
+                                        HashSet::from([
+                                            category
+                                        ])
+                                    );
+                                }
+                            };
                         });
 
                         Ok(self)
@@ -237,7 +251,7 @@ impl IndexedProperties {
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct PassiveProperties {
-    pub properties: HashMap<String, Vec<String>>
+    pub properties: HashMap<String, HashSet<String>>
 }
 
 impl PassiveProperties {
@@ -251,8 +265,10 @@ impl PassiveProperties {
         match property {
             ParsedProperty::Description(content) | ParsedProperty::Other(content)  => {
                 self.properties.entry(String::from(content.name.unwrap()))
-                               .and_modify(|content_lines| content_lines.push(String::from(content.content_line)))
-                               .or_insert(vec![String::from(content.content_line)]);
+                               .and_modify(|content_lines| {
+                                   content_lines.insert(String::from(content.content_line));
+                               })
+                               .or_insert(HashSet::from([String::from(content.content_line)]));
 
                 Ok(self)
             },
@@ -398,7 +414,7 @@ impl<'a> Event<'a> {
                     }
 
                 } else {
-                    self.rebuild_indexed_categories(calendar_index_updater);
+                    self.rebuild_indexed_categories(calendar_index_updater)?;
                 }
 
                 if let Some(ref mut indexed_related_to) = self.indexed_related_to {
@@ -414,7 +430,7 @@ impl<'a> Event<'a> {
                     }
 
                 } else {
-                    self.rebuild_indexed_related_to(calendar_index_updater);
+                    self.rebuild_indexed_related_to(calendar_index_updater)?;
                 }
             },
             None => {
@@ -541,11 +557,11 @@ mod test {
             indexed_properties: IndexedProperties {
                 related_to: None,
                 categories: Some(
-                    vec![
+                    HashSet::from([
                         String::from("CATEGORY_ONE"),
                         String::from("CATEGORY_TWO"),
                         String::from("CATEGORY_THREE")
-                    ]
+                    ])
                 ),
             },
 
@@ -934,9 +950,9 @@ mod test {
 
                 schedule_properties: ScheduleProperties {
                     rrule:            Some(
-                        vec![
+                        HashSet::from([
                             String::from("RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH")
-                        ]
+                        ])
                     ),
                     exrule:           None,
                     rdate:            None,
@@ -948,11 +964,11 @@ mod test {
 
                 indexed_properties:  IndexedProperties {
                     categories:       Some(
-                        vec![
+                        HashSet::from([
                             String::from("CATEGORY_ONE"),
                             String::from("CATEGORY_TWO"),
                             String::from("CATEGORY THREE")
-                        ]
+                        ])
                     ),
                     related_to:       None,
                 },
@@ -962,9 +978,9 @@ mod test {
                                     [
                                         (
                                             String::from("DESCRIPTION"),
-                                            vec![
+                                            HashSet::from([
                                                 String::from("DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA")
-                                            ]
+                                            ])
                                         )
                                     ]
                                 )
@@ -991,18 +1007,18 @@ mod test {
 
                 schedule_properties: ScheduleProperties {
                     rrule:            Some(
-                        vec![
+                        HashSet::from([
                             String::from("RRULE:FREQ=WEEKLY;UNTIL=20210331T183000Z;INTERVAL=1;BYDAY=TU")
-                        ]
+                        ])
                     ),
                     exrule:           None,
                     rdate:            None,
                     exdate:           None,
                     duration:         None,
                     dtstart:          Some(
-                        vec![
+                        HashSet::from([
                             String::from("DTSTART:20201231T183000Z")
-                        ]
+                        ])
                     ),
                     dtend:            None,
                 },
@@ -1081,18 +1097,18 @@ mod test {
 
                 schedule_properties: ScheduleProperties {
                     rrule:            Some(
-                        vec![
+                        HashSet::from([
                             String::from("RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH")
-                        ]
+                        ])
                     ),
                     exrule:           None,
                     rdate:            None,
                     exdate:           None,
                     duration:         None,
                     dtstart:          Some(
-                        vec![
+                        HashSet::from([
                             String::from("DTSTART:16010101T020000")
-                        ]
+                        ])
                     ),
                     dtend:            None,
                 },
@@ -1121,9 +1137,9 @@ mod test {
 
                 schedule_properties: ScheduleProperties {
                     rrule:            Some(
-                        vec![
+                        HashSet::from([
                             String::from("RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH")
-                        ]
+                        ])
                     ),
                     exrule:           None,
                     rdate:            None,
@@ -1206,18 +1222,18 @@ mod test {
 
                     schedule_properties: ScheduleProperties {
                         rrule:            Some(
-                            vec![
+                            HashSet::from([
                                 String::from("RRULE:FREQ=WEEKLY;UNTIL=20210331T183000Z;INTERVAL=1;BYDAY=TU")
-                            ]
+                            ])
                         ),
                         exrule:           None,
                         rdate:            None,
                         exdate:           None,
                         duration:         None,
                         dtstart:          Some(
-                            vec![
+                            HashSet::from([
                                 String::from("DTSTART:20201231T183000Z")
-                            ]
+                            ])
                         ),
                         dtend:            None,
                     },
@@ -1307,18 +1323,18 @@ mod test {
 
                     schedule_properties: ScheduleProperties {
                         rrule:            Some(
-                            vec![
+                            HashSet::from([
                                 String::from("RRULE:FREQ=WEEKLY;UNTIL=20210331T183000Z;INTERVAL=1;BYDAY=TU")
-                            ]
+                            ])
                         ),
                         exrule:           None,
                         rdate:            None,
                         exdate:           None,
                         duration:         None,
                         dtstart:          Some(
-                            vec![
+                            HashSet::from([
                                 String::from("DTSTART:20201231T183000Z")
-                            ]
+                            ])
                         ),
                         dtend:            None,
                     },
@@ -1450,18 +1466,18 @@ mod test {
 
                 schedule_properties: ScheduleProperties {
                     rrule:            Some(
-                        vec![
+                        HashSet::from([
                             String::from("RRULE:FREQ=DAILY;UNTIL=20230331T183000Z;INTERVAL=1")
-                        ]
+                        ])
                     ),
                     exrule:           None,
                     rdate:            None,
                     exdate:           None,
                     duration:         None,
                     dtstart:          Some(
-                        vec![
+                        HashSet::from([
                             String::from("DTSTART:20201231T183000Z")
-                        ]
+                        ])
                     ),
                     dtend:            None,
                 },
