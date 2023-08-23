@@ -13,7 +13,10 @@ use crate::data_types::occurrence_index::{OccurrenceIndex, OccurrenceIndexValue}
 
 use crate::data_types::event_occurrence_override::EventOccurrenceOverride;
 
-use crate::data_types::inverted_index::{IndexedConclusion, InvertedEventIndex, InvertedIndexListener};
+use crate::data_types::inverted_index::InvertedEventIndex;
+
+use crate::data_types::utils::UpdatedSetMembers;
+use crate::data_types::event_diff::EventDiff;
 
 use crate::data_types::calendar::{CalendarIndexUpdater, CalendarCategoryIndexUpdater, CalendarRelatedToIndexUpdater};
 
@@ -27,20 +30,68 @@ fn property_option_set_or_insert<'a>(property_option: &mut Option<HashSet<String
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct EventOccurrenceOverrides<'a> {
-    #[serde(borrow)]
-    pub detached: OccurrenceIndex<EventOccurrenceOverride<'a>>,
-
-    #[serde(borrow)]
-    pub current:  OccurrenceIndex<EventOccurrenceOverride<'a>>,
+pub struct EventOccurrenceOverrides {
+    pub detached: OccurrenceIndex<EventOccurrenceOverride>,
+    pub current:  OccurrenceIndex<EventOccurrenceOverride>,
 }
 
-impl<'a> EventOccurrenceOverrides<'a> {
-    pub fn new() -> EventOccurrenceOverrides<'a> {
+impl EventOccurrenceOverrides {
+    pub fn new() -> EventOccurrenceOverrides {
         EventOccurrenceOverrides {
             detached: OccurrenceIndex::new(),
             current:  OccurrenceIndex::new(),
         }
+    }
+
+    pub fn rebase(&mut self, event_diff: &EventDiff) -> Result<&Self, String> {
+        // TODO: Test this...
+        for (_timestamp, event_occurrence_override) in self.current.iter_mut() {
+            if let Some(overridden_categories) = event_occurrence_override.categories.as_mut() {
+                if let Some(indexed_categories) = &event_diff.indexed_categories {
+                    for removed_category in indexed_categories.removed.iter() {
+                        overridden_categories.remove(removed_category);
+                    }
+
+                    for added_category in indexed_categories.added.iter() {
+                        overridden_categories.insert(added_category.clone());
+                    }
+                }
+            }
+
+            if let Some(overridden_related_to) = event_occurrence_override.related_to.as_mut() {
+                if let Some(indexed_related_to) = &event_diff.indexed_related_to {
+                    for (removed_reltype, removed_reltype_uuid) in indexed_related_to.removed.iter() {
+                        if let Some(reltype_uuids) = overridden_related_to.get_mut(removed_reltype) {
+                            reltype_uuids.remove(removed_reltype_uuid);
+                        }
+                    }
+
+                    for (added_reltype, added_reltype_uuid) in indexed_related_to.added.iter() {
+                        overridden_related_to.entry(added_reltype.clone())
+                                             .and_modify(|reltype_uuids| { reltype_uuids.insert(added_reltype_uuid.clone()); })
+                                             .or_insert(HashSet::from([added_reltype_uuid.clone()]));
+                    }
+                }
+            }
+
+            if let Some(overridden_passive_properties) = event_occurrence_override.properties.as_mut() {
+                if let Some(indexed_passive_properties) = &event_diff.passive_properties {
+                    for (removed_property, removed_property_value) in indexed_passive_properties.removed.iter() {
+                        if let Some(property_uuids) = overridden_passive_properties.get_mut(removed_property) {
+                            property_uuids.remove(removed_property_value);
+                        }
+                    }
+
+                    for (added_property, added_property_value) in indexed_passive_properties.added.iter() {
+                        overridden_passive_properties.entry(added_property.clone())
+                                                     .and_modify(|property_uuids| { property_uuids.insert(added_property_value.clone()); })
+                                                     .or_insert(HashSet::from([added_property_value.clone()]));
+                    }
+                }
+            }
+        }
+
+        Ok(self)
     }
 }
 
@@ -281,7 +332,7 @@ impl PassiveProperties {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct Event<'a> {
+pub struct Event {
     pub uuid:                String,
 
     pub schedule_properties: ScheduleProperties,
@@ -289,15 +340,14 @@ pub struct Event<'a> {
 
     pub passive_properties:  PassiveProperties,
 
-    #[serde(borrow)]
-    pub overrides:           EventOccurrenceOverrides<'a>,
+    pub overrides:           EventOccurrenceOverrides,
     pub occurrence_cache:    Option<OccurrenceIndex<OccurrenceIndexValue>>,
     pub indexed_categories:  Option<InvertedEventIndex>,
     pub indexed_related_to:  Option<InvertedEventIndex>,
 }
 
-impl<'a> Event<'a> {
-    pub fn new(uuid: String) -> Event<'a> {
+impl Event {
+    pub fn new(uuid: String) -> Event {
         Event {
             uuid,
 
@@ -313,7 +363,7 @@ impl<'a> Event<'a> {
         }
     }
 
-    pub fn parse_ical<'de: 'a>(uuid: &str, input: &str) -> Result<Event<'a>, String> {
+    pub fn parse_ical(uuid: &str, input: &str) -> Result<Event, String> {
         match parse_properties(input) {
             Ok((_, parsed_properties)) => {
                 let new_event: &mut Event = &mut Event::new(String::from(uuid));
@@ -383,7 +433,7 @@ impl<'a> Event<'a> {
         Ok(self)
     }
 
-    pub fn override_occurrence(&mut self, timestamp: i64, event_occurrence_override: &'a EventOccurrenceOverride, calendar_index_updater: &mut CalendarIndexUpdater) -> Result<&Self, String> {
+    pub fn override_occurrence(&mut self, timestamp: i64, event_occurrence_override: &EventOccurrenceOverride, calendar_index_updater: &mut CalendarIndexUpdater) -> Result<&Self, String> {
         match &mut self.occurrence_cache {
             Some(occurrence_cache) => {
 
@@ -537,6 +587,8 @@ impl<'a> Event<'a> {
 mod test {
     use super::*;
 
+    use crate::data_types::{InvertedIndexListener, IndexedConclusion};
+
     use std::collections::BTreeMap;
 
     #[test]
@@ -577,7 +629,7 @@ mod test {
                         (
                             100,
                             EventOccurrenceOverride {
-                                properties:  HashMap::new(),
+                                properties:  None,
                                 categories:  Some(
                                     HashSet::from([
                                         String::from("CATEGORY_ONE"),
@@ -598,7 +650,7 @@ mod test {
                         (
                             200,
                             EventOccurrenceOverride {
-                                properties:  HashMap::new(),
+                                properties:  None,
                                 categories:  Some(
                                     HashSet::from([
                                         String::from("CATEGORY_ONE"),
@@ -617,7 +669,7 @@ mod test {
                         (
                             300,
                             EventOccurrenceOverride {
-                                properties:  HashMap::new(),
+                                properties:  None,
                                 categories:  None,
                                 duration:    None,
                                 dtstart:     None,
@@ -631,7 +683,7 @@ mod test {
                         (
                             400,
                             EventOccurrenceOverride {
-                                properties:  HashMap::new(),
+                                properties:  None,
                                 categories:  Some(HashSet::new()),
                                 duration:    None,
                                 dtstart:     None,
@@ -645,7 +697,7 @@ mod test {
                         (
                             500,
                             EventOccurrenceOverride {
-                                properties:  HashMap::new(),
+                                properties:  None,
                                 categories:  Some(
                                     HashSet::from([
                                         String::from("CATEGORY_FOUR"),
@@ -1189,7 +1241,7 @@ mod test {
         );
 
         let event_occurrence_override = EventOccurrenceOverride {
-            properties:  HashMap::new(),
+            properties:  None,
             categories:  Some(
                 HashSet::from([
                     String::from("CATEGORY_ONE"),
@@ -1247,7 +1299,7 @@ mod test {
                         current:  OccurrenceIndex::new_with_value(
                             1610476200,
                             EventOccurrenceOverride {
-                                properties:  HashMap::new(),
+                                properties:  None,
                                 categories:  Some(
                                     HashSet::from([
                                         String::from("CATEGORY_ONE"),

@@ -3,6 +3,8 @@ use redis_module::{Context, NextArg, RedisResult, RedisString, RedisError};
 use crate::data_types::{EVENT_DATA_TYPE, CALENDAR_DATA_TYPE, Event, Calendar, CalendarIndexUpdater, UpdatedSetMembers, CalendarCategoryIndexUpdater, CalendarRelatedToIndexUpdater, EventDiff};
 
 pub fn redical_event_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
+    // TODO: Add option to "rebase" overrides against changes, i.e. add/remove all
+    // base added/removed properties to all overrides.
     if args.len() < 2 {
         ctx.log_debug(format!("event_set WrongArity: {{args.len()}}").as_str());
 
@@ -30,7 +32,8 @@ pub fn redical_event_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
         let existing_event = existing_event.as_ref().unwrap();
 
         // TODO: use this.
-        let _event_diff = EventDiff::new(&existing_event, &event);
+        let event_diff = EventDiff::new(&existing_event, &event);
+        let _rebased_overrides = existing_event.overrides.clone().rebase(&event_diff);
 
         let updated_connected_calendars = UpdatedSetMembers::new(
             existing_event.indexed_properties.get_indexed_calendars().as_ref(),

@@ -8,12 +8,12 @@ use serde::{Serialize, Deserialize};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct EventDiff {
-    indexed_calendars:   Option<UpdatedSetMembers<String>>,
-    indexed_categories:  Option<UpdatedSetMembers<String>>,
-    indexed_related_to:  Option<UpdatedSetMembers<(String, String)>>,
+    pub indexed_calendars:   Option<UpdatedSetMembers<String>>,
+    pub indexed_categories:  Option<UpdatedSetMembers<String>>,
+    pub indexed_related_to:  Option<UpdatedSetMembers<(String, String)>>,
 
-    passive_properties:  Option<UpdatedSetMembers<(String, String)>>,
-    schedule_properties: Option<SchedulePropertiesDiff>,
+    pub passive_properties:  Option<UpdatedSetMembers<(String, String)>>,
+    pub schedule_properties: Option<SchedulePropertiesDiff>,
 }
 
 impl EventDiff {

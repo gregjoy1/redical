@@ -82,8 +82,15 @@ impl<T> OccurrenceIndex<T> {
 
     pub fn iter(&self) -> OccurrenceIndexIter<T> {
         OccurrenceIndexIter {
-            base_timestamp: &self.base_timestamp,
+            base_timestamp:         &self.base_timestamp,
             timestamp_offsets_iter: self.timestamp_offsets.iter()
+        }
+    }
+
+    pub fn iter_mut(&mut self) -> OccurrenceIndexIterMut<T> {
+        OccurrenceIndexIterMut {
+            base_timestamp:         &self.base_timestamp,
+            timestamp_offsets_iter: self.timestamp_offsets.iter_mut()
         }
     }
 }
@@ -94,8 +101,37 @@ pub struct OccurrenceIndexIter<'a, T> {
     pub timestamp_offsets_iter: btree_map::Iter<'a, i64, T>,
 }
 
+#[derive(Debug)]
+pub struct OccurrenceIndexIterMut<'a, T> {
+    pub base_timestamp: &'a Option<i64>,
+    pub timestamp_offsets_iter: btree_map::IterMut<'a, i64, T>,
+}
+
 impl<'a, T> Iterator for OccurrenceIndexIter<'a, T> {
     type Item = (i64, &'a T);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.base_timestamp {
+            Some(base_timestamp) => {
+                match self.timestamp_offsets_iter.next() {
+                    Some((offset_key, value)) => {
+                        Some(
+                            (
+                                offset_key + base_timestamp,
+                                value
+                            )
+                        )
+                    },
+                    None => None
+                }
+            },
+            None => None
+        }
+    }
+}
+
+impl<'a, T> Iterator for OccurrenceIndexIterMut<'a, T> {
+    type Item = (i64, &'a mut T);
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.base_timestamp {
@@ -207,7 +243,7 @@ mod test {
             }
         );
 
-        occurrence_index.insert(1686852160, OccurrenceIndexValue::Occurrence); // Thu Jun 16 2023 18:02:40 GMT+0000
+        occurrence_index.insert(1686852160, OccurrenceIndexValue::Occurrence); // Thu Jun 15 2023 18:02:40 GMT+0000
 
         assert_eq!(
             occurrence_index,
@@ -270,7 +306,7 @@ mod test {
         );
 
         assert_eq!(
-            occurrence_index.get(1686852160), // Thu Jun 16 2023 18:02:40 GMT+0000
+            occurrence_index.get(1686852160), // Thu Jun 15 2023 18:02:40 GMT+0000
             Some(
                 &OccurrenceIndexValue::Occurrence
             )
@@ -333,7 +369,7 @@ mod test {
 
         assert_eq!(
             occurrence_index_iter.next(),
-            Some((1686852160, &OccurrenceIndexValue::Occurrence)) // Thu Jun 16 2023 18:02:40 GMT+0000
+            Some((1686852160, &OccurrenceIndexValue::Occurrence)) // Thu Jun 15 2023 18:02:40 GMT+0000
         );
 
         assert_eq!(
@@ -354,6 +390,97 @@ mod test {
         assert_eq!(
             occurrence_index_iter.next(),
             None
+        );
+    }
+
+    #[test]
+    fn test_occurrence_index_iter_mut() {
+        let mut occurrence_index: OccurrenceIndex<OccurrenceIndexValue> = OccurrenceIndex {
+            base_timestamp: None,
+            timestamp_offsets: BTreeMap::new()
+        };
+
+        let mut occurrence_index_iter_mut = occurrence_index.iter_mut();
+
+        assert_eq!(
+            occurrence_index_iter_mut.next(),
+            None
+        );
+
+        let mut occurrence_index = OccurrenceIndex {
+            base_timestamp: Some(1686938560),
+            timestamp_offsets: BTreeMap::from(
+                [
+                    (
+                        -86400, // Thu Jun 16 2023 18:02:40 GMT+0000
+                        OccurrenceIndexValue::Occurrence
+                    ),
+                    (
+                        0, // Fri Jun 16 2023 18:02:40 GMT+0000
+                        OccurrenceIndexValue::Occurrence
+                    ),
+                    (
+                        11400, // Fri Jun 16 2023 21:12:40 GMT+0000
+                        OccurrenceIndexValue::Occurrence
+                    ),
+                    (
+                        130060, // Sun Jun 18 2023 06:10:20 GMT+0000
+                        OccurrenceIndexValue::Occurrence
+                    )
+                ]
+            )
+        };
+
+        let mut occurrence_index_iter_mut = occurrence_index.iter_mut();
+
+        [
+            i64::from(1686852160), // Thu Jun 15 2023 18:02:40 GMT+0000
+            i64::from(1686938560), // Fri Jun 16 2023 18:02:40 GMT+0000
+            i64::from(1686949960), // Fri Jun 16 2023 21:12:40 GMT+0000
+            i64::from(1687068620), // Sun Jun 18 2023 06:10:20 GMT+0000
+        ].iter().for_each(|expected_timestamp| {
+            let (timestamp, item) = occurrence_index_iter_mut.next().unwrap();
+
+            assert_eq!(item, &mut OccurrenceIndexValue::Occurrence);
+
+            *item = OccurrenceIndexValue::Override;
+
+            assert_eq!(
+                (timestamp, item),
+                (*expected_timestamp, &mut OccurrenceIndexValue::Override)
+            );
+        });
+
+        assert_eq!(
+            occurrence_index_iter_mut.next(),
+            None
+        );
+
+        assert_eq!(
+            occurrence_index,
+            OccurrenceIndex {
+                base_timestamp: Some(1686938560),
+                timestamp_offsets: BTreeMap::from(
+                    [
+                        (
+                            -86400, // Thu Jun 16 2023 18:02:40 GMT+0000
+                            OccurrenceIndexValue::Override
+                        ),
+                        (
+                            0, // Fri Jun 16 2023 18:02:40 GMT+0000
+                            OccurrenceIndexValue::Override
+                        ),
+                        (
+                            11400, // Fri Jun 16 2023 21:12:40 GMT+0000
+                            OccurrenceIndexValue::Override
+                        ),
+                        (
+                            130060, // Sun Jun 18 2023 06:10:20 GMT+0000
+                            OccurrenceIndexValue::Override
+                        )
+                    ]
+                )
+            }
         );
     }
 
@@ -446,7 +573,7 @@ mod test {
             }
         );
 
-        occurrence_index.remove(1686852160); // Thu Jun 16 2023 18:02:40 GMT+0000
+        occurrence_index.remove(1686852160); // Thu Jun 15 2023 18:02:40 GMT+0000
 
         assert_eq!(
             occurrence_index,
@@ -457,7 +584,7 @@ mod test {
         );
 
         // Testing removing non-existent timestamp
-        occurrence_index.remove(1686852160); // Thu Jun 16 2023 18:02:40 GMT+0000
+        occurrence_index.remove(1686852160); // Thu Jun 15 2023 18:02:40 GMT+0000
 
         assert_eq!(
             occurrence_index,

@@ -5,22 +5,20 @@ use serde::{Serialize, Deserialize};
 use crate::data_types::ical_property_parser::{parse_properties, ParsedProperty, ParsedValue};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct EventOccurrenceOverride<'a> {
+pub struct EventOccurrenceOverride {
     pub categories:  Option<HashSet<String>>,
     pub duration:    Option<String>,
     pub dtstart:     Option<String>,
     pub dtend:       Option<String>,
     pub description: Option<String>,
     pub related_to:  Option<HashMap<String, HashSet<String>>>,
-
-    #[serde(borrow)]
-    pub properties:  HashMap<&'a str, Vec<String>>
+    pub properties:  Option<HashMap<String, HashSet<String>>>,
 }
 
-impl<'a> EventOccurrenceOverride<'a> {
-    pub fn new() -> EventOccurrenceOverride<'a> {
+impl EventOccurrenceOverride {
+    pub fn new() -> EventOccurrenceOverride {
         EventOccurrenceOverride {
-            properties:  HashMap::new(),
+            properties:  None,
             categories:  None,
             duration:    None,
             dtstart:     None,
@@ -30,7 +28,7 @@ impl<'a> EventOccurrenceOverride<'a> {
         }
     }
 
-    pub fn parse_ical<'de: 'a>(input: &str) -> Result<EventOccurrenceOverride<'a>, String> {
+    pub fn parse_ical(input: &str) -> Result<EventOccurrenceOverride, String> {
         match parse_properties(input) {
             Ok((_, parsed_properties)) => {
                 let new_override: &mut EventOccurrenceOverride = &mut EventOccurrenceOverride::new();
@@ -169,7 +167,7 @@ mod test {
         assert_eq!(
             EventOccurrenceOverride::parse_ical(ical_without_rrule).unwrap(),
             EventOccurrenceOverride {
-                properties:       HashMap::from([]),
+                properties:       None,
                 categories:       Some(
                     HashSet::from([
                         String::from("CATEGORY_ONE"),
