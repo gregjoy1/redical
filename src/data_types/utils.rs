@@ -1,6 +1,8 @@
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 
+use serde::{Serialize, Deserialize};
+
 pub fn hashmap_to_hashset(hash_map: Option<&HashMap<String, HashSet<String>>>) -> Option<HashSet<(String, String)>> {
     hash_map.and_then(|hash_map| {
         let mut set_members = HashSet::<(String, String)>::new();
@@ -24,7 +26,7 @@ pub fn hashmap_to_hashset(hash_map: Option<&HashMap<String, HashSet<String>>>) -
     })
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone)]
 pub struct UpdatedSetMembers<T>
 where
     T: Eq + PartialEq + Hash + Clone
