@@ -20,5 +20,8 @@ rrule = "0.10"
 chrono = "0.4.19"
 chrono-tz = "0.6.1"
 
+[dev-dependencies]
+pretty_assertions_sorted = "1.2.3"
+
 [features]
 as-library = []

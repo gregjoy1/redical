@@ -33,7 +33,7 @@ pub fn redical_event_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
 
         // TODO: use this.
         let event_diff = EventDiff::new(&existing_event, &event);
-        let _rebased_overrides = existing_event.overrides.clone().rebase(&event_diff);
+        let _rebased_overrides = existing_event.overrides.clone().rebase_overrides(&event_diff);
 
         let updated_connected_calendars = UpdatedSetMembers::new(
             existing_event.indexed_properties.get_indexed_calendars().as_ref(),
