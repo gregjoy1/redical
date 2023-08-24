@@ -108,7 +108,7 @@ impl SchedulePropertiesDiff {
         }
     }
 
-    pub fn get_rebuild_consensus(&self) -> RebuildConsensus {
+    pub fn get_schedule_rebuild_consensus(&self) -> ScheduleRebuildConsensus {
         fn property_has_changed(property: Option<&UpdatedSetMembers<String>>) -> bool {
             property.is_some_and(|property| property.is_changed())
         }
@@ -121,11 +121,11 @@ impl SchedulePropertiesDiff {
             property_has_changed(self.exdate.as_ref()) ||
             property_has_changed(self.dtstart.as_ref())
         ) {
-            // TODO: handle more granular changes yielding RebuildConsensus::Partial for partial
+            // TODO: handle more granular changes yielding ScheduleRebuildConsensus::Partial for partial
             // updated occurrence extrapolation.
-            RebuildConsensus::Full
+            ScheduleRebuildConsensus::Full
         } else {
-            RebuildConsensus::None
+            ScheduleRebuildConsensus::None
         }
     }
 
@@ -141,7 +141,7 @@ impl SchedulePropertiesDiff {
     }
 }
 
-pub enum RebuildConsensus {
+pub enum ScheduleRebuildConsensus {
     None,
     Full,
     Partial,

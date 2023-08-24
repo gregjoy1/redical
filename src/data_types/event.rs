@@ -15,7 +15,6 @@ use crate::data_types::event_occurrence_override::EventOccurrenceOverride;
 
 use crate::data_types::inverted_index::InvertedEventIndex;
 
-use crate::data_types::utils::UpdatedSetMembers;
 use crate::data_types::event_diff::EventDiff;
 
 use crate::data_types::calendar::{CalendarIndexUpdater, CalendarCategoryIndexUpdater, CalendarRelatedToIndexUpdater};
@@ -641,6 +640,8 @@ mod test {
     use super::*;
 
     use crate::data_types::{InvertedIndexListener, IndexedConclusion};
+
+    use crate::data_types::utils::UpdatedSetMembers;
 
     use std::collections::BTreeMap;
 
