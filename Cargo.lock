@@ -687,6 +687,7 @@ dependencies = [
  "redis",
  "redis-module",
  "redis-module-macros",
+ "regex",
  "rrule",
  "serde",
 ]

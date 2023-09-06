@@ -4,6 +4,8 @@ use serde::{Serialize, Deserialize};
 
 use crate::data_types::ical_property_parser::{parse_properties, ParsedProperty, ParsedValue};
 
+use crate::parsers::{datestring_to_date, ParseError};
+
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct EventOccurrenceOverride {
     pub categories:  Option<HashSet<String>>,
@@ -26,6 +28,30 @@ impl EventOccurrenceOverride {
             description: None,
             related_to:  None,
         }
+    }
+
+    pub fn get_dtend_timestamp(&self) -> Result<Option<i64>, ParseError> {
+        if let Some(datetime) = self.dtend.as_ref() {
+            return match datestring_to_date(datetime, None, "DTEND") {
+                Ok(datetime) => Ok(Some(datetime.timestamp())),
+                Err(error) => Err(error),
+            };
+        }
+
+        Ok(None)
+    }
+
+    pub fn get_duration(&self, dtstart_timestamp: &i64) -> Result<Option<i64>, ParseError> {
+        if let Some(duration) = self.duration.as_ref() {
+            // TODO: implement this
+            return Ok(Some(0));
+        }
+
+        if let Some(dtend_timestamp) = self.get_dtend_timestamp()? {
+            return Ok(Some(dtend_timestamp - dtstart_timestamp));
+        }
+
+        Ok(None)
     }
 
     pub fn parse_ical(input: &str) -> Result<EventOccurrenceOverride, String> {

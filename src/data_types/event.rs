@@ -19,6 +19,8 @@ use crate::data_types::event_diff::EventDiff;
 
 use crate::data_types::calendar::{CalendarIndexUpdater, CalendarCategoryIndexUpdater, CalendarRelatedToIndexUpdater};
 
+use crate::parsers::{datestring_to_date, ParseError};
+
 fn property_option_set_or_insert<'a>(property_option: &mut Option<HashSet<String>>, content: &'a str) {
     let content = String::from(content);
 
@@ -223,6 +225,53 @@ impl ScheduleProperties {
         }
 
         ical_parts.join("\n").parse::<RRuleSet>()
+    }
+
+    pub fn get_dtstart_timestamp(&self) -> Result<Option<i64>, ParseError> {
+        if let Some(properties) = self.dtstart.as_ref() {
+            if let Some(datetime) = properties.iter().next() {
+                let parsed_datetime = datetime.replace(&String::from("DTSTART:"), &String::from(""));
+
+                return match datestring_to_date(&parsed_datetime, None, "DTSTART") {
+                    Ok(datetime) => Ok(Some(datetime.timestamp())),
+                    Err(error) => Err(error),
+                };
+            }
+        }
+
+        Ok(None)
+    }
+
+    pub fn get_dtend_timestamp(&self) -> Result<Option<i64>, ParseError> {
+        if let Some(properties) = self.dtend.as_ref() {
+            if let Some(datetime) = properties.iter().next() {
+                let parsed_datetime = datetime.replace(&String::from("DTEND:"), &String::from(""));
+
+                return match datestring_to_date(&parsed_datetime, None, "DTEND") {
+                    Ok(datetime) => Ok(Some(datetime.timestamp())),
+                    Err(error) => Err(error),
+                };
+            }
+        }
+
+        Ok(None)
+    }
+
+    pub fn get_duration(&self) -> Result<Option<i64>, ParseError> {
+        if let Some(properties) = self.duration.as_ref() {
+            if let Some(_duration) = properties.iter().next() {
+                // TODO: implement this
+                return Ok(Some(0));
+            }
+        }
+
+        match (self.get_dtstart_timestamp(), self.get_dtend_timestamp()) {
+            (Ok(Some(dtstart_timestamp)), Ok(Some(dtend_timestamp))) => {
+                Ok(Some(dtend_timestamp - dtstart_timestamp))
+            },
+
+            _ => Ok(None),
+        }
     }
 
     fn validate_rrule(&self) -> bool {

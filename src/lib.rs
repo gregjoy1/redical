@@ -2,6 +2,7 @@ use redis_module::{redis_module, Context, NotifyEvent};
 
 mod commands;
 mod data_types;
+mod parsers;
 
 use data_types::{EVENT_DATA_TYPE, CALENDAR_DATA_TYPE};
 
@@ -29,12 +30,13 @@ redis_module! {
         CALENDAR_DATA_TYPE
     ],
     commands:   [
-        ["rdcl.evt_set",  commands::redical_event_set, "", 0, 0, 0],
-        ["rdcl.evt_get",  commands::redical_event_get, "", 0, 0, 0],
-        ["rdcl.evi_list", commands::redical_event_instance_list, "", 0, 0, 0],
-        ["rdcl.evo_set",  commands::redical_event_override_set, "", 0, 0, 0],
-        ["rdcl.evo_del",  commands::redical_event_override_del, "", 0, 0, 0],
-        ["rdcl.icl_set",  commands::redical_indexed_calendar_set, "", 0, 0, 0],
+        ["rdcl.evt_set",   commands::redical_event_set, "", 0, 0, 0],
+        ["rdcl.evt_get",   commands::redical_event_get, "", 0, 0, 0],
+        ["rdcl.evi_list",  commands::redical_event_instance_list, "", 0, 0, 0],
+        ["rdcl.evo_set",   commands::redical_event_override_set, "", 0, 0, 0],
+        ["rdcl.evo_del",   commands::redical_event_override_del, "", 0, 0, 0],
+        ["rdcl.icl_set",   commands::redical_indexed_calendar_set, "", 0, 0, 0],
+        ["rdcl.icl_query", commands::redical_indexed_calendar_query, "", 0, 0, 0],
     ],
     event_handlers: [
         [@STRING: on_event],
