@@ -103,6 +103,107 @@ where
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone)]
+pub struct UpdatedHashMapMembers<K, T>
+where
+    K: Eq + PartialEq + Hash + Clone,
+    T: Eq + PartialEq + Hash + Clone,
+{
+    pub removed:    HashMap<K, T>,
+    pub maintained: HashMap<K, T>,
+    pub updated:    HashMap<K, T>,
+    pub added:      HashMap<K, T>,
+}
+
+impl<K, T> UpdatedHashMapMembers<K, T>
+where
+    K: Eq + PartialEq + Hash + Clone,
+    T: Eq + PartialEq + Hash + Clone,
+{
+    pub fn new(original: Option<&HashMap<K, T>>, updated: Option<&HashMap<K, T>>) -> Self
+        where
+            K: Eq + PartialEq + Hash + Clone,
+            T: Eq + PartialEq + Hash + Clone,
+    {
+        match (original, updated) {
+            (None, None) => {
+                UpdatedHashMapMembers {
+                    removed:    HashMap::new(),
+                    maintained: HashMap::new(),
+                    updated:    HashMap::new(),
+                    added:      HashMap::new(),
+                }
+            },
+
+            (Some(original_map), None) => {
+                UpdatedHashMapMembers {
+                    removed:    original_map.clone(),
+                    maintained: HashMap::new(),
+                    updated:    HashMap::new(),
+                    added:      HashMap::new(),
+                }
+            },
+
+            (None, Some(updated_map)) => {
+                UpdatedHashMapMembers {
+                    removed:    HashMap::new(),
+                    maintained: HashMap::new(),
+                    updated:    HashMap::new(),
+                    added:      updated_map.clone(),
+                }
+            },
+
+            (Some(original_map), Some(updated_map)) => {
+                let original_map_key_set: HashSet<K> = HashSet::from_iter(original_map.keys().map(|key| key.clone()));
+                let updated_map_key_set: HashSet<K>  = HashSet::from_iter(updated_map.keys().map(|key| key.clone()));
+
+                let mut removed: HashMap<K, T>    = HashMap::new();
+                let mut added: HashMap<K, T>      = HashMap::new();
+                let mut updated: HashMap<K, T>    = HashMap::new();
+                let mut maintained: HashMap<K, T> = HashMap::new();
+
+                original_map_key_set.difference(&updated_map_key_set).for_each(|removed_map_key| {
+                    if let Some(removed_map_value) = original_map.get(removed_map_key) {
+                        removed.insert(removed_map_key.clone(), removed_map_value.clone());
+                    }
+                });
+
+                updated_map_key_set.difference(&original_map_key_set).for_each(|added_map_key| {
+                    if let Some(added_map_value) = updated_map.get(added_map_key) {
+                        added.insert(added_map_key.clone(), added_map_value.clone());
+                    }
+                });
+
+                original_map_key_set.intersection(&updated_map_key_set).for_each(|common_map_key| {
+                    let original_map_value = original_map.get(common_map_key).unwrap();
+                    let updated_map_value  = updated_map.get(common_map_key).unwrap();
+
+                    if original_map_value == updated_map_value {
+                        maintained.insert(common_map_key.clone(), updated_map_value.clone());
+                    } else {
+                        updated.insert(common_map_key.clone(), updated_map_value.clone());
+                    }
+                });
+
+                UpdatedHashMapMembers {
+                    removed,
+                    maintained,
+                    updated,
+                    added,
+                }
+            },
+        }
+    }
+
+    pub fn is_unchanged(&self) -> bool {
+        self.removed.is_empty() && self.added.is_empty() && self.updated.is_empty()
+    }
+
+    pub fn is_changed(&self) -> bool {
+        !self.is_unchanged()
+    }
+}
+
 #[derive(Debug)]
 struct MergedIteratorBufferItem<T: Ord + Debug, I: Iterator<Item = T> + Debug> (String, T, I);
 
@@ -256,6 +357,81 @@ mod test {
                 removed:    HashSet::from([String::from("REMOVED")]),
                 maintained: HashSet::from([String::from("MAINTAINED")]),
                 added:      HashSet::from([String::from("ADDED")]),
+            }
+        );
+    }
+
+    #[test]
+    fn test_updated_hash_map_members() {
+        assert_eq!(
+            UpdatedHashMapMembers::<String, bool>::new(
+                None,
+                None
+            ),
+            UpdatedHashMapMembers {
+                removed:    HashMap::from([]),
+                maintained: HashMap::from([]),
+                updated:    HashMap::from([]),
+                added:      HashMap::from([]),
+            }
+        );
+
+        assert_eq!(
+            UpdatedHashMapMembers::<String, bool>::new(
+                Some(
+                    &HashMap::from([
+                        (String::from("REMOVED"), true)
+                    ])
+                ),
+                None
+            ),
+            UpdatedHashMapMembers {
+                removed:    HashMap::from([(String::from("REMOVED"), true)]),
+                maintained: HashMap::from([]),
+                updated:    HashMap::from([]),
+                added:      HashMap::from([]),
+            }
+        );
+
+        assert_eq!(
+            UpdatedHashMapMembers::<String, bool>::new(
+                None,
+                Some(
+                    &HashMap::from([
+                        (String::from("ADDED"), true)
+                    ])
+                ),
+            ),
+            UpdatedHashMapMembers {
+                removed:    HashMap::from([]),
+                maintained: HashMap::from([]),
+                updated:    HashMap::from([]),
+                added:      HashMap::from([(String::from("ADDED"), true)]),
+            }
+        );
+
+        assert_eq!(
+            UpdatedHashMapMembers::<String, bool>::new(
+                Some(
+                    &HashMap::from([
+                        (String::from("REMOVED"),    true),
+                        (String::from("UPDATED"),    false),
+                        (String::from("MAINTAINED"), true),
+                    ])
+                ),
+                Some(
+                    &HashMap::from([
+                        (String::from("ADDED"),      true),
+                        (String::from("UPDATED"),    true),
+                        (String::from("MAINTAINED"), true),
+                    ])
+                ),
+            ),
+            UpdatedHashMapMembers {
+                removed:    HashMap::from([(String::from("REMOVED"),    true)]),
+                maintained: HashMap::from([(String::from("MAINTAINED"), true)]),
+                updated:    HashMap::from([(String::from("UPDATED"),    true)]),
+                added:      HashMap::from([(String::from("ADDED"),      true)]),
             }
         );
     }
