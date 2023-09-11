@@ -41,8 +41,8 @@ impl EventDiff {
     fn diff_indexed_categories(original_event: &Event, updated_event: &Event) -> Option<UpdatedHashMapMembers<String, IndexedConclusion>> {
         Some(
             UpdatedHashMapMembers::new(
-                original_event.indexed_categories.and_then(|inverted_index| Some(inverted_index.terms)).as_ref(),
-                updated_event.indexed_categories.and_then(|inverted_index| Some(inverted_index.terms)).as_ref(),
+                original_event.indexed_categories.clone().and_then(|inverted_index| Some(inverted_index.terms)).as_ref(),
+                updated_event.indexed_categories.clone().and_then(|inverted_index| Some(inverted_index.terms)).as_ref(),
             )
         )
     }
@@ -50,8 +50,8 @@ impl EventDiff {
     fn diff_indexed_related_to(original_event: &Event, updated_event: &Event) -> Option<UpdatedHashMapMembers<KeyValuePair, IndexedConclusion>> {
         Some(
             UpdatedHashMapMembers::new(
-                original_event.indexed_related_to.and_then(|inverted_index| Some(inverted_index.terms)).as_ref(),
-                updated_event.indexed_related_to.and_then(|inverted_index| Some(inverted_index.terms)).as_ref(),
+                original_event.indexed_related_to.clone().and_then(|inverted_index| Some(inverted_index.terms)).as_ref(),
+                updated_event.indexed_related_to.clone().and_then(|inverted_index| Some(inverted_index.terms)).as_ref(),
             )
         )
     }
@@ -429,7 +429,20 @@ mod test {
                 current:  OccurrenceIndex::new(),
             },
             occurrence_cache:   None,
-            indexed_categories: None,
+            indexed_categories: Some(
+                InvertedEventIndex {
+                    terms: HashMap::from([
+                               (
+                                   String::from("CATEGORY_THREE"),
+                                   IndexedConclusion::Include(Some(HashSet::from([1610476200]))),
+                               ),
+                               (
+                                   String::from("CATEGORY_FOUR"),
+                                   IndexedConclusion::Include(Some(HashSet::from([1610476200]))),
+                               ),
+                    ])
+                }
+            ),
             indexed_related_to: Some(
                 InvertedEventIndex {
                     terms: HashMap::from([
@@ -461,10 +474,10 @@ mod test {
                 indexed_categories:  Some(
                                          UpdatedHashMapMembers {
                                              removed:    HashMap::from([
-                                                             (
-                                                                 String::from("CATEGORY_FOUR"),
-                                                                 IndexedConclusion::Include(Some(HashSet::from([1610476200])))
-                                                             ),
+                                                 (
+                                                     String::from("CATEGORY_FOUR"),
+                                                     IndexedConclusion::Include(Some(HashSet::from([1610476200])))
+                                                 ),
                                              ]),
                                              maintained: HashMap::from([
                                                  (

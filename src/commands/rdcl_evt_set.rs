@@ -49,8 +49,8 @@ pub fn redical_event_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
         }
     }
 
-    event.rebuild_indexed_categories(&mut calendar_index_updater).map_err(RedisError::String)?;
-    event.rebuild_indexed_related_to(&mut calendar_index_updater).map_err(RedisError::String)?;
+    event.rebuild_indexed_categories().map_err(RedisError::String)?;
+    event.rebuild_indexed_related_to().map_err(RedisError::String)?;
 
     if rebuild_event_occurrence_cache(&event_diff) {
         event.rebuild_occurrence_cache(65_535)

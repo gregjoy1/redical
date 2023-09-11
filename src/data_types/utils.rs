@@ -21,7 +21,7 @@ impl KeyValuePair {
     }
 
     pub fn to_string(&self) -> String {
-        self.key + &self.value
+        self.key.clone() + &self.value
     }
 }
 

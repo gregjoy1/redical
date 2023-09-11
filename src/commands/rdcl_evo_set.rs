@@ -32,7 +32,7 @@ pub fn redical_event_override_set(ctx: &Context, args: Vec<RedisString>) -> Redi
 
                 let mut calendar_index_updater = CalendarIndexUpdater::new(event.uuid.clone(), connected_calendars, disconnected_calendars);
 
-                match event.override_occurrence(timestamp, &event_occurrence_override, &mut calendar_index_updater) {
+                match event.override_occurrence(timestamp, &event_occurrence_override) {
                     Ok(updated_event) => {
                         key.set_value(&EVENT_DATA_TYPE, updated_event.clone())?;
 

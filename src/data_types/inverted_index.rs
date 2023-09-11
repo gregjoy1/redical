@@ -105,13 +105,6 @@ impl InvertedCalendarIndexTerm {
     }
 }
 
-pub trait InvertedIndexListener<K>
-where
-    K: std::hash::Hash,
-{
-    fn handle_update(&mut self, updated_term: &K, indexed_conclusion: Option<&IndexedConclusion>);
-}
-
 // Single layer inverted index (for one event) - indexed term - include/exclude
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct InvertedEventIndex<K>
@@ -125,27 +118,27 @@ impl <K>InvertedEventIndex<K>
 where
     K: std::hash::Hash + Clone + std::cmp::Eq,
 {
-    pub fn new_from_event_categories(event: &Event, inverted_index_listener: &mut dyn InvertedIndexListener<K>) -> InvertedEventIndex<String> {
+    pub fn new_from_event_categories(event: &Event) -> InvertedEventIndex<String> {
         let mut indexed_categories = InvertedEventIndex {
             terms: HashMap::new()
         };
 
         if let Some(ref categories) = event.indexed_properties.categories {
             for category in categories.iter() {
-                indexed_categories.insert(category, inverted_index_listener);
+                indexed_categories.insert(category);
             }
         }
 
         for (timestamp, event_override) in event.overrides.current.iter() {
             if let Some(override_categories_set) = &event_override.categories {
-                indexed_categories.insert_override(timestamp, &override_categories_set, inverted_index_listener);
+                indexed_categories.insert_override(timestamp, &override_categories_set);
             }
         }
 
         indexed_categories
     }
 
-    pub fn new_from_event_related_to(event: &Event, inverted_index_listener: &mut dyn InvertedIndexListener<K>) -> InvertedEventIndex<KeyValuePair> {
+    pub fn new_from_event_related_to(event: &Event) -> InvertedEventIndex<KeyValuePair> {
         let mut indexed_related_to = InvertedEventIndex {
             terms: HashMap::new()
         };
@@ -155,14 +148,14 @@ where
                 for reltype_uuid in reltype_uuids.iter() {
                     let reltype_uuid_pair = KeyValuePair::new(reltype.clone(), reltype_uuid.clone());
 
-                    indexed_related_to.insert(&reltype_uuid_pair, inverted_index_listener);
+                    indexed_related_to.insert(&reltype_uuid_pair);
                 }
             }
         }
 
         for (timestamp, event_override) in event.overrides.current.iter() {
             if let Some(override_related_to_set) = &event_override.build_override_related_to_set() {
-                indexed_related_to.insert_override(timestamp, &override_related_to_set, inverted_index_listener);
+                indexed_related_to.insert_override(timestamp, &override_related_to_set);
             }
         }
 
@@ -190,7 +183,7 @@ where
         indexed_terms_set
     }
 
-    pub fn insert(&mut self, term: &K, inverted_index_listener: &mut dyn InvertedIndexListener<K>)
+    pub fn insert(&mut self, term: &K)
     where
         K: std::hash::Hash + Clone + std::cmp::Eq,
 
@@ -202,19 +195,13 @@ where
                     indexed_term,
                     &IndexedConclusion::Include(None)
                 );
-
-                inverted_index_listener.handle_update(term, Some(indexed_term));
             })
             .or_insert_with(|| {
-                let indexed_conclusion = IndexedConclusion::Include(None);
-
-                inverted_index_listener.handle_update(term, Some(&indexed_conclusion));
-
-                indexed_conclusion
+                IndexedConclusion::Include(None)
             });
     }
 
-    pub fn insert_override(&mut self, timestamp: i64, override_terms_set: &HashSet<K>, inverted_index_listener: &mut dyn InvertedIndexListener<K>)
+    pub fn insert_override(&mut self, timestamp: i64, override_terms_set: &HashSet<K>)
     where
         K: std::hash::Hash + Clone + std::cmp::Eq,
     {
@@ -227,8 +214,6 @@ where
                       .and_then(|indexed_term| {
                           indexed_term.insert_exception(timestamp);
 
-                          inverted_index_listener.handle_update(excluded_term, Some(indexed_term));
-
                           Some(indexed_term)
                       });
         }
@@ -239,29 +224,21 @@ where
             self.terms.entry(included_term.clone())
                       .and_modify(|indexed_term| {
                           indexed_term.insert_exception(timestamp);
-
-                          inverted_index_listener.handle_update(included_term, Some(indexed_term));
                       })
                       .or_insert_with(|| {
-                          let indexed_conclusion = IndexedConclusion::Exclude(
+                          IndexedConclusion::Exclude(
                               Some(
                                   HashSet::from([timestamp])
                               )
-                          );
-
-                          inverted_index_listener.handle_update(included_term, Some(&indexed_conclusion));
-
-                          indexed_conclusion
+                          )
                       });
         }
     }
 
-    pub fn remove_override(&mut self, timestamp: i64, inverted_index_listener: &mut dyn InvertedIndexListener<K>) {
+    pub fn remove_override(&mut self, timestamp: i64) {
         self.terms
             .retain(|removed_term, indexed_conclusion| {
                 if indexed_conclusion.remove_exception(timestamp) && indexed_conclusion.is_empty_exclude() {
-                    inverted_index_listener.handle_update(removed_term, None);
-
                     false
                 } else {
                     true
