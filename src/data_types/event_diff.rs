@@ -8,7 +8,6 @@ use serde::{Serialize, Deserialize};
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone)]
 pub struct EventDiff {
-    pub indexed_calendars:   Option<UpdatedSetMembers<String>>,
     pub indexed_categories:  Option<UpdatedHashMapMembers<String, IndexedConclusion>>,
     pub indexed_related_to:  Option<UpdatedHashMapMembers<KeyValuePair, IndexedConclusion>>,
 
@@ -20,22 +19,12 @@ impl EventDiff {
 
     pub fn new(original_event: &Event, updated_event: &Event) -> Self {
         EventDiff {
-            indexed_calendars:   Self::diff_indexed_calendars(original_event, updated_event),
             indexed_categories:  Self::diff_indexed_categories(original_event, updated_event),
             indexed_related_to:  Self::diff_indexed_related_to(original_event, updated_event),
 
             passive_properties:  Self::diff_passive_properties(original_event, updated_event),
             schedule_properties: Self::diff_schedule_properties(original_event, updated_event),
         }
-    }
-
-    fn diff_indexed_calendars(original_event: &Event, updated_event: &Event) -> Option<UpdatedSetMembers<String>> {
-        Some(
-            UpdatedSetMembers::new(
-                original_event.indexed_properties.get_indexed_calendars().as_ref(),
-                updated_event.indexed_properties.get_indexed_calendars().as_ref()
-            )
-        )
     }
 
     fn diff_indexed_categories(original_event: &Event, updated_event: &Event) -> Option<UpdatedHashMapMembers<String, IndexedConclusion>> {
@@ -158,14 +147,6 @@ mod test {
         let original_event = Event::new(String::from("event_UUID"));
         let updated_event  = Event::new(String::from("event_UUID"));
 
-        let expected_indexed_calendars = Some(
-            UpdatedSetMembers {
-                removed:    HashSet::new(),
-                maintained: HashSet::new(),
-                added:      HashSet::new()
-            }
-        );
-
         let expected_indexed_categories = Some(
             UpdatedHashMapMembers {
                 removed:    HashMap::new(),
@@ -207,7 +188,6 @@ mod test {
         assert_eq!(
             EventDiff::new(&original_event, &updated_event),
             EventDiff {
-                indexed_calendars:   expected_indexed_calendars,
                 indexed_categories:  expected_indexed_categories,
                 indexed_related_to:  expected_indexed_related_to,
                 passive_properties:  expected_passive_properties,
@@ -288,13 +268,6 @@ mod test {
         assert_eq!(
             EventDiff::new(&original_event, &updated_event),
             EventDiff {
-                indexed_calendars:   Some(
-                                         UpdatedSetMembers {
-                                             removed:    HashSet::new(),
-                                             maintained: HashSet::new(),
-                                             added:      HashSet::new()
-                                         }
-                                     ),
                 indexed_categories:  Some(
                                          UpdatedHashMapMembers {
                                              removed:    HashMap::new(),
@@ -462,15 +435,6 @@ mod test {
         assert_eq!(
             EventDiff::new(&original_event, &updated_event),
             EventDiff {
-                indexed_calendars:   Some(
-                                         UpdatedSetMembers {
-                                             removed:    HashSet::from([
-                                                 String::from("indexed_calendar_UUID"),
-                                             ]),
-                                             maintained: HashSet::new(),
-                                             added:      HashSet::new()
-                                         }
-                                     ),
                 indexed_categories:  Some(
                                          UpdatedHashMapMembers {
                                              removed:    HashMap::from([
@@ -572,15 +536,6 @@ mod test {
         assert_eq!(
             EventDiff::new(&original_event, &updated_event),
             EventDiff {
-                indexed_calendars:   Some(
-                                         UpdatedSetMembers {
-                                             removed:    HashSet::from([
-                                                 String::from("indexed_calendar_UUID"),
-                                             ]),
-                                             maintained: HashSet::new(),
-                                             added:      HashSet::new()
-                                         }
-                                     ),
                 indexed_categories:  Some(
                                          UpdatedHashMapMembers {
                                              removed:    HashMap::from([

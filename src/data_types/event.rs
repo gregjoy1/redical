@@ -293,16 +293,6 @@ impl IndexedProperties {
         }
     }
 
-    pub fn get_indexed_calendars(&self) -> Option<HashSet<String>> {
-        if let Some(related_to_hashmap) = &self.related_to {
-            if let Some(connected_indexed_calendars) = related_to_hashmap.get("X-IDX-CAL") {
-                return Some(connected_indexed_calendars.clone());
-            }
-        }
-
-        None
-    }
-
     pub fn insert(&mut self, property: ParsedProperty) -> Result<&Self, String> {
         match property {
             ParsedProperty::Categories(content)  => {
@@ -1349,11 +1339,6 @@ mod test {
 
         let parsed_event = Event::parse_ical("event_UUID", ical).unwrap();
 
-        assert_eq!(
-            parsed_event.indexed_properties.get_indexed_calendars(),
-            None
-        );
-
         let ical: &str = "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_One,redical//IndexedCalendar_Two RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Three,redical//IndexedCalendar_Two RELATED-TO:ParentUUID_One RELATED-TO;RELTYPE=PARENT:ParentUUID_Two RELATED-TO;RELTYPE=CHILD:ChildUUID";
 
         let parsed_event = Event::parse_ical("event_UUID", ical).unwrap();
@@ -1409,17 +1394,6 @@ mod test {
                 indexed_categories:  None,
                 indexed_related_to:  None,
             }
-        );
-
-        assert_eq!(
-            parsed_event.indexed_properties.get_indexed_calendars(),
-            Some(
-                HashSet::from([
-                    String::from("redical//IndexedCalendar_One"),
-                    String::from("redical//IndexedCalendar_Two"),
-                    String::from("redical//IndexedCalendar_Three"),
-                ])
-            )
         );
     }
 
@@ -1545,7 +1519,6 @@ mod test {
         };
 
         let event_diff = EventDiff {
-            indexed_calendars:   None,
             indexed_categories:  Some(
                 UpdatedHashMapMembers {
                     removed:    HashMap::from([

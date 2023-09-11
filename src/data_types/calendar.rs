@@ -1,5 +1,7 @@
 use serde::{Serialize, Deserialize};
 
+use std::collections::HashMap;
+
 use crate::data_types::inverted_index::{InvertedCalendarIndex, IndexedConclusion};
 
 use crate::data_types::utils::KeyValuePair;
@@ -9,6 +11,7 @@ use crate::data_types::event::Event;
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Calendar {
     pub uuid:               String,
+    pub events:             HashMap<String, Event>,
     pub indexed_categories: InvertedCalendarIndex<String>,
     pub indexed_related_to: InvertedCalendarIndex<KeyValuePair>,
 }
@@ -18,47 +21,37 @@ impl Calendar {
     pub fn new(uuid: String) -> Self {
         Calendar {
             uuid,
+            events:             HashMap::new(),
             indexed_categories: InvertedCalendarIndex::new(),
             indexed_related_to: InvertedCalendarIndex::new(),
         }
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct CalendarIndexUpdater {
-    pub event_uuid:             String,
-    pub connected_calendars:    Vec<Box<Calendar>>,
-    pub disconnected_calendars: Vec<Box<Calendar>>,
+#[derive(Debug)]
+pub struct CalendarIndexUpdater<'a> {
+    pub event_uuid:  String,
+    pub calendar:    &'a mut Calendar,
 }
 
-impl CalendarIndexUpdater {
+impl <'a>CalendarIndexUpdater<'a> {
 
-    pub fn new(event_uuid: String, connected_calendars: Vec<Box<Calendar>>, disconnected_calendars: Vec<Box<Calendar>>) -> Self {
+    pub fn new(event_uuid: String, calendar: &'a mut Calendar) -> Self {
         CalendarIndexUpdater {
             event_uuid,
-            connected_calendars,
-            disconnected_calendars,
-
+            calendar,
         }
-    }
-
-    pub fn is_any_connected_calendars(&self) -> bool {
-        self.connected_calendars.len() > 0
-    }
-
-    pub fn is_any_disconnected_calendars(&self) -> bool {
-        self.disconnected_calendars.len() > 0
     }
 }
 
 #[derive(Debug)]
 pub struct CalendarCategoryIndexUpdater<'a> {
-    pub calendar_index_updater: &'a mut CalendarIndexUpdater,
+    pub calendar_index_updater: &'a mut CalendarIndexUpdater<'a>,
 }
 
 impl<'a> CalendarCategoryIndexUpdater<'a> {
 
-    pub fn new(calendar_index_updater: &'a mut CalendarIndexUpdater) -> Self {
+    pub fn new(calendar_index_updater: &'a mut CalendarIndexUpdater<'a>) -> Self {
         CalendarCategoryIndexUpdater {
             calendar_index_updater
         }
@@ -69,17 +62,15 @@ impl<'a> CalendarCategoryIndexUpdater<'a> {
         let current_uuid = &self.calendar_index_updater.event_uuid;
 
         if original_uuid != current_uuid {
-            return Err(format!("Cannot remove Event categories from disconnected Calendars because of mismatched UUIDs - original: '{original_uuid}' expected: '{current_uuid}'"));
+            return Err(format!("Cannot remove Event categories from the Calendar because of mismatched UUIDs - original: '{original_uuid}' expected: '{current_uuid}'"));
         }
 
         if let Some(indexed_categories) = &original_event.indexed_categories {
             for (category, _) in indexed_categories.terms.iter() {
-                for calendar in self.calendar_index_updater.disconnected_calendars.iter_mut() {
-                    // Update all calendars with None as indexed_conclusion so that it deletes the
-                    // categories associated with the event which has now been disconnected from
-                    // the calendar(s).
-                    Self::update_calendar(calendar, original_uuid.clone(), category.clone(), None)?;
-                }
+                // Update the calendar with None as indexed_conclusion so that it deletes the
+                // related_to associated with the event which has now been removed from
+                // the calendar.
+                Self::update_calendar(self.calendar_index_updater.calendar, original_uuid.clone(), category.clone(), None)?;
             }
         }
 
@@ -101,21 +92,19 @@ impl<'a> CalendarCategoryIndexUpdater<'a> {
     }
 
     fn handle_update(&mut self, updated_term: &String, indexed_conclusion: Option<&IndexedConclusion>) {
-        for calendar in self.calendar_index_updater.connected_calendars.iter_mut() {
-            // TODO: handle error...
-            let _ = Self::update_calendar(calendar, self.calendar_index_updater.event_uuid.clone(), updated_term.clone(), indexed_conclusion);
-        }
+        // TODO: handle error...
+        let _ = Self::update_calendar(self.calendar_index_updater.calendar, self.calendar_index_updater.event_uuid.clone(), updated_term.clone(), indexed_conclusion);
     }
 }
 
 #[derive(Debug)]
 pub struct CalendarRelatedToIndexUpdater<'a> {
-    pub calendar_index_updater: &'a mut CalendarIndexUpdater,
+    pub calendar_index_updater: &'a mut CalendarIndexUpdater<'a>,
 }
 
 impl<'a> CalendarRelatedToIndexUpdater<'a> {
 
-    pub fn new(calendar_index_updater: &'a mut CalendarIndexUpdater) -> Self {
+    pub fn new(calendar_index_updater: &'a mut CalendarIndexUpdater<'a>) -> Self {
         CalendarRelatedToIndexUpdater {
             calendar_index_updater,
         }
@@ -131,12 +120,10 @@ impl<'a> CalendarRelatedToIndexUpdater<'a> {
 
         if let Some(indexed_related_to) = &original_event.indexed_related_to {
             for (related_to, _) in indexed_related_to.terms.iter() {
-                for calendar in self.calendar_index_updater.disconnected_calendars.iter_mut() {
-                    // Update all calendars with None as indexed_conclusion so that it deletes the
-                    // related_to associated with the event which has now been disconnected from
-                    // the calendar(s).
-                    Self::update_calendar(calendar, original_uuid.clone(), related_to.clone(), None)?;
-                }
+                // Update the calendar with None as indexed_conclusion so that it deletes the
+                // related_to associated with the event which has now been removed from
+                // the calendar.
+                Self::update_calendar(self.calendar_index_updater.calendar, original_uuid.clone(), related_to.clone(), None)?;
             }
         }
 
@@ -158,9 +145,7 @@ impl<'a> CalendarRelatedToIndexUpdater<'a> {
     }
 
     fn handle_update(&mut self, updated_term: &KeyValuePair, indexed_conclusion: Option<&IndexedConclusion>) {
-        for calendar in self.calendar_index_updater.connected_calendars.iter_mut() {
-            // TODO: handle error...
-            let _ = Self::update_calendar(calendar, self.calendar_index_updater.event_uuid.clone(), updated_term.clone(), indexed_conclusion);
-        }
+        // TODO: handle error...
+        let _ = Self::update_calendar(self.calendar_index_updater.calendar, self.calendar_index_updater.event_uuid.clone(), updated_term.clone(), indexed_conclusion);
     }
 }
