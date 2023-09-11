@@ -4,6 +4,8 @@ use serde::{Serialize, Deserialize};
 
 use crate::data_types::ical_property_parser::{parse_properties, ParsedProperty, ParsedValue};
 
+use crate::data_types::utils::KeyValuePair;
+
 use crate::parsers::{datestring_to_date, ParseError};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
@@ -156,17 +158,17 @@ impl EventOccurrenceOverride {
     }
 
     // TODO: pull into DRY util to turn hash into set
-    pub fn build_override_related_to_set(&self) -> Option<HashSet::<String>> {
+    pub fn build_override_related_to_set(&self) -> Option<HashSet::<KeyValuePair>> {
         if self.related_to.is_none() {
             return None;
         }
 
-        let mut override_related_to_set = HashSet::<String>::new();
+        let mut override_related_to_set = HashSet::<KeyValuePair>::new();
 
         if let Some(override_related_to_map) = &self.related_to {
             for (reltype, reltype_uuids) in override_related_to_map.iter() {
                 for reltype_uuid in reltype_uuids.iter() {
-                    override_related_to_set.insert(format!("{reltype}:{reltype_uuid}"));
+                    override_related_to_set.insert(KeyValuePair::new(reltype.clone(), reltype_uuid.clone()));
                 }
             }
         }

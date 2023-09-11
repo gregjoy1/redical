@@ -6,6 +6,55 @@ use std::cmp::Ordering;
 
 use serde::{Serialize, Deserialize};
 
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash, PartialOrd, Clone)]
+pub struct KeyValuePair {
+    pub key: String,
+    pub value: String,
+}
+
+impl KeyValuePair {
+    pub fn new(key: String, value: String) -> Self {
+        KeyValuePair {
+            key,
+            value,
+        }
+    }
+
+    pub fn to_string(&self) -> String {
+        self.key + &self.value
+    }
+}
+
+impl From<(String, String)> for KeyValuePair {
+    fn from(value: (String, String)) -> Self {
+        Self::new(value.0, value.1)
+    }
+}
+
+impl From<KeyValuePair> for String {
+    fn from(value: KeyValuePair) -> String {
+        value.to_string()
+    }
+}
+
+impl From<KeyValuePair> for (String, String) {
+    fn from(key_value_pair: KeyValuePair) -> (String, String) {
+        (key_value_pair.key, key_value_pair.value)
+    }
+}
+
+impl Ord for KeyValuePair {
+    fn cmp(&self, other: &Self) -> Ordering {
+        let key_comparison = self.key.cmp(&other.key);
+
+        if key_comparison.is_eq() {
+            self.value.cmp(&other.value)
+        } else {
+            key_comparison
+        }
+    }
+}
+
 pub fn hashmap_to_hashset(hash_map: Option<&HashMap<String, HashSet<String>>>) -> Option<HashSet<(String, String)>> {
     hash_map.and_then(|hash_map| {
         let mut set_members = HashSet::<(String, String)>::new();
@@ -107,7 +156,7 @@ where
 pub struct UpdatedHashMapMembers<K, T>
 where
     K: Eq + PartialEq + Hash + Clone,
-    T: Eq + PartialEq + Hash + Clone,
+    T: Eq + PartialEq + Clone,
 {
     pub removed:    HashMap<K, T>,
     pub maintained: HashMap<K, T>,
@@ -118,12 +167,12 @@ where
 impl<K, T> UpdatedHashMapMembers<K, T>
 where
     K: Eq + PartialEq + Hash + Clone,
-    T: Eq + PartialEq + Hash + Clone,
+    T: Eq + PartialEq + Clone,
 {
     pub fn new(original: Option<&HashMap<K, T>>, updated: Option<&HashMap<K, T>>) -> Self
         where
             K: Eq + PartialEq + Hash + Clone,
-            T: Eq + PartialEq + Hash + Clone,
+            T: Eq + PartialEq + Clone,
     {
         match (original, updated) {
             (None, None) => {

@@ -19,6 +19,8 @@ use crate::data_types::event_diff::EventDiff;
 
 use crate::data_types::calendar::{CalendarIndexUpdater, CalendarCategoryIndexUpdater, CalendarRelatedToIndexUpdater};
 
+use crate::data_types::utils::KeyValuePair;
+
 use crate::parsers::{datestring_to_date, ParseError};
 
 fn property_option_set_or_insert<'a>(property_option: &mut Option<HashSet<String>>, content: &'a str) {
@@ -70,18 +72,18 @@ impl EventOccurrenceOverrides {
         if let Some(indexed_categories) = &event_diff.indexed_categories {
             match event_occurrence_override.categories.as_mut() {
                 Some(overridden_categories) => {
-                    for removed_category in indexed_categories.removed.iter() {
+                    for (removed_category, _) in indexed_categories.removed.iter() {
                         overridden_categories.remove(removed_category);
                     }
 
-                    for added_category in indexed_categories.added.iter() {
+                    for (added_category, _) in indexed_categories.added.iter() {
                         overridden_categories.insert(added_category.clone());
                     }
                 },
 
                 None => {
                     event_occurrence_override.categories = Some(
-                        indexed_categories.added.clone()
+                        HashSet::from_iter(indexed_categories.added.keys().map(|key| key.clone()))
                     );
                 }
             };
@@ -90,26 +92,26 @@ impl EventOccurrenceOverrides {
         if let Some(indexed_related_to) = &event_diff.indexed_related_to {
             match event_occurrence_override.related_to.as_mut() {
                 Some(overridden_related_to) => {
-                    for (removed_reltype, removed_reltype_uuid) in indexed_related_to.removed.iter() {
-                        if let Some(reltype_uuids) = overridden_related_to.get_mut(removed_reltype) {
-                            reltype_uuids.remove(removed_reltype_uuid);
+                    for (removed_reltype_uuid_pair, _) in indexed_related_to.removed.iter() {
+                        if let Some(reltype_uuids) = overridden_related_to.get_mut(&removed_reltype_uuid_pair.key) {
+                            reltype_uuids.remove(&removed_reltype_uuid_pair.value);
                         }
                     }
 
-                    for (added_reltype, added_reltype_uuid) in indexed_related_to.added.iter() {
-                        overridden_related_to.entry(added_reltype.clone())
-                                             .and_modify(|reltype_uuids| { reltype_uuids.insert(added_reltype_uuid.clone()); })
-                                             .or_insert(HashSet::from([added_reltype_uuid.clone()]));
+                    for (added_reltype_uuid_pair, _) in indexed_related_to.added.iter() {
+                        overridden_related_to.entry(added_reltype_uuid_pair.key.clone())
+                                             .and_modify(|reltype_uuids| { reltype_uuids.insert(added_reltype_uuid_pair.value.clone()); })
+                                             .or_insert(HashSet::from([added_reltype_uuid_pair.value.clone()]));
                     }
                 },
 
                 None => {
                     let mut overridden_related_to = HashMap::new();
 
-                    for (added_reltype, added_reltype_uuid) in indexed_related_to.added.iter() {
-                        overridden_related_to.entry(added_reltype.clone())
-                                             .and_modify(|reltype_uuids: &mut HashSet<String>| { reltype_uuids.insert(added_reltype_uuid.clone()); })
-                                             .or_insert(HashSet::from([added_reltype_uuid.clone()]));
+                    for (added_reltype_uuid_pair, _) in indexed_related_to.added.iter() {
+                        overridden_related_to.entry(added_reltype_uuid_pair.key.clone())
+                                             .and_modify(|reltype_uuids: &mut HashSet<String>| { reltype_uuids.insert(added_reltype_uuid_pair.value.clone()); })
+                                             .or_insert(HashSet::from([added_reltype_uuid_pair.value.clone()]));
                     }
 
                     event_occurrence_override.related_to = Some(overridden_related_to);
@@ -443,8 +445,8 @@ pub struct Event {
 
     pub overrides:           EventOccurrenceOverrides,
     pub occurrence_cache:    Option<OccurrenceIndex<OccurrenceIndexValue>>,
-    pub indexed_categories:  Option<InvertedEventIndex>,
-    pub indexed_related_to:  Option<InvertedEventIndex>,
+    pub indexed_categories:  Option<InvertedEventIndex<String>>,
+    pub indexed_related_to:  Option<InvertedEventIndex<KeyValuePair>>,
 }
 
 impl Event {
@@ -512,7 +514,7 @@ impl Event {
         let mut calendar_category_index_updater = CalendarCategoryIndexUpdater::new(calendar_index_updater);
 
         self.indexed_categories = Some(
-            InvertedEventIndex::new_from_event_categories(
+            InvertedEventIndex::<String>::new_from_event_categories(
                 self,
                 &mut calendar_category_index_updater
             )
@@ -525,7 +527,7 @@ impl Event {
         let mut calendar_related_to_index_updater = CalendarRelatedToIndexUpdater::new(calendar_index_updater);
 
         self.indexed_related_to = Some(
-            InvertedEventIndex::new_from_event_related_to(
+            InvertedEventIndex::<KeyValuePair>::new_from_event_related_to(
                 self,
                 &mut calendar_related_to_index_updater
             )
@@ -614,7 +616,7 @@ impl Event {
                             );
                         } else {
                             self.indexed_categories = Some(
-                                InvertedEventIndex::new_from_event_categories(
+                                InvertedEventIndex::<String>::new_from_event_categories(
                                     &*self,
                                     &mut calendar_category_index_updater
                                 )
@@ -630,7 +632,7 @@ impl Event {
                             );
                         } else {
                             self.indexed_related_to = Some(
-                                InvertedEventIndex::new_from_event_related_to(
+                                InvertedEventIndex::<KeyValuePair>::new_from_event_related_to(
                                     &*self,
                                     &mut calendar_related_to_index_updater
                                 )
@@ -848,7 +850,7 @@ mod test {
             handle_update_values: Vec::new()
         };
 
-        let mut indexed_categories = InvertedEventIndex::new_from_event_categories(&event, &mut callback_container);
+        let mut indexed_categories = InvertedEventIndex::<String>::new_from_event_categories(&event, &mut callback_container);
 
         assert_eq!(
             indexed_categories,

@@ -1,14 +1,16 @@
 use serde::{Serialize, Deserialize};
 
-use crate::data_types::inverted_index::{InvertedCalendarIndex, InvertedCalendarIndexTerm, IndexedConclusion, InvertedIndexListener};
+use crate::data_types::inverted_index::{InvertedCalendarIndex, IndexedConclusion, InvertedIndexListener};
+
+use crate::data_types::utils::KeyValuePair;
 
 use crate::data_types::event::Event;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Calendar {
     pub uuid:               String,
-    pub indexed_categories: InvertedCalendarIndex,
-    pub indexed_related_to: InvertedCalendarIndex,
+    pub indexed_categories: InvertedCalendarIndex<String>,
+    pub indexed_related_to: InvertedCalendarIndex<KeyValuePair>,
 }
 
 impl Calendar {
@@ -99,9 +101,12 @@ impl<'a> CalendarCategoryIndexUpdater<'a> {
     }
 }
 
-impl<'a> InvertedIndexListener for CalendarCategoryIndexUpdater<'a> {
+impl<'a, K> InvertedIndexListener<K> for CalendarCategoryIndexUpdater<'a>
+where
+    K: std::hash::Hash,
+{
 
-    fn handle_update(&mut self, updated_term: &String, indexed_conclusion: Option<&IndexedConclusion>) {
+    fn handle_update(&mut self, updated_term: &K, indexed_conclusion: Option<&IndexedConclusion>) {
         for calendar in self.calendar_index_updater.connected_calendars.iter_mut() {
             // TODO: handle error...
             let _ = Self::update_calendar(calendar, self.calendar_index_updater.event_uuid.clone(), updated_term.clone(), indexed_conclusion);
@@ -110,15 +115,24 @@ impl<'a> InvertedIndexListener for CalendarCategoryIndexUpdater<'a> {
 }
 
 #[derive(Debug)]
-pub struct CalendarRelatedToIndexUpdater<'a> {
+pub struct CalendarRelatedToIndexUpdater<'a, K>
+where
+    K: std::hash::Hash,
+{
     pub calendar_index_updater: &'a mut CalendarIndexUpdater,
+
+    calendar_index_updater_type: std::marker::PhantomData<K>,
 }
 
-impl<'a> CalendarRelatedToIndexUpdater<'a> {
+impl<'a, K> CalendarRelatedToIndexUpdater<'a, K>
+where
+    K: std::hash::Hash,
+{
 
     pub fn new(calendar_index_updater: &'a mut CalendarIndexUpdater) -> Self {
         CalendarRelatedToIndexUpdater {
-            calendar_index_updater
+            calendar_index_updater,
+            calendar_index_updater_type: std::marker::PhantomData,
         }
     }
 
@@ -144,7 +158,7 @@ impl<'a> CalendarRelatedToIndexUpdater<'a> {
         Ok(true)
     }
 
-    fn update_calendar(calendar: &mut Calendar, event_uuid: String, updated_term: String, indexed_conclusion: Option<&IndexedConclusion>) -> Result<bool, String> {
+    fn update_calendar(calendar: &mut Calendar, event_uuid: String, updated_term: K, indexed_conclusion: Option<&IndexedConclusion>) -> Result<bool, String> {
         match indexed_conclusion {
             Some(indexed_conclusion) => {
                 calendar.indexed_related_to.insert(event_uuid, updated_term, indexed_conclusion)?;
@@ -159,9 +173,12 @@ impl<'a> CalendarRelatedToIndexUpdater<'a> {
     }
 }
 
-impl<'a> InvertedIndexListener for CalendarRelatedToIndexUpdater<'a> {
+impl<'a, K> InvertedIndexListener<K> for CalendarRelatedToIndexUpdater<'a, K>
+where
+    K: std::hash::Hash,
+{
 
-    fn handle_update(&mut self, updated_term: &String, indexed_conclusion: Option<&IndexedConclusion>) {
+    fn handle_update(&mut self, updated_term: &K, indexed_conclusion: Option<&IndexedConclusion>) {
         for calendar in self.calendar_index_updater.connected_calendars.iter_mut() {
             // TODO: handle error...
             let _ = Self::update_calendar(calendar, self.calendar_index_updater.event_uuid.clone(), updated_term.clone(), indexed_conclusion);
