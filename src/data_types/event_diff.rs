@@ -1,4 +1,4 @@
-use crate::data_types::{UpdatedSetMembers, UpdatedHashMapMembers, Event, hashmap_to_hashset, IndexedConclusion, KeyValuePair};
+use crate::data_types::{UpdatedSetMembers, UpdatedHashMapMembers, Event, hashmap_to_hashset, IndexedConclusion, KeyValuePair, InvertedEventIndex};
 
 use std::collections::HashSet;
 
@@ -29,18 +29,18 @@ impl EventDiff {
 
     fn diff_indexed_categories(original_event: &Event, updated_event: &Event) -> Option<UpdatedHashMapMembers<String, IndexedConclusion>> {
         Some(
-            UpdatedHashMapMembers::new(
-                original_event.indexed_categories.clone().and_then(|inverted_index| Some(inverted_index.terms)).as_ref(),
-                updated_event.indexed_categories.clone().and_then(|inverted_index| Some(inverted_index.terms)).as_ref(),
+            InvertedEventIndex::diff_indexed_terms(
+                original_event.indexed_categories.as_ref(),
+                updated_event.indexed_categories.as_ref(),
             )
         )
     }
 
     fn diff_indexed_related_to(original_event: &Event, updated_event: &Event) -> Option<UpdatedHashMapMembers<KeyValuePair, IndexedConclusion>> {
         Some(
-            UpdatedHashMapMembers::new(
-                original_event.indexed_related_to.clone().and_then(|inverted_index| Some(inverted_index.terms)).as_ref(),
-                updated_event.indexed_related_to.clone().and_then(|inverted_index| Some(inverted_index.terms)).as_ref(),
+            InvertedEventIndex::diff_indexed_terms(
+                original_event.indexed_related_to.as_ref(),
+                updated_event.indexed_related_to.as_ref(),
             )
         )
     }

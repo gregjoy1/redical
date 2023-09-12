@@ -4,7 +4,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::data_types::event::Event;
 
-use crate::data_types::utils::KeyValuePair;
+use crate::data_types::utils::{KeyValuePair, UpdatedHashMapMembers};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct InvertedCalendarIndexTerm {
@@ -160,6 +160,13 @@ where
         }
 
         indexed_related_to
+    }
+
+    pub fn diff_indexed_terms(original: Option<&InvertedEventIndex<K>>, updated: Option<&InvertedEventIndex<K>>) -> UpdatedHashMapMembers<K, IndexedConclusion> {
+        UpdatedHashMapMembers::new(
+            original.clone().and_then(|inverted_index| Some(inverted_index.terms.clone())).as_ref(),
+            updated.and_then(|inverted_index| Some(inverted_index.terms.clone())).as_ref(),
+        )
     }
 
     fn get_currently_indexed_terms(&self) -> HashSet<K>
