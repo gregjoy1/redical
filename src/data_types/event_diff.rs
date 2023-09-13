@@ -1,4 +1,4 @@
-use crate::data_types::{UpdatedSetMembers, UpdatedHashMapMembers, Event, hashmap_to_hashset, IndexedConclusion, KeyValuePair, InvertedEventIndex};
+use crate::data_types::{UpdatedSetMembers, Event, hashmap_to_hashset, IndexedConclusion, KeyValuePair, InvertedEventIndex};
 
 use std::collections::HashSet;
 
@@ -8,10 +8,10 @@ use serde::{Serialize, Deserialize};
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone)]
 pub struct EventDiff {
-    pub indexed_categories:  Option<UpdatedHashMapMembers<String, IndexedConclusion>>,
-    pub indexed_related_to:  Option<UpdatedHashMapMembers<KeyValuePair, IndexedConclusion>>,
+    pub indexed_categories:  Option<UpdatedSetMembers<String>>,
+    pub indexed_related_to:  Option<UpdatedSetMembers<KeyValuePair>>,
 
-    pub passive_properties:  Option<UpdatedSetMembers<(String, String)>>,
+    pub passive_properties:  Option<UpdatedSetMembers<KeyValuePair>>,
     pub schedule_properties: Option<SchedulePropertiesDiff>,
 }
 
@@ -27,26 +27,28 @@ impl EventDiff {
         }
     }
 
-    fn diff_indexed_categories(original_event: &Event, updated_event: &Event) -> Option<UpdatedHashMapMembers<String, IndexedConclusion>> {
+    fn diff_indexed_categories(original_event: &Event, updated_event: &Event) -> Option<UpdatedSetMembers<String>> {
         Some(
-            InvertedEventIndex::diff_indexed_terms(
-                original_event.indexed_categories.as_ref(),
-                updated_event.indexed_categories.as_ref(),
+            UpdatedSetMembers::new(
+                original_event.indexed_properties.categories.as_ref(),
+                updated_event.indexed_properties.categories.as_ref()
             )
         )
     }
 
-    fn diff_indexed_related_to(original_event: &Event, updated_event: &Event) -> Option<UpdatedHashMapMembers<KeyValuePair, IndexedConclusion>> {
+    fn diff_indexed_related_to(original_event: &Event, updated_event: &Event) -> Option<UpdatedSetMembers<KeyValuePair>> {
+        let original_related_to = hashmap_to_hashset(original_event.indexed_properties.related_to.as_ref());
+        let updated_related_to  = hashmap_to_hashset(updated_event.indexed_properties.related_to.as_ref());
+
         Some(
-            InvertedEventIndex::diff_indexed_terms(
-                original_event.indexed_related_to.as_ref(),
-                updated_event.indexed_related_to.as_ref(),
+            UpdatedSetMembers::new(
+                original_related_to.as_ref(),
+                updated_related_to.as_ref()
             )
         )
     }
 
-
-    fn diff_passive_properties(original_event: &Event, updated_event: &Event) -> Option<UpdatedSetMembers<(String, String)>> {
+    fn diff_passive_properties(original_event: &Event, updated_event: &Event) -> Option<UpdatedSetMembers<KeyValuePair>> {
         // TODO: Improve this to be 0 copy
         let original_passive_properties = hashmap_to_hashset(Some(&original_event.passive_properties.properties));
         let updated_passive_properties  = hashmap_to_hashset(Some(&updated_event.passive_properties.properties));
@@ -148,20 +150,18 @@ mod test {
         let updated_event  = Event::new(String::from("event_UUID"));
 
         let expected_indexed_categories = Some(
-            UpdatedHashMapMembers {
-                removed:    HashMap::new(),
-                maintained: HashMap::new(),
-                updated:    HashMap::new(),
-                added:      HashMap::new()
+            UpdatedSetMembers {
+                removed:    HashSet::new(),
+                maintained: HashSet::new(),
+                added:      HashSet::new()
             }
         );
 
         let expected_indexed_related_to = Some(
-            UpdatedHashMapMembers {
-                removed:    HashMap::new(),
-                maintained: HashMap::new(),
-                updated:    HashMap::new(),
-                added:      HashMap::new()
+            UpdatedSetMembers {
+                removed:    HashSet::new(),
+                maintained: HashSet::new(),
+                added:      HashSet::new()
             }
         );
 
@@ -244,24 +244,7 @@ mod test {
                 current:  OccurrenceIndex::new(),
             },
             occurrence_cache:   None,
-            indexed_categories: Some(
-                InvertedEventIndex {
-                    terms: HashMap::from([
-                               (
-                                   String::from("CATEGORY_ONE"),
-                                   IndexedConclusion::Include(Some(HashSet::from([1610476200]))),
-                               ),
-                               (
-                                   String::from("CATEGORY_TWO"),
-                                   IndexedConclusion::Include(Some(HashSet::from([1610476200]))),
-                               ),
-                               (
-                                   String::from("CATEGORY_THREE"),
-                                   IndexedConclusion::Include(Some(HashSet::from([1610476200]))),
-                               ),
-                    ])
-                }
-            ),
+            indexed_categories: None,
             indexed_related_to: None,
         };
 
@@ -269,32 +252,21 @@ mod test {
             EventDiff::new(&original_event, &updated_event),
             EventDiff {
                 indexed_categories:  Some(
-                                         UpdatedHashMapMembers {
-                                             removed:    HashMap::new(),
-                                             maintained: HashMap::new(),
-                                             updated:    HashMap::new(),
-                                             added:      HashMap::from([
-                                                 (
-                                                     String::from("CATEGORY_ONE"),
-                                                     IndexedConclusion::Include(Some(HashSet::from([1610476200])))
-                                                 ),
-                                                 (
-                                                     String::from("CATEGORY_TWO"),
-                                                     IndexedConclusion::Include(Some(HashSet::from([1610476200])))
-                                                 ),
-                                                 (
-                                                     String::from("CATEGORY_THREE"),
-                                                     IndexedConclusion::Include(Some(HashSet::from([1610476200])))
-                                                 ),
+                                         UpdatedSetMembers {
+                                             removed:    HashSet::new(),
+                                             maintained: HashSet::new(),
+                                             added:      HashSet::from([
+                                                 String::from("CATEGORY_ONE"),
+                                                 String::from("CATEGORY_TWO"),
+                                                 String::from("CATEGORY_THREE"),
                                              ])
                                          }
                                      ),
                 indexed_related_to:  Some(
-                                         UpdatedHashMapMembers {
-                                             removed:    HashMap::new(),
-                                             maintained: HashMap::new(),
-                                             updated:    HashMap::new(),
-                                             added:      HashMap::new(),
+                                         UpdatedSetMembers {
+                                             removed:    HashSet::new(),
+                                             maintained: HashSet::new(),
+                                             added:      HashSet::new(),
                                          }
                                      ),
                 passive_properties:  Some(
@@ -302,10 +274,10 @@ mod test {
                                             removed:    HashSet::new(),
                                             maintained: HashSet::new(),
                                             added:      HashSet::from([
-                                                (
-                                                    String::from("DESCRIPTION"),
-                                                    String::from("Testing description text.")
-                                                )
+                                                KeyValuePair {
+                                                    key:   String::from("DESCRIPTION"),
+                                                    value: String::from("Testing description text.")
+                                                }
                                             ])
                                         }
                                      ),
@@ -402,98 +374,45 @@ mod test {
                 current:  OccurrenceIndex::new(),
             },
             occurrence_cache:   None,
-            indexed_categories: Some(
-                InvertedEventIndex {
-                    terms: HashMap::from([
-                               (
-                                   String::from("CATEGORY_THREE"),
-                                   IndexedConclusion::Include(Some(HashSet::from([1610476200]))),
-                               ),
-                               (
-                                   String::from("CATEGORY_FOUR"),
-                                   IndexedConclusion::Include(Some(HashSet::from([1610476200]))),
-                               ),
-                    ])
-                }
-            ),
-            indexed_related_to: Some(
-                InvertedEventIndex {
-                    terms: HashMap::from([
-                               (
-                                   KeyValuePair::new(String::from("X-IDX-CAL"), String::from("indexed_calendar_UUID")),
-                                   IndexedConclusion::Exclude(Some(HashSet::from([1610476200]))),
-                               ),
-                               (
-                                   KeyValuePair::new(String::from("PARENT"), String::from("another_event_UUID")),
-                                   IndexedConclusion::Exclude(Some(HashSet::from([1610476200]))),
-                               ),
-                    ])
-                }
-            ),
+            indexed_categories: None,
+            indexed_related_to: None,
         };
 
         assert_eq!(
             EventDiff::new(&original_event, &updated_event),
             EventDiff {
                 indexed_categories:  Some(
-                                         UpdatedHashMapMembers {
-                                             removed:    HashMap::from([
-                                                 (
-                                                     String::from("CATEGORY_FOUR"),
-                                                     IndexedConclusion::Include(Some(HashSet::from([1610476200])))
-                                                 ),
-                                             ]),
-                                             maintained: HashMap::from([
-                                                 (
-                                                     String::from("CATEGORY_THREE"),
-                                                     IndexedConclusion::Include(Some(HashSet::from([1610476200])))
-                                                 )
-                                             ]),
-                                             updated:    HashMap::new(),
-                                             added:      HashMap::from([
-                                                 (
-                                                     String::from("CATEGORY_ONE"),
-                                                     IndexedConclusion::Include(Some(HashSet::from([1610476200])))
-                                                 ),
-                                                 (
-                                                     String::from("CATEGORY_TWO"),
-                                                     IndexedConclusion::Include(Some(HashSet::from([1610476200])))
-                                                 )
-                                             ])
+                                         UpdatedSetMembers {
+                                             removed:    HashSet::from([String::from("CATEGORY_FOUR")]),
+                                             maintained: HashSet::from([String::from("CATEGORY_THREE")]),
+                                             added:      HashSet::from([String::from("CATEGORY_ONE"), String::from("CATEGORY_TWO")])
                                          }
                                      ),
-                indexed_related_to:  Some(
-                                        UpdatedHashMapMembers {
-                                            removed:    HashMap::from([
-                                               (
-                                                   KeyValuePair::new(String::from("X-IDX-CAL"), String::from("indexed_calendar_UUID")),
-                                                   IndexedConclusion::Exclude(Some(HashSet::from([1610476200]))),
-                                               ),
-                                               (
-                                                   KeyValuePair::new(String::from("PARENT"), String::from("another_event_UUID")),
-                                                   IndexedConclusion::Exclude(Some(HashSet::from([1610476200]))),
-                                               ),
-                                            ]),
-                                            maintained: HashMap::new(),
-                                            updated:    HashMap::new(),
-                                            added:      HashMap::new()
-                                        }
+                                     indexed_related_to:  Some(
+                                         UpdatedSetMembers {
+                                             removed:    HashSet::from([
+                                                             KeyValuePair::new(String::from("X-IDX-CAL"), String::from("indexed_calendar_UUID")),
+                                                             KeyValuePair::new(String::from("PARENT"), String::from("another_event_UUID")),
+                                             ]),
+                                             maintained: HashSet::new(),
+                                             added:      HashSet::new()
+                                         }
                                      ),
-                passive_properties:  Some(
-                                        UpdatedSetMembers {
-                                            removed:    HashSet::from([
-                                                (
-                                                    String::from("DESCRIPTION"),
-                                                    String::from("Testing original description text.")
-                                                )
-                                            ]),
-                                            maintained: HashSet::new(),
-                                            added:      HashSet::from([
-                                                (
-                                                    String::from("DESCRIPTION"),
-                                                    String::from("Testing description text.")
-                                                )
-                                            ])
+                                     passive_properties:  Some(
+                                         UpdatedSetMembers {
+                                             removed:    HashSet::from([
+                                                 KeyValuePair {
+                                                     key:   String::from("DESCRIPTION"),
+                                                     value: String::from("Testing original description text."),
+                                                 }
+                                             ]),
+                                             maintained: HashSet::new(),
+                                             added:      HashSet::from([
+                                                 KeyValuePair {
+                                                     key:   String::from("DESCRIPTION"),
+                                                     value: String::from("Testing description text."),
+                                                 }
+                                             ])
                                         }
                                      ),
                 schedule_properties: Some(
@@ -537,46 +456,29 @@ mod test {
             EventDiff::new(&original_event, &updated_event),
             EventDiff {
                 indexed_categories:  Some(
-                                         UpdatedHashMapMembers {
-                                             removed:    HashMap::from([
-                                                             (
-                                                                 String::from("CATEGORY_THREE"),
-                                                                 IndexedConclusion::Include(Some(HashSet::from([1610476200])))
-                                                             ),
-                                                             (
-                                                                 String::from("CATEGORY_FOUR"),
-                                                                 IndexedConclusion::Include(Some(HashSet::from([1610476200])))
-                                                             )
-                                             ]),
-                                             updated:    HashMap::new(),
-                                             maintained: HashMap::new(),
-                                             added:      HashMap::new(),
+                                         UpdatedSetMembers {
+                                             removed:    HashSet::from([String::from("CATEGORY_THREE"), String::from("CATEGORY_FOUR")]),
+                                             maintained: HashSet::new(),
+                                             added:      HashSet::new(),
                                          }
                                      ),
                 indexed_related_to:  Some(
-                                        UpdatedHashMapMembers {
-                                            removed:    HashMap::from([
-                                                            (
-                                                                KeyValuePair::new(String::from("X-IDX-CAL"), String::from("indexed_calendar_UUID")),
-                                                                IndexedConclusion::Exclude(Some(HashSet::from([1610476200]))),
-                                                            ),
-                                                            (
-                                                                KeyValuePair::new(String::from("PARENT"), String::from("another_event_UUID")),
-                                                                IndexedConclusion::Exclude(Some(HashSet::from([1610476200]))),
-                                                            ),
+                                        UpdatedSetMembers {
+                                            removed:    HashSet::from([
+                                                            KeyValuePair::new(String::from("X-IDX-CAL"), String::from("indexed_calendar_UUID")),
+                                                            KeyValuePair::new(String::from("PARENT"),    String::from("another_event_UUID")),
                                             ]),
-                                            maintained: HashMap::new(),
-                                            updated:    HashMap::new(),
-                                            added:      HashMap::new()
+                                            maintained: HashSet::new(),
+                                            added:      HashSet::new()
                                         }
                                      ),
                 passive_properties:  Some(
                                         UpdatedSetMembers {
                                             removed:    HashSet::from([
-                                                (
-                                                    String::from("DESCRIPTION"),
-                                                    String::from("Testing original description text.")
-                                                )
+                                                KeyValuePair {
+                                                    key:   String::from("DESCRIPTION"),
+                                                    value: String::from("Testing original description text.")
+                                                }
                                             ]),
                                             maintained: HashSet::new(),
                                             added:      HashSet::new()

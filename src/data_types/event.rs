@@ -70,18 +70,18 @@ impl EventOccurrenceOverrides {
         if let Some(indexed_categories) = &event_diff.indexed_categories {
             match event_occurrence_override.categories.as_mut() {
                 Some(overridden_categories) => {
-                    for (removed_category, _) in indexed_categories.removed.iter() {
+                    for removed_category in indexed_categories.removed.iter() {
                         overridden_categories.remove(removed_category);
                     }
 
-                    for (added_category, _) in indexed_categories.added.iter() {
+                    for added_category in indexed_categories.added.iter() {
                         overridden_categories.insert(added_category.clone());
                     }
                 },
 
                 None => {
                     event_occurrence_override.categories = Some(
-                        HashSet::from_iter(indexed_categories.added.keys().map(|key| key.clone()))
+                        indexed_categories.added.clone()
                     );
                 }
             };
@@ -90,13 +90,13 @@ impl EventOccurrenceOverrides {
         if let Some(indexed_related_to) = &event_diff.indexed_related_to {
             match event_occurrence_override.related_to.as_mut() {
                 Some(overridden_related_to) => {
-                    for (removed_reltype_uuid_pair, _) in indexed_related_to.removed.iter() {
+                    for removed_reltype_uuid_pair in indexed_related_to.removed.iter() {
                         if let Some(reltype_uuids) = overridden_related_to.get_mut(&removed_reltype_uuid_pair.key) {
                             reltype_uuids.remove(&removed_reltype_uuid_pair.value);
                         }
                     }
 
-                    for (added_reltype_uuid_pair, _) in indexed_related_to.added.iter() {
+                    for added_reltype_uuid_pair in indexed_related_to.added.iter() {
                         overridden_related_to.entry(added_reltype_uuid_pair.key.clone())
                                              .and_modify(|reltype_uuids| { reltype_uuids.insert(added_reltype_uuid_pair.value.clone()); })
                                              .or_insert(HashSet::from([added_reltype_uuid_pair.value.clone()]));
@@ -106,7 +106,7 @@ impl EventOccurrenceOverrides {
                 None => {
                     let mut overridden_related_to = HashMap::new();
 
-                    for (added_reltype_uuid_pair, _) in indexed_related_to.added.iter() {
+                    for added_reltype_uuid_pair in indexed_related_to.added.iter() {
                         overridden_related_to.entry(added_reltype_uuid_pair.key.clone())
                                              .and_modify(|reltype_uuids: &mut HashSet<String>| { reltype_uuids.insert(added_reltype_uuid_pair.value.clone()); })
                                              .or_insert(HashSet::from([added_reltype_uuid_pair.value.clone()]));
@@ -120,26 +120,26 @@ impl EventOccurrenceOverrides {
         if let Some(indexed_passive_properties) = &event_diff.passive_properties {
             match event_occurrence_override.properties.as_mut() {
                 Some(overridden_passive_properties) => {
-                    for (removed_property, removed_property_value) in indexed_passive_properties.removed.iter() {
-                        if let Some(property_uuids) = overridden_passive_properties.get_mut(removed_property) {
-                            property_uuids.remove(removed_property_value);
+                    for removed_property_pair in indexed_passive_properties.removed.iter() {
+                        if let Some(property_uuids) = overridden_passive_properties.get_mut(&removed_property_pair.key) {
+                            property_uuids.remove(&removed_property_pair.value);
                         }
                     }
 
-                    for (added_property, added_property_value) in indexed_passive_properties.added.iter() {
-                        overridden_passive_properties.entry(added_property.clone())
-                                                     .and_modify(|property_uuids| { property_uuids.insert(added_property_value.clone()); })
-                                                     .or_insert(HashSet::from([added_property_value.clone()]));
+                    for added_property_pair in indexed_passive_properties.added.iter() {
+                        overridden_passive_properties.entry(added_property_pair.key.clone())
+                                                     .and_modify(|property_uuids| { property_uuids.insert(added_property_pair.value.clone()); })
+                                                     .or_insert(HashSet::from([added_property_pair.value.clone()]));
                     }
                 },
 
                 None => {
                     let mut overridden_passive_properties = HashMap::new();
 
-                    for (added_property, added_property_value) in indexed_passive_properties.added.iter() {
-                        overridden_passive_properties.entry(added_property.clone())
-                                                     .and_modify(|property_values: &mut HashSet<String>| { property_values.insert(added_property_value.clone()); })
-                                                     .or_insert(HashSet::from([added_property_value.clone()]));
+                    for added_property_pair in indexed_passive_properties.added.iter() {
+                        overridden_passive_properties.entry(added_property_pair.key.clone())
+                                                     .and_modify(|property_values: &mut HashSet<String>| { property_values.insert(added_property_pair.value.clone()); })
+                                                     .or_insert(HashSet::from([added_property_pair.value.clone()]));
                     }
 
                     event_occurrence_override.properties = Some(overridden_passive_properties);
@@ -642,7 +642,7 @@ mod test {
 
     use crate::data_types::IndexedConclusion;
 
-    use crate::data_types::utils::{UpdatedSetMembers, UpdatedHashMapMembers};
+    use crate::data_types::utils::UpdatedSetMembers;
 
     use std::collections::BTreeMap;
 
@@ -1520,79 +1520,52 @@ mod test {
 
         let event_diff = EventDiff {
             indexed_categories:  Some(
-                UpdatedHashMapMembers {
-                    removed:    HashMap::from([
-                        (String::from("CATEGORY_THREE"), IndexedConclusion::Include(None)),
-                        (String::from("CATEGORY_FIVE"), IndexedConclusion::Include(None)),
-                    ]),
-                    maintained: HashMap::from([
-                        (String::from("CATEGORY_ONE"), IndexedConclusion::Include(None)),
-                        (String::from("CATEGORY_TWO"), IndexedConclusion::Include(None)),
-                    ]),
-                    updated:    HashMap::new(),
-                    added:      HashMap::from([
-                        (String::from("CATEGORY_FOUR"), IndexedConclusion::Include(None)),
-                    ])
+                UpdatedSetMembers {
+                    removed:    HashSet::from([String::from("CATEGORY_THREE"), String::from("CATEGORY_FIVE")]),
+                    maintained: HashSet::from([String::from("CATEGORY_ONE"), String::from("CATEGORY_TWO")]),
+                    added:      HashSet::from([String::from("CATEGORY_FOUR")])
                 }
             ),
             indexed_related_to:  Some(
-                UpdatedHashMapMembers {
-                    removed:    HashMap::from([
-                        (
-                            KeyValuePair::new(String::from("PARENT"), String::from("PARENT_UUID_ONE")),
-                            IndexedConclusion::Include(None),
-                        ),
-                    ]),
-                    updated:    HashMap::new(),
-                    maintained: HashMap::from([
-                        (
+                UpdatedSetMembers {
+                    removed:    HashSet::from([KeyValuePair::new(String::from("PARENT"), String::from("PARENT_UUID_ONE"))]),
+                    maintained: HashSet::from([
                             KeyValuePair::new(String::from("PARENT"), String::from("PARENT_UUID_TWO")),
-                            IndexedConclusion::Include(None),
-                        ),
-                        (
                             KeyValuePair::new(String::from("CHILD"), String::from("CHILD_UUID_ONE")),
-                            IndexedConclusion::Include(None),
-                        ),
-                        (
                             KeyValuePair::new(String::from("CHILD"), String::from("CHILD_UUID_TWO")),
-                            IndexedConclusion::Include(None),
-                        ),
                     ]),
-                    added:      HashMap::from([
-                        (
-                            KeyValuePair::new(String::from("X-IDX-CAL"), String::from("INDEXED_CALENDAR_UUID")),
-                            IndexedConclusion::Include(None),
-                        ),
+                    added:      HashSet::from([
+                        KeyValuePair::new(String::from("X-IDX-CAL"), String::from("INDEXED_CALENDAR_UUID")),
                     ])
                 }
             ),
             passive_properties:  Some(
                 UpdatedSetMembers {
                     removed:    HashSet::from([
-                        (
-                            String::from("X-PROPERTY-TWO"),
-                            String::from("PROPERTY_VALUE_TWO")
-                        )
+                        KeyValuePair {
+                            key:   String::from("X-PROPERTY-TWO"),
+                            value: String::from("PROPERTY_VALUE_TWO")
+                        }
                     ]),
                     maintained: HashSet::from([
-                        (
-                            String::from("X-PROPERTY-ONE"),
-                            String::from("PROPERTY_VALUE_ONE")
-                        ),
-                        (
-                            String::from("X-PROPERTY-ONE"),
-                            String::from("PROPERTY_VALUE_TWO")
-                        ),
-                        (
-                            String::from("X-PROPERTY-TWO"),
-                            String::from("PROPERTY_VALUE_ONE")
-                        ),
+                        KeyValuePair {
+                            key:   String::from("X-PROPERTY-ONE"),
+                            value: String::from("PROPERTY_VALUE_ONE")
+                        },
+                        KeyValuePair {
+                            key:   String::from("X-PROPERTY-ONE"),
+                            value: String::from("PROPERTY_VALUE_TWO")
+                        },
+                        KeyValuePair {
+                            key:   String::from("X-PROPERTY-TWO"),
+                            value: String::from("PROPERTY_VALUE_ONE")
+                        },
                     ]),
                     added:      HashSet::from([
-                        (
-                            String::from("X-PROPERTY-THREE"),
-                            String::from("PROPERTY_VALUE_ONE")
-                        )
+                        KeyValuePair {
+                            key:   String::from("X-PROPERTY-THREE"),
+                            value: String::from("PROPERTY_VALUE_ONE")
+                        },
                     ])
                 }
             ),

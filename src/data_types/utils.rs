@@ -55,17 +55,14 @@ impl Ord for KeyValuePair {
     }
 }
 
-pub fn hashmap_to_hashset(hash_map: Option<&HashMap<String, HashSet<String>>>) -> Option<HashSet<(String, String)>> {
+pub fn hashmap_to_hashset(hash_map: Option<&HashMap<String, HashSet<String>>>) -> Option<HashSet<KeyValuePair>> {
     hash_map.and_then(|hash_map| {
-        let mut set_members = HashSet::<(String, String)>::new();
+        let mut set_members = HashSet::<KeyValuePair>::new();
 
         for (key, values) in hash_map.iter() {
             for value in values.iter() {
                 set_members.insert(
-                    (
-                        key.clone(),
-                        value.clone()
-                    )
+                    KeyValuePair::new(key.clone(), value.clone())
                 );
             }
         }
