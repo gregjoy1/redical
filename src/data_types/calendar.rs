@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use crate::data_types::inverted_index::{InvertedCalendarIndex, IndexedConclusion};
 
-use crate::data_types::utils::KeyValuePair;
+use crate::data_types::utils::{KeyValuePair, UpdatedHashMapMembers};
 
 use crate::data_types::event::Event;
 
@@ -41,6 +41,42 @@ impl <'a>CalendarIndexUpdater<'a> {
             event_uuid,
             calendar,
         }
+    }
+
+    pub fn update_indexed_categories(&mut self, updated_event_categories_diff: &UpdatedHashMapMembers<String, IndexedConclusion>) -> Result<bool, String> {
+        let indexed_categories = &mut self.calendar.indexed_categories;
+
+        for (removed_category, _) in updated_event_categories_diff.removed.iter() {
+            indexed_categories.remove(self.event_uuid.clone(), removed_category.clone())?;
+        }
+
+        for (updated_category, updated_indexed_conclusion) in updated_event_categories_diff.updated.iter() {
+            indexed_categories.insert(self.event_uuid.clone(), updated_category.clone(), updated_indexed_conclusion)?;
+        }
+
+        for (added_category, added_indexed_conclusion) in updated_event_categories_diff.added.iter() {
+            indexed_categories.insert(self.event_uuid.clone(), added_category.clone(), added_indexed_conclusion)?;
+        }
+
+        Ok(true)
+    }
+
+    pub fn update_indexed_related_to(&mut self, updated_event_related_to_diff: &UpdatedHashMapMembers<KeyValuePair, IndexedConclusion>) -> Result<bool, String> {
+        let indexed_related_to = &mut self.calendar.indexed_related_to;
+
+        for (removed_related_to, _) in updated_event_related_to_diff.removed.iter() {
+            indexed_related_to.remove(self.event_uuid.clone(), removed_related_to.clone())?;
+        }
+
+        for (updated_related_to, updated_indexed_conclusion) in updated_event_related_to_diff.updated.iter() {
+            indexed_related_to.insert(self.event_uuid.clone(), updated_related_to.clone(), updated_indexed_conclusion)?;
+        }
+
+        for (added_related_to, added_indexed_conclusion) in updated_event_related_to_diff.added.iter() {
+            indexed_related_to.insert(self.event_uuid.clone(), added_related_to.clone(), added_indexed_conclusion)?;
+        }
+
+        Ok(true)
     }
 }
 
