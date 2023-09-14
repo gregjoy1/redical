@@ -6,7 +6,7 @@ pub fn redical_event_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     // TODO: Add option to "rebase" overrides against changes, i.e. add/remove all
     // base added/removed properties to all overrides.
     if args.len() < 3 {
-        ctx.log_debug(format!("event_set WrongArity: {{args.len()}}").as_str());
+        ctx.log_debug(format!("rdcl.evt_set: WrongArity: {{args.len()}}").as_str());
 
         return Err(RedisError::WrongArity);
     }
@@ -20,7 +20,7 @@ pub fn redical_event_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
 
     let other: String = args.map(|arg| arg.try_as_str().unwrap_or("")).collect::<Vec<&str>>().join(" ").as_str().to_owned();
 
-    ctx.log_debug(format!("key: {calendar_uuid} event uuid: {event_uuid}, other: {other}").as_str());
+    ctx.log_debug(format!("rdcl.evt_set: key: {calendar_uuid} event uuid: {event_uuid}, other: {other}").as_str());
 
     let mut event = Event::parse_ical(event_uuid.try_as_str()?, other.as_str()).map_err(RedisError::String)?;
 
@@ -39,8 +39,6 @@ pub fn redical_event_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     } else {
         EventDiff::new(&Event::new(event.uuid.clone()), &event)
     };
-
-    let mut calendar_index_updater = CalendarIndexUpdater::new(event.uuid.clone(), &mut calendar);
 
     if existing_event.is_some() {
         let existing_event = &existing_event.clone().unwrap();
@@ -61,13 +59,14 @@ pub fn redical_event_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
         event.indexed_categories.as_ref(),
     );
 
-    calendar_index_updater.update_indexed_categories(&updated_event_categories_diff).map_err(|error| RedisError::String(error.to_string()))?;
-
     let updated_event_related_to_diff = InvertedEventIndex::diff_indexed_terms(
         existing_event.clone().and_then(|existing_event| existing_event.indexed_related_to.clone()).as_ref(),
         event.indexed_related_to.as_ref(),
     );
 
+    let mut calendar_index_updater = CalendarIndexUpdater::new(event.uuid.clone(), &mut calendar);
+
+    calendar_index_updater.update_indexed_categories(&updated_event_categories_diff).map_err(|error| RedisError::String(error.to_string()))?;
     calendar_index_updater.update_indexed_related_to(&updated_event_related_to_diff).map_err(|error| RedisError::String(error.to_string()))?;
 
     calendar.events.insert(String::from(event_uuid), event);
