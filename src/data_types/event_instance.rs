@@ -1,3 +1,5 @@
+use chrono::{TimeZone, Utc};
+
 use std::collections::{HashMap, HashSet, BTreeSet};
 
 use crate::data_types::{Event, EventOccurrenceOverride, KeyValuePair};
@@ -17,6 +19,86 @@ impl<'a> EventInstance<'a> {
             event,
             event_occurrence_override,
         }
+    }
+
+    pub fn serialize_to_ical(&self) -> Vec<String> {
+        self.serialize_to_ical_set()
+            .iter()
+            .map(|key_value_pair| key_value_pair.to_string())
+            .collect()
+    }
+
+    pub fn serialize_to_ical_set(&self) -> BTreeSet<KeyValuePair> {
+        let mut serialized_output = self.get_passive_properties();
+
+        serialized_output.insert(
+            KeyValuePair::new(
+                String::from("UUID"),
+                format!(":{}", self.get_uuid()),
+            )
+        );
+
+        // TODO: handle the error case...
+        let dtstart_datetime = Utc.timestamp_opt(self.dtstart_timestamp, 0).unwrap();
+
+        serialized_output.insert(
+            KeyValuePair::new(
+                String::from("DTSTART"),
+                format!(":{}", dtstart_datetime.to_rfc3339()),
+            )
+        );
+
+        // TODO: handle the error case...
+        let dtend_datetime = Utc.timestamp_opt(self.get_dtend_timestamp(), 0).unwrap();
+
+        serialized_output.insert(
+            KeyValuePair::new(
+                String::from("DTEND"),
+                format!(":{}", dtend_datetime.to_rfc3339()),
+            )
+        );
+
+        if let Some(categories) = self.get_categories() {
+            let mut categories: Vec<String> = Vec::from_iter(
+                categories.iter()
+                          .map(|element| element.to_owned())
+            );
+
+            categories.sort();
+
+            if categories.len() > 0 {
+                serialized_output.insert(
+                    KeyValuePair::new(
+                        String::from("CATEGORIES"),
+                        format!(":{}", categories.join(","))
+                    )
+                );
+            }
+        }
+
+        if let Some(related_to) = self.get_related_to() {
+            for (reltype, reltype_uuids) in related_to {
+                if reltype_uuids.is_empty() {
+                    continue;
+                }
+
+                let mut reltype_uuids: Vec<String> = Vec::from_iter(
+                    reltype_uuids.iter()
+                                 .map(|element| element.to_owned())
+                );
+
+                reltype_uuids.sort();
+
+                serialized_output.insert(
+                    KeyValuePair::new(
+                        String::from("RELATED_TO"),
+                        format!(";RELTYPE={}:{}", reltype, reltype_uuids.join(","))
+                    )
+                );
+            }
+        }
+
+        serialized_output
     }
 
     pub fn get_uuid(&self) -> String {
@@ -97,6 +179,8 @@ mod test {
     use super::*;
 
     use crate::data_types::{PassiveProperties, IndexedProperties, ScheduleProperties, EventOccurrenceOverrides};
+
+    use pretty_assertions_sorted::{assert_eq, assert_eq_sorted};
 
     #[test]
     fn test_event_instance_without_override() {
@@ -263,6 +347,21 @@ mod test {
                     String::from(":Event address text."),
                 ),
             ])
+        );
+
+        assert_eq!(
+            event_instance.serialize_to_ical(),
+            vec![
+                String::from("CATEGORIES:CATEGORY THREE,CATEGORY_ONE,CATEGORY_TWO"),
+                String::from("DESCRIPTION:Event description text."),
+                String::from("DTEND:1970-01-01T00:02:40+00:00"),
+                String::from("DTSTART:1970-01-01T00:01:40+00:00"),
+                String::from("LOCATION:Event address text."),
+                String::from("RELATED_TO;RELTYPE=CHILD:ChildUUID"),
+                String::from("RELATED_TO;RELTYPE=PARENT:ParentUUID_One,ParentUUID_Two"),
+                String::from("RELATED_TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_One,redical//IndexedCalendar_Three,redical//IndexedCalendar_Two"),
+                String::from("UUID:event_UUID-100"),
+            ]
         );
     }
 
@@ -472,6 +571,21 @@ mod test {
                     String::from(":Overridden Event address text."),
                 ),
             ])
+        );
+
+        assert_eq!(
+            event_instance.serialize_to_ical(),
+            vec![
+                 String::from("CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE"),
+                 String::from("DESCRIPTION:Event description text."),
+                 String::from("DTEND:1970-01-01T00:02:40+00:00"),
+                 String::from("DTSTART:1970-01-01T00:01:40+00:00"),
+                 String::from("LOCATION:Overridden Event address text."),
+                 String::from("RELATED_TO;RELTYPE=CHILD:ChildUUID"),
+                 String::from("RELATED_TO;RELTYPE=PARENT:ParentUUID_Three"),
+                 String::from("RELATED_TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Four,redical//IndexedCalendar_One"),
+                 String::from("UUID:event_UUID-100"),
+            ]
         );
     }
 }
