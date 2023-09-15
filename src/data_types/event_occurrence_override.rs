@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, BTreeSet};
 
 use serde::{Serialize, Deserialize};
 
@@ -11,12 +11,12 @@ use crate::parsers::{datestring_to_date, ParseError};
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct EventOccurrenceOverride {
     pub categories:  Option<HashSet<String>>,
-    pub duration:    Option<String>,
-    pub dtstart:     Option<String>,
-    pub dtend:       Option<String>,
-    pub description: Option<String>,
+    pub duration:    Option<KeyValuePair>,
+    pub dtstart:     Option<KeyValuePair>,
+    pub dtend:       Option<KeyValuePair>,
+    pub description: Option<KeyValuePair>,
     pub related_to:  Option<HashMap<String, HashSet<String>>>,
-    pub properties:  Option<HashMap<String, HashSet<String>>>,
+    pub properties:  Option<BTreeSet<KeyValuePair>>,
 }
 
 impl EventOccurrenceOverride {
@@ -34,7 +34,7 @@ impl EventOccurrenceOverride {
 
     pub fn get_dtend_timestamp(&self) -> Result<Option<i64>, ParseError> {
         if let Some(datetime) = self.dtend.as_ref() {
-            return match datestring_to_date(datetime, None, "DTEND") {
+            return match datestring_to_date(&datetime.to_string(), None, "DTEND") {
                 Ok(datetime) => Ok(Some(datetime.timestamp())),
                 Err(error) => Err(error),
             };
@@ -141,10 +141,10 @@ impl EventOccurrenceOverride {
                             ParsedProperty::ExRule(_) => { return Err(String::from("Event occurrence override does not expect an exrule property")); },
                             ParsedProperty::RDate(_)  => { return Err(String::from("Event occurrence override does not expect an rdate property")); },
                             ParsedProperty::ExDate(_) => { return Err(String::from("Event occurrence override does not expect an exdate property")); },
-                            ParsedProperty::Duration(content)    => { new_override.duration    = Some(String::from(content.content_line)); },
-                            ParsedProperty::DtStart(content)     => { new_override.dtstart     = Some(String::from(content.content_line)); },
-                            ParsedProperty::DtEnd(content)       => { new_override.dtend       = Some(String::from(content.content_line)); },
-                            ParsedProperty::Description(content) => { new_override.description = Some(String::from(content.content_line)); },
+                            ParsedProperty::Duration(content)    => { new_override.duration    = Some(content.content_line); },
+                            ParsedProperty::DtStart(content)     => { new_override.dtstart     = Some(content.content_line); },
+                            ParsedProperty::DtEnd(content)       => { new_override.dtend       = Some(content.content_line); },
+                            ParsedProperty::Description(content) => { new_override.description = Some(content.content_line); },
                             ParsedProperty::Other(_content)      => { } // TODO
                         }
 
@@ -206,7 +206,12 @@ mod test {
                 duration:         None,
                 dtstart:          None,
                 dtend:            None,
-                description:      Some(String::from("DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA")),
+                description:      Some(
+                    KeyValuePair::new(
+                        String::from("DESCRIPTION"),
+                        String::from(";ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA")
+                    )
+                ),
                 related_to:       None
             }
         );

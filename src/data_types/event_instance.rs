@@ -1,6 +1,6 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, BTreeSet};
 
-use crate::data_types::{Event, EventOccurrenceOverride, PassiveProperties, IndexedProperties, ScheduleProperties, EventOccurrenceOverrides};
+use crate::data_types::{Event, EventOccurrenceOverride, KeyValuePair};
 
 #[derive(Debug, PartialEq)]
 pub struct EventInstance<'a> {
@@ -61,15 +61,29 @@ impl<'a> EventInstance<'a> {
         self.event.indexed_properties.related_to.clone()
     }
 
-    pub fn get_passive_properties(&self) -> HashMap<String, HashSet<String>> {
-        let mut passive_properties = self.event.passive_properties.properties.clone();
+    // This gets all the product of all the passive properties overridden by property name.
+    // As these are stored in an ordered set of KeyValuePairs we get the overridden passive
+    // properties and then iterate over the base event passive properties, checking for the
+    // presence of the base event passive property name key, and inserting it if it is not found.
+    pub fn get_passive_properties(&self) -> BTreeSet<KeyValuePair> {
+        let mut passive_properties = self.event_occurrence_override
+                                                                 .and_then(|event_occurrence_override| event_occurrence_override.properties.clone())
+                                                                 .unwrap_or(BTreeSet::new());
 
-        if let Some(event_occurrence_override) = self.event_occurrence_override {
-            if let Some(overriden_properties) = &event_occurrence_override.properties {
-                for (property_name, property_values) in overriden_properties.iter() {
-                    passive_properties.entry(property_name.clone())
-                                      .and_modify(|base_property_values| *base_property_values = property_values.clone())
-                                      .or_insert(property_values.clone());
+        // This searches for the presence of the base event passsive property name key in all the overrides:
+        // If found:
+        //  Skip
+        //
+        // If not found:
+        //  Add the base event property
+        for base_property in &self.event.passive_properties.properties {
+            match passive_properties.iter().find(|passive_property| passive_property.key == base_property.key) {
+                Some(_) => {
+                    continue;
+                },
+
+                None => {
+                    passive_properties.insert(base_property.clone());
                 }
             }
         }
@@ -81,6 +95,8 @@ impl<'a> EventInstance<'a> {
 #[cfg(test)]
 mod test {
     use super::*;
+
+    use crate::data_types::{PassiveProperties, IndexedProperties, ScheduleProperties, EventOccurrenceOverrides};
 
     #[test]
     fn test_event_instance_without_override() {
@@ -94,8 +110,22 @@ mod test {
                 rdate:            None,
                 exdate:           None,
                 duration:         None,
-                dtstart:          Some(HashSet::from([String::from("DTSTART:20201231T183000Z")])),
-                dtend:            Some(HashSet::from([String::from("DTEND:20201231T183100Z")])),
+                dtstart:          Some(
+                    HashSet::from([
+                        KeyValuePair::new(
+                            String::from("DTSTART"),
+                            String::from(":20201231T183000Z"),
+                        )
+                    ])
+                ),
+                dtend:            Some(
+                    HashSet::from([
+                        KeyValuePair::new(
+                            String::from("DTEND"),
+                            String::from(":20201231T183100Z"),
+                        )
+                    ])
+                ),
             },
 
             indexed_properties:  IndexedProperties {
@@ -134,22 +164,17 @@ mod test {
             },
 
             passive_properties:  PassiveProperties {
-                properties: HashMap::from(
-                                [
-                                    (
-                                        String::from("DESCRIPTION"),
-                                        HashSet::from([
-                                            String::from("DESCRIPTION:Event description text.")
-                                        ])
-                                    ),
-                                    (
-                                        String::from("LOCATION"),
-                                        HashSet::from([
-                                            String::from("LOCATION:Event address text.")
-                                        ])
-                                    ),
-                                ]
-                            )
+                properties: BTreeSet::from([
+                                KeyValuePair::new(
+                                    String::from("DESCRIPTION"),
+                                    String::from(":Event description text."),
+                                ),
+
+                                KeyValuePair::new(
+                                    String::from("LOCATION"),
+                                    String::from(":Event address text."),
+                                ),
+                ])
             },
 
             overrides:           EventOccurrenceOverrides::new(),
@@ -227,22 +252,17 @@ mod test {
 
         assert_eq!(
             event_instance.get_passive_properties(),
-            HashMap::from(
-                [
-                    (
-                        String::from("DESCRIPTION"),
-                        HashSet::from([
-                            String::from("DESCRIPTION:Event description text.")
-                        ])
-                    ),
-                    (
-                        String::from("LOCATION"),
-                        HashSet::from([
-                            String::from("LOCATION:Event address text.")
-                        ])
-                    ),
-                ]
-            )
+            BTreeSet::from([
+                KeyValuePair::new(
+                    String::from("DESCRIPTION"),
+                    String::from(":Event description text."),
+                ),
+
+                KeyValuePair::new(
+                    String::from("LOCATION"),
+                    String::from(":Event address text."),
+                ),
+            ])
         );
     }
 
@@ -258,8 +278,22 @@ mod test {
                 rdate:            None,
                 exdate:           None,
                 duration:         None,
-                dtstart:          Some(HashSet::from([String::from("DTSTART:20201231T183000Z")])),
-                dtend:            Some(HashSet::from([String::from("DTEND:20201231T183100Z")])),
+                dtstart:          Some(
+                    HashSet::from([
+                        KeyValuePair::new(
+                            String::from("DTSTART"),
+                            String::from(":20201231T183000Z"),
+                        )
+                    ])
+                ),
+                dtend:            Some(
+                    HashSet::from([
+                        KeyValuePair::new(
+                            String::from("DTEND"),
+                            String::from(":20201231T183100Z"),
+                        )
+                    ])
+                ),
             },
 
             indexed_properties:  IndexedProperties {
@@ -298,22 +332,17 @@ mod test {
             },
 
             passive_properties:  PassiveProperties {
-                properties: HashMap::from(
-                                [
-                                    (
-                                        String::from("DESCRIPTION"),
-                                        HashSet::from([
-                                            String::from("DESCRIPTION:Event description text.")
-                                        ])
-                                    ),
-                                    (
-                                        String::from("LOCATION"),
-                                        HashSet::from([
-                                            String::from("LOCATION:Event address text.")
-                                        ])
-                                    ),
-                                ]
-                            )
+                properties: BTreeSet::from([
+                                KeyValuePair::new(
+                                    String::from("DESCRIPTION"),
+                                    String::from(":Event description text."),
+                                ),
+
+                                KeyValuePair::new(
+                                    String::from("LOCATION"),
+                                    String::from(":Event address text."),
+                                ),
+                ])
             },
 
             overrides:           EventOccurrenceOverrides::new(),
@@ -324,16 +353,12 @@ mod test {
 
         let event_occurrence_override = EventOccurrenceOverride {
             properties:       Some(
-                HashMap::from(
-                    [
-                        (
-                            String::from("LOCATION"),
-                            HashSet::from([
-                                String::from("LOCATION:Overridden Event address text.")
-                            ])
-                        ),
-                    ]
-                )
+                BTreeSet::from([
+                    KeyValuePair::new(
+                        String::from("LOCATION"),
+                        String::from(":Overridden Event address text."),
+                    )
+                ])
             ),
             categories:       Some(
                 HashSet::from([
@@ -436,22 +461,17 @@ mod test {
 
         assert_eq!(
             event_instance.get_passive_properties(),
-            HashMap::from(
-                [
-                    (
-                        String::from("DESCRIPTION"),
-                        HashSet::from([
-                            String::from("DESCRIPTION:Event description text.")
-                        ])
-                    ),
-                    (
-                        String::from("LOCATION"),
-                        HashSet::from([
-                            String::from("LOCATION:Overridden Event address text.")
-                        ])
-                    ),
-                ]
-            )
+            BTreeSet::from([
+                KeyValuePair::new(
+                    String::from("DESCRIPTION"),
+                    String::from(":Event description text."),
+                ),
+
+                KeyValuePair::new(
+                    String::from("LOCATION"),
+                    String::from(":Overridden Event address text."),
+                ),
+            ])
         );
     }
 }

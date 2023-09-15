@@ -1,4 +1,4 @@
-use crate::data_types::{UpdatedSetMembers, Event, hashmap_to_hashset, IndexedConclusion, KeyValuePair, InvertedEventIndex};
+use crate::data_types::{UpdatedSetMembers, Event, hashmap_to_hashset, btree_hashset_to_hashset, KeyValuePair};
 
 use std::collections::HashSet;
 
@@ -50,8 +50,8 @@ impl EventDiff {
 
     fn diff_passive_properties(original_event: &Event, updated_event: &Event) -> Option<UpdatedSetMembers<KeyValuePair>> {
         // TODO: Improve this to be 0 copy
-        let original_passive_properties = hashmap_to_hashset(Some(&original_event.passive_properties.properties));
-        let updated_passive_properties  = hashmap_to_hashset(Some(&updated_event.passive_properties.properties));
+        let original_passive_properties = btree_hashset_to_hashset(Some(&original_event.passive_properties.properties));
+        let updated_passive_properties  = btree_hashset_to_hashset(Some(&updated_event.passive_properties.properties));
 
         Some(
             UpdatedSetMembers::new(
@@ -71,13 +71,13 @@ impl EventDiff {
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone)]
 pub struct SchedulePropertiesDiff {
-    rrule:    Option<UpdatedSetMembers<String>>,
-    exrule:   Option<UpdatedSetMembers<String>>,
-    rdate:    Option<UpdatedSetMembers<String>>,
-    exdate:   Option<UpdatedSetMembers<String>>,
-    duration: Option<UpdatedSetMembers<String>>,
-    dtstart:  Option<UpdatedSetMembers<String>>,
-    dtend:    Option<UpdatedSetMembers<String>>,
+    rrule:    Option<UpdatedSetMembers<KeyValuePair>>,
+    exrule:   Option<UpdatedSetMembers<KeyValuePair>>,
+    rdate:    Option<UpdatedSetMembers<KeyValuePair>>,
+    exdate:   Option<UpdatedSetMembers<KeyValuePair>>,
+    duration: Option<UpdatedSetMembers<KeyValuePair>>,
+    dtstart:  Option<UpdatedSetMembers<KeyValuePair>>,
+    dtend:    Option<UpdatedSetMembers<KeyValuePair>>,
 }
 
 impl SchedulePropertiesDiff {
@@ -97,7 +97,7 @@ impl SchedulePropertiesDiff {
     }
 
     pub fn get_schedule_rebuild_consensus(&self) -> ScheduleRebuildConsensus {
-        fn property_has_changed(property: Option<&UpdatedSetMembers<String>>) -> bool {
+        fn property_has_changed(property: Option<&UpdatedSetMembers<KeyValuePair>>) -> bool {
             property.is_some_and(|property| property.is_changed())
         }
 
@@ -139,7 +139,7 @@ pub enum ScheduleRebuildConsensus {
 mod test {
     use super::*;
 
-    use std::collections::HashMap;
+    use std::collections::{HashMap, BTreeSet};
 
     use crate::data_types::{OccurrenceIndex, ScheduleProperties, IndexedProperties, PassiveProperties, EventOccurrenceOverrides, InvertedEventIndex, KeyValuePair};
 
@@ -202,7 +202,10 @@ mod test {
             schedule_properties: ScheduleProperties {
                 rrule:            Some(
                     HashSet::from([
-                        String::from("RRULE:FREQ=DAILY;UNTIL=20230331T183000Z;INTERVAL=1")
+                        KeyValuePair::new(
+                            String::from("RRULE"),
+                            String::from(":FREQ=DAILY;UNTIL=20230331T183000Z;INTERVAL=1"),
+                        )
                     ])
                 ),
                 exrule:           None,
@@ -211,7 +214,10 @@ mod test {
                 duration:         None,
                 dtstart:          Some(
                     HashSet::from([
-                        String::from("DTSTART:20201231T183000Z")
+                        KeyValuePair::new(
+                            String::from("DTSTART"),
+                            String::from(":20201231T183000Z"),
+                        )
                     ])
                 ),
                 dtend:            None,
@@ -229,13 +235,11 @@ mod test {
             },
 
             passive_properties: PassiveProperties {
-                properties: HashMap::from([
-                    (
-                        String::from("DESCRIPTION"),
-                        HashSet::from([
-                            String::from("Testing description text.")
-                        ])
-                    )
+                properties: BTreeSet::from([
+                                KeyValuePair::new(
+                                    String::from("DESCRIPTION"),
+                                    String::from("Testing description text."),
+                                )
                 ])
             },
 
@@ -288,7 +292,10 @@ mod test {
                                                               removed:    HashSet::new(),
                                                               maintained: HashSet::new(),
                                                               added:      HashSet::from([
-                                                                  String::from("RRULE:FREQ=DAILY;UNTIL=20230331T183000Z;INTERVAL=1")
+                                                                  KeyValuePair::new(
+                                                                      String::from("RRULE"),
+                                                                      String::from(":FREQ=DAILY;UNTIL=20230331T183000Z;INTERVAL=1"),
+                                                                  )
                                                               ])
                                                           }
                                                       ),
@@ -301,7 +308,10 @@ mod test {
                                                             removed:    HashSet::new(),
                                                             maintained: HashSet::new(),
                                                             added:      HashSet::from([
-                                                                String::from("DTSTART:20201231T183000Z")
+                                                                KeyValuePair::new(
+                                                                    String::from("DTSTART"),
+                                                                    String::from(":20201231T183000Z"),
+                                                                )
                                                             ])
                                                         }
                                                     ),
@@ -318,7 +328,10 @@ mod test {
             schedule_properties: ScheduleProperties {
                 rrule:            Some(
                     HashSet::from([
-                        String::from("RRULE:FREQ=DAILY;UNTIL=20230231T183000Z;INTERVAL=1")
+                        KeyValuePair::new(
+                            String::from("RRULE"),
+                            String::from(":FREQ=DAILY;UNTIL=20230231T183000Z;INTERVAL=1"),
+                        )
                     ])
                 ),
                 exrule:           None,
@@ -327,7 +340,10 @@ mod test {
                 duration:         None,
                 dtstart:          Some(
                     HashSet::from([
-                        String::from("DTSTART:20201131T183000Z")
+                        KeyValuePair::new(
+                            String::from("DTSTART"),
+                            String::from(":20201131T183000Z"),
+                        )
                     ])
                 ),
                 dtend:            None,
@@ -359,13 +375,11 @@ mod test {
             },
 
             passive_properties: PassiveProperties {
-                properties: HashMap::from([
-                    (
-                        String::from("DESCRIPTION"),
-                        HashSet::from([
-                            String::from("Testing original description text.")
-                        ])
-                    )
+                properties: BTreeSet::from([
+                                KeyValuePair::new(
+                                    String::from("DESCRIPTION"),
+                                    String::from("Testing original description text."),
+                                )
                 ])
             },
 
@@ -420,11 +434,17 @@ mod test {
                                             rrule:    Some(
                                                           UpdatedSetMembers {
                                                               removed:    HashSet::from([
-                                                                  String::from("RRULE:FREQ=DAILY;UNTIL=20230231T183000Z;INTERVAL=1")
+                                                                  KeyValuePair::new(
+                                                                      String::from("RRULE"),
+                                                                      String::from(":FREQ=DAILY;UNTIL=20230231T183000Z;INTERVAL=1"),
+                                                                  )
                                                               ]),
                                                               maintained: HashSet::new(),
                                                               added:      HashSet::from([
-                                                                  String::from("RRULE:FREQ=DAILY;UNTIL=20230331T183000Z;INTERVAL=1")
+                                                                  KeyValuePair::new(
+                                                                      String::from("RRULE"),
+                                                                      String::from(":FREQ=DAILY;UNTIL=20230331T183000Z;INTERVAL=1"),
+                                                                  )
                                                               ])
                                                           }
                                                       ),
@@ -435,11 +455,17 @@ mod test {
                                             dtstart:  Some(
                                                         UpdatedSetMembers {
                                                             removed:    HashSet::from([
-                                                                String::from("DTSTART:20201131T183000Z")
+                                                                KeyValuePair::new(
+                                                                    String::from("DTSTART"),
+                                                                    String::from(":20201131T183000Z"),
+                                                                )
                                                             ]),
                                                             maintained: HashSet::new(),
                                                             added:      HashSet::from([
-                                                                String::from("DTSTART:20201231T183000Z")
+                                                                KeyValuePair::new(
+                                                                    String::from("DTSTART"),
+                                                                    String::from(":20201231T183000Z"),
+                                                                )
                                                             ])
                                                         }
                                                     ),
@@ -489,7 +515,10 @@ mod test {
                                             rrule:    Some(
                                                           UpdatedSetMembers {
                                                               removed:    HashSet::from([
-                                                                  String::from("RRULE:FREQ=DAILY;UNTIL=20230231T183000Z;INTERVAL=1")
+                                                                  KeyValuePair::new(
+                                                                      String::from("RRULE"),
+                                                                      String::from(":FREQ=DAILY;UNTIL=20230231T183000Z;INTERVAL=1"),
+                                                                  )
                                                               ]),
                                                               maintained: HashSet::new(),
                                                               added:      HashSet::new(),
@@ -502,7 +531,10 @@ mod test {
                                             dtstart:  Some(
                                                         UpdatedSetMembers {
                                                             removed:    HashSet::from([
-                                                                String::from("DTSTART:20201131T183000Z")
+                                                                KeyValuePair::new(
+                                                                    String::from("DTSTART"),
+                                                                    String::from(":20201131T183000Z"),
+                                                                )
                                                             ]),
                                                             maintained: HashSet::new(),
                                                             added:      HashSet::new(),

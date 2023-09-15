@@ -75,6 +75,23 @@ pub fn hashmap_to_hashset(hash_map: Option<&HashMap<String, HashSet<String>>>) -
     })
 }
 
+pub fn btree_hashset_to_hashset(btree_hashset: Option<&BTreeSet<KeyValuePair>>) -> Option<HashSet<KeyValuePair>> {
+    btree_hashset.and_then(|btree_hashset| {
+        let mut btree_hashset = btree_hashset.clone();
+        let mut set_members = HashSet::<KeyValuePair>::new();
+
+        while let Some(set_member) = btree_hashset.pop_first() {
+            set_members.insert(set_member);
+        }
+
+        if set_members.is_empty() {
+            None
+        } else {
+            Some(set_members)
+        }
+    })
+}
+
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone)]
 pub struct UpdatedSetMembers<T>
 where

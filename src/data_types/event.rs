@@ -1,4 +1,4 @@
-use std::collections::{HashSet, HashMap};
+use std::collections::{HashSet, HashMap, BTreeSet};
 
 use rrule::{RRuleSet, RRuleError};
 
@@ -21,9 +21,7 @@ use crate::data_types::utils::KeyValuePair;
 
 use crate::parsers::{datestring_to_date, ParseError};
 
-fn property_option_set_or_insert<'a>(property_option: &mut Option<HashSet<String>>, content: &'a str) {
-    let content = String::from(content);
-
+fn property_option_set_or_insert<'a>(property_option: &mut Option<HashSet<KeyValuePair>>, content: KeyValuePair) {
     match property_option {
         Some(properties) => { properties.insert(content); },
         None => { *property_option = Some(HashSet::from([content])); }
@@ -121,28 +119,22 @@ impl EventOccurrenceOverrides {
             match event_occurrence_override.properties.as_mut() {
                 Some(overridden_passive_properties) => {
                     for removed_property_pair in indexed_passive_properties.removed.iter() {
-                        if let Some(property_uuids) = overridden_passive_properties.get_mut(&removed_property_pair.key) {
-                            property_uuids.remove(&removed_property_pair.value);
-                        }
+                        overridden_passive_properties.remove(&removed_property_pair);
                     }
 
                     for added_property_pair in indexed_passive_properties.added.iter() {
-                        overridden_passive_properties.entry(added_property_pair.key.clone())
-                                                     .and_modify(|property_uuids| { property_uuids.insert(added_property_pair.value.clone()); })
-                                                     .or_insert(HashSet::from([added_property_pair.value.clone()]));
+                        overridden_passive_properties.insert(added_property_pair.clone());
                     }
                 },
 
                 None => {
-                    let mut overridden_passive_properties = HashMap::new();
-
-                    for added_property_pair in indexed_passive_properties.added.iter() {
-                        overridden_passive_properties.entry(added_property_pair.key.clone())
-                                                     .and_modify(|property_values: &mut HashSet<String>| { property_values.insert(added_property_pair.value.clone()); })
-                                                     .or_insert(HashSet::from([added_property_pair.value.clone()]));
-                    }
-
-                    event_occurrence_override.properties = Some(overridden_passive_properties);
+                    event_occurrence_override.properties = Some(
+                        BTreeSet::from_iter(
+                            indexed_passive_properties.added
+                                                      .iter()
+                                                      .map(|added_key_value_pair| added_key_value_pair.clone())
+                        )
+                    );
                 }
             };
         }
@@ -151,13 +143,13 @@ impl EventOccurrenceOverrides {
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct ScheduleProperties {
-    pub rrule:       Option<HashSet<String>>,
-    pub exrule:      Option<HashSet<String>>,
-    pub rdate:       Option<HashSet<String>>,
-    pub exdate:      Option<HashSet<String>>,
-    pub duration:    Option<HashSet<String>>,
-    pub dtstart:     Option<HashSet<String>>,
-    pub dtend:       Option<HashSet<String>>,
+    pub rrule:       Option<HashSet<KeyValuePair>>,
+    pub exrule:      Option<HashSet<KeyValuePair>>,
+    pub rdate:       Option<HashSet<KeyValuePair>>,
+    pub exdate:      Option<HashSet<KeyValuePair>>,
+    pub duration:    Option<HashSet<KeyValuePair>>,
+    pub dtstart:     Option<HashSet<KeyValuePair>>,
+    pub dtend:       Option<HashSet<KeyValuePair>>,
 }
 
 impl ScheduleProperties {
@@ -196,31 +188,31 @@ impl ScheduleProperties {
 
         if self.dtstart.is_some() {
             self.dtstart.clone().unwrap().into_iter().for_each(|content_line| {
-                ical_parts.push(content_line);
+                ical_parts.push(content_line.to_string());
             });
         }
 
         if self.rrule.is_some() {
             self.rrule.clone().unwrap().into_iter().for_each(|content_line| {
-                ical_parts.push(content_line);
+                ical_parts.push(content_line.to_string());
             });
         }
 
         if self.exrule.is_some() {
             self.exrule.clone().unwrap().into_iter().for_each(|content_line| {
-                ical_parts.push(content_line);
+                ical_parts.push(content_line.to_string());
             });
         }
 
         if self.rdate.is_some() {
             self.rdate.clone().unwrap().into_iter().for_each(|content_line| {
-                ical_parts.push(content_line);
+                ical_parts.push(content_line.to_string());
             });
         }
 
         if self.exdate.is_some() {
             self.exdate.clone().unwrap().into_iter().for_each(|content_line| {
-                ical_parts.push(content_line);
+                ical_parts.push(content_line.to_string());
             });
         }
 
@@ -230,7 +222,7 @@ impl ScheduleProperties {
     pub fn get_dtstart_timestamp(&self) -> Result<Option<i64>, ParseError> {
         if let Some(properties) = self.dtstart.as_ref() {
             if let Some(datetime) = properties.iter().next() {
-                let parsed_datetime = datetime.replace(&String::from("DTSTART:"), &String::from(""));
+                let parsed_datetime = datetime.to_string().replace(&String::from("DTSTART:"), &String::from(""));
 
                 return match datestring_to_date(&parsed_datetime, None, "DTSTART") {
                     Ok(datetime) => Ok(Some(datetime.timestamp())),
@@ -245,7 +237,7 @@ impl ScheduleProperties {
     pub fn get_dtend_timestamp(&self) -> Result<Option<i64>, ParseError> {
         if let Some(properties) = self.dtend.as_ref() {
             if let Some(datetime) = properties.iter().next() {
-                let parsed_datetime = datetime.replace(&String::from("DTEND:"), &String::from(""));
+                let parsed_datetime = datetime.to_string().replace(&String::from("DTEND:"), &String::from(""));
 
                 return match datestring_to_date(&parsed_datetime, None, "DTEND") {
                     Ok(datetime) => Ok(Some(datetime.timestamp())),
@@ -393,24 +385,20 @@ impl IndexedProperties {
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct PassiveProperties {
-    pub properties: HashMap<String, HashSet<String>>
+    pub properties: BTreeSet<KeyValuePair>
 }
 
 impl PassiveProperties {
     pub fn new() -> PassiveProperties {
         PassiveProperties {
-            properties:  HashMap::new(),
+            properties:  BTreeSet::new(),
         }
     }
 
     pub fn insert(&mut self, property: ParsedProperty) -> Result<&Self, String> {
         match property {
             ParsedProperty::Description(content) | ParsedProperty::Other(content)  => {
-                self.properties.entry(String::from(content.name.unwrap()))
-                               .and_modify(|content_lines| {
-                                   content_lines.insert(String::from(content.content_line));
-                               })
-                               .or_insert(HashSet::from([String::from(content.content_line)]));
+                self.properties.insert(content.content_line);
 
                 Ok(self)
             },
@@ -675,7 +663,7 @@ mod test {
             },
 
             passive_properties: PassiveProperties {
-                properties: HashMap::new()
+                properties: BTreeSet::new()
             },
 
             overrides: EventOccurrenceOverrides {
@@ -914,7 +902,10 @@ mod test {
                 schedule_properties: ScheduleProperties {
                     rrule:            Some(
                         HashSet::from([
-                            String::from("RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH")
+                            KeyValuePair::new(
+                                String::from("RRULE"),
+                                String::from(":FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH"),
+                            )
                         ])
                     ),
                     exrule:           None,
@@ -937,16 +928,12 @@ mod test {
                 },
 
                 passive_properties:  PassiveProperties {
-                    properties: HashMap::from(
-                                    [
-                                        (
-                                            String::from("DESCRIPTION"),
-                                            HashSet::from([
-                                                String::from("DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA")
-                                            ])
-                                        )
-                                    ]
-                                )
+                    properties: BTreeSet::from([
+                                    KeyValuePair::new(
+                                        String::from("DESCRIPTION"),
+                                        String::from(";ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA"),
+                                    )
+                                ])
                 },
 
                 overrides:           EventOccurrenceOverrides::new(),
@@ -971,7 +958,10 @@ mod test {
                 schedule_properties: ScheduleProperties {
                     rrule:            Some(
                         HashSet::from([
-                            String::from("RRULE:FREQ=WEEKLY;UNTIL=20210331T183000Z;INTERVAL=1;BYDAY=TU")
+                            KeyValuePair::new(
+                                String::from("RRULE"),
+                                String::from(":FREQ=WEEKLY;UNTIL=20210331T183000Z;INTERVAL=1;BYDAY=TU"),
+                            )
                         ])
                     ),
                     exrule:           None,
@@ -980,7 +970,10 @@ mod test {
                     duration:         None,
                     dtstart:          Some(
                         HashSet::from([
-                            String::from("DTSTART:20201231T183000Z")
+                            KeyValuePair::new(
+                                String::from("DTSTART"),
+                                String::from(":20201231T183000Z"),
+                            )
                         ])
                     ),
                     dtend:            None,
@@ -1061,7 +1054,10 @@ mod test {
                 schedule_properties: ScheduleProperties {
                     rrule:            Some(
                         HashSet::from([
-                            String::from("RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH")
+                            KeyValuePair::new(
+                                String::from("RRULE"),
+                                String::from(":FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH"),
+                            )
                         ])
                     ),
                     exrule:           None,
@@ -1070,7 +1066,10 @@ mod test {
                     duration:         None,
                     dtstart:          Some(
                         HashSet::from([
-                            String::from("DTSTART:16010101T020000")
+                            KeyValuePair::new(
+                                String::from("DTSTART"),
+                                String::from(":16010101T020000"),
+                            )
                         ])
                     ),
                     dtend:            None,
@@ -1101,7 +1100,10 @@ mod test {
                 schedule_properties: ScheduleProperties {
                     rrule:            Some(
                         HashSet::from([
-                            String::from("RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH")
+                            KeyValuePair::new(
+                                String::from("RRULE"),
+                                String::from(":FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH"),
+                            )
                         ])
                     ),
                     exrule:           None,
@@ -1163,7 +1165,12 @@ mod test {
             duration:    None,
             dtstart:     None,
             dtend:       None,
-            description: Some(String::from("DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA")),
+            description: Some(
+                KeyValuePair::new(
+                    String::from("DESCRIPTION"),
+                    String::from(";ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA"),
+                )
+            ),
             related_to:  None
         };
 
@@ -1183,7 +1190,10 @@ mod test {
                     schedule_properties: ScheduleProperties {
                         rrule:            Some(
                             HashSet::from([
-                                String::from("RRULE:FREQ=WEEKLY;UNTIL=20210331T183000Z;INTERVAL=1;BYDAY=TU")
+                                KeyValuePair::new(
+                                    String::from("RRULE"),
+                                    String::from(":FREQ=WEEKLY;UNTIL=20210331T183000Z;INTERVAL=1;BYDAY=TU"),
+                                )
                             ])
                         ),
                         exrule:           None,
@@ -1192,7 +1202,10 @@ mod test {
                         duration:         None,
                         dtstart:          Some(
                             HashSet::from([
-                                String::from("DTSTART:20201231T183000Z")
+                                KeyValuePair::new(
+                                    String::from("DTSTART"),
+                                    String::from(":20201231T183000Z"),
+                                )
                             ])
                         ),
                         dtend:            None,
@@ -1218,7 +1231,12 @@ mod test {
                                 duration:    None,
                                 dtstart:     None,
                                 dtend:       None,
-                                description: Some(String::from("DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA")),
+                                description: Some(
+                                    KeyValuePair::new(
+                                        String::from("DESCRIPTION"),
+                                        String::from(";ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA"),
+                                    )
+                                ),
                                 related_to:  None
                             }
                         ),
@@ -1284,7 +1302,10 @@ mod test {
                     schedule_properties: ScheduleProperties {
                         rrule:            Some(
                             HashSet::from([
-                                String::from("RRULE:FREQ=WEEKLY;UNTIL=20210331T183000Z;INTERVAL=1;BYDAY=TU")
+                                KeyValuePair::new(
+                                    String::from("RRULE"),
+                                    String::from(":FREQ=WEEKLY;UNTIL=20210331T183000Z;INTERVAL=1;BYDAY=TU"),
+                                )
                             ])
                         ),
                         exrule:           None,
@@ -1293,7 +1314,10 @@ mod test {
                         duration:         None,
                         dtstart:          Some(
                             HashSet::from([
-                                String::from("DTSTART:20201231T183000Z")
+                                KeyValuePair::new(
+                                    String::from("DTSTART"),
+                                    String::from(":20201231T183000Z"),
+                                )
                             ])
                         ),
                         dtend:            None,
@@ -1411,7 +1435,10 @@ mod test {
                 schedule_properties: ScheduleProperties {
                     rrule:            Some(
                         HashSet::from([
-                            String::from("RRULE:FREQ=DAILY;UNTIL=20230331T183000Z;INTERVAL=1")
+                            KeyValuePair::new(
+                                String::from("RRULE"),
+                                String::from(":FREQ=DAILY;UNTIL=20230331T183000Z;INTERVAL=1"),
+                            )
                         ])
                     ),
                     exrule:           None,
@@ -1420,7 +1447,10 @@ mod test {
                     duration:         None,
                     dtstart:          Some(
                         HashSet::from([
-                            String::from("DTSTART:20201231T183000Z")
+                            KeyValuePair::new(
+                                String::from("DTSTART"),
+                                String::from(":20201231T183000Z"),
+                            )
                         ])
                     ),
                     dtend:            None,
@@ -1469,21 +1499,26 @@ mod test {
                 1610476200,
                 EventOccurrenceOverride {
                     properties:  Some(
-                        HashMap::from([
-                            (
+                        BTreeSet::from([
+                            KeyValuePair::new(
                                 String::from("X-PROPERTY-ONE"),
-                                HashSet::from([
-                                    String::from("PROPERTY_VALUE_ONE"),
-                                    String::from("PROPERTY_VALUE_TWO"),
-                                ])
+                                String::from(":PROPERTY_VALUE_ONE"),
                             ),
-                            (
+
+                            KeyValuePair::new(
+                                String::from("X-PROPERTY-ONE"),
+                                String::from(":PROPERTY_VALUE_TWO"),
+                            ),
+
+                            KeyValuePair::new(
                                 String::from("X-PROPERTY-TWO"),
-                                HashSet::from([
-                                    String::from("PROPERTY_VALUE_ONE"),
-                                    String::from("PROPERTY_VALUE_TWO"),
-                                ])
-                            )
+                                String::from(":PROPERTY_VALUE_ONE"),
+                            ),
+
+                            KeyValuePair::new(
+                                String::from("X-PROPERTY-TWO"),
+                                String::from(":PROPERTY_VALUE_TWO"),
+                            ),
                         ])
                     ),
                     categories:  Some(
@@ -1544,27 +1579,27 @@ mod test {
                     removed:    HashSet::from([
                         KeyValuePair {
                             key:   String::from("X-PROPERTY-TWO"),
-                            value: String::from("PROPERTY_VALUE_TWO")
+                            value: String::from(":PROPERTY_VALUE_TWO")
                         }
                     ]),
                     maintained: HashSet::from([
                         KeyValuePair {
                             key:   String::from("X-PROPERTY-ONE"),
-                            value: String::from("PROPERTY_VALUE_ONE")
+                            value: String::from(":PROPERTY_VALUE_ONE")
                         },
                         KeyValuePair {
                             key:   String::from("X-PROPERTY-ONE"),
-                            value: String::from("PROPERTY_VALUE_TWO")
+                            value: String::from(":PROPERTY_VALUE_TWO")
                         },
                         KeyValuePair {
                             key:   String::from("X-PROPERTY-TWO"),
-                            value: String::from("PROPERTY_VALUE_ONE")
+                            value: String::from(":PROPERTY_VALUE_ONE")
                         },
                     ]),
                     added:      HashSet::from([
                         KeyValuePair {
                             key:   String::from("X-PROPERTY-THREE"),
-                            value: String::from("PROPERTY_VALUE_ONE")
+                            value: String::from(":PROPERTY_VALUE_ONE")
                         },
                     ])
                 }
@@ -1585,13 +1620,11 @@ mod test {
                         1610476300,
                         EventOccurrenceOverride {
                             properties: Some(
-                                HashMap::from([
-                                    (
+                                BTreeSet::from([
+                                    KeyValuePair::new(
                                         String::from("X-PROPERTY-THREE"),
-                                        HashSet::from([
-                                            String::from("PROPERTY_VALUE_ONE"),
-                                        ])
-                                    ),
+                                        String::from(":PROPERTY_VALUE_ONE"),
+                                    )
                                 ])
                             ),
                             categories:  Some(
@@ -1619,33 +1652,33 @@ mod test {
                         1610476200,
                         EventOccurrenceOverride {
                             properties: Some(
-                                HashMap::from([
-                                    (
+                                BTreeSet::from([
+                                    KeyValuePair::new(
                                         String::from("X-PROPERTY-ONE"),
-                                        HashSet::from([
-                                            String::from("PROPERTY_VALUE_ONE"),
-                                            String::from("PROPERTY_VALUE_TWO"),
-                                        ])
+                                        String::from(":PROPERTY_VALUE_ONE"),
                                     ),
-                                    (
-                                        String::from("X-PROPERTY-TWO"),
-                                        HashSet::from([
-                                            String::from("PROPERTY_VALUE_ONE"),
-                                        ])
+
+                                    KeyValuePair::new(
+                                        String::from("X-PROPERTY-ONE"),
+                                        String::from(":PROPERTY_VALUE_TWO"),
                                     ),
-                                    (
+
+                                    KeyValuePair::new(
                                         String::from("X-PROPERTY-THREE"),
-                                        HashSet::from([
-                                            String::from("PROPERTY_VALUE_ONE"),
-                                        ])
+                                        String::from(":PROPERTY_VALUE_ONE"),
+                                    ),
+
+                                    KeyValuePair::new(
+                                        String::from("X-PROPERTY-TWO"),
+                                        String::from(":PROPERTY_VALUE_ONE"),
                                     ),
                                 ])
                             ),
                             categories:  Some(
                                 HashSet::from([
+                                    String::from("CATEGORY_FOUR"),
                                     String::from("CATEGORY_ONE"),
                                     String::from("CATEGORY_TWO"),
-                                    String::from("CATEGORY_FOUR"),
                                 ])
                             ),
                             duration:    None,

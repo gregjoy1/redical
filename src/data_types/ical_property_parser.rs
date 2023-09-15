@@ -3,6 +3,8 @@ use std::option::Option;
 use std::collections::HashMap;
 use std::str;
 
+use crate::data_types::utils::KeyValuePair;
+
 use nom::{
     error::{context, ParseError, ContextError, ErrorKind},
     multi::{separated_list0, separated_list1},
@@ -31,7 +33,7 @@ pub struct ParsedPropertyContent<'a> {
     pub value: ParsedValue<'a>,
 
     /// The whole property content line.
-    pub content_line: &'a str,
+    pub content_line: KeyValuePair,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
@@ -52,19 +54,19 @@ pub enum ParsedProperty<'a> {
 
 impl<'a> ParsedProperty<'a> {
 
-    pub fn content_line(&self) -> &'a str {
+    pub fn content_line(&self) -> &KeyValuePair {
         match self {
-            ParsedProperty::Categories(parsed_property_content)  => { parsed_property_content.content_line },
-            ParsedProperty::RRule(parsed_property_content)       => { parsed_property_content.content_line },
-            ParsedProperty::ExRule(parsed_property_content)      => { parsed_property_content.content_line },
-            ParsedProperty::RDate(parsed_property_content)       => { parsed_property_content.content_line },
-            ParsedProperty::ExDate(parsed_property_content)      => { parsed_property_content.content_line },
-            ParsedProperty::Duration(parsed_property_content)    => { parsed_property_content.content_line },
-            ParsedProperty::DtStart(parsed_property_content)     => { parsed_property_content.content_line },
-            ParsedProperty::DtEnd(parsed_property_content)       => { parsed_property_content.content_line },
-            ParsedProperty::Description(parsed_property_content) => { parsed_property_content.content_line },
-            ParsedProperty::RelatedTo(parsed_property_content)   => { parsed_property_content.content_line },
-            ParsedProperty::Other(parsed_property_content)       => { parsed_property_content.content_line }
+            ParsedProperty::Categories(parsed_property_content)  => { &parsed_property_content.content_line },
+            ParsedProperty::RRule(parsed_property_content)       => { &parsed_property_content.content_line },
+            ParsedProperty::ExRule(parsed_property_content)      => { &parsed_property_content.content_line },
+            ParsedProperty::RDate(parsed_property_content)       => { &parsed_property_content.content_line },
+            ParsedProperty::ExDate(parsed_property_content)      => { &parsed_property_content.content_line },
+            ParsedProperty::Duration(parsed_property_content)    => { &parsed_property_content.content_line },
+            ParsedProperty::DtStart(parsed_property_content)     => { &parsed_property_content.content_line },
+            ParsedProperty::DtEnd(parsed_property_content)       => { &parsed_property_content.content_line },
+            ParsedProperty::Description(parsed_property_content) => { &parsed_property_content.content_line },
+            ParsedProperty::RelatedTo(parsed_property_content)   => { &parsed_property_content.content_line },
+            ParsedProperty::Other(parsed_property_content)       => { &parsed_property_content.content_line }
         }
     }
 
@@ -366,10 +368,13 @@ fn parse_property_parameters(input: &str) -> IResult<&str, Option<HashMap<&str, 
     )(input)
 }
 
-fn consumed_input_string<'a>(original_input: &'a str, remaining_input: &'a str) -> &'a str {
+fn consumed_input_string<'a>(original_input: &'a str, remaining_input: &'a str, property_name: &'a str) -> KeyValuePair {
     let consumed_input = original_input.len() - remaining_input.len();
 
-    &original_input[..consumed_input]
+    KeyValuePair::new(
+        property_name.to_string(),
+        original_input[property_name.len()..consumed_input].to_string(),
+    )
 }
 
 fn parse_property_content(input: &str) -> IResult<&str, ParsedPropertyContent> {
@@ -381,7 +386,7 @@ fn parse_property_content(input: &str) -> IResult<&str, ParsedPropertyContent> {
 
     let (remaining, parsed_value) = ParsedValue::parse_single(remaining)?;
 
-    let parsed_content_line = consumed_input_string(input, remaining);
+    let parsed_content_line = consumed_input_string(input, remaining, parsed_name);
 
     let parsed_property = ParsedPropertyContent {
         name: Some(parsed_name),
@@ -400,7 +405,7 @@ fn parse_rrule_property_content(input: &str) -> IResult<&str, ParsedPropertyCont
 
     let (remaining, parsed_value) = ParsedValue::parse_params(remaining)?;
 
-    let parsed_content_line = consumed_input_string(input, remaining);
+    let parsed_content_line = consumed_input_string(input, remaining, parsed_name);
 
     let parsed_property = ParsedPropertyContent {
         name: Some(parsed_name),
@@ -419,7 +424,7 @@ fn parse_exrule_property_content(input: &str) -> IResult<&str, ParsedPropertyCon
 
     let (remaining, parsed_value) = ParsedValue::parse_params(remaining)?;
 
-    let parsed_content_line = consumed_input_string(input, remaining);
+    let parsed_content_line = consumed_input_string(input, remaining, parsed_name);
 
     let parsed_property = ParsedPropertyContent {
         name: Some(parsed_name),
@@ -442,7 +447,7 @@ fn parse_rdate_property_content(input: &str) -> IResult<&str, ParsedPropertyCont
 
     let (remaining, parsed_value_list) = ParsedValue::parse_list(remaining)?;
 
-    let parsed_content_line = consumed_input_string(input, remaining);
+    let parsed_content_line = consumed_input_string(input, remaining, parsed_name);
 
     let parsed_property = ParsedPropertyContent {
         name: Some(parsed_name),
@@ -465,7 +470,7 @@ fn parse_exdate_property_content(input: &str) -> IResult<&str, ParsedPropertyCon
 
     let (remaining, parsed_value_list) = ParsedValue::parse_list(remaining)?;
 
-    let parsed_content_line = consumed_input_string(input, remaining);
+    let parsed_content_line = consumed_input_string(input, remaining, parsed_name);
 
     let parsed_property = ParsedPropertyContent {
         name: Some(parsed_name),
@@ -489,7 +494,7 @@ fn parse_duration_property_content(input: &str) -> IResult<&str, ParsedPropertyC
 
     let (remaining, parsed_value_list) = ParsedValue::parse_single(remaining)?;
 
-    let parsed_content_line = consumed_input_string(input, remaining);
+    let parsed_content_line = consumed_input_string(input, remaining, parsed_name);
 
     let parsed_property = ParsedPropertyContent {
         name: Some(parsed_name),
@@ -512,7 +517,7 @@ fn parse_dtstart_property_content(input: &str) -> IResult<&str, ParsedPropertyCo
 
     let (remaining, parsed_value_list) = ParsedValue::parse_single(remaining)?;
 
-    let parsed_content_line = consumed_input_string(input, remaining);
+    let parsed_content_line = consumed_input_string(input, remaining, parsed_name);
 
     let parsed_property = ParsedPropertyContent {
         name: Some(parsed_name),
@@ -535,7 +540,7 @@ fn parse_dtend_property_content(input: &str) -> IResult<&str, ParsedPropertyCont
 
     let (remaining, parsed_value_list) = ParsedValue::parse_single(remaining)?;
 
-    let parsed_content_line = consumed_input_string(input, remaining);
+    let parsed_content_line = consumed_input_string(input, remaining, parsed_name);
 
     let parsed_property = ParsedPropertyContent {
         name: Some(parsed_name),
@@ -556,7 +561,7 @@ fn parse_description_property_content(input: &str) -> IResult<&str, ParsedProper
 
     let (remaining, parsed_value) = ParsedValue::parse_single(remaining)?;
 
-    let parsed_content_line = consumed_input_string(input, remaining);
+    let parsed_content_line = consumed_input_string(input, remaining, parsed_name);
 
     let parsed_property = ParsedPropertyContent {
         name: Some(parsed_name),
@@ -577,7 +582,7 @@ fn parse_categories_property_content(input: &str) -> IResult<&str, ParsedPropert
 
     let (remaining, parsed_value_list) = ParsedValue::parse_list(remaining)?;
 
-    let parsed_content_line = consumed_input_string(input, remaining);
+    let parsed_content_line = consumed_input_string(input, remaining, parsed_name);
 
     let parsed_property = ParsedPropertyContent {
         name: Some(parsed_name),
@@ -598,7 +603,7 @@ fn parse_related_to_property_content(input: &str) -> IResult<&str, ParsedPropert
 
     let (remaining, parsed_value_list) = ParsedValue::parse_list(remaining)?;
 
-    let parsed_content_line = consumed_input_string(input, remaining);
+    let parsed_content_line = consumed_input_string(input, remaining, parsed_name);
 
     let parsed_property = ParsedPropertyContent {
         name: Some(parsed_name),
@@ -783,7 +788,10 @@ mod test {
                                 ]
                             )
                         ),
-                        content_line: "RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH"
+                        content_line: KeyValuePair::new(
+                            String::from("RRULE"),
+                            String::from(":FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH"),
+                        )
                     }
                 )
             )
@@ -808,7 +816,10 @@ mod test {
                         value: ParsedValue::Single(
                             "The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA"
                         ),
-                        content_line: "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA"
+                        content_line: KeyValuePair::new(
+                            String::from("DESCRIPTION"),
+                            String::from(";ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA"),
+                        )
                     }
                 )
             )
@@ -831,7 +842,10 @@ mod test {
                                 "CATEGORY THREE",
                             ]
                         ),
-                        content_line: "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,\"CATEGORY THREE\""
+                        content_line: KeyValuePair::new(
+                            String::from("CATEGORIES"),
+                            String::from(":CATEGORY_ONE,CATEGORY_TWO,\"CATEGORY THREE\""),
+                        )
                     }
                 )
             )
@@ -859,7 +873,10 @@ mod test {
                             value: ParsedValue::Single(
                                 "The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA"
                             ),
-                            content_line: "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA"
+                            content_line: KeyValuePair::new(
+                                String::from("DESCRIPTION"),
+                                String::from(";ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA"),
+                            )
                         }
                     ),
                     ParsedProperty::RRule(
@@ -876,7 +893,10 @@ mod test {
                                     ]
                                 )
                             ),
-                            content_line: "RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH"
+                            content_line: KeyValuePair::new(
+                                String::from("RRULE"),
+                                String::from(":FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH"),
+                            )
                         }
                     ),
                     ParsedProperty::Categories(
@@ -890,7 +910,10 @@ mod test {
                                     "CATEGORY THREE",
                                 ]
                             ),
-                            content_line: "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,\"CATEGORY THREE\""
+                            content_line: KeyValuePair::new(
+                                String::from("CATEGORIES"),
+                                String::from(":CATEGORY_ONE,CATEGORY_TWO,\"CATEGORY THREE\""),
+                            )
                         }
                     )
                 ]
@@ -919,7 +942,10 @@ mod test {
                             ]
                         )
                     ),
-                    content_line: "RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH"
+                    content_line: KeyValuePair::new(
+                        String::from("RRULE"),
+                        String::from(":FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH"),
+                    )
                 }
             )
         );
@@ -939,7 +965,10 @@ mod test {
                     value: ParsedValue::Single(
                         "FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH"
                     ),
-                    content_line: "RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH"
+                    content_line: KeyValuePair::new(
+                        String::from("RRULE"),
+                        String::from(":FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH"),
+                    )
                 }
             )
         );
@@ -970,7 +999,10 @@ mod test {
                     value: ParsedValue::Single(
                         "The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA"
                     ),
-                    content_line: "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA"
+                    content_line: KeyValuePair::new(
+                        String::from("DESCRIPTION"),
+                        String::from(";ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA"),
+                    )
                 }
             )
         );
