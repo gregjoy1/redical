@@ -16,7 +16,7 @@ pub fn redical_event_get(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     ctx.log_debug(format!("key: {key_name}").as_str());
 
     match key.get_value::<Event>(&EVENT_DATA_TYPE)? {
-        None                    => Ok(RedisValue::Null),
+        None                => Ok(RedisValue::Null),
         Some(event) => Ok(RedisValue::BulkString(format!("event: {:?}", event)))
     }
 }

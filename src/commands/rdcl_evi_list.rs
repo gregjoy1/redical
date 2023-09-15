@@ -4,6 +4,8 @@ use crate::data_types::{EVENT_DATA_TYPE, Event, OccurrenceIndexValue};
 
 pub fn redical_event_instance_list(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     if args.len() < 1 {
+        ctx.log_debug(format!("rdcl.evi_list: WrongArity: {{args.len()}}").as_str());
+
         return Err(RedisError::WrongArity);
     }
 
@@ -13,10 +15,10 @@ pub fn redical_event_instance_list(ctx: &Context, args: Vec<RedisString>) -> Red
 
     let key = ctx.open_key(&key_name);
 
-    ctx.log_debug(format!("key: {key_name}").as_str());
+    ctx.log_debug(format!("rdcl.evi_list: key: {key_name}").as_str());
 
     match key.get_value::<Event>(&EVENT_DATA_TYPE)? {
-        None                    => Ok(RedisValue::Null),
+        None                => Ok(RedisValue::Null),
         Some(event) => {
 
             match event.occurrence_cache {
