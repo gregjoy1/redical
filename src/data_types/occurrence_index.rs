@@ -65,7 +65,7 @@ impl<T> OccurrenceIndex<T> {
         }
     }
 
-    pub fn get(&mut self, occurrence: i64) -> Option<&T> {
+    pub fn get(&self, occurrence: i64) -> Option<&T> {
         match self.base_timestamp {
             Some(base_timestamp) => {
                 self.timestamp_offsets.get(&(occurrence - base_timestamp))
@@ -82,14 +82,14 @@ impl<T> OccurrenceIndex<T> {
 
     pub fn iter(&self) -> OccurrenceIndexIter<T> {
         OccurrenceIndexIter {
-            base_timestamp:         &self.base_timestamp,
+            base_timestamp:         self.base_timestamp.to_owned(),
             timestamp_offsets_iter: self.timestamp_offsets.iter()
         }
     }
 
     pub fn iter_mut(&mut self) -> OccurrenceIndexIterMut<T> {
         OccurrenceIndexIterMut {
-            base_timestamp:         &self.base_timestamp,
+            base_timestamp:         self.base_timestamp.to_owned(),
             timestamp_offsets_iter: self.timestamp_offsets.iter_mut()
         }
     }
@@ -97,13 +97,13 @@ impl<T> OccurrenceIndex<T> {
 
 #[derive(Debug)]
 pub struct OccurrenceIndexIter<'a, T> {
-    pub base_timestamp: &'a Option<i64>,
+    pub base_timestamp: Option<i64>,
     pub timestamp_offsets_iter: btree_map::Iter<'a, i64, T>,
 }
 
 #[derive(Debug)]
 pub struct OccurrenceIndexIterMut<'a, T> {
-    pub base_timestamp: &'a Option<i64>,
+    pub base_timestamp: Option<i64>,
     pub timestamp_offsets_iter: btree_map::IterMut<'a, i64, T>,
 }
 

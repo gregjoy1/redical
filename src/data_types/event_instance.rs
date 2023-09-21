@@ -4,20 +4,30 @@ use std::collections::{HashMap, HashSet, BTreeSet};
 
 use crate::data_types::{Event, EventOccurrenceOverride, KeyValuePair};
 
+use crate::data_types::occurrence_index::{OccurrenceIndexIter, OccurrenceIndexValue};
+
 #[derive(Debug, PartialEq)]
-pub struct EventInstance<'a> {
-    dtstart_timestamp:         i64,
-    event:                     &'a Event,
-    event_occurrence_override: Option<&'a EventOccurrenceOverride>,
+pub struct EventInstance {
+    uuid:               String,
+    dtstart_timestamp:  i64,
+    dtend_timestamp:    i64,
+    duration:           i64,
+    categories:         Option<HashSet<String>>,
+    related_to:         Option<HashMap<String, HashSet<String>>>,
+    passive_properties: BTreeSet<KeyValuePair>,
 }
 
-impl<'a> EventInstance<'a> {
+impl EventInstance {
 
-    pub fn new(dtstart_timestamp: i64, event: &'a Event, event_occurrence_override: Option<&'a EventOccurrenceOverride>) -> Self {
+    pub fn new(dtstart_timestamp: &i64, event: &Event, event_occurrence_override: Option<&EventOccurrenceOverride>) -> Self {
         EventInstance {
-            dtstart_timestamp,
-            event,
-            event_occurrence_override,
+            uuid:               Self::get_uuid(dtstart_timestamp, event),
+            dtstart_timestamp:  dtstart_timestamp.to_owned(),
+            dtend_timestamp:    Self::get_dtend_timestamp(dtstart_timestamp, event, event_occurrence_override),
+            duration:           Self::get_duration(dtstart_timestamp, event, event_occurrence_override),
+            categories:         Self::get_categories(event, event_occurrence_override),
+            related_to:         Self::get_related_to(event, event_occurrence_override),
+            passive_properties: Self::get_passive_properties(event, event_occurrence_override),
         }
     }
 
@@ -29,12 +39,12 @@ impl<'a> EventInstance<'a> {
     }
 
     pub fn serialize_to_ical_set(&self) -> BTreeSet<KeyValuePair> {
-        let mut serialized_output = self.get_passive_properties();
+        let mut serialized_output = self.passive_properties.clone();
 
         serialized_output.insert(
             KeyValuePair::new(
                 String::from("UUID"),
-                format!(":{}", self.get_uuid()),
+                format!(":{}", self.uuid),
             )
         );
 
@@ -49,7 +59,7 @@ impl<'a> EventInstance<'a> {
         );
 
         // TODO: handle the error case...
-        let dtend_datetime = Utc.timestamp_opt(self.get_dtend_timestamp(), 0).unwrap();
+        let dtend_datetime = Utc.timestamp_opt(self.dtend_timestamp, 0).unwrap();
 
         serialized_output.insert(
             KeyValuePair::new(
@@ -58,7 +68,7 @@ impl<'a> EventInstance<'a> {
             )
         );
 
-        if let Some(categories) = self.get_categories() {
+        if let Some(categories) = &self.categories {
             let mut categories: Vec<String> = Vec::from_iter(
                 categories.iter()
                           .map(|element| element.to_owned())
@@ -76,7 +86,7 @@ impl<'a> EventInstance<'a> {
             }
         }
 
-        if let Some(related_to) = self.get_related_to() {
+        if let Some(related_to) = &self.related_to {
             for (reltype, reltype_uuids) in related_to {
                 if reltype_uuids.is_empty() {
                     continue;
@@ -89,66 +99,68 @@ impl<'a> EventInstance<'a> {
 
                 reltype_uuids.sort();
 
-                serialized_output.insert(
-                    KeyValuePair::new(
-                        String::from("RELATED_TO"),
-                        format!(";RELTYPE={}:{}", reltype, reltype_uuids.join(","))
-                    )
-                );
+                reltype_uuids.iter().for_each(|reltype_uuid| {
+                    serialized_output.insert(
+                        KeyValuePair::new(
+                            String::from("RELATED_TO"),
+                            format!(";RELTYPE={}:{}", reltype, reltype_uuid)
+                        )
+                    );
+                });
             }
         }
 
         serialized_output
     }
 
-    pub fn get_uuid(&self) -> String {
-        format!("{}-{}", self.event.uuid, self.dtstart_timestamp)
+    fn get_uuid(dtstart_timestamp: &i64, event: &Event) -> String {
+        format!("{}-{}", event.uuid, dtstart_timestamp)
     }
 
-    pub fn get_dtend_timestamp(&self) -> i64 {
-        self.dtstart_timestamp + self.get_duration()
+    fn get_dtend_timestamp(dtstart_timestamp: &i64, event: &Event, event_occurrence_override: Option<&EventOccurrenceOverride>) -> i64 {
+        dtstart_timestamp + Self::get_duration(dtstart_timestamp, event, event_occurrence_override)
     }
 
-    pub fn get_duration(&self) -> i64 {
-        if let Some(event_occurrence_override) = self.event_occurrence_override {
-            if let Ok(Some(overridden_duration)) = event_occurrence_override.get_duration(&self.dtstart_timestamp) {
+    fn get_duration(dtstart_timestamp: &i64, event: &Event, event_occurrence_override: Option<&EventOccurrenceOverride>) -> i64 {
+        if let Some(event_occurrence_override) = event_occurrence_override {
+            if let Ok(Some(overridden_duration)) = event_occurrence_override.get_duration(&dtstart_timestamp) {
                 return overridden_duration;
             }
         }
 
-       if let Ok(Some(event_duration)) = self.event.schedule_properties.get_duration() {
+       if let Ok(Some(event_duration)) = event.schedule_properties.get_duration() {
            return event_duration;
        }
 
        0
     }
 
-    pub fn get_categories(&self) -> Option<HashSet<String>> {
-        if let Some(event_occurrence_override) = self.event_occurrence_override {
+    fn get_categories(event: &Event, event_occurrence_override: Option<&EventOccurrenceOverride>) -> Option<HashSet<String>> {
+        if let Some(event_occurrence_override) = event_occurrence_override {
             if let Some(overridden_categories) = &event_occurrence_override.categories {
                 return Some(overridden_categories.clone());
             }
         }
 
-        self.event.indexed_properties.categories.clone()
+        event.indexed_properties.categories.clone()
     }
 
-    pub fn get_related_to(&self) -> Option<HashMap<String, HashSet<String>>> {
-        if let Some(event_occurrence_override) = self.event_occurrence_override {
+    fn get_related_to(event: &Event, event_occurrence_override: Option<&EventOccurrenceOverride>) -> Option<HashMap<String, HashSet<String>>> {
+        if let Some(event_occurrence_override) = event_occurrence_override {
             if let Some(overridden_related_to) = &event_occurrence_override.related_to {
                 return Some(overridden_related_to.clone());
             }
         }
 
-        self.event.indexed_properties.related_to.clone()
+        event.indexed_properties.related_to.clone()
     }
 
     // This gets all the product of all the passive properties overridden by property name.
     // As these are stored in an ordered set of KeyValuePairs we get the overridden passive
     // properties and then iterate over the base event passive properties, checking for the
     // presence of the base event passive property name key, and inserting it if it is not found.
-    pub fn get_passive_properties(&self) -> BTreeSet<KeyValuePair> {
-        let mut passive_properties = self.event_occurrence_override
+    fn get_passive_properties(event: &Event, event_occurrence_override: Option<&EventOccurrenceOverride>) -> BTreeSet<KeyValuePair> {
+        let mut passive_properties = event_occurrence_override
                                                                  .and_then(|event_occurrence_override| event_occurrence_override.properties.clone())
                                                                  .unwrap_or(BTreeSet::new());
 
@@ -158,7 +170,7 @@ impl<'a> EventInstance<'a> {
         //
         // If not found:
         //  Add the base event property
-        for base_property in &self.event.passive_properties.properties {
+        for base_property in &event.passive_properties.properties {
             match passive_properties.iter().find(|passive_property| passive_property.key == base_property.key) {
                 Some(_) => {
                     continue;
@@ -174,11 +186,64 @@ impl<'a> EventInstance<'a> {
     }
 }
 
+#[derive(Debug)]
+pub struct EventInstanceIterator<'a> {
+    event:         &'a Event,
+    internal_iter: Option<OccurrenceIndexIter<'a, OccurrenceIndexValue>>,
+}
+
+impl<'a> EventInstanceIterator<'a> {
+    pub fn new(event: &'a Event) -> Self {
+        let internal_iter = match &event.occurrence_cache {
+            Some(occurrence_cache) => Some(occurrence_cache.iter()),
+            None => None,
+        };
+
+        EventInstanceIterator {
+            event,
+            internal_iter,
+        }
+    }
+}
+
+impl<'a> Iterator for EventInstanceIterator<'a> {
+    type Item = EventInstance;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match &mut self.internal_iter {
+            Some(iterator) => {
+                iterator.next()
+                        .and_then(
+                            |(dtstart_timestamp, occurrence_index_value)| {
+                                match occurrence_index_value {
+                                    OccurrenceIndexValue::Occurrence => {
+                                        Some(EventInstance::new(&dtstart_timestamp, self.event, None))
+                                    },
+
+                                    OccurrenceIndexValue::Override => {
+                                        let event_occurrence_override = self.event.overrides.current.get(dtstart_timestamp.to_owned());
+
+                                        Some(EventInstance::new(&dtstart_timestamp, self.event, event_occurrence_override))
+                                    },
+                                }
+                            }
+                        )
+            },
+
+            None => None
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
 
-    use crate::data_types::{PassiveProperties, IndexedProperties, ScheduleProperties, EventOccurrenceOverrides};
+    use std::collections::BTreeMap;
+
+    use crate::data_types::{PassiveProperties, IndexedProperties, ScheduleProperties, EventOccurrenceOverrides, OccurrenceIndex, OccurrenceIndexValue};
+
+    use crate::parsers::datestring_to_date;
 
     use pretty_assertions_sorted::{assert_eq, assert_eq_sorted};
 
@@ -267,86 +332,59 @@ mod test {
             indexed_related_to:  None,
         };
 
-        let event_instance = EventInstance::new(100, &event, None);
+        let event_instance = EventInstance::new(&100, &event, None);
 
         assert_eq!(
             event_instance,
             EventInstance {
-                dtstart_timestamp:         100,
-                event:                     &event,
-                event_occurrence_override: None,
+                uuid:               String::from("event_UUID-100"),
+                dtstart_timestamp:  100,
+                dtend_timestamp:    160,
+                duration:           60,
+                categories:         Some(
+                    HashSet::from([
+                        String::from("CATEGORY_ONE"),
+                        String::from("CATEGORY_TWO"),
+                        String::from("CATEGORY THREE")
+                    ])
+                ),
+                related_to:         Some(
+                    HashMap::from([
+                        (
+                            String::from("X-IDX-CAL"),
+                            HashSet::from([
+                                String::from("redical//IndexedCalendar_One"),
+                                String::from("redical//IndexedCalendar_Two"),
+                                String::from("redical//IndexedCalendar_Three"),
+                            ])
+                        ),
+                        (
+                            String::from("PARENT"),
+                            HashSet::from([
+                                String::from("ParentUUID_One"),
+                                String::from("ParentUUID_Two"),
+                            ])
+                        ),
+                        (
+                            String::from("CHILD"),
+                            HashSet::from([
+                                String::from("ChildUUID"),
+                            ])
+                        )
+                    ])
+                ),
+                passive_properties: BTreeSet::from([
+                    KeyValuePair::new(
+                        String::from("DESCRIPTION"),
+                        String::from(":Event description text."),
+                    ),
+
+                    KeyValuePair::new(
+                        String::from("LOCATION"),
+                        String::from(":Event address text."),
+                    ),
+                ])
             }
-        );
-
-        assert_eq!(
-            event_instance.get_uuid(),
-            String::from("event_UUID-100")
-        );
-
-
-        assert_eq!(
-            event_instance.get_dtend_timestamp(),
-            160
-        );
-
-        assert_eq!(
-            event_instance.get_duration(),
-            60
-        );
-
-        assert_eq!(
-            event_instance.get_categories(),
-            Some(
-                HashSet::from([
-                    String::from("CATEGORY_ONE"),
-                    String::from("CATEGORY_TWO"),
-                    String::from("CATEGORY THREE")
-                ])
-            )
-        );
-
-        assert_eq!(
-            event_instance.get_related_to(),
-            Some(
-                HashMap::from([
-                    (
-                        String::from("X-IDX-CAL"),
-                        HashSet::from([
-                            String::from("redical//IndexedCalendar_One"),
-                            String::from("redical//IndexedCalendar_Two"),
-                            String::from("redical//IndexedCalendar_Three"),
-                        ])
-                    ),
-                    (
-                        String::from("PARENT"),
-                        HashSet::from([
-                            String::from("ParentUUID_One"),
-                            String::from("ParentUUID_Two"),
-                        ])
-                    ),
-                    (
-                        String::from("CHILD"),
-                        HashSet::from([
-                            String::from("ChildUUID"),
-                        ])
-                    )
-                ])
-            )
-        );
-
-        assert_eq!(
-            event_instance.get_passive_properties(),
-            BTreeSet::from([
-                KeyValuePair::new(
-                    String::from("DESCRIPTION"),
-                    String::from(":Event description text."),
-                ),
-
-                KeyValuePair::new(
-                    String::from("LOCATION"),
-                    String::from(":Event address text."),
-                ),
-            ])
         );
 
         assert_eq!(
@@ -358,8 +396,11 @@ mod test {
                 String::from("DTSTART:1970-01-01T00:01:40+00:00"),
                 String::from("LOCATION:Event address text."),
                 String::from("RELATED_TO;RELTYPE=CHILD:ChildUUID"),
-                String::from("RELATED_TO;RELTYPE=PARENT:ParentUUID_One,ParentUUID_Two"),
-                String::from("RELATED_TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_One,redical//IndexedCalendar_Three,redical//IndexedCalendar_Two"),
+                String::from("RELATED_TO;RELTYPE=PARENT:ParentUUID_One"),
+                String::from("RELATED_TO;RELTYPE=PARENT:ParentUUID_Two"),
+                String::from("RELATED_TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_One"),
+                String::from("RELATED_TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Three"),
+                String::from("RELATED_TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Two"),
                 String::from("UUID:event_UUID-100"),
             ]
         );
@@ -494,83 +535,56 @@ mod test {
             ),
         };
 
-        let event_instance = EventInstance::new(100, &event, Some(&event_occurrence_override));
+        let event_instance = EventInstance::new(&100, &event, Some(&event_occurrence_override));
 
         assert_eq!(
             event_instance,
             EventInstance {
-                dtstart_timestamp:         100,
-                event:                     &event,
-                event_occurrence_override: Some(&event_occurrence_override),
+                uuid:               String::from("event_UUID-100"),
+                dtstart_timestamp:  100,
+                dtend_timestamp:    160,
+                duration:           60,
+                categories:         Some(
+                    HashSet::from([
+                        String::from("CATEGORY_ONE"),
+                        String::from("CATEGORY_FOUR"),
+                    ])
+                ),
+                related_to:         Some(
+                    HashMap::from([
+                        (
+                            String::from("X-IDX-CAL"),
+                            HashSet::from([
+                                String::from("redical//IndexedCalendar_One"),
+                                String::from("redical//IndexedCalendar_Four"),
+                            ])
+                        ),
+                        (
+                            String::from("PARENT"),
+                            HashSet::from([
+                                String::from("ParentUUID_Three"),
+                            ])
+                        ),
+                        (
+                            String::from("CHILD"),
+                            HashSet::from([
+                                String::from("ChildUUID"),
+                            ])
+                        )
+                    ])
+                ),
+                passive_properties: BTreeSet::from([
+                    KeyValuePair::new(
+                        String::from("DESCRIPTION"),
+                        String::from(":Event description text."),
+                    ),
+
+                    KeyValuePair::new(
+                        String::from("LOCATION"),
+                        String::from(":Overridden Event address text."),
+                    ),
+                ])
             }
-        );
-
-        assert_eq!(
-            event_instance.get_uuid(),
-            String::from("event_UUID-100")
-        );
-
-
-        assert_eq!(
-            event_instance.get_dtend_timestamp(),
-            160
-        );
-
-        assert_eq!(
-            event_instance.get_duration(),
-            60
-        );
-
-        assert_eq!(
-            event_instance.get_categories(),
-            Some(
-                HashSet::from([
-                    String::from("CATEGORY_ONE"),
-                    String::from("CATEGORY_FOUR"),
-                ])
-            )
-        );
-
-        assert_eq!(
-            event_instance.get_related_to(),
-            Some(
-                HashMap::from([
-                    (
-                        String::from("X-IDX-CAL"),
-                        HashSet::from([
-                            String::from("redical//IndexedCalendar_One"),
-                            String::from("redical//IndexedCalendar_Four"),
-                        ])
-                    ),
-                    (
-                        String::from("PARENT"),
-                        HashSet::from([
-                            String::from("ParentUUID_Three"),
-                        ])
-                    ),
-                    (
-                        String::from("CHILD"),
-                        HashSet::from([
-                            String::from("ChildUUID"),
-                        ])
-                    )
-                ])
-            )
-        );
-
-        assert_eq!(
-            event_instance.get_passive_properties(),
-            BTreeSet::from([
-                KeyValuePair::new(
-                    String::from("DESCRIPTION"),
-                    String::from(":Event description text."),
-                ),
-
-                KeyValuePair::new(
-                    String::from("LOCATION"),
-                    String::from(":Overridden Event address text."),
-                ),
-            ])
         );
 
         assert_eq!(
@@ -583,9 +597,155 @@ mod test {
                  String::from("LOCATION:Overridden Event address text."),
                  String::from("RELATED_TO;RELTYPE=CHILD:ChildUUID"),
                  String::from("RELATED_TO;RELTYPE=PARENT:ParentUUID_Three"),
-                 String::from("RELATED_TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Four,redical//IndexedCalendar_One"),
+                 String::from("RELATED_TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Four"),
+                 String::from("RELATED_TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_One"),
                  String::from("UUID:event_UUID-100"),
             ]
         );
+    }
+
+    #[test]
+    fn test_event_instance_iterator() {
+        let mut event = Event::parse_ical(
+            "event_UUID",
+            [
+                "DESCRIPTION:BASE description text.",
+                "DTSTART:20210105T183000Z",
+                "DTEND:20210105T190000Z",
+                "RRULE:FREQ=WEEKLY;UNTIL=20210202T183000Z;INTERVAL=1",
+                "CATEGORIES:BASE_CATEGORY_ONE,BASE_CATEGORY_TWO",
+                "RELATED-TO;RELTYPE=PARENT:BASE_ParentdUUID",
+                "RELATED-TO;RELTYPE=CHILD:BASE_ChildUUID",
+            ].join(" ").as_str()
+        ).unwrap();
+
+        assert!(event.rebuild_occurrence_cache(65_535).is_ok());
+
+        assert!(
+            event.override_occurrence(
+                datestring_to_date("20210105T183000Z", None, "").unwrap().timestamp(),
+                &EventOccurrenceOverride::parse_ical(
+                    [
+                        "DESCRIPTION:OVERRIDDEN description text.",
+                        "CATEGORIES:BASE_CATEGORY_ONE,OVERRIDDEN_CATEGORY_ONE",
+                        "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUUID",
+                    ].join(" ").as_str()
+                ).unwrap()
+            ).is_ok()
+        );
+
+        assert!(
+            event.override_occurrence(
+                datestring_to_date("20210112T183000Z", None, "").unwrap().timestamp(),
+                &EventOccurrenceOverride::parse_ical(
+                    [
+                        "RELATED-TO;RELTYPE=CHILD:BASE_ChildUUID",
+                        "RELATED-TO;RELTYPE=CHILD:OVERRIDDEN_ChildUUID",
+                    ].join(" ").as_str()
+                ).unwrap()
+            ).is_ok()
+        );
+
+        assert!(
+            event.override_occurrence(
+                datestring_to_date("20210126T183000Z", None, "").unwrap().timestamp(),
+                &EventOccurrenceOverride::parse_ical(
+                    [
+                        "DESCRIPTION:OVERRIDDEN description text.",
+                        "CATEGORIES:OVERRIDDEN_CATEGORY_ONE,OVERRIDDEN_CATEGORY_TWO",
+                        "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUUID",
+                        "RELATED-TO;RELTYPE=CHILD:OVERRIDDEN_ChildUUID",
+                    ].join(" ").as_str()
+                ).unwrap()
+            ).is_ok()
+        );
+
+        assert!(event.rebuild_indexed_categories().is_ok());
+        assert!(event.rebuild_indexed_related_to().is_ok());
+
+        /*
+        assert_eq!(
+            Event::new(String::from("event_UUID")),
+            event,
+        );
+        */
+
+        let mut event_instance_iterator = EventInstanceIterator::new(&event);
+
+        assert_eq!(
+            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
+            Some(
+                vec![
+                    String::from("CATEGORIES:BASE_CATEGORY_ONE,OVERRIDDEN_CATEGORY_ONE"),
+                    String::from("DESCRIPTION:BASE description text."),
+                    String::from("DTEND:2021-01-05T19:00:00+00:00"),
+                    String::from("DTSTART:2021-01-05T18:30:00+00:00"),
+                    String::from("RELATED_TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUUID"),
+                    String::from("UUID:event_UUID-1609871400"),
+                ]
+            )
+        );
+
+        assert_eq!(
+            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
+            Some(
+                vec![
+                    String::from("CATEGORIES:BASE_CATEGORY_ONE,BASE_CATEGORY_TWO"),
+                    String::from("DESCRIPTION:BASE description text."),
+                    String::from("DTEND:2021-01-12T19:00:00+00:00"),
+                    String::from("DTSTART:2021-01-12T18:30:00+00:00"),
+                    String::from("RELATED_TO;RELTYPE=CHILD:BASE_ChildUUID"),
+                    String::from("RELATED_TO;RELTYPE=CHILD:OVERRIDDEN_ChildUUID"),
+                    String::from("UUID:event_UUID-1610476200"),
+                ]
+            )
+        );
+
+        assert_eq!(
+            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
+            Some(
+                vec![
+                    String::from("CATEGORIES:BASE_CATEGORY_ONE,BASE_CATEGORY_TWO"),
+                    String::from("DESCRIPTION:BASE description text."),
+                    String::from("DTEND:2021-01-19T19:00:00+00:00"),
+                    String::from("DTSTART:2021-01-19T18:30:00+00:00"),
+                    String::from("RELATED_TO;RELTYPE=CHILD:BASE_ChildUUID"),
+                    String::from("RELATED_TO;RELTYPE=PARENT:BASE_ParentdUUID"),
+                    String::from("UUID:event_UUID-1611081000"),
+                ]
+            )
+        );
+
+        assert_eq!(
+            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
+            Some(
+                vec![
+                    String::from("CATEGORIES:OVERRIDDEN_CATEGORY_ONE,OVERRIDDEN_CATEGORY_TWO"),
+                    String::from("DESCRIPTION:BASE description text."),
+                    String::from("DTEND:2021-01-26T19:00:00+00:00"),
+                    String::from("DTSTART:2021-01-26T18:30:00+00:00"),
+                    String::from("RELATED_TO;RELTYPE=CHILD:OVERRIDDEN_ChildUUID"),
+                    String::from("RELATED_TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUUID"),
+                    String::from("UUID:event_UUID-1611685800"),
+                ]
+            )
+        );
+
+        assert_eq!(
+            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
+            Some(
+                vec![
+                    String::from("CATEGORIES:BASE_CATEGORY_ONE,BASE_CATEGORY_TWO"),
+                    String::from("DESCRIPTION:BASE description text."),
+                    String::from("DTEND:2021-02-02T19:00:00+00:00"),
+                    String::from("DTSTART:2021-02-02T18:30:00+00:00"),
+                    String::from("RELATED_TO;RELTYPE=CHILD:BASE_ChildUUID"),
+                    String::from("RELATED_TO;RELTYPE=PARENT:BASE_ParentdUUID"),
+                    String::from("UUID:event_UUID-1612290600"),
+                ]
+            )
+        );
+
+        assert_eq!(event_instance_iterator.next(), None);
     }
 }
