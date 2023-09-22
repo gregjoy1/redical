@@ -2,7 +2,7 @@ use chrono::{TimeZone, Utc};
 
 use std::collections::{HashMap, HashSet, BTreeSet};
 
-use crate::data_types::{Event, EventOccurrenceOverride, KeyValuePair};
+use crate::data_types::{Event, EventOccurrenceOverride, KeyValuePair, IndexedConclusion};
 
 use crate::data_types::occurrence_index::{OccurrenceIndexIter, OccurrenceIndexValue};
 
@@ -188,12 +188,13 @@ impl EventInstance {
 
 #[derive(Debug)]
 pub struct EventInstanceIterator<'a> {
-    event:         &'a Event,
-    internal_iter: Option<OccurrenceIndexIter<'a, OccurrenceIndexValue>>,
+    event:                       &'a Event,
+    internal_iter:               Option<OccurrenceIndexIter<'a, OccurrenceIndexValue>>,
+    filtered_indexed_conclusion: Option<&'a IndexedConclusion>,
 }
 
 impl<'a> EventInstanceIterator<'a> {
-    pub fn new(event: &'a Event) -> Self {
+    pub fn new(event: &'a Event, filtered_indexed_conclusion: Option<&'a IndexedConclusion>) -> Self {
         let internal_iter = match &event.occurrence_cache {
             Some(occurrence_cache) => Some(occurrence_cache.iter()),
             None => None,
@@ -202,8 +203,10 @@ impl<'a> EventInstanceIterator<'a> {
         EventInstanceIterator {
             event,
             internal_iter,
+            filtered_indexed_conclusion,
         }
     }
+
 }
 
 impl<'a> Iterator for EventInstanceIterator<'a> {
@@ -212,7 +215,16 @@ impl<'a> Iterator for EventInstanceIterator<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         match &mut self.internal_iter {
             Some(iterator) => {
-                iterator.next()
+                // Filter occurrence index iterator timestamps according to IndexedConclusion if
+                // present, else include all.
+                iterator.filter(|&(dtstart_timestamp, _)| {
+                            if let Some(indexed_conclusion) = self.filtered_indexed_conclusion {
+                                indexed_conclusion.include_event_occurrence(dtstart_timestamp)
+                            } else {
+                                true
+                            }
+                        })
+                        .next()
                         .and_then(
                             |(dtstart_timestamp, occurrence_index_value)| {
                                 match occurrence_index_value {
@@ -663,18 +675,9 @@ mod test {
         assert!(event.rebuild_indexed_categories().is_ok());
         assert!(event.rebuild_indexed_related_to().is_ok());
 
-        /*
-        assert_eq!(
-            Event::new(String::from("event_UUID")),
-            event,
-        );
-        */
-
-        let mut event_instance_iterator = EventInstanceIterator::new(&event);
-
-        assert_eq!(
-            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
-            Some(
+        let expected_event_instances_ical = HashMap::from([
+            (
+                1609871400,
                 vec![
                     String::from("CATEGORIES:BASE_CATEGORY_ONE,OVERRIDDEN_CATEGORY_ONE"),
                     String::from("DESCRIPTION:BASE description text."),
@@ -683,12 +686,10 @@ mod test {
                     String::from("RELATED_TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUUID"),
                     String::from("UUID:event_UUID-1609871400"),
                 ]
-            )
-        );
+            ),
 
-        assert_eq!(
-            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
-            Some(
+            (
+                1610476200,
                 vec![
                     String::from("CATEGORIES:BASE_CATEGORY_ONE,BASE_CATEGORY_TWO"),
                     String::from("DESCRIPTION:BASE description text."),
@@ -698,12 +699,10 @@ mod test {
                     String::from("RELATED_TO;RELTYPE=CHILD:OVERRIDDEN_ChildUUID"),
                     String::from("UUID:event_UUID-1610476200"),
                 ]
-            )
-        );
+            ),
 
-        assert_eq!(
-            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
-            Some(
+            (
+                1611081000,
                 vec![
                     String::from("CATEGORIES:BASE_CATEGORY_ONE,BASE_CATEGORY_TWO"),
                     String::from("DESCRIPTION:BASE description text."),
@@ -713,12 +712,10 @@ mod test {
                     String::from("RELATED_TO;RELTYPE=PARENT:BASE_ParentdUUID"),
                     String::from("UUID:event_UUID-1611081000"),
                 ]
-            )
-        );
+            ),
 
-        assert_eq!(
-            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
-            Some(
+            (
+                1611685800,
                 vec![
                     String::from("CATEGORIES:OVERRIDDEN_CATEGORY_ONE,OVERRIDDEN_CATEGORY_TWO"),
                     String::from("DESCRIPTION:BASE description text."),
@@ -728,12 +725,10 @@ mod test {
                     String::from("RELATED_TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUUID"),
                     String::from("UUID:event_UUID-1611685800"),
                 ]
-            )
-        );
+            ),
 
-        assert_eq!(
-            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
-            Some(
+            (
+                1612290600,
                 vec![
                     String::from("CATEGORIES:BASE_CATEGORY_ONE,BASE_CATEGORY_TWO"),
                     String::from("DESCRIPTION:BASE description text."),
@@ -743,7 +738,85 @@ mod test {
                     String::from("RELATED_TO;RELTYPE=PARENT:BASE_ParentdUUID"),
                     String::from("UUID:event_UUID-1612290600"),
                 ]
-            )
+            ),
+        ]);
+
+        fn assert_iterator_returns_all_event_instances(mut event_instance_iterator: EventInstanceIterator, expected_event_instances_ical: &HashMap<i64, Vec<String>>) {
+            assert_eq!(
+                event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
+                Some(expected_event_instances_ical[&1609871400].clone())
+            );
+
+            assert_eq!(
+                event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
+                Some(expected_event_instances_ical[&1610476200].clone())
+            );
+
+            assert_eq!(
+                event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
+                Some(expected_event_instances_ical[&1611081000].clone())
+            );
+
+            assert_eq!(
+                event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
+                Some(expected_event_instances_ical[&1611685800].clone())
+            );
+
+            assert_eq!(
+                event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
+                Some(expected_event_instances_ical[&1612290600].clone())
+            );
+
+            assert_eq!(event_instance_iterator.next(), None);
+        }
+
+        // Testing without any filtered index conclusion
+        assert_iterator_returns_all_event_instances(EventInstanceIterator::new(&event, None), &expected_event_instances_ical);
+
+        // Testing with filtered IndexedConclusion::Include without exceptions
+        assert_iterator_returns_all_event_instances(EventInstanceIterator::new(&event, Some(&IndexedConclusion::Include(None))), &expected_event_instances_ical);
+
+        // Testing with filtered IndexedConclusion::Include with exceptions
+        let indexed_conclusion = IndexedConclusion::Include(Some(HashSet::from([1609871400, 1611081000, 1612290600])));
+
+        let mut event_instance_iterator = EventInstanceIterator::new(&event, Some(&indexed_conclusion));
+
+        assert_eq!(
+            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
+            Some(expected_event_instances_ical[&1610476200].clone())
+        );
+
+        assert_eq!(
+            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
+            Some(expected_event_instances_ical[&1611685800].clone())
+        );
+
+        assert_eq!(event_instance_iterator.next(), None);
+
+        // Testing with filtered IndexedConclusion::Exclude without exceptions
+        assert_eq!(
+            EventInstanceIterator::new(&event, Some(&IndexedConclusion::Exclude(None))).next(),
+            None
+        );
+
+        // Testing with filtered IndexedConclusion::Exclude with exceptions
+        let indexed_conclusion = IndexedConclusion::Exclude(Some(HashSet::from([1609871400, 1611081000, 1612290600])));
+
+        let mut event_instance_iterator = EventInstanceIterator::new(&event, Some(&indexed_conclusion));
+
+        assert_eq!(
+            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
+            Some(expected_event_instances_ical[&1609871400].clone())
+        );
+
+        assert_eq!(
+            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
+            Some(expected_event_instances_ical[&1611081000].clone())
+        );
+
+        assert_eq!(
+            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
+            Some(expected_event_instances_ical[&1612290600].clone())
         );
 
         assert_eq!(event_instance_iterator.next(), None);
