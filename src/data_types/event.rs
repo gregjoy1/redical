@@ -686,7 +686,6 @@ mod test {
                                 duration:    None,
                                 dtstart:     None,
                                 dtend:       None,
-                                description: None,
                                 related_to:  None
                             }
                         ),
@@ -705,7 +704,6 @@ mod test {
                                 duration:    None,
                                 dtstart:     None,
                                 dtend:       None,
-                                description: None,
                                 related_to:  None
                             }
                         ),
@@ -719,7 +717,6 @@ mod test {
                                 duration:    None,
                                 dtstart:     None,
                                 dtend:       None,
-                                description: None,
                                 related_to:  None
                             }
                         ),
@@ -733,7 +730,6 @@ mod test {
                                 duration:    None,
                                 dtstart:     None,
                                 dtend:       None,
-                                description: None,
                                 related_to:  None
                             }
                         ),
@@ -751,7 +747,6 @@ mod test {
                                 duration:    None,
                                 dtstart:     None,
                                 dtend:       None,
-                                description: None,
                                 related_to:  None
                             }
                         ),
@@ -1154,7 +1149,14 @@ mod test {
         );
 
         let event_occurrence_override = EventOccurrenceOverride {
-            properties:  None,
+            properties:       Some(
+                BTreeSet::from([
+                    KeyValuePair::new(
+                        String::from("DESCRIPTION"),
+                        String::from(";ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA")
+                    )
+                ])
+            ),
             categories:  Some(
                 HashSet::from([
                     String::from("CATEGORY_ONE"),
@@ -1165,12 +1167,6 @@ mod test {
             duration:    None,
             dtstart:     None,
             dtend:       None,
-            description: Some(
-                KeyValuePair::new(
-                    String::from("DESCRIPTION"),
-                    String::from(";ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA"),
-                )
-            ),
             related_to:  None
         };
 
@@ -1220,7 +1216,14 @@ mod test {
                         current:  OccurrenceIndex::new_with_value(
                             1610476200,
                             EventOccurrenceOverride {
-                                properties:  None,
+                                properties:  Some(
+                                    BTreeSet::from([
+                                        KeyValuePair::new(
+                                            String::from("DESCRIPTION"),
+                                            String::from(";ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA")
+                                        )
+                                    ])
+                                ),
                                 categories:  Some(
                                     HashSet::from([
                                         String::from("CATEGORY_ONE"),
@@ -1231,12 +1234,6 @@ mod test {
                                 duration:    None,
                                 dtstart:     None,
                                 dtend:       None,
-                                description: Some(
-                                    KeyValuePair::new(
-                                        String::from("DESCRIPTION"),
-                                        String::from(";ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA"),
-                                    )
-                                ),
                                 related_to:  None
                             }
                         ),
@@ -1491,7 +1488,6 @@ mod test {
                     duration:    None,
                     dtstart:     None,
                     dtend:       None,
-                    description: None,
                     related_to:  None,
                 }
             ),
@@ -1530,7 +1526,6 @@ mod test {
                     duration:    None,
                     dtstart:     None,
                     dtend:       None,
-                    description: None,
                     related_to:  Some(
                         HashMap::from([
                             (
@@ -1635,7 +1630,6 @@ mod test {
                             duration:    None,
                             dtstart:     None,
                             dtend:       None,
-                            description: None,
                             related_to:  Some(
                                 HashMap::from([
                                     (
@@ -1684,7 +1678,6 @@ mod test {
                             duration:    None,
                             dtstart:     None,
                             dtend:       None,
-                            description: None,
                             related_to:  Some(
                                 HashMap::from([
                                     (

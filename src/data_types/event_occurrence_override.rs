@@ -14,7 +14,6 @@ pub struct EventOccurrenceOverride {
     pub duration:    Option<KeyValuePair>,
     pub dtstart:     Option<KeyValuePair>,
     pub dtend:       Option<KeyValuePair>,
-    pub description: Option<KeyValuePair>,
     pub related_to:  Option<HashMap<String, HashSet<String>>>,
     pub properties:  Option<BTreeSet<KeyValuePair>>,
 }
@@ -27,7 +26,6 @@ impl EventOccurrenceOverride {
             duration:    None,
             dtstart:     None,
             dtend:       None,
-            description: None,
             related_to:  None,
         }
     }
@@ -144,8 +142,18 @@ impl EventOccurrenceOverride {
                             ParsedProperty::Duration(content)    => { new_override.duration    = Some(content.content_line); },
                             ParsedProperty::DtStart(content)     => { new_override.dtstart     = Some(content.content_line); },
                             ParsedProperty::DtEnd(content)       => { new_override.dtend       = Some(content.content_line); },
-                            ParsedProperty::Description(content) => { new_override.description = Some(content.content_line); },
-                            ParsedProperty::Other(_content)      => { } // TODO
+
+                            ParsedProperty::Description(content) | ParsedProperty::Other(content) => {
+                                if let Some(properties) = &mut new_override.properties {
+                                    properties.insert(content.content_line);
+                                } else {
+                                    new_override.properties = Some(
+                                        BTreeSet::from([
+                                            content.content_line
+                                        ])
+                                    );
+                                }
+                            }
                         }
 
                         Ok(())
@@ -195,7 +203,14 @@ mod test {
         assert_eq!(
             EventOccurrenceOverride::parse_ical(ical_without_rrule).unwrap(),
             EventOccurrenceOverride {
-                properties:       None,
+                properties:       Some(
+                    BTreeSet::from([
+                        KeyValuePair::new(
+                            String::from("DESCRIPTION"),
+                            String::from(";ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA")
+                        )
+                    ])
+                ),
                 categories:       Some(
                     HashSet::from([
                         String::from("CATEGORY_ONE"),
@@ -206,12 +221,6 @@ mod test {
                 duration:         None,
                 dtstart:          None,
                 dtend:            None,
-                description:      Some(
-                    KeyValuePair::new(
-                        String::from("DESCRIPTION"),
-                        String::from(";ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA")
-                    )
-                ),
                 related_to:       None
             }
         );

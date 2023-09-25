@@ -521,7 +521,6 @@ mod test {
             duration:         None,
             dtstart:          None,
             dtend:            None,
-            description:      None,
             related_to:       Some(
                 HashMap::from([
                     (
@@ -680,7 +679,7 @@ mod test {
                 1609871400,
                 vec![
                     String::from("CATEGORIES:BASE_CATEGORY_ONE,OVERRIDDEN_CATEGORY_ONE"),
-                    String::from("DESCRIPTION:BASE description text."),
+                    String::from("DESCRIPTION:OVERRIDDEN description text."),
                     String::from("DTEND:2021-01-05T19:00:00+00:00"),
                     String::from("DTSTART:2021-01-05T18:30:00+00:00"),
                     String::from("RELATED_TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUUID"),
@@ -718,7 +717,7 @@ mod test {
                 1611685800,
                 vec![
                     String::from("CATEGORIES:OVERRIDDEN_CATEGORY_ONE,OVERRIDDEN_CATEGORY_TWO"),
-                    String::from("DESCRIPTION:BASE description text."),
+                    String::from("DESCRIPTION:OVERRIDDEN description text."),
                     String::from("DTEND:2021-01-26T19:00:00+00:00"),
                     String::from("DTSTART:2021-01-26T18:30:00+00:00"),
                     String::from("RELATED_TO;RELTYPE=CHILD:OVERRIDDEN_ChildUUID"),
@@ -741,40 +740,66 @@ mod test {
             ),
         ]);
 
-        fn assert_iterator_returns_all_event_instances(mut event_instance_iterator: EventInstanceIterator, expected_event_instances_ical: &HashMap<i64, Vec<String>>) {
-            assert_eq!(
-                event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
-                Some(expected_event_instances_ical[&1609871400].clone())
-            );
-
-            assert_eq!(
-                event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
-                Some(expected_event_instances_ical[&1610476200].clone())
-            );
-
-            assert_eq!(
-                event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
-                Some(expected_event_instances_ical[&1611081000].clone())
-            );
-
-            assert_eq!(
-                event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
-                Some(expected_event_instances_ical[&1611685800].clone())
-            );
-
-            assert_eq!(
-                event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
-                Some(expected_event_instances_ical[&1612290600].clone())
-            );
-
-            assert_eq!(event_instance_iterator.next(), None);
-        }
-
         // Testing without any filtered index conclusion
-        assert_iterator_returns_all_event_instances(EventInstanceIterator::new(&event, None), &expected_event_instances_ical);
+        let mut event_instance_iterator = EventInstanceIterator::new(&event, None);
+
+        assert_eq!(
+            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
+            Some(expected_event_instances_ical[&1609871400].clone())
+        );
+
+        assert_eq!(
+            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
+            Some(expected_event_instances_ical[&1610476200].clone())
+        );
+
+        assert_eq!(
+            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
+            Some(expected_event_instances_ical[&1611081000].clone())
+        );
+
+        assert_eq!(
+            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
+            Some(expected_event_instances_ical[&1611685800].clone())
+        );
+
+        assert_eq!(
+            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
+            Some(expected_event_instances_ical[&1612290600].clone())
+        );
+
+        assert_eq!(event_instance_iterator.next(), None);
 
         // Testing with filtered IndexedConclusion::Include without exceptions
-        assert_iterator_returns_all_event_instances(EventInstanceIterator::new(&event, Some(&IndexedConclusion::Include(None))), &expected_event_instances_ical);
+        let mut event_instance_iterator = EventInstanceIterator::new(&event, Some(&IndexedConclusion::Include(None)));
+
+        assert_eq!(
+            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
+            Some(expected_event_instances_ical[&1609871400].clone())
+        );
+
+        assert_eq!(
+            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
+            Some(expected_event_instances_ical[&1610476200].clone())
+        );
+
+        assert_eq!(
+            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
+            Some(expected_event_instances_ical[&1611081000].clone())
+        );
+
+        assert_eq!(
+            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
+            Some(expected_event_instances_ical[&1611685800].clone())
+        );
+
+        assert_eq!(
+            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
+            Some(expected_event_instances_ical[&1612290600].clone())
+        );
+
+        assert_eq!(event_instance_iterator.next(), None);
+
 
         // Testing with filtered IndexedConclusion::Include with exceptions
         let indexed_conclusion = IndexedConclusion::Include(Some(HashSet::from([1609871400, 1611081000, 1612290600])));
