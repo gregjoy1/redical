@@ -1,9 +1,9 @@
 use redis_module::{Context, NextArg, RedisValue, RedisResult, RedisString, RedisError};
 
-use crate::data_types::{EVENT_DATA_TYPE, Event, OccurrenceIndexValue};
+use crate::data_types::{CALENDAR_DATA_TYPE, Calendar, EventInstanceIterator};
 
 pub fn redical_event_instance_list(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
-    if args.len() < 1 {
+    if args.len() < 2 {
         ctx.log_debug(format!("rdcl.evi_list: WrongArity: {{args.len()}}").as_str());
 
         return Err(RedisError::WrongArity);
@@ -11,36 +11,30 @@ pub fn redical_event_instance_list(ctx: &Context, args: Vec<RedisString>) -> Red
 
     let mut args = args.into_iter().skip(1);
 
-    let key_name = args.next_arg()?;
+    let calendar_uuid = args.next_arg()?;
+    let event_uuid = args.next_arg()?;
 
-    let key = ctx.open_key(&key_name);
+    let calendar_key = ctx.open_key(&calendar_uuid);
 
-    ctx.log_debug(format!("rdcl.evi_list: key: {key_name}").as_str());
+    ctx.log_debug(format!("rdcl.evi_list: calendar_uuid: {calendar_uuid} event_uuid: {event_uuid}").as_str());
 
-    match key.get_value::<Event>(&EVENT_DATA_TYPE)? {
-        None                => Ok(RedisValue::Null),
-        Some(event) => {
-
-            match event.occurrence_cache {
-                Some(ref occurrence_cache) => {
-                    Ok(
+    if let Some(calendar) = calendar_key.get_value::<Calendar>(&CALENDAR_DATA_TYPE)? {
+        if let Some(event) = calendar.events.get(&String::from(event_uuid.clone())) {
+            return Ok(
+                RedisValue::Array(
+                    EventInstanceIterator::new(event, None).map(|event_instance| {
                         RedisValue::Array(
-                            occurrence_cache.iter()
-                                            .map(|(timestamp, value)| {
-                                                match value {
-                                                    OccurrenceIndexValue::Occurrence => RedisValue::SimpleString(format!("{timestamp} - occurrence")),
-                                                    OccurrenceIndexValue::Override   => RedisValue::SimpleString(format!("{timestamp} - override")),
-                                                }
-                                            })
-                                            .collect()
+                            event_instance.serialize_to_ical()
+                                 .iter()
+                                 .map(|ical_part| RedisValue::SimpleString(ical_part.to_owned()))
+                                 .collect()
                         )
-                    )
-                },
-
-                None => {
-                    Ok(RedisValue::Array(vec![]))
-                }
-            }
+                    })
+                    .collect()
+                )
+            );
         }
     }
+
+    Ok(RedisValue::Null)
 }
