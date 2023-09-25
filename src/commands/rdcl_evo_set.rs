@@ -2,7 +2,7 @@ use redis_module::{Context, NextArg, RedisResult, RedisString, RedisError, Statu
 
 use crate::data_types::{CALENDAR_DATA_TYPE, EventOccurrenceOverride, Calendar, CalendarIndexUpdater, InvertedEventIndex};
 
-use crate::parsers::datestring_to_date;
+use crate::parsers::datetime::datestring_to_date;
 
 pub fn redical_event_override_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     if args.len() < 4 {

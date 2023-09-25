@@ -2,11 +2,12 @@ use std::collections::{HashMap, HashSet, BTreeSet};
 
 use serde::{Serialize, Deserialize};
 
-use crate::data_types::ical_property_parser::{parse_properties, ParsedProperty, ParsedValue};
+use crate::parsers::ical_properties::{parse_properties, ParsedProperty};
+use crate::parsers::ical_common::ParsedValue;
+
+use crate::parsers::datetime::{datestring_to_date, ParseError};
 
 use crate::data_types::utils::KeyValuePair;
-
-use crate::parsers::{datestring_to_date, ParseError};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct EventOccurrenceOverride {

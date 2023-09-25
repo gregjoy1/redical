@@ -7,7 +7,10 @@ use serde::{Serialize, Deserialize};
 use chrono::prelude::*;
 use chrono::{DateTime, Utc, Months, Days};
 
-use crate::data_types::ical_property_parser::{parse_properties, ParsedProperty, ParsedValue};
+use crate::parsers::ical_properties::{parse_properties, ParsedProperty};
+use crate::parsers::ical_common::ParsedValue;
+
+use crate::parsers::datetime::{datestring_to_date, ParseError};
 
 use crate::data_types::occurrence_index::{OccurrenceIndex, OccurrenceIndexValue};
 
@@ -18,8 +21,6 @@ use crate::data_types::inverted_index::InvertedEventIndex;
 use crate::data_types::event_diff::EventDiff;
 
 use crate::data_types::utils::KeyValuePair;
-
-use crate::parsers::{datestring_to_date, ParseError};
 
 fn property_option_set_or_insert<'a>(property_option: &mut Option<HashSet<KeyValuePair>>, content: KeyValuePair) {
     match property_option {

@@ -255,7 +255,7 @@ mod test {
 
     use crate::data_types::{PassiveProperties, IndexedProperties, ScheduleProperties, EventOccurrenceOverrides, OccurrenceIndex, OccurrenceIndexValue};
 
-    use crate::parsers::datestring_to_date;
+    use crate::parsers::datetime::datestring_to_date;
 
     use pretty_assertions_sorted::{assert_eq, assert_eq_sorted};
 

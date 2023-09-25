@@ -1,5 +1,4 @@
 mod event_data_type;
-mod ical_property_parser;
 mod event;
 mod event_diff;
 mod event_instance;
@@ -11,7 +10,6 @@ mod calendar;
 mod utils;
 
 pub use event_data_type::*;
-pub use ical_property_parser::*;
 pub use event::*;
 pub use event_instance::*;
 pub use event_diff::*;
