@@ -21,7 +21,7 @@ impl EventInstance {
 
     pub fn new(dtstart_timestamp: &i64, event: &Event, event_occurrence_override: Option<&EventOccurrenceOverride>) -> Self {
         EventInstance {
-            uuid:               Self::get_uuid(dtstart_timestamp, event),
+            uuid:               event.uuid.to_owned(),
             dtstart_timestamp:  dtstart_timestamp.to_owned(),
             dtend_timestamp:    Self::get_dtend_timestamp(dtstart_timestamp, event, event_occurrence_override),
             duration:           Self::get_duration(dtstart_timestamp, event, event_occurrence_override),
@@ -40,7 +40,6 @@ impl EventInstance {
 
     pub fn serialize_to_ical_set(&self) -> BTreeSet<KeyValuePair> {
         let mut serialized_output = self.passive_properties.clone();
-
         serialized_output.insert(
             KeyValuePair::new(
                 String::from("UUID"),
@@ -50,6 +49,13 @@ impl EventInstance {
 
         // TODO: handle the error case...
         let dtstart_datetime = Utc.timestamp_opt(self.dtstart_timestamp, 0).unwrap();
+
+        serialized_output.insert(
+            KeyValuePair::new(
+                String::from("RECURRENCE-ID"),
+                format!(";VALUE=DATE-TIME:{}", dtstart_datetime.to_rfc3339()),
+            )
+        );
 
         serialized_output.insert(
             KeyValuePair::new(
@@ -111,10 +117,6 @@ impl EventInstance {
         }
 
         serialized_output
-    }
-
-    fn get_uuid(dtstart_timestamp: &i64, event: &Event) -> String {
-        format!("{}-{}", event.uuid, dtstart_timestamp)
     }
 
     fn get_dtend_timestamp(dtstart_timestamp: &i64, event: &Event, event_occurrence_override: Option<&EventOccurrenceOverride>) -> i64 {
@@ -349,7 +351,7 @@ mod test {
         assert_eq!(
             event_instance,
             EventInstance {
-                uuid:               String::from("event_UUID-100"),
+                uuid:               String::from("event_UUID"),
                 dtstart_timestamp:  100,
                 dtend_timestamp:    160,
                 duration:           60,
@@ -407,13 +409,14 @@ mod test {
                 String::from("DTEND:1970-01-01T00:02:40+00:00"),
                 String::from("DTSTART:1970-01-01T00:01:40+00:00"),
                 String::from("LOCATION:Event address text."),
+                String::from("RECURRENCE-ID;VALUE=DATE-TIME:1970-01-01T00:01:40+00:00"),
                 String::from("RELATED_TO;RELTYPE=CHILD:ChildUUID"),
                 String::from("RELATED_TO;RELTYPE=PARENT:ParentUUID_One"),
                 String::from("RELATED_TO;RELTYPE=PARENT:ParentUUID_Two"),
                 String::from("RELATED_TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_One"),
                 String::from("RELATED_TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Three"),
                 String::from("RELATED_TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Two"),
-                String::from("UUID:event_UUID-100"),
+                String::from("UUID:event_UUID"),
             ]
         );
     }
@@ -551,7 +554,7 @@ mod test {
         assert_eq!(
             event_instance,
             EventInstance {
-                uuid:               String::from("event_UUID-100"),
+                uuid:               String::from("event_UUID"),
                 dtstart_timestamp:  100,
                 dtend_timestamp:    160,
                 duration:           60,
@@ -606,11 +609,12 @@ mod test {
                  String::from("DTEND:1970-01-01T00:02:40+00:00"),
                  String::from("DTSTART:1970-01-01T00:01:40+00:00"),
                  String::from("LOCATION:Overridden Event address text."),
+                 String::from("RECURRENCE-ID;VALUE=DATE-TIME:1970-01-01T00:01:40+00:00"),
                  String::from("RELATED_TO;RELTYPE=CHILD:ChildUUID"),
                  String::from("RELATED_TO;RELTYPE=PARENT:ParentUUID_Three"),
                  String::from("RELATED_TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Four"),
                  String::from("RELATED_TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_One"),
-                 String::from("UUID:event_UUID-100"),
+                 String::from("UUID:event_UUID"),
             ]
         );
     }
@@ -682,8 +686,9 @@ mod test {
                     String::from("DESCRIPTION:OVERRIDDEN description text."),
                     String::from("DTEND:2021-01-05T19:00:00+00:00"),
                     String::from("DTSTART:2021-01-05T18:30:00+00:00"),
+                    String::from("RECURRENCE-ID;VALUE=DATE-TIME:2021-01-05T18:30:00+00:00"),
                     String::from("RELATED_TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUUID"),
-                    String::from("UUID:event_UUID-1609871400"),
+                    String::from("UUID:event_UUID"),
                 ]
             ),
 
@@ -694,9 +699,10 @@ mod test {
                     String::from("DESCRIPTION:BASE description text."),
                     String::from("DTEND:2021-01-12T19:00:00+00:00"),
                     String::from("DTSTART:2021-01-12T18:30:00+00:00"),
+                    String::from("RECURRENCE-ID;VALUE=DATE-TIME:2021-01-12T18:30:00+00:00"),
                     String::from("RELATED_TO;RELTYPE=CHILD:BASE_ChildUUID"),
                     String::from("RELATED_TO;RELTYPE=CHILD:OVERRIDDEN_ChildUUID"),
-                    String::from("UUID:event_UUID-1610476200"),
+                    String::from("UUID:event_UUID"),
                 ]
             ),
 
@@ -707,9 +713,10 @@ mod test {
                     String::from("DESCRIPTION:BASE description text."),
                     String::from("DTEND:2021-01-19T19:00:00+00:00"),
                     String::from("DTSTART:2021-01-19T18:30:00+00:00"),
+                    String::from("RECURRENCE-ID;VALUE=DATE-TIME:2021-01-19T18:30:00+00:00"),
                     String::from("RELATED_TO;RELTYPE=CHILD:BASE_ChildUUID"),
                     String::from("RELATED_TO;RELTYPE=PARENT:BASE_ParentdUUID"),
-                    String::from("UUID:event_UUID-1611081000"),
+                    String::from("UUID:event_UUID"),
                 ]
             ),
 
@@ -720,9 +727,10 @@ mod test {
                     String::from("DESCRIPTION:OVERRIDDEN description text."),
                     String::from("DTEND:2021-01-26T19:00:00+00:00"),
                     String::from("DTSTART:2021-01-26T18:30:00+00:00"),
+                    String::from("RECURRENCE-ID;VALUE=DATE-TIME:2021-01-26T18:30:00+00:00"),
                     String::from("RELATED_TO;RELTYPE=CHILD:OVERRIDDEN_ChildUUID"),
                     String::from("RELATED_TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUUID"),
-                    String::from("UUID:event_UUID-1611685800"),
+                    String::from("UUID:event_UUID"),
                 ]
             ),
 
@@ -733,9 +741,10 @@ mod test {
                     String::from("DESCRIPTION:BASE description text."),
                     String::from("DTEND:2021-02-02T19:00:00+00:00"),
                     String::from("DTSTART:2021-02-02T18:30:00+00:00"),
+                    String::from("RECURRENCE-ID;VALUE=DATE-TIME:2021-02-02T18:30:00+00:00"),
                     String::from("RELATED_TO;RELTYPE=CHILD:BASE_ChildUUID"),
                     String::from("RELATED_TO;RELTYPE=PARENT:BASE_ParentdUUID"),
-                    String::from("UUID:event_UUID-1612290600"),
+                    String::from("UUID:event_UUID"),
                 ]
             ),
         ]);
