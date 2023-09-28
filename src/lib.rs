@@ -3,6 +3,7 @@ use redis_module::{redis_module, Context, NotifyEvent};
 mod commands;
 mod data_types;
 mod parsers;
+mod queries;
 
 use data_types::{EVENT_DATA_TYPE, CALENDAR_DATA_TYPE};
 
