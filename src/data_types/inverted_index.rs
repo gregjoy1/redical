@@ -4,7 +4,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::data_types::event::Event;
 
-use crate::data_types::utils::{KeyValuePair, UpdatedHashMapMembers};
+use crate::data_types::utils::{KeyValuePair, UpdatedHashMapMembers, UpdatedSetMembers};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct InvertedCalendarIndexTerm {
@@ -30,9 +30,9 @@ impl InvertedCalendarIndexTerm {
         inverted_calendar_index_term
     }
 
-    pub fn merge(inverted_index_term_a: InvertedCalendarIndexTerm, inverted_index_term_b: InvertedCalendarIndexTerm) -> InvertedCalendarIndexTerm {
-        let events_a = inverted_index_term_a.events;
-        let events_b = inverted_index_term_b.events;
+    pub fn merge_and(inverted_index_term_a: &InvertedCalendarIndexTerm, inverted_index_term_b: &InvertedCalendarIndexTerm) -> InvertedCalendarIndexTerm {
+        let events_a = &inverted_index_term_a.events;
+        let events_b = &inverted_index_term_b.events;
 
         let mut compound_events = HashMap::<String, IndexedConclusion>::new();
 
@@ -44,12 +44,73 @@ impl InvertedCalendarIndexTerm {
             if let Some(indexed_conclusion_b) = events_b.get(event_uuid) {
                 compound_events.insert(
                     event_uuid.clone(),
-                    IndexedConclusion::merge(
+                    IndexedConclusion::merge_and(
                         indexed_conclusion_a,
                         indexed_conclusion_b
                     )
                 );
             }
+        }
+
+        InvertedCalendarIndexTerm {
+            events: compound_events
+        }
+    }
+
+    pub fn merge_or(inverted_index_term_a: &InvertedCalendarIndexTerm, inverted_index_term_b: &InvertedCalendarIndexTerm) -> InvertedCalendarIndexTerm {
+        let events_a = &inverted_index_term_a.events;
+        let events_b = &inverted_index_term_b.events;
+
+        let mut compound_events = HashMap::<String, IndexedConclusion>::new();
+
+        // TODO:
+        //   * clone()/borrowing etc
+
+        let events_a_uuids = HashSet::<String>::from_iter(events_a.keys().into_iter().cloned());
+        let events_b_uuids = HashSet::<String>::from_iter(events_b.keys().into_iter().cloned());
+
+        let uuid_key_diff = UpdatedSetMembers::new(
+            Some(&events_a_uuids),
+            Some(&events_b_uuids)
+        );
+
+        for events_a_exclusive_uuid in uuid_key_diff.removed.iter() {
+            if let Some(indexed_conclusion) = events_a.get(events_a_exclusive_uuid) {
+                if indexed_conclusion.is_empty_exclude() {
+                    continue;
+                }
+
+                compound_events.insert(
+                    events_a_exclusive_uuid.clone(),
+                    indexed_conclusion.clone()
+                );
+            }
+        }
+
+        for events_b_exclusive_uuid in uuid_key_diff.added.iter() {
+            if let Some(indexed_conclusion) = events_b.get(events_b_exclusive_uuid) {
+                if indexed_conclusion.is_empty_exclude() {
+                    continue;
+                }
+
+                compound_events.insert(
+                    events_b_exclusive_uuid.clone(),
+                    indexed_conclusion.clone()
+                );
+            }
+        }
+
+        for event_uuid in uuid_key_diff.maintained.iter() {
+            let indexed_conclusion_a = events_a.get(event_uuid).expect("Expected events a to contain a present IndexedConclusion.");
+            let indexed_conclusion_b = events_b.get(event_uuid).expect("Expected events b to contain a present IndexedConclusion.");
+
+            compound_events.insert(
+                event_uuid.clone(),
+                IndexedConclusion::merge_or(
+                    indexed_conclusion_a,
+                    indexed_conclusion_b,
+                )
+            );
         }
 
         InvertedCalendarIndexTerm {
@@ -198,7 +259,7 @@ where
         self.terms
             .entry(term.clone())
             .and_modify(|indexed_term| {
-                *indexed_term = IndexedConclusion::merge(
+                *indexed_term = IndexedConclusion::merge_and(
                     indexed_term,
                     &IndexedConclusion::Include(None)
                 );
@@ -331,13 +392,20 @@ pub enum IndexedConclusion {
 
 impl IndexedConclusion {
 
-    pub fn merge(indexed_conclusion_a: &IndexedConclusion, indexed_conclusion_b: &IndexedConclusion) -> IndexedConclusion {
+    // Merges two IndexedConclusion structs with the AND logicial operator (intersecting).
+    pub fn merge_and(indexed_conclusion_a: &IndexedConclusion, indexed_conclusion_b: &IndexedConclusion) -> IndexedConclusion {
 
-        // Merging exceptions for same types (e.g. Include & Include, Exclude & Exclude).
+        // Merging exceptions for same type - Include & Include
         fn merge_include_all_exception_sets(exceptions_a: &Option<HashSet<i64>>, exceptions_b: &Option<HashSet<i64>>) -> Option<HashSet<i64>> {
             let exception_set_a = exceptions_a.clone().unwrap_or(HashSet::new());
             let exception_set_b = exceptions_b.clone().unwrap_or(HashSet::new());
 
+            // Take all exceptions to include_a and combine with all exceptions to include_b with it.
+            // e.g.
+            //  to_include all except [ 1, 2, 3, 4 ]
+            //  to_include all except [ 2, 3, 5, 8 ]
+            //  combined:
+            //    include all except  [ 1, 2, 3, 4, 5, 8 ]
             let compound_exception_set: HashSet<i64> =
                 exception_set_a.union(&exception_set_b)
                                .map(|element| *element)
@@ -350,18 +418,17 @@ impl IndexedConclusion {
             }
         }
 
-        // Merging exceptions for differing types:
-        //  (e.g. (Include all - overrides) & (Exclude - overrides))
+        // Merging exceptions for same type - Exclude & Exclude
         fn merge_exclude_all_exception_sets(exceptions_to_include_a: &Option<HashSet<i64>>, exceptions_to_include_b: &Option<HashSet<i64>>) -> Option<HashSet<i64>> {
             let exception_set_to_include_a = exceptions_to_include_a.clone().unwrap_or(HashSet::new());
             let exception_set_to_include_b = exceptions_to_include_b.clone().unwrap_or(HashSet::new());
 
-            // Take all exceptions to include and subtract all exceptions to exclude from it.
+            // Take all intersecting exceptions to exclude_a, and exclude_b.
             // e.g.
-            //  to_include all except [ 1, 2, 3, 4 ]
+            //  to_exclude all except [ 1, 2, 3, 4 ]
             //  to_exclude all except [ 2, 3, 5, 8 ]
             //  combined:
-            //    exclude all except  [ 5, 8 ]
+            //    exclude all except  [ 2, 3 ]
             let compound_exception_set: HashSet<i64> =
                 exception_set_to_include_a.intersection(&exception_set_to_include_b)
                                           .map(|element| *element)
@@ -425,6 +492,129 @@ impl IndexedConclusion {
                 IndexedConclusion::Include(exceptions_to_exclude)
             ) => {
                 IndexedConclusion::Exclude(
+                    merge_unaligned_exception_sets(
+                        exceptions_to_include,
+                        exceptions_to_exclude
+                    )
+                )
+            },
+        }
+    }
+
+    // Merges two IndexedConclusion structs with the OR logicial operator (union).
+    pub fn merge_or(indexed_conclusion_a: &IndexedConclusion, indexed_conclusion_b: &IndexedConclusion) -> IndexedConclusion {
+
+        // Merging exceptions for same type - Include & Include
+        fn merge_include_all_exception_sets(exceptions_a: &Option<HashSet<i64>>, exceptions_b: &Option<HashSet<i64>>) -> Option<HashSet<i64>> {
+            if exceptions_a.is_none() || exceptions_b.is_none() {
+                return None;
+            }
+
+            let exception_set_a = exceptions_a.clone().unwrap_or(HashSet::new());
+            let exception_set_b = exceptions_b.clone().unwrap_or(HashSet::new());
+
+            // Combine all exceptions to include_a, and include_b removing intersecting exceptions.
+            // e.g.
+            //  to_include all except [ 1, 2, 3, 4 ]
+            //  to_include all except [ 2, 3, 5, 8 ]
+            //  combined:
+            //    include all except  [ 1, 4, 5, 8 ]
+            let combined_exception_set: HashSet<i64> =
+                exception_set_a.union(&exception_set_b)
+                               .map(|element| *element)
+                               .collect();
+
+            let intersecting_exception_set: HashSet<i64> =
+                exception_set_a.intersection(&exception_set_b)
+                               .map(|element| *element)
+                               .collect();
+
+            let subtracted_exception_set: HashSet<i64> =
+                combined_exception_set.difference(&intersecting_exception_set)
+                               .map(|element| *element)
+                               .collect();
+
+            if subtracted_exception_set.is_empty() {
+                None
+            } else {
+                Some(subtracted_exception_set)
+            }
+        }
+
+        // Merging exceptions for same type - Exclude & Exclude
+        fn merge_exclude_all_exception_sets(exceptions_to_include_a: &Option<HashSet<i64>>, exceptions_to_include_b: &Option<HashSet<i64>>) -> Option<HashSet<i64>> {
+            let exception_set_to_include_a = exceptions_to_include_a.clone().unwrap_or(HashSet::new());
+            let exception_set_to_include_b = exceptions_to_include_b.clone().unwrap_or(HashSet::new());
+
+            // Take all exceptions to exclude_a and combine with all exceptions to exclude_b with it.
+            // e.g.
+            //  to_exclude all except [ 1, 2, 3, 4 ]
+            //  to_exclude all except [ 2, 3, 5, 8 ]
+            //  combined:
+            //    exclude all except  [ 2, 3 ]
+            let compound_exception_set: HashSet<i64> =
+                exception_set_to_include_a.union(&exception_set_to_include_b)
+                                          .map(|element| *element)
+                                          .collect();
+
+            if compound_exception_set.is_empty() {
+                None
+            } else {
+                Some(compound_exception_set)
+            }
+        }
+
+        // Merging exceptions for differing types:
+        //  (e.g. (Include all - overrides) & (Exclude - overrides))
+        fn merge_unaligned_exception_sets(exceptions_to_include: &Option<HashSet<i64>>, exceptions_to_exclude: &Option<HashSet<i64>>) -> Option<HashSet<i64>> {
+            let exception_set_to_include = exceptions_to_include.clone().unwrap_or(HashSet::new());
+            let exception_set_to_exclude = exceptions_to_exclude.clone().unwrap_or(HashSet::new());
+
+            // Take all exceptions to exclude and subtract all exceptions to include from it.
+            // e.g.
+            //  to_include all except [ 1, 2, 3, 4 ]
+            //  to_exclude all except [ 2, 3, 5, 8 ]
+            //  combined:
+            //    include all except  [ 1, 4 ]
+            let compound_exception_set: HashSet<i64> =
+                exception_set_to_exclude.difference(&exception_set_to_include)
+                                        .map(|element| *element)
+                                        .collect();
+
+            if compound_exception_set.is_empty() {
+                None
+            } else {
+                Some(compound_exception_set)
+            }
+        }
+
+        match (indexed_conclusion_a, indexed_conclusion_b) {
+            (
+                IndexedConclusion::Include(exceptions_a),
+                IndexedConclusion::Include(exceptions_b)
+            ) => {
+                IndexedConclusion::Include(
+                    merge_include_all_exception_sets(exceptions_a, exceptions_b)
+                )
+            },
+
+            (
+                IndexedConclusion::Exclude(exceptions_a),
+                IndexedConclusion::Exclude(exceptions_b)
+            ) => {
+                IndexedConclusion::Exclude(
+                    merge_exclude_all_exception_sets(exceptions_a, exceptions_b)
+                )
+            },
+
+            (
+                IndexedConclusion::Include(exceptions_to_exclude),
+                IndexedConclusion::Exclude(exceptions_to_include)
+            ) | (
+                IndexedConclusion::Exclude(exceptions_to_include),
+                IndexedConclusion::Include(exceptions_to_exclude)
+            ) => {
+                IndexedConclusion::Include(
                     merge_unaligned_exception_sets(
                         exceptions_to_include,
                         exceptions_to_exclude
@@ -511,12 +701,14 @@ impl IndexedConclusion {
 mod test {
     use super::*;
 
-    #[test]
-    fn test_inverted_index_term_merge() {
+    use pretty_assertions_sorted::{assert_eq, assert_eq_sorted};
 
-        assert_eq!(
-            InvertedCalendarIndexTerm::merge(
-                InvertedCalendarIndexTerm {
+    #[test]
+    fn test_inverted_index_term_merge_and() {
+
+        assert_eq_sorted!(
+            InvertedCalendarIndexTerm::merge_and(
+                &InvertedCalendarIndexTerm {
                     events:
                         HashMap::from([
                             (String::from("event_one"),   IndexedConclusion::Include(Some(HashSet::from([100, 200])))),
@@ -527,10 +719,10 @@ mod test {
                             (String::from("event_six"),   IndexedConclusion::Include(Some(HashSet::from([100, 200])))),
                             (String::from("event_seven"), IndexedConclusion::Exclude(Some(HashSet::from([100, 200])))),
                             (String::from("event_eight"), IndexedConclusion::Exclude(None)),
-                            (String::from("event_nine"),  IndexedConclusion::Exclude(None))
+                            (String::from("event_nine"),  IndexedConclusion::Exclude(None)),
                         ])
                 },
-                InvertedCalendarIndexTerm {
+                &InvertedCalendarIndexTerm {
                     events:
                         HashMap::from([
                             (String::from("event_one"),   IndexedConclusion::Exclude(Some(HashSet::from([100, 200])))),
@@ -561,9 +753,60 @@ mod test {
     }
 
     #[test]
-    fn test_indexed_conclusion_merge() {
+    fn test_inverted_index_term_merge_or() {
+
+        assert_eq_sorted!(
+            InvertedCalendarIndexTerm::merge_or(
+                &InvertedCalendarIndexTerm {
+                    events:
+                        HashMap::from([
+                            (String::from("event_one"),   IndexedConclusion::Include(Some(HashSet::from([100, 200])))),
+                            (String::from("event_two"),   IndexedConclusion::Include(Some(HashSet::from([100, 200])))),
+                            (String::from("event_three"), IndexedConclusion::Exclude(Some(HashSet::from([100, 200])))),
+                            (String::from("event_four"),  IndexedConclusion::Exclude(Some(HashSet::from([100, 200])))),
+                            (String::from("event_five"),  IndexedConclusion::Include(Some(HashSet::from([100, 200])))),
+                            (String::from("event_six"),   IndexedConclusion::Include(Some(HashSet::from([100, 200])))),
+                            (String::from("event_seven"), IndexedConclusion::Exclude(Some(HashSet::from([100, 200])))),
+                            (String::from("event_eight"), IndexedConclusion::Exclude(None)),
+                            (String::from("event_nine"),  IndexedConclusion::Exclude(None)),
+                        ])
+                },
+                &InvertedCalendarIndexTerm {
+                    events:
+                        HashMap::from([
+                            (String::from("event_one"),   IndexedConclusion::Exclude(Some(HashSet::from([100, 200])))),
+                            (String::from("event_two"),   IndexedConclusion::Include(Some(HashSet::from([200, 300])))),
+                            (String::from("event_three"), IndexedConclusion::Exclude(Some(HashSet::from([200, 300])))),
+                            (String::from("event_four"),  IndexedConclusion::Exclude(None)),
+                            (String::from("event_five"),  IndexedConclusion::Include(None)),
+                            (String::from("event_six"),   IndexedConclusion::Exclude(None)),
+                            (String::from("event_seven"), IndexedConclusion::Include(None)),
+                            (String::from("event_eight"), IndexedConclusion::Include(None)),
+                            (String::from("event_ten"),   IndexedConclusion::Exclude(Some(HashSet::from([200])))),
+                        ]),
+                }
+            ),
+            InvertedCalendarIndexTerm {
+                events:
+                    HashMap::from([
+                        (String::from("event_one"),   IndexedConclusion::Include(None)),
+                        (String::from("event_two"),   IndexedConclusion::Include(Some(HashSet::from([100, 300])))),
+                        (String::from("event_three"), IndexedConclusion::Exclude(Some(HashSet::from([100, 200, 300])))),
+                        (String::from("event_four"),  IndexedConclusion::Exclude(Some(HashSet::from([100, 200])))),
+                        (String::from("event_five"),  IndexedConclusion::Include(None)),
+                        (String::from("event_six"),   IndexedConclusion::Include(Some(HashSet::from([100, 200])))),
+                        (String::from("event_seven"), IndexedConclusion::Include(None)),
+                        (String::from("event_eight"), IndexedConclusion::Include(None)),
+                        (String::from("event_ten"),   IndexedConclusion::Exclude(Some(HashSet::from([200])))),
+                    ]),
+            },
+        );
+    }
+
+    #[test]
+    fn test_indexed_conclusion_merge_and() {
         assert_eq!(
-            IndexedConclusion::merge(
+            IndexedConclusion::merge_and(
                 &IndexedConclusion::Include(Some(HashSet::from([100, 200]))),
                 &IndexedConclusion::Exclude(Some(HashSet::from([100, 200])))
             ),
@@ -571,7 +814,7 @@ mod test {
         );
 
         assert_eq!(
-            IndexedConclusion::merge(
+            IndexedConclusion::merge_and(
                 &IndexedConclusion::Include(Some(HashSet::from([100, 200]))),
                 &IndexedConclusion::Include(Some(HashSet::from([200, 300])))
             ),
@@ -579,7 +822,7 @@ mod test {
         );
 
         assert_eq!(
-            IndexedConclusion::merge(
+            IndexedConclusion::merge_and(
                 &IndexedConclusion::Exclude(Some(HashSet::from([100, 200]))),
                 &IndexedConclusion::Exclude(Some(HashSet::from([200, 300])))
             ),
@@ -587,7 +830,7 @@ mod test {
         );
 
         assert_eq!(
-            IndexedConclusion::merge(
+            IndexedConclusion::merge_and(
                 &IndexedConclusion::Exclude(Some(HashSet::from([100, 200]))),
                 &IndexedConclusion::Exclude(None)
             ),
@@ -595,7 +838,7 @@ mod test {
         );
 
         assert_eq!(
-            IndexedConclusion::merge(
+            IndexedConclusion::merge_and(
                 &IndexedConclusion::Include(Some(HashSet::from([100, 200]))),
                 &IndexedConclusion::Include(None)
             ),
@@ -603,7 +846,7 @@ mod test {
         );
 
         assert_eq!(
-            IndexedConclusion::merge(
+            IndexedConclusion::merge_and(
                 &IndexedConclusion::Include(Some(HashSet::from([100, 200]))),
                 &IndexedConclusion::Exclude(None)
             ),
@@ -611,7 +854,7 @@ mod test {
         );
 
         assert_eq!(
-            IndexedConclusion::merge(
+            IndexedConclusion::merge_and(
                 &IndexedConclusion::Exclude(Some(HashSet::from([100, 200]))),
                 &IndexedConclusion::Include(None)
             ),
@@ -619,11 +862,79 @@ mod test {
         );
 
         assert_eq!(
-            IndexedConclusion::merge(
+            IndexedConclusion::merge_and(
                 &IndexedConclusion::Exclude(None),
                 &IndexedConclusion::Include(None)
             ),
             IndexedConclusion::Exclude(None)
+        );
+
+    }
+
+    #[test]
+    fn test_indexed_conclusion_merge_or() {
+        assert_eq!(
+            IndexedConclusion::merge_or(
+                &IndexedConclusion::Include(Some(HashSet::from([100, 200]))),
+                &IndexedConclusion::Exclude(Some(HashSet::from([100, 200])))
+            ),
+            IndexedConclusion::Include(None),
+        );
+
+        assert_eq!(
+            IndexedConclusion::merge_or(
+                &IndexedConclusion::Include(Some(HashSet::from([100, 200]))),
+                &IndexedConclusion::Include(Some(HashSet::from([200, 300])))
+            ),
+            IndexedConclusion::Include(Some(HashSet::from([100, 300])))
+        );
+
+        assert_eq!(
+            IndexedConclusion::merge_or(
+                &IndexedConclusion::Exclude(Some(HashSet::from([100, 200]))),
+                &IndexedConclusion::Exclude(Some(HashSet::from([200, 300])))
+            ),
+            IndexedConclusion::Exclude(Some(HashSet::from([100, 200, 300])))
+        );
+
+        assert_eq!(
+            IndexedConclusion::merge_or(
+                &IndexedConclusion::Exclude(Some(HashSet::from([100, 200]))),
+                &IndexedConclusion::Exclude(None)
+            ),
+            IndexedConclusion::Exclude(Some(HashSet::from([100, 200])))
+        );
+
+        assert_eq!(
+            IndexedConclusion::merge_or(
+                &IndexedConclusion::Include(Some(HashSet::from([100, 200]))),
+                &IndexedConclusion::Include(None)
+            ),
+            IndexedConclusion::Include(None)
+        );
+
+        assert_eq!(
+            IndexedConclusion::merge_or(
+                &IndexedConclusion::Include(Some(HashSet::from([100, 200]))),
+                &IndexedConclusion::Exclude(None)
+            ),
+            IndexedConclusion::Include(Some(HashSet::from([100, 200])))
+        );
+
+        assert_eq!(
+            IndexedConclusion::merge_or(
+                &IndexedConclusion::Exclude(Some(HashSet::from([100, 200]))),
+                &IndexedConclusion::Include(None)
+            ),
+            IndexedConclusion::Include(None)
+        );
+
+        assert_eq!(
+            IndexedConclusion::merge_or(
+                &IndexedConclusion::Exclude(None),
+                &IndexedConclusion::Include(None)
+            ),
+            IndexedConclusion::Include(None)
         );
 
     }
