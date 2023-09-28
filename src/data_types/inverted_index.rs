@@ -65,6 +65,7 @@ impl InvertedCalendarIndexTerm {
 
         // TODO:
         //   * clone()/borrowing etc
+        //   * refine this logic to be more concise/readable...
 
         let events_a_uuids = HashSet::<String>::from_iter(events_a.keys().into_iter().cloned());
         let events_b_uuids = HashSet::<String>::from_iter(events_b.keys().into_iter().cloned());
