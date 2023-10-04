@@ -4,7 +4,6 @@ use crate::data_types::{KeyValuePair, InvertedCalendarIndexTerm, Calendar, Index
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Query {
-    result_aggregate:  ResultAggregate,
     where_conditional: Option<WhereConditional>,
     result_ordering:   ResultOrdering,
     limit:             i64,
@@ -14,7 +13,6 @@ impl Default for Query {
 
     fn default() -> Self {
         Query {
-            result_aggregate:  ResultAggregate::All,
             where_conditional: None,
             result_ordering:   ResultOrdering::OrderByDtstart,
             limit:             50,
@@ -24,24 +22,10 @@ impl Default for Query {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum GroupValue {
-    UUID,
-    RelatedTo(String),
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum ResultAggregate {
-    All,
-    First,
-    AllOfGroup(GroupValue),
-    FirstOfGroup(GroupValue),
-}
-
-#[derive(Debug, PartialEq, Clone)]
 pub enum ResultOrdering {
     OrderByDtstart,
-    OrderByDtstartGeoDist,
-    OrderByGeoDistDtstart,
+    // OrderByDtstartGeoDist,
+    // OrderByGeoDistDtstart,
 }
 
 #[derive(Debug, PartialEq, Clone)]

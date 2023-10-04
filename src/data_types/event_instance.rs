@@ -6,15 +6,15 @@ use crate::data_types::{Event, EventOccurrenceOverride, KeyValuePair, IndexedCon
 
 use crate::data_types::occurrence_index::{OccurrenceIndexIter, OccurrenceIndexValue};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct EventInstance {
-    uuid:               String,
-    dtstart_timestamp:  i64,
-    dtend_timestamp:    i64,
-    duration:           i64,
-    categories:         Option<HashSet<String>>,
-    related_to:         Option<HashMap<String, HashSet<String>>>,
-    passive_properties: BTreeSet<KeyValuePair>,
+    pub uuid:               String,
+    pub dtstart_timestamp:  i64,
+    pub dtend_timestamp:    i64,
+    pub duration:           i64,
+    pub categories:         Option<HashSet<String>>,
+    pub related_to:         Option<HashMap<String, HashSet<String>>>,
+    pub passive_properties: BTreeSet<KeyValuePair>,
 }
 
 impl EventInstance {
