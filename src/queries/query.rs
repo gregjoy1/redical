@@ -1,31 +1,52 @@
 use std::time::Duration;
+use std::marker::PhantomData;
 
 use crate::data_types::{KeyValuePair, InvertedCalendarIndexTerm, Calendar, IndexedConclusion};
 
+use crate::queries::results::QueryResults;
+use crate::queries::ordering::{QueryResultDtstartOrdering, QueryResultOrdering};
+
 #[derive(Debug, PartialEq, Clone)]
-pub struct Query {
+pub struct Query<O>
+where
+    O: QueryResultOrdering,
+{
     where_conditional: Option<WhereConditional>,
-    result_ordering:   ResultOrdering,
+    result_ordering:   PhantomData<O>,
     limit:             i64,
 }
 
-impl Default for Query {
+impl<O> Query<O>
+where
+    O: QueryResultOrdering,
+{
+    pub fn execute(&mut self, calendar: &Calendar) -> Result<QueryResults<O>, String> {
+        let where_conditional_result = 
+            if let Some(where_conditional) = &mut self.where_conditional {
+                Some(where_conditional.execute(calendar)?)
+            } else {
+                None
+            };
+
+        let mut query_results = QueryResults::<O>::new();
+
+        Ok(query_results)
+    }
+}
+
+impl<O> Default for Query<O>
+where
+    O: QueryResultOrdering,
+{
 
     fn default() -> Self {
         Query {
             where_conditional: None,
-            result_ordering:   ResultOrdering::OrderByDtstart,
+            result_ordering:   PhantomData,
             limit:             50,
         }
     }
 
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum ResultOrdering {
-    OrderByDtstart,
-    // OrderByDtstartGeoDist,
-    // OrderByGeoDistDtstart,
 }
 
 #[derive(Debug, PartialEq, Clone)]
