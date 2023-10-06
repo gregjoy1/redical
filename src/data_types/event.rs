@@ -509,11 +509,12 @@ impl Event {
 
                 match occurrence_cache.get(timestamp) {
                     Some(OccurrenceIndexValue::Occurrence) => {
-                        occurrence_cache.insert(timestamp, OccurrenceIndexValue::Override);
+                        // TODO: add overridden duration here --->
+                        occurrence_cache.insert(timestamp, OccurrenceIndexValue::Override(None));
 
                         self.overrides.current.insert(timestamp, event_occurrence_override.clone());
                     },
-                    Some(OccurrenceIndexValue::Override) => {
+                    Some(OccurrenceIndexValue::Override(_)) => {
                         self.overrides.current.insert(timestamp, event_occurrence_override.clone());
                     },
                     None => {
@@ -557,7 +558,7 @@ impl Event {
                     Some(OccurrenceIndexValue::Occurrence) => {
                         return Err(format!("No occurrence override exists for timestamp: {timestamp}"));
                     },
-                    Some(OccurrenceIndexValue::Override) => {
+                    Some(OccurrenceIndexValue::Override(_)) => {
                         occurrence_cache.insert(timestamp, OccurrenceIndexValue::Occurrence);
 
                         self.overrides.current.remove(timestamp);
@@ -1245,7 +1246,7 @@ mod test {
                             timestamp_offsets: BTreeMap::from(
                                 [
                                     (0, OccurrenceIndexValue::Occurrence),
-                                    (604800, OccurrenceIndexValue::Override),
+                                    (604800, OccurrenceIndexValue::Override(None)),
                                 ]
                             )
                         }

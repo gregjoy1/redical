@@ -234,7 +234,7 @@ impl<'a> Iterator for EventInstanceIterator<'a> {
                                         Some(EventInstance::new(&dtstart_timestamp, self.event, None))
                                     },
 
-                                    OccurrenceIndexValue::Override => {
+                                    OccurrenceIndexValue::Override(_) => {
                                         let event_occurrence_override = self.event.overrides.current.get(dtstart_timestamp.to_owned());
 
                                         Some(EventInstance::new(&dtstart_timestamp, self.event, event_occurrence_override))

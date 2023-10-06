@@ -5,7 +5,7 @@ use std::collections::{BTreeMap, btree_map};
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub enum OccurrenceIndexValue {
     Occurrence,
-    Override
+    Override(Option<u32>),
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
@@ -443,11 +443,11 @@ mod test {
 
             assert_eq!(item, &mut OccurrenceIndexValue::Occurrence);
 
-            *item = OccurrenceIndexValue::Override;
+            *item = OccurrenceIndexValue::Override(None);
 
             assert_eq!(
                 (timestamp, item),
-                (*expected_timestamp, &mut OccurrenceIndexValue::Override)
+                (*expected_timestamp, &mut OccurrenceIndexValue::Override(None)),
             );
         });
 
@@ -464,19 +464,19 @@ mod test {
                     [
                         (
                             -86400, // Thu Jun 16 2023 18:02:40 GMT+0000
-                            OccurrenceIndexValue::Override
+                            OccurrenceIndexValue::Override(None)
                         ),
                         (
                             0, // Fri Jun 16 2023 18:02:40 GMT+0000
-                            OccurrenceIndexValue::Override
+                            OccurrenceIndexValue::Override(None)
                         ),
                         (
                             11400, // Fri Jun 16 2023 21:12:40 GMT+0000
-                            OccurrenceIndexValue::Override
+                            OccurrenceIndexValue::Override(None)
                         ),
                         (
                             130060, // Sun Jun 18 2023 06:10:20 GMT+0000
-                            OccurrenceIndexValue::Override
+                            OccurrenceIndexValue::Override(None)
                         )
                     ]
                 )
