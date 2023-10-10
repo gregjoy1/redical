@@ -1,5 +1,7 @@
 use serde::{Serialize, Deserialize};
 
+use std::iter::{Map, Filter};
+
 use std::collections::{BTreeMap, btree_map};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
@@ -7,6 +9,61 @@ pub enum OccurrenceIndexValue {
     Occurrence,
     Override(Option<u32>),
 }
+
+type OccurrenceCacheIteratorMapFn    = Box<dyn Fn((&i64, &OccurrenceIndexValue)) -> (i64, i64, OccurrenceIndexValue)>;
+type OccurrenceCacheIteratorFilterFn = Box<dyn Fn(&(i64, i64, OccurrenceIndexValue)) -> bool>;
+
+#[derive(Debug)]
+pub struct OccurrenceCacheIterator<'a> {
+    pub base_duration: i64,
+    pub internal_iter: Filter<Map<btree_map::Iter<'a, i64, OccurrenceIndexValue>, OccurrenceCacheIteratorMapFn>, OccurrenceCacheIteratorFilterFn>,
+}
+
+impl<'a> OccurrenceCacheIterator<'a> {
+
+    fn new(base_duration: i64, occurrence_cache: &'a BTreeMap<i64, OccurrenceIndexValue>) -> OccurrenceCacheIterator<'a> {
+
+        let internal_iter =
+            occurrence_cache.into_iter()
+                            .map(Self::build_map_function(base_duration))
+                            .filter(Self::build_filter_function());
+
+        OccurrenceCacheIterator {
+            base_duration,
+            internal_iter,
+        }
+    }
+
+    fn build_map_function(base_duration: i64) -> OccurrenceCacheIteratorMapFn {
+        Box::new(move |(dtstart_timestamp, value)| {
+            let dtend_timestamp = match value {
+                OccurrenceIndexValue::Override(Some(overridden_duration)) => dtstart_timestamp + i64::from(overridden_duration.to_owned()),
+                _                                                               => dtstart_timestamp + base_duration,
+            };
+
+            (
+                dtstart_timestamp.to_owned(),
+                dtend_timestamp,
+                value.clone(),
+            )
+        })
+    }
+
+    fn build_filter_function() -> OccurrenceCacheIteratorFilterFn {
+        Box::new(move |(dtstart_timestamp, dtend_timestamp, value)| {
+            true
+        })
+    }
+}
+
+impl<'a> Iterator for OccurrenceCacheIterator<'a> {
+    type Item = (i64, i64, OccurrenceIndexValue);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.internal_iter.next()
+    }
+}
+
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct OccurrenceIndex<T> {
@@ -156,6 +213,37 @@ impl<'a, T> Iterator for OccurrenceIndexIterMut<'a, T> {
 #[cfg(test)]
 mod test {
     use super::*;
+
+    #[test]
+    fn test_occurrence_cache_iterator() {
+        let occurrence_cache = BTreeMap::from([
+            (100,  OccurrenceIndexValue::Occurrence),
+            (200,  OccurrenceIndexValue::Occurrence),
+            (300,  OccurrenceIndexValue::Override(None)),
+            (400,  OccurrenceIndexValue::Occurrence),
+            (500,  OccurrenceIndexValue::Override(Some(10))),
+            (600,  OccurrenceIndexValue::Occurrence),
+            (700,  OccurrenceIndexValue::Override(None)),
+            (800,  OccurrenceIndexValue::Occurrence),
+            (900,  OccurrenceIndexValue::Override(Some(15))),
+            (1000, OccurrenceIndexValue::Occurrence),
+        ]);
+
+        let mut occurrence_cache_iterator = OccurrenceCacheIterator::new(5, &occurrence_cache);
+
+        assert_eq!(occurrence_cache_iterator.next(), Some((100,  105,  OccurrenceIndexValue::Occurrence)));
+        assert_eq!(occurrence_cache_iterator.next(), Some((200,  205,  OccurrenceIndexValue::Occurrence)));
+        assert_eq!(occurrence_cache_iterator.next(), Some((300,  305,  OccurrenceIndexValue::Override(None))));
+        assert_eq!(occurrence_cache_iterator.next(), Some((400,  405,  OccurrenceIndexValue::Occurrence)));
+        assert_eq!(occurrence_cache_iterator.next(), Some((500,  510,  OccurrenceIndexValue::Override(Some(10)))));
+        assert_eq!(occurrence_cache_iterator.next(), Some((600,  605,  OccurrenceIndexValue::Occurrence)));
+        assert_eq!(occurrence_cache_iterator.next(), Some((700,  705,  OccurrenceIndexValue::Override(None))));
+        assert_eq!(occurrence_cache_iterator.next(), Some((800,  805,  OccurrenceIndexValue::Occurrence)));
+        assert_eq!(occurrence_cache_iterator.next(), Some((900,  915,  OccurrenceIndexValue::Override(Some(15)))));
+        assert_eq!(occurrence_cache_iterator.next(), Some((1000, 1005, OccurrenceIndexValue::Occurrence)));
+
+        assert_eq!(occurrence_cache_iterator.next(), None);
+    }
 
     #[test]
     fn test_occurrence_index_new() {
