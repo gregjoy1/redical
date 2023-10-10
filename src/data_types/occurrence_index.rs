@@ -13,6 +13,64 @@ pub enum OccurrenceIndexValue {
 type OccurrenceCacheIteratorMapFn    = Box<dyn Fn((&i64, &OccurrenceIndexValue)) -> (i64, i64, OccurrenceIndexValue)>;
 type OccurrenceCacheIteratorFilterFn = Box<dyn Fn(&(i64, i64, OccurrenceIndexValue)) -> bool>;
 
+#[derive(Debug, Clone)]
+pub enum FilterProperty {
+    DtStart(i64),
+    DtEnd(i64),
+}
+
+impl FilterProperty {
+
+    pub fn get_property_value(&self, iterator_item: &(i64, i64, OccurrenceIndexValue)) -> (i64, i64) {
+        match self {
+            FilterProperty::DtStart(comparison) => (iterator_item.0, comparison.to_owned()),
+            FilterProperty::DtEnd(comparison)   => (iterator_item.1, comparison.to_owned()),
+        }
+    }
+
+}
+
+#[derive(Debug, Clone)]
+pub enum FilterCondition {
+    LessThan(FilterProperty),
+    LessEqualThan(FilterProperty),
+
+    GreaterThan(FilterProperty),
+    GreaterEqualThan(FilterProperty),
+}
+
+impl FilterCondition {
+
+    pub fn filter_iterator_item(&self, iterator_item: &(i64, i64, OccurrenceIndexValue)) -> bool {
+        match self {
+            FilterCondition::LessThan(filter_property) => {
+                let values = filter_property.get_property_value(iterator_item);
+
+                values.0 < values.1
+            },
+
+            FilterCondition::LessEqualThan(filter_property) => {
+                let values = filter_property.get_property_value(iterator_item);
+
+                values.0 <= values.1
+            },
+
+            FilterCondition::GreaterThan(filter_property) => {
+                let values = filter_property.get_property_value(iterator_item);
+
+                values.0 > values.1
+            },
+
+            FilterCondition::GreaterEqualThan(filter_property) => {
+                let values = filter_property.get_property_value(iterator_item);
+
+                values.0 >= values.1
+            },
+        }
+    }
+
+}
+
 #[derive(Debug)]
 pub struct OccurrenceCacheIterator<'a> {
     pub base_duration: i64,
@@ -21,12 +79,17 @@ pub struct OccurrenceCacheIterator<'a> {
 
 impl<'a> OccurrenceCacheIterator<'a> {
 
-    fn new(base_duration: i64, occurrence_cache: &'a BTreeMap<i64, OccurrenceIndexValue>) -> OccurrenceCacheIterator<'a> {
+    fn new(
+        base_duration:    i64,
+        occurrence_cache: &'a BTreeMap<i64, OccurrenceIndexValue>,
+        filter_from:      Option<FilterCondition>,
+        filter_until:     Option<FilterCondition>
+    ) -> OccurrenceCacheIterator<'a> {
 
         let internal_iter =
             occurrence_cache.into_iter()
                             .map(Self::build_map_function(base_duration))
-                            .filter(Self::build_filter_function());
+                            .filter(Self::build_filter_function(filter_from, filter_until));
 
         OccurrenceCacheIterator {
             base_duration,
@@ -49,9 +112,28 @@ impl<'a> OccurrenceCacheIterator<'a> {
         })
     }
 
-    fn build_filter_function() -> OccurrenceCacheIteratorFilterFn {
-        Box::new(move |(dtstart_timestamp, dtend_timestamp, value)| {
-            true
+    fn build_filter_function(
+        filter_from:  Option<FilterCondition>,
+        filter_until: Option<FilterCondition>
+    ) -> OccurrenceCacheIteratorFilterFn {
+        Box::new(move |iterator_item| {
+            match (&filter_from, &filter_until) {
+                (None, None) => {
+                    true
+                },
+
+                (Some(filter_from_cond), Some(filter_until_cond)) => {
+                    filter_from_cond.filter_iterator_item(iterator_item) && filter_until_cond.filter_iterator_item(iterator_item)
+                },
+
+                (Some(filter_from_cond), None) => {
+                    filter_from_cond.filter_iterator_item(iterator_item)
+                },
+
+                (None, Some(filter_until_cond)) => {
+                    filter_until_cond.filter_iterator_item(iterator_item)
+                }
+            }
         })
     }
 }
@@ -229,7 +311,7 @@ mod test {
             (1000, OccurrenceIndexValue::Occurrence),
         ]);
 
-        let mut occurrence_cache_iterator = OccurrenceCacheIterator::new(5, &occurrence_cache);
+        let mut occurrence_cache_iterator = OccurrenceCacheIterator::new(5, &occurrence_cache, None, None);
 
         assert_eq!(occurrence_cache_iterator.next(), Some((100,  105,  OccurrenceIndexValue::Occurrence)));
         assert_eq!(occurrence_cache_iterator.next(), Some((200,  205,  OccurrenceIndexValue::Occurrence)));
@@ -241,6 +323,55 @@ mod test {
         assert_eq!(occurrence_cache_iterator.next(), Some((800,  805,  OccurrenceIndexValue::Occurrence)));
         assert_eq!(occurrence_cache_iterator.next(), Some((900,  915,  OccurrenceIndexValue::Override(Some(15)))));
         assert_eq!(occurrence_cache_iterator.next(), Some((1000, 1005, OccurrenceIndexValue::Occurrence)));
+        assert_eq!(occurrence_cache_iterator.next(), None);
+
+        // Test filters -- greater equal than - DtStart
+
+        let mut occurrence_cache_iterator = OccurrenceCacheIterator::new(
+            5,
+            &occurrence_cache,
+            Some(FilterCondition::GreaterEqualThan(FilterProperty::DtStart(900))),
+            None
+        );
+
+        assert_eq!(occurrence_cache_iterator.next(), Some((900,  915,  OccurrenceIndexValue::Override(Some(15)))));
+        assert_eq!(occurrence_cache_iterator.next(), Some((1000, 1005, OccurrenceIndexValue::Occurrence)));
+        assert_eq!(occurrence_cache_iterator.next(), None);
+
+        // Test filters -- less equal than - DtEnd
+
+        let mut occurrence_cache_iterator = OccurrenceCacheIterator::new(
+            5,
+            &occurrence_cache,
+            None,
+            Some(FilterCondition::LessEqualThan(FilterProperty::DtEnd(210))),
+        );
+
+        assert_eq!(occurrence_cache_iterator.next(), Some((100,  105,  OccurrenceIndexValue::Occurrence)));
+        assert_eq!(occurrence_cache_iterator.next(), Some((200,  205,  OccurrenceIndexValue::Occurrence)));
+        assert_eq!(occurrence_cache_iterator.next(), None);
+
+        // Test filters -- greater equal than - DtEnd -- less than - DtStart
+
+        let mut occurrence_cache_iterator = OccurrenceCacheIterator::new(
+            5,
+            &occurrence_cache,
+            Some(FilterCondition::GreaterEqualThan(FilterProperty::DtEnd(302))),
+            Some(FilterCondition::LessThan(FilterProperty::DtStart(500))),
+        );
+
+        assert_eq!(occurrence_cache_iterator.next(), Some((300,  305,  OccurrenceIndexValue::Override(None))));
+        assert_eq!(occurrence_cache_iterator.next(), Some((400,  405,  OccurrenceIndexValue::Occurrence)));
+        assert_eq!(occurrence_cache_iterator.next(), None);
+
+        // Test impossible filters -- less than - DtStart -- greater equal than - DtEnd
+
+        let mut occurrence_cache_iterator = OccurrenceCacheIterator::new(
+            5,
+            &occurrence_cache,
+            Some(FilterCondition::LessThan(FilterProperty::DtStart(300))),
+            Some(FilterCondition::GreaterEqualThan(FilterProperty::DtEnd(502))),
+        );
 
         assert_eq!(occurrence_cache_iterator.next(), None);
     }
