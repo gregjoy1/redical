@@ -190,19 +190,19 @@ impl EventInstance {
 
 #[derive(Debug)]
 pub struct EventInstanceIterator<'a> {
-    event:                       &'a Event,
-    internal_iter:               Option<OccurrenceCacheIterator<'a>>,
-    filtered_indexed_conclusion: Option<&'a IndexedConclusion>,
+    event:         &'a Event,
+    internal_iter: Option<OccurrenceCacheIterator<'a>>,
 }
 
 impl<'a> EventInstanceIterator<'a> {
-    pub fn new(event: &'a Event, filtered_indexed_conclusion: Option<&'a IndexedConclusion>) -> Self {
+    pub fn new(event: &'a Event, filtering_indexed_conclusion: Option<&'a IndexedConclusion>) -> Self {
         let internal_iter = event.occurrence_cache.as_ref().and_then(|occurrence_cache| {
             Some(
                 OccurrenceCacheIterator::new(
                     &occurrence_cache,
                     None,
-                    None
+                    None,
+                    filtering_indexed_conclusion.cloned(),
                 )
             )
         });
@@ -210,7 +210,6 @@ impl<'a> EventInstanceIterator<'a> {
         EventInstanceIterator {
             event,
             internal_iter,
-            filtered_indexed_conclusion,
         }
     }
 
@@ -224,14 +223,7 @@ impl<'a> Iterator for EventInstanceIterator<'a> {
             Some(iterator) => {
                 // Filter occurrence index iterator timestamps according to IndexedConclusion if
                 // present, else include all.
-                iterator.filter(|&(dtstart_timestamp, _, _)| {
-                            if let Some(indexed_conclusion) = self.filtered_indexed_conclusion {
-                                indexed_conclusion.include_event_occurrence(dtstart_timestamp)
-                            } else {
-                                true
-                            }
-                        })
-                        .next()
+                iterator.next()
                         .and_then(
                             |(dtstart_timestamp, _, occurrence_cache_value)| {
                                 match occurrence_cache_value {

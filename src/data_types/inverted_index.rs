@@ -634,6 +634,10 @@ impl IndexedConclusion {
         }
     }
 
+    pub fn exclude_event_occurrence(&self, occurrence: i64) -> bool {
+        self.include_event_occurrence(occurrence) == false
+    }
+
     pub fn include_event_occurrence(&self, occurrence: i64) -> bool {
         match self {
             IndexedConclusion::Include(_) => !self.contains_exception(occurrence),

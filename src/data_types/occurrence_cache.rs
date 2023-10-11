@@ -4,6 +4,8 @@ use std::iter::{Map, Filter};
 
 use std::collections::{BTreeMap, btree_map};
 
+use crate::data_types::IndexedConclusion;
+
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub enum OccurrenceCacheValue {
     Occurrence,
@@ -95,9 +97,10 @@ pub struct OccurrenceCacheIterator<'a> {
 impl<'a> OccurrenceCacheIterator<'a> {
 
     pub fn new(
-        occurrence_cache: &'a OccurrenceCache,
-        filter_from:      Option<FilterCondition>,
-        filter_until:     Option<FilterCondition>
+        occurrence_cache:             &'a OccurrenceCache,
+        filter_from:                  Option<FilterCondition>,
+        filter_until:                 Option<FilterCondition>,
+        filtering_indexed_conclusion: Option<IndexedConclusion>,
     ) -> OccurrenceCacheIterator<'a> {
         let base_duration = occurrence_cache.base_duration;
 
@@ -105,7 +108,7 @@ impl<'a> OccurrenceCacheIterator<'a> {
             occurrence_cache.occurrences
                             .iter()
                             .map(Self::build_map_function(base_duration))
-                            .filter(Self::build_filter_function(filter_from, filter_until));
+                            .filter(Self::build_filter_function(filter_from, filter_until, filtering_indexed_conclusion));
 
         OccurrenceCacheIterator {
             base_duration,
@@ -129,10 +132,22 @@ impl<'a> OccurrenceCacheIterator<'a> {
     }
 
     fn build_filter_function(
-        filter_from:  Option<FilterCondition>,
-        filter_until: Option<FilterCondition>
+        filter_from:                  Option<FilterCondition>,
+        filter_until:                 Option<FilterCondition>,
+        filtering_indexed_conclusion: Option<IndexedConclusion>,
     ) -> OccurrenceCacheIteratorFilterFn {
         Box::new(move |iterator_item| {
+            // If filtering indexed_conclusion is provided, and the current dtstart_timestamp is
+            // concluded to be excluded, then early return out to exclude current iterated
+            // occurrence.
+            if filtering_indexed_conclusion.to_owned().is_some_and(|indexed_conclusion| {
+                let dtstart_timestamp = iterator_item.0;
+
+                indexed_conclusion.exclude_event_occurrence(dtstart_timestamp)
+            }) {
+                return false;
+            }
+
             match (&filter_from, &filter_until) {
                 (None, None) => {
                     true
@@ -166,6 +181,8 @@ impl<'a> Iterator for OccurrenceCacheIterator<'a> {
 mod test {
     use super::*;
 
+    use std::collections::HashSet;
+
     #[test]
     fn test_occurrence_cache_iterator() {
         let occurrence_cache = OccurrenceCache {
@@ -184,7 +201,7 @@ mod test {
             ])
         };
 
-        let mut occurrence_cache_iterator = OccurrenceCacheIterator::new(&occurrence_cache, None, None);
+        let mut occurrence_cache_iterator = OccurrenceCacheIterator::new(&occurrence_cache, None, None, None);
 
         assert_eq!(occurrence_cache_iterator.next(), Some((100,  105,  OccurrenceCacheValue::Occurrence)));
         assert_eq!(occurrence_cache_iterator.next(), Some((200,  205,  OccurrenceCacheValue::Occurrence)));
@@ -203,7 +220,8 @@ mod test {
         let mut occurrence_cache_iterator = OccurrenceCacheIterator::new(
             &occurrence_cache,
             Some(FilterCondition::GreaterEqualThan(FilterProperty::DtStart(900))),
-            None
+            None,
+            None,
         );
 
         assert_eq!(occurrence_cache_iterator.next(), Some((900,  915,  OccurrenceCacheValue::Override(Some(15)))));
@@ -216,6 +234,7 @@ mod test {
             &occurrence_cache,
             None,
             Some(FilterCondition::LessEqualThan(FilterProperty::DtEnd(210))),
+            None,
         );
 
         assert_eq!(occurrence_cache_iterator.next(), Some((100,  105,  OccurrenceCacheValue::Occurrence)));
@@ -228,6 +247,7 @@ mod test {
             &occurrence_cache,
             Some(FilterCondition::GreaterEqualThan(FilterProperty::DtEnd(302))),
             Some(FilterCondition::LessThan(FilterProperty::DtStart(500))),
+            None,
         );
 
         assert_eq!(occurrence_cache_iterator.next(), Some((300,  305,  OccurrenceCacheValue::Override(None))));
@@ -240,8 +260,70 @@ mod test {
             &occurrence_cache,
             Some(FilterCondition::LessThan(FilterProperty::DtStart(300))),
             Some(FilterCondition::GreaterEqualThan(FilterProperty::DtEnd(502))),
+            None,
         );
 
         assert_eq!(occurrence_cache_iterator.next(), None);
+
+        // Test filters
+        //  -- greater equal than - DtEnd
+        //  -- less than - DtStart
+        //  -- IndexedConclusion::Include(None)
+
+        let mut occurrence_cache_iterator = OccurrenceCacheIterator::new(
+            &occurrence_cache,
+            Some(FilterCondition::GreaterEqualThan(FilterProperty::DtEnd(302))),
+            Some(FilterCondition::LessThan(FilterProperty::DtStart(500))),
+            Some(IndexedConclusion::Include(None)),
+        );
+
+        assert_eq!(occurrence_cache_iterator.next(), Some((300,  305,  OccurrenceCacheValue::Override(None))));
+        assert_eq!(occurrence_cache_iterator.next(), Some((400,  405,  OccurrenceCacheValue::Occurrence)));
+        assert_eq!(occurrence_cache_iterator.next(), None);
+
+        // Test filters
+        //  -- greater equal than - DtEnd
+        //  -- less than - DtStart
+        //  -- IndexedConclusion::Include(300)
+
+        let mut occurrence_cache_iterator = OccurrenceCacheIterator::new(
+            &occurrence_cache,
+            Some(FilterCondition::GreaterEqualThan(FilterProperty::DtEnd(302))),
+            Some(FilterCondition::LessThan(FilterProperty::DtStart(500))),
+            Some(IndexedConclusion::Include(Some(HashSet::from([300])))),
+        );
+
+        assert_eq!(occurrence_cache_iterator.next(), Some((400,  405,  OccurrenceCacheValue::Occurrence)));
+        assert_eq!(occurrence_cache_iterator.next(), None);
+
+        // Test filters
+        //  -- greater equal than - DtEnd
+        //  -- less than - DtStart
+        //  -- IndexedConclusion::Exclude(None)
+
+        let mut occurrence_cache_iterator = OccurrenceCacheIterator::new(
+            &occurrence_cache,
+            Some(FilterCondition::GreaterEqualThan(FilterProperty::DtEnd(302))),
+            Some(FilterCondition::LessThan(FilterProperty::DtStart(500))),
+            Some(IndexedConclusion::Exclude(None)),
+        );
+
+        assert_eq!(occurrence_cache_iterator.next(), None);
+
+        // Test filters
+        //  -- greater equal than - DtEnd
+        //  -- less than - DtStart
+        //  -- IndexedConclusion::Exclude(300)
+
+        let mut occurrence_cache_iterator = OccurrenceCacheIterator::new(
+            &occurrence_cache,
+            Some(FilterCondition::GreaterEqualThan(FilterProperty::DtEnd(302))),
+            Some(FilterCondition::LessThan(FilterProperty::DtStart(500))),
+            Some(IndexedConclusion::Exclude(Some(HashSet::from([300])))),
+        );
+
+        assert_eq!(occurrence_cache_iterator.next(), Some((300,  305,  OccurrenceCacheValue::Override(None))));
+        assert_eq!(occurrence_cache_iterator.next(), None);
+
     }
 }
