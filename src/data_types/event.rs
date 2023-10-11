@@ -12,7 +12,7 @@ use crate::parsers::ical_common::ParsedValue;
 
 use crate::parsers::datetime::{datestring_to_date, ParseError};
 
-use crate::data_types::occurrence_index::{OccurrenceIndex, OccurrenceIndexValue};
+use crate::data_types::occurrence_index::{OccurrenceCache, OccurrenceIndex, OccurrenceIndexValue};
 
 use crate::data_types::event_occurrence_override::EventOccurrenceOverride;
 
@@ -421,7 +421,7 @@ pub struct Event {
     pub passive_properties:  PassiveProperties,
 
     pub overrides:           EventOccurrenceOverrides,
-    pub occurrence_cache:    Option<OccurrenceIndex<OccurrenceIndexValue>>,
+    pub occurrence_cache:    Option<OccurrenceCache>,
     pub indexed_categories:  Option<InvertedEventIndex<String>>,
     pub indexed_related_to:  Option<InvertedEventIndex<KeyValuePair>>,
 }
@@ -506,20 +506,15 @@ impl Event {
     pub fn override_occurrence(&mut self, timestamp: i64, event_occurrence_override: &EventOccurrenceOverride) -> Result<&Self, String> {
         match &mut self.occurrence_cache {
             Some(occurrence_cache) => {
+                let occurrences = &mut occurrence_cache.occurrences;
+                let overridden_duration = event_occurrence_override.get_duration(&timestamp).unwrap_or(None);
 
-                match occurrence_cache.get(timestamp) {
-                    Some(OccurrenceIndexValue::Occurrence) => {
-                        // TODO: add overridden duration here --->
-                        occurrence_cache.insert(timestamp, OccurrenceIndexValue::Override(None));
+                if occurrences.contains_key(&timestamp) {
+                    occurrences.insert(timestamp, OccurrenceIndexValue::Override(overridden_duration));
 
-                        self.overrides.current.insert(timestamp, event_occurrence_override.clone());
-                    },
-                    Some(OccurrenceIndexValue::Override(_)) => {
-                        self.overrides.current.insert(timestamp, event_occurrence_override.clone());
-                    },
-                    None => {
-                        return Err(format!("No overridable occurrence exists for timestamp: {timestamp}"));
-                    }
+                    self.overrides.current.insert(timestamp, event_occurrence_override.clone());
+                } else {
+                    return Err(format!("No overridable occurrence exists for timestamp: {timestamp}"));
                 }
 
                 if let Some(ref mut indexed_categories) = self.indexed_categories {
@@ -553,13 +548,14 @@ impl Event {
     pub fn remove_occurrence_override(&mut self, timestamp: i64) -> Result<&Self, String> {
         match &mut self.occurrence_cache {
             Some(occurrence_cache) => {
+                let occurrences = &mut occurrence_cache.occurrences;
 
-                match occurrence_cache.get(timestamp) {
+                match occurrences.get(&timestamp) {
                     Some(OccurrenceIndexValue::Occurrence) => {
                         return Err(format!("No occurrence override exists for timestamp: {timestamp}"));
                     },
                     Some(OccurrenceIndexValue::Override(_)) => {
-                        occurrence_cache.insert(timestamp, OccurrenceIndexValue::Occurrence);
+                        occurrences.insert(timestamp, OccurrenceIndexValue::Occurrence);
 
                         self.overrides.current.remove(timestamp);
 
@@ -594,10 +590,11 @@ impl Event {
     }
 
     pub fn rebuild_occurrence_cache(&mut self, max_count: usize) -> Result<&mut Self, RRuleError> {
+        let base_duration = self.schedule_properties.get_duration().unwrap_or(None);
         let rrule_set = self.schedule_properties.parse_rrule()?;
         let rrule_set_iter = rrule_set.into_iter();
 
-        let mut occurrence_cache: OccurrenceIndex<OccurrenceIndexValue> = OccurrenceIndex::new();
+        let mut occurrence_cache: OccurrenceCache = OccurrenceCache::new(base_duration);
 
         let max_datetime = self.get_max_datetime();
 
@@ -606,7 +603,7 @@ impl Event {
                 break;
             }
 
-            occurrence_cache.insert(next_datetime.timestamp(), OccurrenceIndexValue::Occurrence);
+            occurrence_cache.occurrences.insert(next_datetime.timestamp(), OccurrenceIndexValue::Occurrence);
         }
 
         self.occurrence_cache = Some(occurrence_cache);
@@ -994,23 +991,23 @@ mod test {
         assert_eq!(
             parsed_event.occurrence_cache,
             Some(
-                OccurrenceIndex {
-                    base_timestamp: Some(1609871400),
-                    timestamp_offsets: BTreeMap::from(
+                OccurrenceCache {
+                    base_duration: 0,
+                    occurrences:   BTreeMap::from(
                         [
-                            (0, OccurrenceIndexValue::Occurrence),
-                            (604800, OccurrenceIndexValue::Occurrence),
-                            (1209600, OccurrenceIndexValue::Occurrence),
-                            (1814400, OccurrenceIndexValue::Occurrence),
-                            (2419200, OccurrenceIndexValue::Occurrence),
-                            (3024000, OccurrenceIndexValue::Occurrence),
-                            (3628800, OccurrenceIndexValue::Occurrence),
-                            (4233600, OccurrenceIndexValue::Occurrence),
-                            (4838400, OccurrenceIndexValue::Occurrence),
-                            (5443200, OccurrenceIndexValue::Occurrence),
-                            (6048000, OccurrenceIndexValue::Occurrence),
-                            (6652800, OccurrenceIndexValue::Occurrence),
-                            (7257600, OccurrenceIndexValue::Occurrence),
+                            (1609871400, OccurrenceIndexValue::Occurrence),
+                            (1610476200, OccurrenceIndexValue::Occurrence),
+                            (1611081000, OccurrenceIndexValue::Occurrence),
+                            (1611685800, OccurrenceIndexValue::Occurrence),
+                            (1612290600, OccurrenceIndexValue::Occurrence),
+                            (1612895400, OccurrenceIndexValue::Occurrence),
+                            (1613500200, OccurrenceIndexValue::Occurrence),
+                            (1614105000, OccurrenceIndexValue::Occurrence),
+                            (1614709800, OccurrenceIndexValue::Occurrence),
+                            (1615314600, OccurrenceIndexValue::Occurrence),
+                            (1615919400, OccurrenceIndexValue::Occurrence),
+                            (1616524200, OccurrenceIndexValue::Occurrence),
+                            (1617129000, OccurrenceIndexValue::Occurrence),
                         ]
                     )
                 }
@@ -1024,12 +1021,12 @@ mod test {
         assert_eq!(
             parsed_event.occurrence_cache,
             Some(
-                OccurrenceIndex {
-                    base_timestamp: Some(1609871400),
-                    timestamp_offsets: BTreeMap::from(
+                OccurrenceCache {
+                    base_duration: 0,
+                    occurrences:   BTreeMap::from(
                         [
-                            (0, OccurrenceIndexValue::Occurrence),
-                            (604800, OccurrenceIndexValue::Occurrence),
+                            (1609871400, OccurrenceIndexValue::Occurrence),
+                            (1610476200, OccurrenceIndexValue::Occurrence),
                         ]
                     )
                 }
@@ -1138,12 +1135,12 @@ mod test {
         assert_eq!(
             parsed_event.occurrence_cache,
             Some(
-                OccurrenceIndex {
-                    base_timestamp: Some(1609871400),
-                    timestamp_offsets: BTreeMap::from(
+                OccurrenceCache {
+                    base_duration: 0,
+                    occurrences:   BTreeMap::from(
                         [
-                            (0, OccurrenceIndexValue::Occurrence),
-                            (604800, OccurrenceIndexValue::Occurrence),
+                            (1609871400, OccurrenceIndexValue::Occurrence),
+                            (1610476200, OccurrenceIndexValue::Occurrence),
                         ]
                     )
                 }
@@ -1241,12 +1238,12 @@ mod test {
                         ),
                     },
                     occurrence_cache:    Some(
-                        OccurrenceIndex {
-                            base_timestamp: Some(1609871400),
-                            timestamp_offsets: BTreeMap::from(
+                        OccurrenceCache {
+                            base_duration: 0,
+                            occurrences:   BTreeMap::from(
                                 [
-                                    (0, OccurrenceIndexValue::Occurrence),
-                                    (604800, OccurrenceIndexValue::Override(None)),
+                                    (1609871400, OccurrenceIndexValue::Occurrence),
+                                    (1610476200, OccurrenceIndexValue::Override(None)),
                                 ]
                             )
                         }
@@ -1331,12 +1328,12 @@ mod test {
                         current:  OccurrenceIndex::new(),
                     },
                     occurrence_cache:    Some(
-                        OccurrenceIndex {
-                            base_timestamp: Some(1609871400),
-                            timestamp_offsets: BTreeMap::from(
+                        OccurrenceCache {
+                            base_duration: 0,
+                            occurrences:   BTreeMap::from(
                                 [
-                                    (0, OccurrenceIndexValue::Occurrence),
-                                    (604800, OccurrenceIndexValue::Occurrence),
+                                    (1609871400, OccurrenceIndexValue::Occurrence),
+                                    (1610476200, OccurrenceIndexValue::Occurrence),
                                 ]
                             )
                         }

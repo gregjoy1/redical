@@ -7,12 +7,22 @@ use std::collections::{BTreeMap, btree_map};
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub enum OccurrenceIndexValue {
     Occurrence,
-    Override(Option<u32>),
+    Override(Option<i64>),
 }
 
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct OccurrenceCache {
     pub base_duration:  i64,
     pub occurrences:    BTreeMap<i64, OccurrenceIndexValue>,
+}
+
+impl OccurrenceCache {
+    pub fn new(base_duration: Option<i64>) -> OccurrenceCache {
+        OccurrenceCache {
+            base_duration: base_duration.unwrap_or(0),
+            occurrences:   BTreeMap::new(),
+        }
+    }
 }
 
 type OccurrenceCacheIteratorMapFn    = Box<dyn Fn((&i64, &OccurrenceIndexValue)) -> (i64, i64, OccurrenceIndexValue)>;
@@ -84,7 +94,7 @@ pub struct OccurrenceCacheIterator<'a> {
 
 impl<'a> OccurrenceCacheIterator<'a> {
 
-    fn new(
+    pub fn new(
         occurrence_cache: &'a OccurrenceCache,
         filter_from:      Option<FilterCondition>,
         filter_until:     Option<FilterCondition>
@@ -106,7 +116,7 @@ impl<'a> OccurrenceCacheIterator<'a> {
     fn build_map_function(base_duration: i64) -> OccurrenceCacheIteratorMapFn {
         Box::new(move |(dtstart_timestamp, value)| {
             let dtend_timestamp = match value {
-                OccurrenceIndexValue::Override(Some(overridden_duration)) => dtstart_timestamp + i64::from(overridden_duration.to_owned()),
+                OccurrenceIndexValue::Override(Some(overridden_duration)) => dtstart_timestamp + overridden_duration.to_owned(),
                 _                                                               => dtstart_timestamp + base_duration,
             };
 

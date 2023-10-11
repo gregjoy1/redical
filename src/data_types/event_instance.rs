@@ -4,7 +4,7 @@ use std::collections::{HashMap, HashSet, BTreeSet};
 
 use crate::data_types::{Event, EventOccurrenceOverride, KeyValuePair, IndexedConclusion};
 
-use crate::data_types::occurrence_index::{OccurrenceIndexIter, OccurrenceIndexValue};
+use crate::data_types::occurrence_index::{OccurrenceCacheIterator, OccurrenceIndexValue};
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct EventInstance {
@@ -191,16 +191,21 @@ impl EventInstance {
 #[derive(Debug)]
 pub struct EventInstanceIterator<'a> {
     event:                       &'a Event,
-    internal_iter:               Option<OccurrenceIndexIter<'a, OccurrenceIndexValue>>,
+    internal_iter:               Option<OccurrenceCacheIterator<'a>>,
     filtered_indexed_conclusion: Option<&'a IndexedConclusion>,
 }
 
 impl<'a> EventInstanceIterator<'a> {
     pub fn new(event: &'a Event, filtered_indexed_conclusion: Option<&'a IndexedConclusion>) -> Self {
-        let internal_iter = match &event.occurrence_cache {
-            Some(occurrence_cache) => Some(occurrence_cache.iter()),
-            None => None,
-        };
+        let internal_iter = event.occurrence_cache.as_ref().and_then(|occurrence_cache| {
+            Some(
+                OccurrenceCacheIterator::new(
+                    &occurrence_cache,
+                    None,
+                    None
+                )
+            )
+        });
 
         EventInstanceIterator {
             event,
@@ -219,7 +224,7 @@ impl<'a> Iterator for EventInstanceIterator<'a> {
             Some(iterator) => {
                 // Filter occurrence index iterator timestamps according to IndexedConclusion if
                 // present, else include all.
-                iterator.filter(|&(dtstart_timestamp, _)| {
+                iterator.filter(|&(dtstart_timestamp, _, _)| {
                             if let Some(indexed_conclusion) = self.filtered_indexed_conclusion {
                                 indexed_conclusion.include_event_occurrence(dtstart_timestamp)
                             } else {
@@ -228,7 +233,7 @@ impl<'a> Iterator for EventInstanceIterator<'a> {
                         })
                         .next()
                         .and_then(
-                            |(dtstart_timestamp, occurrence_index_value)| {
+                            |(dtstart_timestamp, _, occurrence_index_value)| {
                                 match occurrence_index_value {
                                     OccurrenceIndexValue::Occurrence => {
                                         Some(EventInstance::new(&dtstart_timestamp, self.event, None))
