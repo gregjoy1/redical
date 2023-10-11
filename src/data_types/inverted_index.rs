@@ -193,7 +193,7 @@ where
 
         for (timestamp, event_override) in event.overrides.current.iter() {
             if let Some(override_categories_set) = &event_override.categories {
-                indexed_categories.insert_override(timestamp, &override_categories_set);
+                indexed_categories.insert_override(timestamp.clone(), &override_categories_set);
             }
         }
 
@@ -217,7 +217,7 @@ where
 
         for (timestamp, event_override) in event.overrides.current.iter() {
             if let Some(override_related_to_set) = &event_override.build_override_related_to_set() {
-                indexed_related_to.insert_override(timestamp, &override_related_to_set);
+                indexed_related_to.insert_override(timestamp.clone(), &override_related_to_set);
             }
         }
 

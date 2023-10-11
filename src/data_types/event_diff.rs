@@ -1,6 +1,6 @@
 use crate::data_types::{UpdatedSetMembers, Event, hashmap_to_hashset, btree_hashset_to_hashset, KeyValuePair};
 
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 
 use std::hash::Hash;
 
@@ -141,7 +141,7 @@ mod test {
 
     use std::collections::{HashMap, BTreeSet};
 
-    use crate::data_types::{OccurrenceIndex, ScheduleProperties, IndexedProperties, PassiveProperties, EventOccurrenceOverrides, InvertedEventIndex, KeyValuePair};
+    use crate::data_types::{ScheduleProperties, IndexedProperties, PassiveProperties, EventOccurrenceOverrides, InvertedEventIndex, KeyValuePair};
 
     #[test]
     fn test_event_diff() {
@@ -244,8 +244,8 @@ mod test {
             },
 
             overrides: EventOccurrenceOverrides {
-                detached: OccurrenceIndex::new(),
-                current:  OccurrenceIndex::new(),
+                detached: BTreeMap::new(),
+                current:  BTreeMap::new(),
             },
             occurrence_cache:   None,
             indexed_categories: None,
@@ -384,8 +384,8 @@ mod test {
             },
 
             overrides: EventOccurrenceOverrides {
-                detached: OccurrenceIndex::new(),
-                current:  OccurrenceIndex::new(),
+                detached: BTreeMap::new(),
+                current:  BTreeMap::new(),
             },
             occurrence_cache:   None,
             indexed_categories: None,
