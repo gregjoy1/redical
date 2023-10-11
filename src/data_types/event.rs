@@ -12,7 +12,7 @@ use crate::parsers::ical_common::ParsedValue;
 
 use crate::parsers::datetime::{datestring_to_date, ParseError};
 
-use crate::data_types::occurrence_cache::{OccurrenceCache, OccurrenceIndexValue};
+use crate::data_types::occurrence_cache::{OccurrenceCache, OccurrenceCacheValue};
 
 use crate::data_types::event_occurrence_override::EventOccurrenceOverride;
 
@@ -510,7 +510,7 @@ impl Event {
                 let overridden_duration = event_occurrence_override.get_duration(&timestamp).unwrap_or(None);
 
                 if occurrences.contains_key(&timestamp) {
-                    occurrences.insert(timestamp, OccurrenceIndexValue::Override(overridden_duration));
+                    occurrences.insert(timestamp, OccurrenceCacheValue::Override(overridden_duration));
 
                     self.overrides.current.insert(timestamp, event_occurrence_override.clone());
                 } else {
@@ -551,11 +551,11 @@ impl Event {
                 let occurrences = &mut occurrence_cache.occurrences;
 
                 match occurrences.get(&timestamp) {
-                    Some(OccurrenceIndexValue::Occurrence) => {
+                    Some(OccurrenceCacheValue::Occurrence) => {
                         return Err(format!("No occurrence override exists for timestamp: {timestamp}"));
                     },
-                    Some(OccurrenceIndexValue::Override(_)) => {
-                        occurrences.insert(timestamp, OccurrenceIndexValue::Occurrence);
+                    Some(OccurrenceCacheValue::Override(_)) => {
+                        occurrences.insert(timestamp, OccurrenceCacheValue::Occurrence);
 
                         self.overrides.current.remove(&timestamp);
 
@@ -603,7 +603,7 @@ impl Event {
                 break;
             }
 
-            occurrence_cache.occurrences.insert(next_datetime.timestamp(), OccurrenceIndexValue::Occurrence);
+            occurrence_cache.occurrences.insert(next_datetime.timestamp(), OccurrenceCacheValue::Occurrence);
         }
 
         self.occurrence_cache = Some(occurrence_cache);
@@ -995,19 +995,19 @@ mod test {
                     base_duration: 0,
                     occurrences:   BTreeMap::from(
                         [
-                            (1609871400, OccurrenceIndexValue::Occurrence),
-                            (1610476200, OccurrenceIndexValue::Occurrence),
-                            (1611081000, OccurrenceIndexValue::Occurrence),
-                            (1611685800, OccurrenceIndexValue::Occurrence),
-                            (1612290600, OccurrenceIndexValue::Occurrence),
-                            (1612895400, OccurrenceIndexValue::Occurrence),
-                            (1613500200, OccurrenceIndexValue::Occurrence),
-                            (1614105000, OccurrenceIndexValue::Occurrence),
-                            (1614709800, OccurrenceIndexValue::Occurrence),
-                            (1615314600, OccurrenceIndexValue::Occurrence),
-                            (1615919400, OccurrenceIndexValue::Occurrence),
-                            (1616524200, OccurrenceIndexValue::Occurrence),
-                            (1617129000, OccurrenceIndexValue::Occurrence),
+                            (1609871400, OccurrenceCacheValue::Occurrence),
+                            (1610476200, OccurrenceCacheValue::Occurrence),
+                            (1611081000, OccurrenceCacheValue::Occurrence),
+                            (1611685800, OccurrenceCacheValue::Occurrence),
+                            (1612290600, OccurrenceCacheValue::Occurrence),
+                            (1612895400, OccurrenceCacheValue::Occurrence),
+                            (1613500200, OccurrenceCacheValue::Occurrence),
+                            (1614105000, OccurrenceCacheValue::Occurrence),
+                            (1614709800, OccurrenceCacheValue::Occurrence),
+                            (1615314600, OccurrenceCacheValue::Occurrence),
+                            (1615919400, OccurrenceCacheValue::Occurrence),
+                            (1616524200, OccurrenceCacheValue::Occurrence),
+                            (1617129000, OccurrenceCacheValue::Occurrence),
                         ]
                     )
                 }
@@ -1025,8 +1025,8 @@ mod test {
                     base_duration: 0,
                     occurrences:   BTreeMap::from(
                         [
-                            (1609871400, OccurrenceIndexValue::Occurrence),
-                            (1610476200, OccurrenceIndexValue::Occurrence),
+                            (1609871400, OccurrenceCacheValue::Occurrence),
+                            (1610476200, OccurrenceCacheValue::Occurrence),
                         ]
                     )
                 }
@@ -1139,8 +1139,8 @@ mod test {
                     base_duration: 0,
                     occurrences:   BTreeMap::from(
                         [
-                            (1609871400, OccurrenceIndexValue::Occurrence),
-                            (1610476200, OccurrenceIndexValue::Occurrence),
+                            (1609871400, OccurrenceCacheValue::Occurrence),
+                            (1610476200, OccurrenceCacheValue::Occurrence),
                         ]
                     )
                 }
@@ -1244,8 +1244,8 @@ mod test {
                             base_duration: 0,
                             occurrences:   BTreeMap::from(
                                 [
-                                    (1609871400, OccurrenceIndexValue::Occurrence),
-                                    (1610476200, OccurrenceIndexValue::Override(None)),
+                                    (1609871400, OccurrenceCacheValue::Occurrence),
+                                    (1610476200, OccurrenceCacheValue::Override(None)),
                                 ]
                             )
                         }
@@ -1334,8 +1334,8 @@ mod test {
                             base_duration: 0,
                             occurrences:   BTreeMap::from(
                                 [
-                                    (1609871400, OccurrenceIndexValue::Occurrence),
-                                    (1610476200, OccurrenceIndexValue::Occurrence),
+                                    (1609871400, OccurrenceCacheValue::Occurrence),
+                                    (1610476200, OccurrenceCacheValue::Occurrence),
                                 ]
                             )
                         }

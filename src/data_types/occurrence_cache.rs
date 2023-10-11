@@ -5,7 +5,7 @@ use std::iter::{Map, Filter};
 use std::collections::{BTreeMap, btree_map};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub enum OccurrenceIndexValue {
+pub enum OccurrenceCacheValue {
     Occurrence,
     Override(Option<i64>),
 }
@@ -13,7 +13,7 @@ pub enum OccurrenceIndexValue {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct OccurrenceCache {
     pub base_duration:  i64,
-    pub occurrences:    BTreeMap<i64, OccurrenceIndexValue>,
+    pub occurrences:    BTreeMap<i64, OccurrenceCacheValue>,
 }
 
 impl OccurrenceCache {
@@ -25,8 +25,8 @@ impl OccurrenceCache {
     }
 }
 
-type OccurrenceCacheIteratorMapFn    = Box<dyn Fn((&i64, &OccurrenceIndexValue)) -> (i64, i64, OccurrenceIndexValue)>;
-type OccurrenceCacheIteratorFilterFn = Box<dyn Fn(&(i64, i64, OccurrenceIndexValue)) -> bool>;
+type OccurrenceCacheIteratorMapFn    = Box<dyn Fn((&i64, &OccurrenceCacheValue)) -> (i64, i64, OccurrenceCacheValue)>;
+type OccurrenceCacheIteratorFilterFn = Box<dyn Fn(&(i64, i64, OccurrenceCacheValue)) -> bool>;
 
 #[derive(Debug, Clone)]
 pub enum FilterProperty {
@@ -36,7 +36,7 @@ pub enum FilterProperty {
 
 impl FilterProperty {
 
-    pub fn get_property_value(&self, iterator_item: &(i64, i64, OccurrenceIndexValue)) -> (i64, i64) {
+    pub fn get_property_value(&self, iterator_item: &(i64, i64, OccurrenceCacheValue)) -> (i64, i64) {
         match self {
             FilterProperty::DtStart(comparison) => (iterator_item.0, comparison.to_owned()),
             FilterProperty::DtEnd(comparison)   => (iterator_item.1, comparison.to_owned()),
@@ -56,7 +56,7 @@ pub enum FilterCondition {
 
 impl FilterCondition {
 
-    pub fn filter_iterator_item(&self, iterator_item: &(i64, i64, OccurrenceIndexValue)) -> bool {
+    pub fn filter_iterator_item(&self, iterator_item: &(i64, i64, OccurrenceCacheValue)) -> bool {
         match self {
             FilterCondition::LessThan(filter_property) => {
                 let values = filter_property.get_property_value(iterator_item);
@@ -89,7 +89,7 @@ impl FilterCondition {
 #[derive(Debug)]
 pub struct OccurrenceCacheIterator<'a> {
     base_duration: i64,
-    internal_iter: Filter<Map<btree_map::Iter<'a, i64, OccurrenceIndexValue>, OccurrenceCacheIteratorMapFn>, OccurrenceCacheIteratorFilterFn>,
+    internal_iter: Filter<Map<btree_map::Iter<'a, i64, OccurrenceCacheValue>, OccurrenceCacheIteratorMapFn>, OccurrenceCacheIteratorFilterFn>,
 }
 
 impl<'a> OccurrenceCacheIterator<'a> {
@@ -116,7 +116,7 @@ impl<'a> OccurrenceCacheIterator<'a> {
     fn build_map_function(base_duration: i64) -> OccurrenceCacheIteratorMapFn {
         Box::new(move |(dtstart_timestamp, value)| {
             let dtend_timestamp = match value {
-                OccurrenceIndexValue::Override(Some(overridden_duration)) => dtstart_timestamp + overridden_duration.to_owned(),
+                OccurrenceCacheValue::Override(Some(overridden_duration)) => dtstart_timestamp + overridden_duration.to_owned(),
                 _                                                               => dtstart_timestamp + base_duration,
             };
 
@@ -155,7 +155,7 @@ impl<'a> OccurrenceCacheIterator<'a> {
 }
 
 impl<'a> Iterator for OccurrenceCacheIterator<'a> {
-    type Item = (i64, i64, OccurrenceIndexValue);
+    type Item = (i64, i64, OccurrenceCacheValue);
 
     fn next(&mut self) -> Option<Self::Item> {
         self.internal_iter.next()
@@ -171,31 +171,31 @@ mod test {
         let occurrence_cache = OccurrenceCache {
             base_duration: 5,
             occurrences:   BTreeMap::from([
-                (100,  OccurrenceIndexValue::Occurrence),
-                (200,  OccurrenceIndexValue::Occurrence),
-                (300,  OccurrenceIndexValue::Override(None)),
-                (400,  OccurrenceIndexValue::Occurrence),
-                (500,  OccurrenceIndexValue::Override(Some(10))),
-                (600,  OccurrenceIndexValue::Occurrence),
-                (700,  OccurrenceIndexValue::Override(None)),
-                (800,  OccurrenceIndexValue::Occurrence),
-                (900,  OccurrenceIndexValue::Override(Some(15))),
-                (1000, OccurrenceIndexValue::Occurrence),
+                (100,  OccurrenceCacheValue::Occurrence),
+                (200,  OccurrenceCacheValue::Occurrence),
+                (300,  OccurrenceCacheValue::Override(None)),
+                (400,  OccurrenceCacheValue::Occurrence),
+                (500,  OccurrenceCacheValue::Override(Some(10))),
+                (600,  OccurrenceCacheValue::Occurrence),
+                (700,  OccurrenceCacheValue::Override(None)),
+                (800,  OccurrenceCacheValue::Occurrence),
+                (900,  OccurrenceCacheValue::Override(Some(15))),
+                (1000, OccurrenceCacheValue::Occurrence),
             ])
         };
 
         let mut occurrence_cache_iterator = OccurrenceCacheIterator::new(&occurrence_cache, None, None);
 
-        assert_eq!(occurrence_cache_iterator.next(), Some((100,  105,  OccurrenceIndexValue::Occurrence)));
-        assert_eq!(occurrence_cache_iterator.next(), Some((200,  205,  OccurrenceIndexValue::Occurrence)));
-        assert_eq!(occurrence_cache_iterator.next(), Some((300,  305,  OccurrenceIndexValue::Override(None))));
-        assert_eq!(occurrence_cache_iterator.next(), Some((400,  405,  OccurrenceIndexValue::Occurrence)));
-        assert_eq!(occurrence_cache_iterator.next(), Some((500,  510,  OccurrenceIndexValue::Override(Some(10)))));
-        assert_eq!(occurrence_cache_iterator.next(), Some((600,  605,  OccurrenceIndexValue::Occurrence)));
-        assert_eq!(occurrence_cache_iterator.next(), Some((700,  705,  OccurrenceIndexValue::Override(None))));
-        assert_eq!(occurrence_cache_iterator.next(), Some((800,  805,  OccurrenceIndexValue::Occurrence)));
-        assert_eq!(occurrence_cache_iterator.next(), Some((900,  915,  OccurrenceIndexValue::Override(Some(15)))));
-        assert_eq!(occurrence_cache_iterator.next(), Some((1000, 1005, OccurrenceIndexValue::Occurrence)));
+        assert_eq!(occurrence_cache_iterator.next(), Some((100,  105,  OccurrenceCacheValue::Occurrence)));
+        assert_eq!(occurrence_cache_iterator.next(), Some((200,  205,  OccurrenceCacheValue::Occurrence)));
+        assert_eq!(occurrence_cache_iterator.next(), Some((300,  305,  OccurrenceCacheValue::Override(None))));
+        assert_eq!(occurrence_cache_iterator.next(), Some((400,  405,  OccurrenceCacheValue::Occurrence)));
+        assert_eq!(occurrence_cache_iterator.next(), Some((500,  510,  OccurrenceCacheValue::Override(Some(10)))));
+        assert_eq!(occurrence_cache_iterator.next(), Some((600,  605,  OccurrenceCacheValue::Occurrence)));
+        assert_eq!(occurrence_cache_iterator.next(), Some((700,  705,  OccurrenceCacheValue::Override(None))));
+        assert_eq!(occurrence_cache_iterator.next(), Some((800,  805,  OccurrenceCacheValue::Occurrence)));
+        assert_eq!(occurrence_cache_iterator.next(), Some((900,  915,  OccurrenceCacheValue::Override(Some(15)))));
+        assert_eq!(occurrence_cache_iterator.next(), Some((1000, 1005, OccurrenceCacheValue::Occurrence)));
         assert_eq!(occurrence_cache_iterator.next(), None);
 
         // Test filters -- greater equal than - DtStart
@@ -206,8 +206,8 @@ mod test {
             None
         );
 
-        assert_eq!(occurrence_cache_iterator.next(), Some((900,  915,  OccurrenceIndexValue::Override(Some(15)))));
-        assert_eq!(occurrence_cache_iterator.next(), Some((1000, 1005, OccurrenceIndexValue::Occurrence)));
+        assert_eq!(occurrence_cache_iterator.next(), Some((900,  915,  OccurrenceCacheValue::Override(Some(15)))));
+        assert_eq!(occurrence_cache_iterator.next(), Some((1000, 1005, OccurrenceCacheValue::Occurrence)));
         assert_eq!(occurrence_cache_iterator.next(), None);
 
         // Test filters -- less equal than - DtEnd
@@ -218,8 +218,8 @@ mod test {
             Some(FilterCondition::LessEqualThan(FilterProperty::DtEnd(210))),
         );
 
-        assert_eq!(occurrence_cache_iterator.next(), Some((100,  105,  OccurrenceIndexValue::Occurrence)));
-        assert_eq!(occurrence_cache_iterator.next(), Some((200,  205,  OccurrenceIndexValue::Occurrence)));
+        assert_eq!(occurrence_cache_iterator.next(), Some((100,  105,  OccurrenceCacheValue::Occurrence)));
+        assert_eq!(occurrence_cache_iterator.next(), Some((200,  205,  OccurrenceCacheValue::Occurrence)));
         assert_eq!(occurrence_cache_iterator.next(), None);
 
         // Test filters -- greater equal than - DtEnd -- less than - DtStart
@@ -230,8 +230,8 @@ mod test {
             Some(FilterCondition::LessThan(FilterProperty::DtStart(500))),
         );
 
-        assert_eq!(occurrence_cache_iterator.next(), Some((300,  305,  OccurrenceIndexValue::Override(None))));
-        assert_eq!(occurrence_cache_iterator.next(), Some((400,  405,  OccurrenceIndexValue::Occurrence)));
+        assert_eq!(occurrence_cache_iterator.next(), Some((300,  305,  OccurrenceCacheValue::Override(None))));
+        assert_eq!(occurrence_cache_iterator.next(), Some((400,  405,  OccurrenceCacheValue::Occurrence)));
         assert_eq!(occurrence_cache_iterator.next(), None);
 
         // Test impossible filters -- less than - DtStart -- greater equal than - DtEnd

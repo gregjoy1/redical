@@ -4,7 +4,7 @@ use std::collections::{HashMap, HashSet, BTreeSet};
 
 use crate::data_types::{Event, EventOccurrenceOverride, KeyValuePair, IndexedConclusion};
 
-use crate::data_types::occurrence_cache::{OccurrenceCacheIterator, OccurrenceIndexValue};
+use crate::data_types::occurrence_cache::{OccurrenceCacheIterator, OccurrenceCacheValue};
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct EventInstance {
@@ -233,13 +233,13 @@ impl<'a> Iterator for EventInstanceIterator<'a> {
                         })
                         .next()
                         .and_then(
-                            |(dtstart_timestamp, _, occurrence_index_value)| {
-                                match occurrence_index_value {
-                                    OccurrenceIndexValue::Occurrence => {
+                            |(dtstart_timestamp, _, occurrence_cache_value)| {
+                                match occurrence_cache_value {
+                                    OccurrenceCacheValue::Occurrence => {
                                         Some(EventInstance::new(&dtstart_timestamp, self.event, None))
                                     },
 
-                                    OccurrenceIndexValue::Override(_) => {
+                                    OccurrenceCacheValue::Override(_) => {
                                         let event_occurrence_override = self.event.overrides.current.get(&dtstart_timestamp);
 
                                         Some(EventInstance::new(&dtstart_timestamp, self.event, event_occurrence_override))
@@ -260,7 +260,7 @@ mod test {
 
     use std::collections::BTreeMap;
 
-    use crate::data_types::{PassiveProperties, IndexedProperties, ScheduleProperties, EventOccurrenceOverrides, OccurrenceIndexValue};
+    use crate::data_types::{PassiveProperties, IndexedProperties, ScheduleProperties, EventOccurrenceOverrides, OccurrenceCacheValue};
 
     use crate::parsers::datetime::datestring_to_date;
 
