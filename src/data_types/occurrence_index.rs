@@ -10,6 +10,11 @@ pub enum OccurrenceIndexValue {
     Override(Option<u32>),
 }
 
+pub struct OccurrenceCache {
+    pub base_duration:  i64,
+    pub occurrences:    BTreeMap<i64, OccurrenceIndexValue>,
+}
+
 type OccurrenceCacheIteratorMapFn    = Box<dyn Fn((&i64, &OccurrenceIndexValue)) -> (i64, i64, OccurrenceIndexValue)>;
 type OccurrenceCacheIteratorFilterFn = Box<dyn Fn(&(i64, i64, OccurrenceIndexValue)) -> bool>;
 
@@ -73,21 +78,22 @@ impl FilterCondition {
 
 #[derive(Debug)]
 pub struct OccurrenceCacheIterator<'a> {
-    pub base_duration: i64,
-    pub internal_iter: Filter<Map<btree_map::Iter<'a, i64, OccurrenceIndexValue>, OccurrenceCacheIteratorMapFn>, OccurrenceCacheIteratorFilterFn>,
+    base_duration: i64,
+    internal_iter: Filter<Map<btree_map::Iter<'a, i64, OccurrenceIndexValue>, OccurrenceCacheIteratorMapFn>, OccurrenceCacheIteratorFilterFn>,
 }
 
 impl<'a> OccurrenceCacheIterator<'a> {
 
     fn new(
-        base_duration:    i64,
-        occurrence_cache: &'a BTreeMap<i64, OccurrenceIndexValue>,
+        occurrence_cache: &'a OccurrenceCache,
         filter_from:      Option<FilterCondition>,
         filter_until:     Option<FilterCondition>
     ) -> OccurrenceCacheIterator<'a> {
+        let base_duration = occurrence_cache.base_duration;
 
         let internal_iter =
-            occurrence_cache.into_iter()
+            occurrence_cache.occurrences
+                            .iter()
                             .map(Self::build_map_function(base_duration))
                             .filter(Self::build_filter_function(filter_from, filter_until));
 
@@ -298,20 +304,23 @@ mod test {
 
     #[test]
     fn test_occurrence_cache_iterator() {
-        let occurrence_cache = BTreeMap::from([
-            (100,  OccurrenceIndexValue::Occurrence),
-            (200,  OccurrenceIndexValue::Occurrence),
-            (300,  OccurrenceIndexValue::Override(None)),
-            (400,  OccurrenceIndexValue::Occurrence),
-            (500,  OccurrenceIndexValue::Override(Some(10))),
-            (600,  OccurrenceIndexValue::Occurrence),
-            (700,  OccurrenceIndexValue::Override(None)),
-            (800,  OccurrenceIndexValue::Occurrence),
-            (900,  OccurrenceIndexValue::Override(Some(15))),
-            (1000, OccurrenceIndexValue::Occurrence),
-        ]);
+        let occurrence_cache = OccurrenceCache {
+            base_duration: 5,
+            occurrences:   BTreeMap::from([
+                (100,  OccurrenceIndexValue::Occurrence),
+                (200,  OccurrenceIndexValue::Occurrence),
+                (300,  OccurrenceIndexValue::Override(None)),
+                (400,  OccurrenceIndexValue::Occurrence),
+                (500,  OccurrenceIndexValue::Override(Some(10))),
+                (600,  OccurrenceIndexValue::Occurrence),
+                (700,  OccurrenceIndexValue::Override(None)),
+                (800,  OccurrenceIndexValue::Occurrence),
+                (900,  OccurrenceIndexValue::Override(Some(15))),
+                (1000, OccurrenceIndexValue::Occurrence),
+            ])
+        };
 
-        let mut occurrence_cache_iterator = OccurrenceCacheIterator::new(5, &occurrence_cache, None, None);
+        let mut occurrence_cache_iterator = OccurrenceCacheIterator::new(&occurrence_cache, None, None);
 
         assert_eq!(occurrence_cache_iterator.next(), Some((100,  105,  OccurrenceIndexValue::Occurrence)));
         assert_eq!(occurrence_cache_iterator.next(), Some((200,  205,  OccurrenceIndexValue::Occurrence)));
@@ -328,7 +337,6 @@ mod test {
         // Test filters -- greater equal than - DtStart
 
         let mut occurrence_cache_iterator = OccurrenceCacheIterator::new(
-            5,
             &occurrence_cache,
             Some(FilterCondition::GreaterEqualThan(FilterProperty::DtStart(900))),
             None
@@ -341,7 +349,6 @@ mod test {
         // Test filters -- less equal than - DtEnd
 
         let mut occurrence_cache_iterator = OccurrenceCacheIterator::new(
-            5,
             &occurrence_cache,
             None,
             Some(FilterCondition::LessEqualThan(FilterProperty::DtEnd(210))),
@@ -354,7 +361,6 @@ mod test {
         // Test filters -- greater equal than - DtEnd -- less than - DtStart
 
         let mut occurrence_cache_iterator = OccurrenceCacheIterator::new(
-            5,
             &occurrence_cache,
             Some(FilterCondition::GreaterEqualThan(FilterProperty::DtEnd(302))),
             Some(FilterCondition::LessThan(FilterProperty::DtStart(500))),
@@ -367,7 +373,6 @@ mod test {
         // Test impossible filters -- less than - DtStart -- greater equal than - DtEnd
 
         let mut occurrence_cache_iterator = OccurrenceCacheIterator::new(
-            5,
             &occurrence_cache,
             Some(FilterCondition::LessThan(FilterProperty::DtStart(300))),
             Some(FilterCondition::GreaterEqualThan(FilterProperty::DtEnd(502))),
