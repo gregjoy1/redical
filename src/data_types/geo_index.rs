@@ -3,19 +3,272 @@ use geo::point;
 use geo::Point;
 use rstar::RTree;
 
+use rstar::primitives::GeomWithData;
+
+use serde::{Serialize, Deserialize};
+
+use std::collections::{HashMap, HashSet};
+
+use crate::data_types::{InvertedCalendarIndexTerm, IndexedConclusion};
+
+// Multi layer inverted index (for multiple events) - indexed term - event - include/exclude
+//#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Debug, Clone)]
+pub struct GeoSpatialCalendarIndex {
+    pub coords: RTree<GeomWithData<Point, InvertedCalendarIndexTerm>>,
+}
+
+impl PartialEq for GeoSpatialCalendarIndex {
+
+    fn eq(&self, other: &GeoSpatialCalendarIndex) -> bool {
+        let self_iter  = self.coords.into_iter();
+        let other_iter = other.coords.into_iter();
+
+        for (self_element, other_element) in self_iter.zip(other_iter) {
+            if self_element != other_element {
+                return false;
+            }
+        }
+
+        true
+    }
+
+}
+
+impl GeoSpatialCalendarIndex {
+
+    pub fn new() -> Self {
+        GeoSpatialCalendarIndex {
+            coords: RTree::new()
+        }
+    }
+
+    pub fn insert(&mut self, event_uuid: String, long_lat: &Point, indexed_conclusion: &IndexedConclusion) -> Result<&mut Self, String> {
+        match self.coords.locate_at_point_mut(&long_lat) {
+            Some(existing_result) => {
+                match indexed_conclusion {
+                    IndexedConclusion::Include(exceptions) => existing_result.data.insert_included_event(event_uuid.clone(), exceptions.clone()),
+                    IndexedConclusion::Exclude(exceptions) => existing_result.data.insert_excluded_event(event_uuid.clone(), exceptions.clone()),
+                };
+            },
+
+            None => {
+                self.coords
+                    .insert(
+                        GeomWithData::new(
+                            long_lat.clone(),
+                            InvertedCalendarIndexTerm::new_with_event(event_uuid.clone(), indexed_conclusion.clone())
+                        )
+                    );
+            },
+        }
+
+        Ok(self)
+    }
+
+    pub fn remove(&mut self, event_uuid: String, long_lat: &Point) -> Result<&mut Self, String> {
+        if let Some(existing_result) = self.coords.locate_at_point_mut(&long_lat) {
+            if existing_result.data.remove_event(event_uuid).is_ok_and(|inverted_calendar_index_term| inverted_calendar_index_term.is_empty()) {
+                self.coords.remove_at_point(&long_lat);
+            }
+        }
+
+        Ok(self)
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
+
+    #[test]
+    fn test_geo_spatial_calendar_index() {
+        let mut geo_spatial_calendar_index = GeoSpatialCalendarIndex::new();
+
+        let london = point!(x: -0.1278f64,    y: 51.5074f64);
+        let oxford = point!(x: -1.2475878f64, y: 51.8773f64);
+
+        assert_eq!(
+            geo_spatial_calendar_index,
+            GeoSpatialCalendarIndex {
+                coords: RTree::new(),
+            }
+        );
+
+        assert!(
+            geo_spatial_calendar_index.insert(
+                String::from("london_event_uuid_one"),
+                &london,
+                &IndexedConclusion::Include(None)
+            ).is_ok(),
+        );
+
+        assert_eq!(
+            geo_spatial_calendar_index,
+            GeoSpatialCalendarIndex {
+                coords: RTree::bulk_load(
+                            vec![
+                                GeomWithData::new(
+                                    london,
+                                    InvertedCalendarIndexTerm {
+                                        events: HashMap::from([(String::from("london_event_uuid_one"), IndexedConclusion::Include(None))])
+                                    }
+                                )
+                            ]
+                        )
+            }
+        );
+
+        assert!(
+            geo_spatial_calendar_index.insert(
+                String::from("london_event_uuid_two"),
+                &london,
+                &IndexedConclusion::Exclude(
+                    Some(
+                        HashSet::from([100])
+                    )
+                )
+            ).is_ok(),
+        );
+
+        assert_eq!(
+            geo_spatial_calendar_index,
+            GeoSpatialCalendarIndex {
+                coords: RTree::bulk_load(
+                            vec![
+                                GeomWithData::new(
+                                    london,
+                                    InvertedCalendarIndexTerm {
+                                        events: HashMap::from([
+                                                    (String::from("london_event_uuid_one"), IndexedConclusion::Include(None)),
+                                                    (String::from("london_event_uuid_two"), IndexedConclusion::Exclude(Some(HashSet::from([100])))),
+                                        ])
+                                    }
+                                )
+                            ]
+                        )
+            }
+        );
+
+        assert!(
+            geo_spatial_calendar_index.insert(
+                String::from("oxford_event_uuid"),
+                &oxford,
+                &IndexedConclusion::Include(
+                    Some(
+                        HashSet::from([100])
+                    )
+                )
+            ).is_ok(),
+        );
+
+        assert_eq!(
+            geo_spatial_calendar_index,
+            GeoSpatialCalendarIndex {
+                coords: RTree::bulk_load(
+                            vec![
+                                GeomWithData::new(
+                                    london,
+                                    InvertedCalendarIndexTerm {
+                                        events: HashMap::from([
+                                                    (String::from("london_event_uuid_one"), IndexedConclusion::Include(None)),
+                                                    (String::from("london_event_uuid_two"), IndexedConclusion::Exclude(Some(HashSet::from([100])))),
+                                        ])
+                                    }
+                                ),
+                                GeomWithData::new(
+                                    oxford,
+                                    InvertedCalendarIndexTerm {
+                                        events: HashMap::from([
+                                                    (String::from("oxford_event_uuid"),     IndexedConclusion::Include(Some(HashSet::from([100])))),
+                                        ])
+                                    }
+                                )
+                            ]
+                        )
+            }
+        );
+
+        assert!(geo_spatial_calendar_index.remove(String::from("oxford_event_uuid"), &oxford).is_ok());
+
+        assert_eq!(
+            geo_spatial_calendar_index,
+            GeoSpatialCalendarIndex {
+                coords: RTree::bulk_load(
+                            vec![
+                                GeomWithData::new(
+                                    london,
+                                    InvertedCalendarIndexTerm {
+                                        events: HashMap::from([
+                                                    (String::from("london_event_uuid_one"), IndexedConclusion::Include(None)),
+                                                    (String::from("london_event_uuid_two"), IndexedConclusion::Exclude(Some(HashSet::from([100])))),
+                                        ])
+                                    }
+                                )
+                            ]
+                        )
+            }
+        );
+
+        assert!(geo_spatial_calendar_index.remove(String::from("london_event_uuid_one"), &london).is_ok());
+
+        assert_eq!(
+            geo_spatial_calendar_index,
+            GeoSpatialCalendarIndex {
+                coords: RTree::bulk_load(
+                            vec![
+                                GeomWithData::new(
+                                    london,
+                                    InvertedCalendarIndexTerm {
+                                        events: HashMap::from([
+                                                    (String::from("london_event_uuid_two"), IndexedConclusion::Exclude(Some(HashSet::from([100])))),
+                                        ])
+                                    }
+                                )
+                            ]
+                        )
+            }
+        );
+
+        assert!(geo_spatial_calendar_index.remove(String::from("london_event_uuid_one"), &london).is_ok());
+
+        assert_eq!(
+            geo_spatial_calendar_index,
+            GeoSpatialCalendarIndex {
+                coords: RTree::bulk_load(
+                            vec![
+                                GeomWithData::new(
+                                    london,
+                                    InvertedCalendarIndexTerm {
+                                        events: HashMap::from([
+                                                    (String::from("london_event_uuid_two"), IndexedConclusion::Exclude(Some(HashSet::from([100])))),
+                                        ])
+                                    }
+                                )
+                            ]
+                        )
+            }
+        );
+
+        assert!(geo_spatial_calendar_index.remove(String::from("london_event_uuid_two"), &london).is_ok());
+
+        assert_eq!(
+            geo_spatial_calendar_index,
+            GeoSpatialCalendarIndex {
+                coords: RTree::bulk_load(vec![])
+            }
+        );
+    }
 
     #[test]
     fn test_geo_distance_rtree() {
         let mut tree = RTree::new();
 
         let random             = point!(x: -1.4701705f64, y: 51.7854972f64);
-        let random_plus_offset = point!(x: -1.470240f64, y: 51.785341f64);
-        let new_york_city      = point!(x: -74.006f64, y: 40.7128f64);
-        let churchdown         = point!(x: -2.1686f64, y: 51.8773f64);
-        let london             = point!(x: -0.1278f64, y: 51.5074f64);
+        let random_plus_offset = point!(x: -1.470240f64,  y: 51.785341f64);
+        let new_york_city      = point!(x: -74.006f64,    y: 40.7128f64);
+        let churchdown         = point!(x: -2.1686f64,    y: 51.8773f64);
+        let london             = point!(x: -0.1278f64,    y: 51.5074f64);
         let oxford             = point!(x: -1.2475878f64, y: 51.8773f64);
 
         tree.insert(random);

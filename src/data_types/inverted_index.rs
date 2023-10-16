@@ -140,6 +140,10 @@ impl InvertedCalendarIndexTerm {
         Ok(self)
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.events.is_empty()
+    }
+
     pub fn insert_exception(&mut self, event_uuid: String, exception: i64) -> Result<&mut IndexedConclusion, String> {
         match self.events.get_mut(&event_uuid) {
             Some(indexed_conclusion) => {
@@ -167,6 +171,7 @@ impl InvertedCalendarIndexTerm {
     }
 }
 
+// TODO: Make more generic as this is used into the geo index
 // Single layer inverted index (for one event) - indexed term - include/exclude
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct InvertedEventIndex<K>
