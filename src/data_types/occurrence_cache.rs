@@ -131,6 +131,9 @@ impl<'a> OccurrenceCacheIterator<'a> {
         })
     }
 
+    // TODO: Performance consideration that the internal iterator will run past the upper filter
+    // limit wasting CPU cycles. So find a way to 'fuse' the inner iterator after the first upper
+    // limit iterator_item has been filtered out.
     fn build_filter_function(
         filter_from:                  Option<FilterCondition>,
         filter_until:                 Option<FilterCondition>,
