@@ -13,6 +13,7 @@ use nom::{
     combinator::{cut, opt, recognize, map},
     bytes::complete::{take_while, take, take_while1, tag, tag_no_case, escaped},
     character::complete::{char, alphanumeric1, one_of, space1},
+    number::complete::recognize_float,
     IResult
 };
 
@@ -33,6 +34,7 @@ pub enum ParsedProperty<'a> {
     DtEnd(ical_common::ParsedPropertyContent<'a>),
     Description(ical_common::ParsedPropertyContent<'a>),
     RelatedTo(ical_common::ParsedPropertyContent<'a>),
+    Geo(ical_common::ParsedPropertyContent<'a>),
     Other(ical_common::ParsedPropertyContent<'a>),
 }
 
@@ -50,6 +52,7 @@ impl<'a> ParsedProperty<'a> {
             ParsedProperty::DtEnd(parsed_property_content)       => { &parsed_property_content.content_line },
             ParsedProperty::Description(parsed_property_content) => { &parsed_property_content.content_line },
             ParsedProperty::RelatedTo(parsed_property_content)   => { &parsed_property_content.content_line },
+            ParsedProperty::Geo(parsed_property_content)         => { &parsed_property_content.content_line },
             ParsedProperty::Other(parsed_property_content)       => { &parsed_property_content.content_line }
         }
     }
@@ -283,20 +286,46 @@ fn parse_related_to_property_content(input: &str) -> IResult<&str, ical_common::
     Ok((remaining, parsed_property))
 }
 
+fn parse_geo_property_content(input: &str) -> IResult<&str, ical_common::ParsedPropertyContent> {
+    let (remaining, parsed_name) = tag("GEO")(input)?;
+
+    let (remaining, _) = ical_common::colon_delimeter(remaining)?;
+
+    let (remaining, parsed_latitude) = recognize_float(remaining)?;
+
+    let (remaining, _) = ical_common::semicolon_delimeter(remaining)?;
+
+    let (remaining, parsed_longitude) = recognize_float(remaining)?;
+
+    let parsed_content_line = ical_common::consumed_input_string(input, remaining, parsed_name);
+
+    let parsed_value = ical_common::ParsedValue::List(vec![parsed_latitude, parsed_longitude]);
+
+    let parsed_property = ical_common::ParsedPropertyContent {
+        name: Some(parsed_name),
+        params: None,
+        value: parsed_value,
+        content_line: parsed_content_line
+    };
+
+    Ok((remaining, parsed_property))
+}
+
 fn parse_property(input: &str) -> IResult<&str, ParsedProperty> {
     // println!("parse_property - input - {input}");
     alt(
         (
-            map(parse_rrule_property_content, ParsedProperty::RRule),
-            map(parse_exrule_property_content, ParsedProperty::ExRule),
-            map(parse_rdate_property_content, ParsedProperty::RDate),
-            map(parse_exdate_property_content, ParsedProperty::ExDate),
-            map(parse_duration_property_content, ParsedProperty::Duration),
-            map(parse_dtstart_property_content, ParsedProperty::DtStart),
-            map(parse_dtend_property_content, ParsedProperty::DtEnd),
-            map(parse_description_property_content, ParsedProperty::Description),
-            map(parse_categories_property_content, ParsedProperty::Categories),
-            map(parse_related_to_property_content, ParsedProperty::RelatedTo),
+            map(parse_rrule_property_content,        ParsedProperty::RRule),
+            map(parse_exrule_property_content,       ParsedProperty::ExRule),
+            map(parse_rdate_property_content,        ParsedProperty::RDate),
+            map(parse_exdate_property_content,       ParsedProperty::ExDate),
+            map(parse_duration_property_content,     ParsedProperty::Duration),
+            map(parse_dtstart_property_content,      ParsedProperty::DtStart),
+            map(parse_dtend_property_content,        ParsedProperty::DtEnd),
+            map(parse_description_property_content,  ParsedProperty::Description),
+            map(parse_categories_property_content,   ParsedProperty::Categories),
+            map(parse_related_to_property_content,   ParsedProperty::RelatedTo),
+            map(parse_geo_property_content,          ParsedProperty::Geo),
             map(ical_common::parse_property_content, ParsedProperty::Other),
         )
     )(input)
@@ -331,6 +360,29 @@ mod test {
                         content_line: KeyValuePair::new(
                             String::from("RRULE"),
                             String::from(":FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH"),
+                        )
+                    }
+                )
+            )
+        );
+
+        let data: &str = "GEO:37.386013;-122.082932";
+
+        assert_eq!(
+            parse_property(data).unwrap(),
+            (
+                "",
+                ParsedProperty::Geo(
+                    ical_common::ParsedPropertyContent {
+                        name: Some("GEO"),
+                        params: None,
+                        value: ical_common::ParsedValue::List(vec![
+                            "37.386013",
+                            "-122.082932",
+                        ]),
+                        content_line: KeyValuePair::new(
+                            String::from("GEO"),
+                            String::from(":37.386013;-122.082932"),
                         )
                     }
                 )

@@ -143,6 +143,7 @@ impl EventOccurrenceOverride {
                             ParsedProperty::Duration(content)    => { new_override.duration    = Some(content.content_line); },
                             ParsedProperty::DtStart(content)     => { new_override.dtstart     = Some(content.content_line); },
                             ParsedProperty::DtEnd(content)       => { new_override.dtend       = Some(content.content_line); },
+                            ParsedProperty::Geo(_content)        => { }, // TODO
 
                             ParsedProperty::Description(content) | ParsedProperty::Other(content) => {
                                 if let Some(properties) = &mut new_override.properties {
