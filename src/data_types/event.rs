@@ -274,6 +274,7 @@ impl ScheduleProperties {
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct IndexedProperties {
+    pub geo:         Option<(f64, f64)>,
     pub related_to:  Option<HashMap<String, HashSet<String>>>,
     pub categories:  Option<HashSet<String>>
 }
@@ -281,13 +282,40 @@ pub struct IndexedProperties {
 impl IndexedProperties {
     pub fn new() -> IndexedProperties {
         IndexedProperties {
+            geo:         None,
             related_to:  None,
-            categories:  None
+            categories:  None,
         }
     }
 
     pub fn insert(&mut self, property: ParsedProperty) -> Result<&Self, String> {
         match property {
+            ParsedProperty::Geo(content) => {
+                if let ParsedValue::Pair((latitude, longitude)) = content.value {
+                    match (longitude.parse::<f64>(), latitude.parse::<f64>()) {
+                        (Ok(parsed_longitude), Ok(parsed_latitude)) => {
+                            if parsed_latitude < -90f64 || parsed_latitude > 90f64 {
+                                return Err(format!("Expected latitude: {parsed_latitude} to be greater than -90 and less than 90."));
+                            }
+
+                            if parsed_longitude < -180f64 || parsed_longitude > 180f64 {
+                                return Err(format!("Expected latitude: {parsed_longitude} to be greater than -180 and less than 180."));
+                            }
+
+                            self.geo = Some((parsed_longitude, parsed_latitude));
+
+                            Ok(self)
+                        },
+
+                        _ => {
+                            return Err(format!("Expected latitude, longitude. Could not parse float."));
+                        }
+                    }
+                } else {
+                    return Err(String::from("Expected latitude, longitude"));
+                }
+            },
+
             ParsedProperty::Categories(content)  => {
                 match content.value {
                     ParsedValue::List(list) => {
@@ -651,6 +679,7 @@ mod test {
             },
 
             indexed_properties: IndexedProperties {
+                geo:        None,
                 related_to: None,
                 categories: Some(
                     HashSet::from([
@@ -673,6 +702,7 @@ mod test {
                         (
                             100,
                             EventOccurrenceOverride {
+                                geo:         None,
                                 properties:  None,
                                 categories:  Some(
                                     HashSet::from([
@@ -693,6 +723,7 @@ mod test {
                         (
                             200,
                             EventOccurrenceOverride {
+                                geo:         None,
                                 properties:  None,
                                 categories:  Some(
                                     HashSet::from([
@@ -711,6 +742,7 @@ mod test {
                         (
                             300,
                             EventOccurrenceOverride {
+                                geo:         None,
                                 properties:  None,
                                 categories:  None,
                                 duration:    None,
@@ -724,6 +756,7 @@ mod test {
                         (
                             400,
                             EventOccurrenceOverride {
+                                geo:         None,
                                 properties:  None,
                                 categories:  Some(HashSet::new()),
                                 duration:    None,
@@ -737,6 +770,7 @@ mod test {
                         (
                             500,
                             EventOccurrenceOverride {
+                                geo:         None,
                                 properties:  None,
                                 categories:  Some(
                                     HashSet::from([
@@ -911,6 +945,7 @@ mod test {
                 },
 
                 indexed_properties:  IndexedProperties {
+                    geo:              None,
                     categories:       Some(
                         HashSet::from([
                             String::from("CATEGORY_ONE"),
@@ -1148,6 +1183,7 @@ mod test {
         );
 
         let event_occurrence_override = EventOccurrenceOverride {
+            geo:              None,
             properties:       Some(
                 BTreeSet::from([
                     KeyValuePair::new(
@@ -1216,6 +1252,7 @@ mod test {
                             (
                                 1610476200,
                                 EventOccurrenceOverride {
+                                    geo:         None,
                                     properties:  Some(
                                         BTreeSet::from([
                                             KeyValuePair::new(
@@ -1381,6 +1418,7 @@ mod test {
                 },
 
                 indexed_properties:  IndexedProperties {
+                    geo:        None,
                     related_to: Some(
                                     HashMap::from([
                                         (
@@ -1485,6 +1523,7 @@ mod test {
                  (
                      1610476300,
                      EventOccurrenceOverride {
+                         geo:         None,
                          properties:  None,
                          categories:  None,
                          duration:    None,
@@ -1498,6 +1537,7 @@ mod test {
                 (
                     1610476200,
                     EventOccurrenceOverride {
+                        geo:         None,
                         properties:  Some(
                             BTreeSet::from([
                                 KeyValuePair::new(
@@ -1620,6 +1660,7 @@ mod test {
                         (
                             1610476300,
                             EventOccurrenceOverride {
+                                geo:        None,
                                 properties: Some(
                                     BTreeSet::from([
                                         KeyValuePair::new(
@@ -1653,6 +1694,7 @@ mod test {
                         (
                             1610476200,
                             EventOccurrenceOverride {
+                                geo:        None,
                                 properties: Some(
                                     BTreeSet::from([
                                         KeyValuePair::new(

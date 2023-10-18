@@ -40,6 +40,7 @@ pub struct ParsedPropertyContent<'a> {
 pub enum ParsedValue<'a> {
     List(Vec<&'a str>),
     Single(&'a str),
+    Pair((&'a str, &'a str)),
     Params(HashMap<&'a str, Vec<&'a str>>)
 }
 

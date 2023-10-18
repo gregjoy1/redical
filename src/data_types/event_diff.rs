@@ -1,6 +1,6 @@
 use crate::data_types::{UpdatedSetMembers, Event, hashmap_to_hashset, btree_hashset_to_hashset, KeyValuePair};
 
-use std::collections::{BTreeMap, HashSet};
+use std::collections::HashSet;
 
 use std::hash::Hash;
 
@@ -139,7 +139,7 @@ pub enum ScheduleRebuildConsensus {
 mod test {
     use super::*;
 
-    use std::collections::{HashMap, BTreeSet};
+    use std::collections::{HashMap, BTreeSet, BTreeMap};
 
     use crate::data_types::{ScheduleProperties, IndexedProperties, PassiveProperties, EventOccurrenceOverrides, InvertedEventIndex, KeyValuePair};
 
@@ -224,6 +224,7 @@ mod test {
             },
 
             indexed_properties: IndexedProperties {
+                geo:        None,
                 related_to: None,
                 categories: Some(
                     HashSet::from([
@@ -350,6 +351,7 @@ mod test {
             },
 
             indexed_properties: IndexedProperties {
+                geo:        None,
                 related_to: Some(
                     HashMap::from([
                         (

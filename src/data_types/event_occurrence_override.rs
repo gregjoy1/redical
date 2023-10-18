@@ -13,6 +13,7 @@ use crate::data_types::utils::KeyValuePair;
 pub struct EventOccurrenceOverride {
     pub categories:  Option<HashSet<String>>,
     pub duration:    Option<KeyValuePair>,
+    pub geo:         Option<(f64, f64)>,
     pub dtstart:     Option<KeyValuePair>,
     pub dtend:       Option<KeyValuePair>,
     pub related_to:  Option<HashMap<String, HashSet<String>>>,
@@ -25,6 +26,7 @@ impl EventOccurrenceOverride {
             properties:  None,
             categories:  None,
             duration:    None,
+            geo:         None,
             dtstart:     None,
             dtend:       None,
             related_to:  None,
@@ -143,7 +145,28 @@ impl EventOccurrenceOverride {
                             ParsedProperty::Duration(content)    => { new_override.duration    = Some(content.content_line); },
                             ParsedProperty::DtStart(content)     => { new_override.dtstart     = Some(content.content_line); },
                             ParsedProperty::DtEnd(content)       => { new_override.dtend       = Some(content.content_line); },
-                            ParsedProperty::Geo(_content)        => { }, // TODO
+
+                            ParsedProperty::Geo(content) => {
+                                if let ParsedValue::Pair((latitude, longitude)) = content.value {
+                                    match (longitude.parse::<f64>(), latitude.parse::<f64>()) {
+                                        (Ok(parsed_longitude), Ok(parsed_latitude)) => {
+                                            if parsed_latitude < -90f64 || parsed_latitude > 90f64 {
+                                                return Err(format!("Expected latitude: {parsed_latitude} to be greater than -90 and less than 90."));
+                                            }
+
+                                            if parsed_longitude < -180f64 || parsed_longitude > 180f64 {
+                                                return Err(format!("Expected latitude: {parsed_longitude} to be greater than -180 and less than 180."));
+                                            }
+
+                                            new_override.geo = Some((parsed_longitude, parsed_latitude));
+                                        },
+
+                                        _ => {
+                                            return Err(format!("Expected latitude, longitude. Could not parse float."));
+                                        }
+                                    }
+                                }
+                            },
 
                             ParsedProperty::Description(content) | ParsedProperty::Other(content) => {
                                 if let Some(properties) = &mut new_override.properties {
@@ -205,6 +228,7 @@ mod test {
         assert_eq!(
             EventOccurrenceOverride::parse_ical(ical_without_rrule).unwrap(),
             EventOccurrenceOverride {
+                geo:              None,
                 properties:       Some(
                     BTreeSet::from([
                         KeyValuePair::new(

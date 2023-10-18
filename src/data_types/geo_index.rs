@@ -1,5 +1,4 @@
 use geo::prelude::*;
-use geo::point;
 use geo::Point;
 use rstar::RTree;
 
@@ -85,8 +84,8 @@ mod test {
     fn test_geo_spatial_calendar_index() {
         let mut geo_spatial_calendar_index = GeoSpatialCalendarIndex::new();
 
-        let london = point!(x: -0.1278f64,    y: 51.5074f64);
-        let oxford = point!(x: -1.2475878f64, y: 51.8773f64);
+        let london = Point::new(-0.1278f64,    51.5074f64);
+        let oxford = Point::new(-1.2475878f64, 51.8773f64);
 
         assert_eq!(
             geo_spatial_calendar_index,
@@ -264,12 +263,12 @@ mod test {
     fn test_geo_distance_rtree() {
         let mut tree = RTree::new();
 
-        let random             = point!(x: -1.4701705f64, y: 51.7854972f64);
-        let random_plus_offset = point!(x: -1.470240f64,  y: 51.785341f64);
-        let new_york_city      = point!(x: -74.006f64,    y: 40.7128f64);
-        let churchdown         = point!(x: -2.1686f64,    y: 51.8773f64);
-        let london             = point!(x: -0.1278f64,    y: 51.5074f64);
-        let oxford             = point!(x: -1.2475878f64, y: 51.8773f64);
+        let random             = Point::new(-1.4701705f64, 51.7854972f64);
+        let random_plus_offset = Point::new(-1.470240f64,  51.785341f64);
+        let new_york_city      = Point::new(-74.006f64,    40.7128f64);
+        let churchdown         = Point::new(-2.1686f64,    51.8773f64);
+        let london             = Point::new(-0.1278f64,    51.5074f64);
+        let oxford             = Point::new(-1.2475878f64, 51.8773f64);
 
         tree.insert(random);
         tree.insert(random_plus_offset);

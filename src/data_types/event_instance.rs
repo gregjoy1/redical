@@ -289,6 +289,7 @@ mod test {
             },
 
             indexed_properties:  IndexedProperties {
+                geo:              None,
                 categories:       Some(
                     HashSet::from([
                         String::from("CATEGORY_ONE"),
@@ -449,6 +450,7 @@ mod test {
             },
 
             indexed_properties:  IndexedProperties {
+                geo:              None,
                 categories:       Some(
                     HashSet::from([
                         String::from("CATEGORY_ONE"),
@@ -504,6 +506,7 @@ mod test {
         };
 
         let event_occurrence_override = EventOccurrenceOverride {
+            geo:              None,
             properties:       Some(
                 BTreeSet::from([
                     KeyValuePair::new(

@@ -299,7 +299,7 @@ fn parse_geo_property_content(input: &str) -> IResult<&str, ical_common::ParsedP
 
     let parsed_content_line = ical_common::consumed_input_string(input, remaining, parsed_name);
 
-    let parsed_value = ical_common::ParsedValue::List(vec![parsed_latitude, parsed_longitude]);
+    let parsed_value = ical_common::ParsedValue::Pair((parsed_latitude, parsed_longitude));
 
     let parsed_property = ical_common::ParsedPropertyContent {
         name: Some(parsed_name),
@@ -376,10 +376,12 @@ mod test {
                     ical_common::ParsedPropertyContent {
                         name: Some("GEO"),
                         params: None,
-                        value: ical_common::ParsedValue::List(vec![
-                            "37.386013",
-                            "-122.082932",
-                        ]),
+                        value: ical_common::ParsedValue::Pair(
+                            (
+                                "37.386013",
+                                "-122.082932",
+                            )
+                        ),
                         content_line: KeyValuePair::new(
                             String::from("GEO"),
                             String::from(":37.386013;-122.082932"),
