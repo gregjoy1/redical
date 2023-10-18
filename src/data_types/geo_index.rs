@@ -1,14 +1,58 @@
 use geo::prelude::*;
-use geo::Point;
+use geo::{Point, Coord};
 use rstar::RTree;
 
 use rstar::primitives::GeomWithData;
 
-use serde::{Serialize, Deserialize};
+use serde::{Serialize, Serializer, Deserialize};
 
 use std::collections::{HashMap, HashSet};
 
+use std::hash::{Hash, Hasher};
+
 use crate::data_types::{InvertedCalendarIndexTerm, IndexedConclusion};
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct LongLatCoord((f64, f64));
+
+impl From<Coord<f64>> for LongLatCoord {
+    #[inline]
+    fn from(coord: Coord<f64>) -> Self {
+        LongLatCoord(coord.into())
+    }
+}
+
+impl From<(f64, f64)> for LongLatCoord {
+    #[inline]
+    fn from(coords: (f64, f64)) -> Self {
+        LongLatCoord(coords.into())
+    }
+}
+
+impl LongLatCoord {
+    pub fn to_string(&self) -> String {
+        format!("{};{}", self.0.0, self.0.1)
+    }
+
+    pub fn to_coord(&self) -> Coord<f64> {
+        Coord::from(self.0)
+    }
+}
+
+impl Hash for LongLatCoord {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.to_string().hash(state);
+    }
+}
+
+impl PartialEq for LongLatCoord {
+    fn eq(&self, other: &Self) -> bool {
+        self.to_string() == other.to_string()
+    }
+}
+
+impl Eq for LongLatCoord {}
+
 
 // Multi layer inverted index (for multiple events) - indexed term - event - include/exclude
 //#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]

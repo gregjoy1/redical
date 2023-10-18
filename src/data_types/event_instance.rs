@@ -342,6 +342,7 @@ mod test {
             occurrence_cache:    None,
             indexed_categories:  None,
             indexed_related_to:  None,
+            indexed_geo:         None,
         };
 
         let event_instance = EventInstance::new(&100, &event, None);
@@ -503,6 +504,7 @@ mod test {
             occurrence_cache:    None,
             indexed_categories:  None,
             indexed_related_to:  None,
+            indexed_geo:         None,
         };
 
         let event_occurrence_override = EventOccurrenceOverride {

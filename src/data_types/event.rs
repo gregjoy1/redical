@@ -18,9 +18,13 @@ use crate::data_types::event_occurrence_override::EventOccurrenceOverride;
 
 use crate::data_types::inverted_index::InvertedEventIndex;
 
+use crate::data_types::geo_index::LongLatCoord;
+
 use crate::data_types::event_diff::EventDiff;
 
 use crate::data_types::utils::KeyValuePair;
+
+use geo::Coord;
 
 fn property_option_set_or_insert<'a>(property_option: &mut Option<HashSet<KeyValuePair>>, content: KeyValuePair) {
     match property_option {
@@ -274,7 +278,7 @@ impl ScheduleProperties {
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct IndexedProperties {
-    pub geo:         Option<(f64, f64)>,
+    pub geo:         Option<LongLatCoord>,
     pub related_to:  Option<HashMap<String, HashSet<String>>>,
     pub categories:  Option<HashSet<String>>
 }
@@ -302,7 +306,14 @@ impl IndexedProperties {
                                 return Err(format!("Expected latitude: {parsed_longitude} to be greater than -180 and less than 180."));
                             }
 
-                            self.geo = Some((parsed_longitude, parsed_latitude));
+                            self.geo = Some(
+                                LongLatCoord::from(
+                                    (
+                                        parsed_longitude,
+                                        parsed_latitude,
+                                    )
+                                )
+                            );
 
                             Ok(self)
                         },
@@ -452,6 +463,7 @@ pub struct Event {
     pub occurrence_cache:    Option<OccurrenceCache>,
     pub indexed_categories:  Option<InvertedEventIndex<String>>,
     pub indexed_related_to:  Option<InvertedEventIndex<KeyValuePair>>,
+    pub indexed_geo:         Option<InvertedEventIndex<LongLatCoord>>,
 }
 
 impl Event {
@@ -468,6 +480,7 @@ impl Event {
             occurrence_cache:    None,
             indexed_categories:  None,
             indexed_related_to:  None,
+            indexed_geo:         None,
         }
     }
 
@@ -789,6 +802,7 @@ mod test {
             occurrence_cache:   None,
             indexed_categories: None,
             indexed_related_to: None,
+            indexed_geo:        None,
         };
 
         let mut indexed_categories = InvertedEventIndex::<String>::new_from_event_categories(&event);
@@ -969,6 +983,7 @@ mod test {
                 occurrence_cache:    None,
                 indexed_categories:  None,
                 indexed_related_to:  None,
+                indexed_geo:         None,
             }
         );
     }
@@ -1016,6 +1031,7 @@ mod test {
                 occurrence_cache:    None,
                 indexed_categories:  None,
                 indexed_related_to:  None,
+                indexed_geo:         None,
             }
         );
 
@@ -1112,6 +1128,7 @@ mod test {
                 occurrence_cache:    None,
                 indexed_categories:  None,
                 indexed_related_to:  None,
+                indexed_geo:         None,
             }
         );
 
@@ -1150,6 +1167,7 @@ mod test {
                 overrides:           EventOccurrenceOverrides::new(),
                 occurrence_cache:    None,
                 indexed_categories:  None,
+                indexed_geo:         None,
                 indexed_related_to:  None,
             }
         );
@@ -1309,7 +1327,8 @@ mod test {
                         InvertedEventIndex {
                             terms: HashMap::from([])
                         }
-                    )
+                    ),
+                    indexed_geo:         None,
                 }
             )
         );
@@ -1387,6 +1406,7 @@ mod test {
                             terms: HashMap::new()
                         }
                     ),
+                    indexed_geo:         None,
                 }
             )
         );
@@ -1453,6 +1473,7 @@ mod test {
                 occurrence_cache:    None,
                 indexed_categories:  None,
                 indexed_related_to:  None,
+                indexed_geo:         None,
             }
         );
     }
@@ -1500,6 +1521,7 @@ mod test {
                 occurrence_cache:    None,
                 indexed_categories:  None,
                 indexed_related_to:  None,
+                indexed_geo:         None,
             }
         );
 
@@ -1520,18 +1542,18 @@ mod test {
 
         let mut event_occurrence_overrides = EventOccurrenceOverrides {
             detached: BTreeMap::from([
-                 (
-                     1610476300,
-                     EventOccurrenceOverride {
-                         geo:         None,
-                         properties:  None,
-                         categories:  None,
-                         duration:    None,
-                         dtstart:     None,
-                         dtend:       None,
-                         related_to:  None,
-                     }
-                 )
+                          (
+                              1610476300,
+                              EventOccurrenceOverride {
+                                  geo:         None,
+                                  properties:  None,
+                                  categories:  None,
+                                  duration:    None,
+                                  dtstart:     None,
+                                  dtend:       None,
+                                  related_to:  None,
+                              }
+                          )
             ]),
             current:  BTreeMap::from([
                 (
@@ -1560,37 +1582,37 @@ mod test {
                                     String::from(":PROPERTY_VALUE_TWO"),
                                 ),
                             ])
-                        ),
-                        categories:  Some(
-                            HashSet::from([
-                                String::from("CATEGORY_ONE"),
-                                String::from("CATEGORY_TWO"),
-                            ])
-                        ),
-                        duration:    None,
-                        dtstart:     None,
-                        dtend:       None,
-                        related_to:  Some(
-                            HashMap::from([
-                                (
-                                    String::from("PARENT"),
+                                ),
+                                categories:  Some(
                                     HashSet::from([
-                                        String::from("PARENT_UUID_ONE"),
-                                        String::from("PARENT_UUID_TWO"),
+                                        String::from("CATEGORY_ONE"),
+                                        String::from("CATEGORY_TWO"),
                                     ])
                                 ),
-                                (
-                                    String::from("CHILD"),
-                                    HashSet::from([
-                                        String::from("CHILD_UUID_ONE"),
-                                        String::from("CHILD_UUID_TWO"),
+                                duration:    None,
+                                dtstart:     None,
+                                dtend:       None,
+                                related_to:  Some(
+                                    HashMap::from([
+                                        (
+                                            String::from("PARENT"),
+                                            HashSet::from([
+                                                String::from("PARENT_UUID_ONE"),
+                                                String::from("PARENT_UUID_TWO"),
+                                            ])
+                                        ),
+                                        (
+                                            String::from("CHILD"),
+                                            HashSet::from([
+                                                String::from("CHILD_UUID_ONE"),
+                                                String::from("CHILD_UUID_TWO"),
+                                            ])
+                                        )
                                     ])
                                 )
-                            ])
-                        )
                     }
-                )
-            ])
+            )
+                ])
         };
 
         let event_diff = EventDiff {

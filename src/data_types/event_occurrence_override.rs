@@ -9,11 +9,13 @@ use crate::parsers::datetime::{datestring_to_date, ParseError};
 
 use crate::data_types::utils::KeyValuePair;
 
+use crate::data_types::geo_index::LongLatCoord;
+
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct EventOccurrenceOverride {
     pub categories:  Option<HashSet<String>>,
     pub duration:    Option<KeyValuePair>,
-    pub geo:         Option<(f64, f64)>,
+    pub geo:         Option<LongLatCoord>,
     pub dtstart:     Option<KeyValuePair>,
     pub dtend:       Option<KeyValuePair>,
     pub related_to:  Option<HashMap<String, HashSet<String>>>,
@@ -158,7 +160,14 @@ impl EventOccurrenceOverride {
                                                 return Err(format!("Expected latitude: {parsed_longitude} to be greater than -180 and less than 180."));
                                             }
 
-                                            new_override.geo = Some((parsed_longitude, parsed_latitude));
+                                            new_override.geo = Some(
+                                                LongLatCoord::from(
+                                                    (
+                                                        parsed_longitude,
+                                                        parsed_latitude
+                                                    )
+                                                )
+                                            );
                                         },
 
                                         _ => {

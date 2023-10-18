@@ -251,6 +251,7 @@ mod test {
             occurrence_cache:   None,
             indexed_categories: None,
             indexed_related_to: None,
+            indexed_geo:        None,
         };
 
         assert_eq!(
@@ -392,6 +393,7 @@ mod test {
             occurrence_cache:   None,
             indexed_categories: None,
             indexed_related_to: None,
+            indexed_geo:        None,
         };
 
         assert_eq!(
