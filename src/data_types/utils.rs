@@ -93,6 +93,47 @@ pub fn btree_hashset_to_hashset(btree_hashset: Option<&BTreeSet<KeyValuePair>>) 
 }
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone)]
+pub enum UpdatedAttribute<T>
+where
+    T: Eq + PartialEq + Clone
+{
+    None,
+    Removed(T),
+    Maintained(T),
+    Updated(T, T),
+    Added(T),
+}
+
+impl<T> UpdatedAttribute<T>
+where
+    T: Eq + PartialEq + Clone
+{
+    pub fn new(original: &Option<T>, updated: &Option<T>) -> Self {
+        match (original, updated) {
+            (None, None) => {
+                UpdatedAttribute::None
+            },
+
+            (Some(original), None) => {
+                UpdatedAttribute::Removed(original.clone())
+            },
+
+            (None, Some(updated)) => {
+                UpdatedAttribute::Added(updated.clone())
+            },
+
+            (Some(original), Some(updated)) => {
+                if original == updated {
+                    UpdatedAttribute::Maintained(original.clone())
+                } else {
+                    UpdatedAttribute::Updated(original.clone(), updated.clone())
+                }
+            },
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone)]
 pub struct UpdatedSetMembers<T>
 where
     T: Eq + PartialEq + Hash + Clone
@@ -354,6 +395,34 @@ where
 
 mod test {
     use super::*;
+
+    #[test]
+    fn test_updated_attribute() {
+        assert_eq!(
+            UpdatedAttribute::<bool>::new(&None, &None),
+            UpdatedAttribute::None,
+        );
+
+        assert_eq!(
+            UpdatedAttribute::new(&None, &Some(true)),
+            UpdatedAttribute::Added(true),
+        );
+
+        assert_eq!(
+            UpdatedAttribute::new(&Some(true), &None),
+            UpdatedAttribute::Removed(true),
+        );
+
+        assert_eq!(
+            UpdatedAttribute::new(&Some(true), &Some(true)),
+            UpdatedAttribute::Maintained(true),
+        );
+
+        assert_eq!(
+            UpdatedAttribute::new(&Some(true), &Some(false)),
+            UpdatedAttribute::Updated(true, false),
+        );
+    }
 
     #[test]
     fn test_updated_set_members() {

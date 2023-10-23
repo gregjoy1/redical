@@ -1,4 +1,4 @@
-use crate::data_types::{UpdatedSetMembers, Event, hashmap_to_hashset, btree_hashset_to_hashset, KeyValuePair};
+use crate::data_types::{UpdatedSetMembers, Event, hashmap_to_hashset, btree_hashset_to_hashset, KeyValuePair, UpdatedAttribute, GeoPoint};
 
 use std::collections::HashSet;
 
@@ -10,6 +10,7 @@ use serde::{Serialize, Deserialize};
 pub struct EventDiff {
     pub indexed_categories:  Option<UpdatedSetMembers<String>>,
     pub indexed_related_to:  Option<UpdatedSetMembers<KeyValuePair>>,
+    pub indexed_geo:         Option<UpdatedAttribute<GeoPoint>>,
 
     pub passive_properties:  Option<UpdatedSetMembers<KeyValuePair>>,
     pub schedule_properties: Option<SchedulePropertiesDiff>,
@@ -21,6 +22,7 @@ impl EventDiff {
         EventDiff {
             indexed_categories:  Self::diff_indexed_categories(original_event, updated_event),
             indexed_related_to:  Self::diff_indexed_related_to(original_event, updated_event),
+            indexed_geo:         Self::diff_indexed_geo(original_event, updated_event),
 
             passive_properties:  Self::diff_passive_properties(original_event, updated_event),
             schedule_properties: Self::diff_schedule_properties(original_event, updated_event),
@@ -46,6 +48,22 @@ impl EventDiff {
                 updated_related_to.as_ref()
             )
         )
+    }
+
+    fn diff_indexed_geo(original_event: &Event, updated_event: &Event) -> Option<UpdatedAttribute<GeoPoint>> {
+        let original_geo = &original_event.indexed_properties.geo;
+        let updated_geo  = &updated_event.indexed_properties.geo;
+
+        if original_geo.is_none() && updated_geo.is_none() {
+            None
+        } else {
+            Some(
+                UpdatedAttribute::new(
+                    original_geo,
+                    updated_geo,
+                )
+            )
+        }
     }
 
     fn diff_passive_properties(original_event: &Event, updated_event: &Event) -> Option<UpdatedSetMembers<KeyValuePair>> {
@@ -165,6 +183,8 @@ mod test {
             }
         );
 
+        let expected_indexed_geo = None;
+
         let expected_passive_properties = Some(
             UpdatedSetMembers {
                 removed:    HashSet::new(),
@@ -190,6 +210,7 @@ mod test {
             EventDiff {
                 indexed_categories:  expected_indexed_categories,
                 indexed_related_to:  expected_indexed_related_to,
+                indexed_geo:         expected_indexed_geo,
                 passive_properties:  expected_passive_properties,
                 schedule_properties: expected_schedule_properties,
             }
@@ -224,7 +245,7 @@ mod test {
             },
 
             indexed_properties: IndexedProperties {
-                geo:        None,
+                geo:        Some(GeoPoint::from((-0.1278f64, 51.5074f64))),
                 related_to: None,
                 categories: Some(
                     HashSet::from([
@@ -257,7 +278,7 @@ mod test {
         assert_eq!(
             EventDiff::new(&original_event, &updated_event),
             EventDiff {
-                indexed_categories:  Some(
+                indexed_categories: Some(
                                          UpdatedSetMembers {
                                              removed:    HashSet::new(),
                                              maintained: HashSet::new(),
@@ -275,6 +296,7 @@ mod test {
                                              added:      HashSet::new(),
                                          }
                                      ),
+                indexed_geo:         Some(UpdatedAttribute::Added(GeoPoint::from((-0.1278f64, 51.5074f64)))),
                 passive_properties:  Some(
                                         UpdatedSetMembers {
                                             removed:    HashSet::new(),
@@ -406,76 +428,77 @@ mod test {
                                              added:      HashSet::from([String::from("CATEGORY_ONE"), String::from("CATEGORY_TWO")])
                                          }
                                      ),
-                                     indexed_related_to:  Some(
-                                         UpdatedSetMembers {
-                                             removed:    HashSet::from([
-                                                             KeyValuePair::new(String::from("X-IDX-CAL"), String::from("indexed_calendar_UUID")),
-                                                             KeyValuePair::new(String::from("PARENT"), String::from("another_event_UUID")),
-                                             ]),
-                                             maintained: HashSet::new(),
-                                             added:      HashSet::new()
-                                         }
-                                     ),
-                                     passive_properties:  Some(
-                                         UpdatedSetMembers {
-                                             removed:    HashSet::from([
-                                                 KeyValuePair {
-                                                     key:   String::from("DESCRIPTION"),
-                                                     value: String::from("Testing original description text."),
-                                                 }
-                                             ]),
-                                             maintained: HashSet::new(),
-                                             added:      HashSet::from([
-                                                 KeyValuePair {
-                                                     key:   String::from("DESCRIPTION"),
-                                                     value: String::from("Testing description text."),
-                                                 }
-                                             ])
+                indexed_related_to:  Some(
+                    UpdatedSetMembers {
+                        removed:    HashSet::from([
+                                        KeyValuePair::new(String::from("X-IDX-CAL"), String::from("indexed_calendar_UUID")),
+                                        KeyValuePair::new(String::from("PARENT"), String::from("another_event_UUID")),
+                        ]),
+                        maintained: HashSet::new(),
+                        added:      HashSet::new()
+                    }
+                ),
+                indexed_geo:         Some(UpdatedAttribute::Added(GeoPoint::from((-0.1278f64, 51.5074f64)))),
+                passive_properties:  Some(
+                    UpdatedSetMembers {
+                        removed:    HashSet::from([
+                                        KeyValuePair {
+                                            key:   String::from("DESCRIPTION"),
+                                            value: String::from("Testing original description text."),
                                         }
-                                     ),
+                        ]),
+                        maintained: HashSet::new(),
+                        added:      HashSet::from([
+                            KeyValuePair {
+                                key:   String::from("DESCRIPTION"),
+                                value: String::from("Testing description text."),
+                            }
+                        ])
+                    }
+                ),
                 schedule_properties: Some(
-                                        SchedulePropertiesDiff {
-                                            rrule:    Some(
-                                                          UpdatedSetMembers {
-                                                              removed:    HashSet::from([
-                                                                  KeyValuePair::new(
-                                                                      String::from("RRULE"),
-                                                                      String::from(":FREQ=DAILY;UNTIL=20230231T183000Z;INTERVAL=1"),
-                                                                  )
-                                                              ]),
-                                                              maintained: HashSet::new(),
-                                                              added:      HashSet::from([
-                                                                  KeyValuePair::new(
-                                                                      String::from("RRULE"),
-                                                                      String::from(":FREQ=DAILY;UNTIL=20230331T183000Z;INTERVAL=1"),
-                                                                  )
-                                                              ])
-                                                          }
-                                                      ),
-                                            exrule:   None,
-                                            rdate:    None,
-                                            exdate:   None,
-                                            duration: None,
-                                            dtstart:  Some(
-                                                        UpdatedSetMembers {
-                                                            removed:    HashSet::from([
-                                                                KeyValuePair::new(
-                                                                    String::from("DTSTART"),
-                                                                    String::from(":20201131T183000Z"),
-                                                                )
-                                                            ]),
-                                                            maintained: HashSet::new(),
-                                                            added:      HashSet::from([
-                                                                KeyValuePair::new(
-                                                                    String::from("DTSTART"),
-                                                                    String::from(":20201231T183000Z"),
-                                                                )
-                                                            ])
-                                                        }
-                                                    ),
-                                            dtend: None
-                                        }
-                                     )
+                    SchedulePropertiesDiff {
+                        rrule:    Some(
+                                      UpdatedSetMembers {
+                                          removed:    HashSet::from([
+                                                          KeyValuePair::new(
+                                                              String::from("RRULE"),
+                                                              String::from(":FREQ=DAILY;UNTIL=20230231T183000Z;INTERVAL=1"),
+                                                          )
+                                          ]),
+                                          maintained: HashSet::new(),
+                                          added:      HashSet::from([
+                                              KeyValuePair::new(
+                                                  String::from("RRULE"),
+                                                  String::from(":FREQ=DAILY;UNTIL=20230331T183000Z;INTERVAL=1"),
+                                              )
+                                          ])
+                                      }
+                                  ),
+                                  exrule:   None,
+                                  rdate:    None,
+                                  exdate:   None,
+                                  duration: None,
+                                  dtstart:  Some(
+                                      UpdatedSetMembers {
+                                          removed:    HashSet::from([
+                                                          KeyValuePair::new(
+                                                              String::from("DTSTART"),
+                                                              String::from(":20201131T183000Z"),
+                                                          )
+                                          ]),
+                                          maintained: HashSet::new(),
+                                          added:      HashSet::from([
+                                              KeyValuePair::new(
+                                                  String::from("DTSTART"),
+                                                  String::from(":20201231T183000Z"),
+                                              )
+                                          ])
+                                      }
+                                  ),
+                                  dtend: None
+                    }
+)
             }
         );
 
@@ -502,6 +525,7 @@ mod test {
                                             added:      HashSet::new()
                                         }
                                      ),
+                indexed_geo:         None,
                 passive_properties:  Some(
                                         UpdatedSetMembers {
                                             removed:    HashSet::from([

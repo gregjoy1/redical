@@ -337,6 +337,7 @@ dependencies = [
  "num-traits 0.2.15",
  "robust",
  "rstar",
+ "serde",
 ]
 
 [[package]]
@@ -358,6 +359,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ea804e7bd3c6a4ca6a01edfa35231557a8a81d4d3f3e1e2b650d028c42592be"
 dependencies = [
  "lazy_static",
+]
+
+[[package]]
+name = "geohash"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8a18b809b13fa4f1c9ccfd94179cc429021a3517856b5160422c3d810c1e8546"
+dependencies = [
+ "geo-types",
+ "libm",
 ]
 
 [[package]]
@@ -812,6 +823,7 @@ dependencies = [
  "chrono",
  "chrono-tz",
  "geo",
+ "geohash",
  "lazy_static",
  "libc",
  "nom 6.1.2",
@@ -929,6 +941,7 @@ checksum = "73111312eb7a2287d229f06c00ff35b51ddee180f017ab6dec1f69d62ac098d6"
 dependencies = [
  "heapless",
  "num-traits 0.2.15",
+ "serde",
  "smallvec",
 ]
 

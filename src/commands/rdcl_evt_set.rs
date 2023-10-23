@@ -64,10 +64,16 @@ pub fn redical_event_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
         event.indexed_related_to.as_ref(),
     );
 
+    let updated_event_geo_diff = InvertedEventIndex::diff_indexed_terms(
+        existing_event.clone().and_then(|existing_event| existing_event.indexed_geo.clone()).as_ref(),
+        event.indexed_geo.as_ref(),
+    );
+
     let mut calendar_index_updater = CalendarIndexUpdater::new(event.uuid.clone(), &mut calendar);
 
     calendar_index_updater.update_indexed_categories(&updated_event_categories_diff).map_err(|error| RedisError::String(error.to_string()))?;
     calendar_index_updater.update_indexed_related_to(&updated_event_related_to_diff).map_err(|error| RedisError::String(error.to_string()))?;
+    calendar_index_updater.update_indexed_geo(&updated_event_geo_diff).map_err(|error| RedisError::String(error.to_string()))?;
 
     calendar.events.insert(String::from(event_uuid), event);
 

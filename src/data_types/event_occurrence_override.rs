@@ -9,13 +9,13 @@ use crate::parsers::datetime::{datestring_to_date, ParseError};
 
 use crate::data_types::utils::KeyValuePair;
 
-use crate::data_types::geo_index::LongLatCoord;
+use crate::data_types::geo_index::GeoPoint;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct EventOccurrenceOverride {
     pub categories:  Option<HashSet<String>>,
     pub duration:    Option<KeyValuePair>,
-    pub geo:         Option<LongLatCoord>,
+    pub geo:         Option<GeoPoint>,
     pub dtstart:     Option<KeyValuePair>,
     pub dtend:       Option<KeyValuePair>,
     pub related_to:  Option<HashMap<String, HashSet<String>>>,
@@ -152,22 +152,16 @@ impl EventOccurrenceOverride {
                                 if let ParsedValue::Pair((latitude, longitude)) = content.value {
                                     match (longitude.parse::<f64>(), latitude.parse::<f64>()) {
                                         (Ok(parsed_longitude), Ok(parsed_latitude)) => {
-                                            if parsed_latitude < -90f64 || parsed_latitude > 90f64 {
-                                                return Err(format!("Expected latitude: {parsed_latitude} to be greater than -90 and less than 90."));
-                                            }
-
-                                            if parsed_longitude < -180f64 || parsed_longitude > 180f64 {
-                                                return Err(format!("Expected latitude: {parsed_longitude} to be greater than -180 and less than 180."));
-                                            }
-
-                                            new_override.geo = Some(
-                                                LongLatCoord::from(
-                                                    (
-                                                        parsed_longitude,
-                                                        parsed_latitude
-                                                    )
+                                            let geo_point = GeoPoint::from(
+                                                (
+                                                    parsed_longitude,
+                                                    parsed_latitude,
                                                 )
                                             );
+
+                                            geo_point.validate()?;
+
+                                            new_override.geo = Some(geo_point);
                                         },
 
                                         _ => {

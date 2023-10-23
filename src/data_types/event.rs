@@ -18,13 +18,11 @@ use crate::data_types::event_occurrence_override::EventOccurrenceOverride;
 
 use crate::data_types::inverted_index::InvertedEventIndex;
 
-use crate::data_types::geo_index::LongLatCoord;
+use crate::data_types::geo_index::GeoPoint;
 
 use crate::data_types::event_diff::EventDiff;
 
 use crate::data_types::utils::KeyValuePair;
-
-use geo::Coord;
 
 fn property_option_set_or_insert<'a>(property_option: &mut Option<HashSet<KeyValuePair>>, content: KeyValuePair) {
     match property_option {
@@ -278,7 +276,7 @@ impl ScheduleProperties {
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct IndexedProperties {
-    pub geo:         Option<LongLatCoord>,
+    pub geo:         Option<GeoPoint>,
     pub related_to:  Option<HashMap<String, HashSet<String>>>,
     pub categories:  Option<HashSet<String>>
 }
@@ -298,22 +296,16 @@ impl IndexedProperties {
                 if let ParsedValue::Pair((latitude, longitude)) = content.value {
                     match (longitude.parse::<f64>(), latitude.parse::<f64>()) {
                         (Ok(parsed_longitude), Ok(parsed_latitude)) => {
-                            if parsed_latitude < -90f64 || parsed_latitude > 90f64 {
-                                return Err(format!("Expected latitude: {parsed_latitude} to be greater than -90 and less than 90."));
-                            }
-
-                            if parsed_longitude < -180f64 || parsed_longitude > 180f64 {
-                                return Err(format!("Expected latitude: {parsed_longitude} to be greater than -180 and less than 180."));
-                            }
-
-                            self.geo = Some(
-                                LongLatCoord::from(
-                                    (
-                                        parsed_longitude,
-                                        parsed_latitude,
-                                    )
+                            let geo_point = GeoPoint::from(
+                                (
+                                    parsed_longitude,
+                                    parsed_latitude,
                                 )
                             );
+
+                            geo_point.validate()?;
+
+                            self.geo = Some(geo_point);
 
                             Ok(self)
                         },
@@ -463,7 +455,7 @@ pub struct Event {
     pub occurrence_cache:    Option<OccurrenceCache>,
     pub indexed_categories:  Option<InvertedEventIndex<String>>,
     pub indexed_related_to:  Option<InvertedEventIndex<KeyValuePair>>,
-    pub indexed_geo:         Option<InvertedEventIndex<LongLatCoord>>,
+    pub indexed_geo:         Option<InvertedEventIndex<GeoPoint>>,
 }
 
 impl Event {
@@ -670,7 +662,7 @@ mod test {
 
     use crate::data_types::IndexedConclusion;
 
-    use crate::data_types::utils::UpdatedSetMembers;
+    use crate::data_types::utils::{UpdatedSetMembers, UpdatedAttribute};
 
     use std::collections::BTreeMap;
 
@@ -1636,6 +1628,7 @@ mod test {
                     ])
                 }
             ),
+            indexed_geo:         None,
             passive_properties:  Some(
                 UpdatedSetMembers {
                     removed:    HashSet::from([
