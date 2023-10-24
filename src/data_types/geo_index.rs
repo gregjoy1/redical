@@ -69,7 +69,7 @@ impl GeoPoint {
                 x: self.long,
                 y: self.lat,
             },
-            10,
+            12, // Accurrate to 37.2mm × 18.6mm
         ).map_err(|geohash_error| {
             geohash_error.to_string()
         })
@@ -91,11 +91,11 @@ impl PointDistance for GeoPoint {
         &self,
         point: &<Self::Envelope as rstar::Envelope>::Point,
     ) -> <<Self::Envelope as rstar::Envelope>::Point as rstar::Point>::Scalar {
-        self.to_point().distance_2(point)
+        self.to_point().haversine_distance(point)
     }
 
-    fn contains_point(&self, p: &<Self::Envelope as rstar::Envelope>::Point) -> bool {
-        self.to_point().contains_point(p)
+    fn contains_point(&self, point: &<Self::Envelope as rstar::Envelope>::Point) -> bool {
+        self.to_point().contains_point(point)
     }
 
     fn distance_2_if_less_or_equal(
@@ -103,7 +103,13 @@ impl PointDistance for GeoPoint {
         point: &<Self::Envelope as rstar::Envelope>::Point,
         max_distance_2: <<Self::Envelope as rstar::Envelope>::Point as rstar::Point>::Scalar,
     ) -> Option<<<Self::Envelope as rstar::Envelope>::Point as rstar::Point>::Scalar> {
-        self.to_point().distance_2_if_less_or_equal(point, max_distance_2)
+        let distance = self.distance_2(point);
+
+        if distance <= max_distance_2 {
+            Some(distance)
+        } else {
+            None
+        }
     }
 }
 
@@ -197,6 +203,8 @@ impl GeoSpatialCalendarIndex {
 #[cfg(test)]
 mod test {
     use super::*;
+
+    use pretty_assertions_sorted::{assert_eq, assert_eq_sorted};
 
     #[test]
     fn test_geo_spatial_calendar_index() {
@@ -398,39 +406,43 @@ mod test {
 
         let (point, distance) = results.next().unwrap();
         assert_eq!(
-            (point,   distance,            oxford.haversine_distance(&point)),
-            (&random, 0.05797081242712935, 18388.59700968325)
+            (point,   distance),
+            (&random, 18388.59700968325f64)
         );
 
 
         let (point, distance) = results.next().unwrap();
 
         assert_eq!(
-            (point,               distance,           oxford.haversine_distance(&point)),
-            (&random_plus_offset, 0.0580304598458392, 18402.23696221235)
+            (point,               distance),
+            (&random_plus_offset, 18402.23696221235f64)
         );
 
         let (point, distance) = results.next().unwrap();
 
         assert_eq!(
-            (point,       distance,           oxford.haversine_distance(&point)),
-            (&churchdown, 0.8482634725488402, 63223.39709694926)
+            (point,       distance),
+            (&churchdown, 63223.39709694926f64)
         );
 
         let (point, distance) = results.next().unwrap();
 
         assert_eq!(
-            (point,   distance,           oxford.haversine_distance(&point)),
-            (&london, 1.3907507270288413, 87458.64969073102)
+            (point,   distance),
+            (&london, 87458.64969073102f64)
         );
 
         let (point, distance) = results.next().unwrap();
 
         assert_eq!(
-            (point,          distance,          oxford.haversine_distance(&point)),
-            (&new_york_city, 5418.432606115109, 5484158.985172745)
+            (point,          distance),
+            (&new_york_city, 5484158.985172745f64)
         );
 
         assert_eq!(results.next(), None);
+
+        let results: Vec<&GeoPoint> = tree.locate_within_distance(oxford.to_point().clone(), 65000.0f64).collect();
+
+        assert_eq_sorted!(results, vec![&churchdown, &random_plus_offset, &random]);
     }
 }
