@@ -1,16 +1,137 @@
 use geo::prelude::*;
 use geo::{Point, HaversineDistance};
 use rstar::{RTree, RTreeObject, PointDistance};
+use std::cmp::Ordering;
 
 use rstar::primitives::GeomWithData;
 
-use serde::{Serialize, Serializer, Deserialize};
-
-use std::collections::{HashMap, HashSet};
+use serde::{Serialize, Deserialize};
 
 use std::hash::{Hash, Hasher};
 
 use crate::data_types::{InvertedCalendarIndexTerm, IndexedConclusion};
+
+#[derive(Debug, PartialOrd, PartialEq, Eq, Clone)]
+pub enum GeoDistance {
+    Kilometers((u32, u32)), // (km, fractional (6dp))
+    Miles((u32, u32)),      // (ml, fractional (6dp))
+}
+
+impl GeoDistance {
+    const FRACTIONAL_PREC: f64 = 1000000.0;
+    const KM_TO_MILE:      f64 = 1.609344;
+    const MILE_TO_KM:      f64 = 0.621371;
+
+    pub fn to_kilometers_float(&self) -> f64 {
+        match self {
+            GeoDistance::Kilometers((km_int, fractional_int)) => {
+                Self::int_fractional_tuple_to_float((km_int, fractional_int))
+            },
+
+            GeoDistance::Miles(_) => {
+                self.to_kilometers().to_kilometers_float()
+            }
+        }
+    }
+
+    pub fn to_miles_float(&self) -> f64 {
+        match self {
+            GeoDistance::Kilometers(_) => {
+                self.to_miles().to_miles_float()
+            },
+
+            GeoDistance::Miles((mile_int, fractional_int)) => {
+                Self::int_fractional_tuple_to_float((mile_int, fractional_int))
+            },
+        }
+    }
+
+    pub fn new_from_kilometers_float(km_float: f64) -> Self {
+        GeoDistance::Kilometers(
+            Self::float_to_int_fractional_tuple(&km_float)
+        )
+    }
+
+    pub fn new_from_miles_float(mile_float: f64) -> Self {
+        GeoDistance::Miles(
+            Self::float_to_int_fractional_tuple(&mile_float)
+        )
+    }
+
+    pub fn to_kilometers(&self) -> Self {
+        match self {
+            GeoDistance::Kilometers(_) => {
+                self.clone()
+            },
+
+            GeoDistance::Miles((mile_int, fractional_int)) => {
+                let mile_float = Self::int_fractional_tuple_to_float((mile_int, fractional_int));
+
+                Self::new_from_kilometers_float(mile_float * Self::KM_TO_MILE)
+            },
+        }
+    }
+
+    pub fn to_miles(&self) -> Self {
+        match self {
+            GeoDistance::Kilometers((km_int, fractional_int)) => {
+                let km_float = Self::int_fractional_tuple_to_float((km_int, fractional_int));
+
+                Self::new_from_miles_float(km_float * Self::MILE_TO_KM)
+            },
+
+            GeoDistance::Miles((_miles, _ft)) => {
+                self.clone()
+            },
+        }
+    }
+
+    fn int_fractional_tuple_to_float(int_fractional_tuple: (&u32, &u32)) -> f64 {
+        let whole_int_float: f64      = num::cast(int_fractional_tuple.0.clone()).unwrap();
+        let fractional_int_float: f64 = num::cast(int_fractional_tuple.1.clone()).unwrap();
+
+        whole_int_float + (fractional_int_float / Self::FRACTIONAL_PREC)
+    }
+
+    fn float_to_int_fractional_tuple(value_float: &f64) -> (u32, u32) {
+        let mut value_float = value_float.abs();
+
+        if value_float.is_normal() == false {
+            value_float = 0f64;
+        };
+
+        let whole_int: u32      = num::cast(value_float.trunc()).unwrap();
+        let fractional_int: u32 = num::cast(value_float.fract() * Self::FRACTIONAL_PREC).unwrap();
+
+        (whole_int, fractional_int)
+    }
+}
+
+impl Ord for GeoDistance {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match (
+            self.to_kilometers(),
+            other.to_kilometers(),
+        ) {
+            (
+                GeoDistance::Kilometers((self_km_int,  self_fractional_int)),
+                GeoDistance::Kilometers((other_km_int, other_fractional_int)),
+            ) => {
+                let ordering = self_km_int.cmp(&other_km_int);
+
+                if ordering.is_eq() {
+                    self_fractional_int.cmp(&other_fractional_int)
+                } else {
+                    ordering
+                }
+            },
+
+            _ => {
+                panic!("Expected both self and other GeoDistance to convert to GeoDistance::Kilometers enum.");
+            }
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GeoPoint {
@@ -203,6 +324,8 @@ impl GeoSpatialCalendarIndex {
 #[cfg(test)]
 mod test {
     use super::*;
+
+    use std::collections::{HashMap, HashSet};
 
     use pretty_assertions_sorted::{assert_eq, assert_eq_sorted};
 
@@ -444,5 +567,45 @@ mod test {
         let results: Vec<&GeoPoint> = tree.locate_within_distance(oxford.to_point().clone(), 65000.0f64).collect();
 
         assert_eq_sorted!(results, vec![&churchdown, &random_plus_offset, &random]);
+    }
+
+    #[test]
+    fn test_geo_distance_enum() {
+        assert_eq!(
+            GeoDistance::new_from_kilometers_float(4321.123456789f64),
+            GeoDistance::Kilometers((4321u32, 123456u32)),
+        );
+
+        assert_eq!(
+            GeoDistance::new_from_miles_float(4321.123456789f64),
+            GeoDistance::Miles((4321u32, 123456u32)),
+        );
+
+        assert_eq!(
+            GeoDistance::new_from_kilometers_float(-4321.123456789f64),
+            GeoDistance::Kilometers((4321u32, 123456u32)),
+        );
+
+        assert_eq!(
+            GeoDistance::new_from_miles_float(f64::NAN),
+            GeoDistance::Miles((0u32, 0u32)),
+        );
+
+        assert_eq!(
+            GeoDistance::new_from_kilometers_float(1.5),
+            GeoDistance::Kilometers((1u32, 500000u32)),
+        );
+
+        let one_and_a_half_km = GeoDistance::new_from_kilometers_float(1.5);
+
+        assert_eq!(one_and_a_half_km.to_kilometers_float(), 1.5);
+        assert_eq!(one_and_a_half_km.to_miles_float(), 0.932056);
+        assert_eq!(one_and_a_half_km.to_miles(), GeoDistance::Miles((0u32, 932056u32)));
+
+        let one_and_a_half_miles = GeoDistance::new_from_miles_float(1.5);
+
+        assert_eq!(one_and_a_half_miles.to_miles_float(), 1.5);
+        assert_eq!(one_and_a_half_miles.to_kilometers_float(), 2.414016);
+        assert_eq!(one_and_a_half_miles.to_kilometers(), GeoDistance::Kilometers((2u32, 414016u32)));
     }
 }

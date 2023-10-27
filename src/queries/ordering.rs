@@ -1,10 +1,11 @@
-use crate::data_types::EventInstance;
+use crate::data_types::{EventInstance, GeoDistance};
+use std::cmp::Ordering;
 
-pub trait QueryResultOrdering: Ord + Eq + PartialEq {
+pub trait QueryResultOrdering: PartialOrd + PartialEq + Eq + Ord {
     fn new_from_event_instance(event_instance: &EventInstance) -> Self;
 }
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+#[derive(Debug, PartialEq, PartialOrd, Eq, Ord, Clone)]
 pub struct QueryResultDtstartOrdering(pub i64);
 
 impl QueryResultOrdering for QueryResultDtstartOrdering {
@@ -13,33 +14,32 @@ impl QueryResultOrdering for QueryResultDtstartOrdering {
     }
 }
 
-// TODO:
-// #[derive(Debug, PartialEq, Eq, Clone)]
-// pub struct QueryResultDtstartGeoDistOrdering(i64, Option<f64>);
-// 
-// impl Ord for QueryResultDtstartGeoDistOrdering {
-//     fn cmp(&self, other: &Self) -> Ordering {
-//         let key_comparison = self.key.cmp(&other.key);
+#[derive(Debug, PartialEq, Eq, Ord, Clone)]
+pub struct QueryResultDtstartGeoDistOrdering(i64, Option<GeoDistance>);
 
-//         if key_comparison.is_eq() {
-//             self.value.cmp(&other.value)
-//         } else {
-//             key_comparison
-//         }
-//     }
-// }
+impl PartialOrd for QueryResultDtstartGeoDistOrdering {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        let dtstart_comparison = self.0.partial_cmp(&other.0);
 
-// #[derive(Debug, PartialEq, Eq, Clone)]
-// pub struct QueryResultGeoDistDtstartOrdering(Option<f64>, i64);
+        if dtstart_comparison.is_some_and(|ordering| ordering.is_eq()) {
+            self.1.partial_cmp(&other.1)
+        } else {
+            dtstart_comparison
+        }
+    }
+}
 
-// impl Ord for QueryResultGeoDistDtstartOrdering {
-//     fn cmp(&self, other: &Self) -> Ordering {
-//         let key_comparison = self.key.cmp(&other.key);
+#[derive(Debug, PartialEq, Eq, Ord, Clone)]
+pub struct QueryResultGeoDistDtstartOrdering(Option<GeoDistance>, i64);
 
-//         if key_comparison.is_eq() {
-//             self.value.cmp(&other.value)
-//         } else {
-//             key_comparison
-//         }
-//     }
-// }
+impl PartialOrd for QueryResultGeoDistDtstartOrdering {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        let distance_comparison = self.0.partial_cmp(&other.0);
+
+        if distance_comparison.is_some_and(|ordering| ordering.is_eq()) {
+            self.1.partial_cmp(&other.1)
+        } else {
+            distance_comparison
+        }
+    }
+}
