@@ -186,7 +186,7 @@ impl ScheduleProperties {
         Ok(self)
     }
 
-    fn parse_rrule(&self) -> Result<RRuleSet, RRuleError> {
+    pub fn parse_rrule(&self) -> Result<RRuleSet, RRuleError> {
         let mut ical_parts = vec![];
 
         if self.dtstart.is_some() {

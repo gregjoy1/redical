@@ -28,6 +28,37 @@ pub enum ParseError {
     },
 }
 
+impl ParseError {
+    pub fn to_string(&self) -> String {
+        match self {
+            ParseError::InvalidTimezone(
+                string
+            ) => format!("`{string}` is not a valid timezone."),
+
+            ParseError::InvalidDateTime {
+                value,
+                property
+            } => format!("`{value}` is not a valid datetime format for `{property}`."),
+
+            ParseError::InvalidDateTimeFormat(
+                string
+            ) => format!("`{string}` is not a valid datetime format."),
+
+            ParseError::InvalidDateTimeInLocalTimezone {
+                value,
+                property
+            } => format!("{property}:{value} is not a valid datetime in local timezone."),
+
+            ParseError::DateTimeInLocalTimezoneIsAmbiguous {
+                value,
+                property,
+                date1,
+                date2,
+            } => format!("{property}:{value} is not a valid datetime in local timezone. This value is ambiguous and can be `{date1}` or `{date2}`")
+        }
+    }
+}
+
 lazy_static! {
     static ref DATESTR_RE: Regex =
         Regex::new(r"(?m)^([0-9]{4})([0-9]{2})([0-9]{2})(T([0-9]{2})([0-9]{2})([0-9]{2})(Z?))?$")
