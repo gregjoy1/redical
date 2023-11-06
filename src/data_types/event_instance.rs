@@ -286,6 +286,7 @@ mod test {
                         )
                     ])
                 ),
+                parsed_rrule_set: None,
             },
 
             indexed_properties:  IndexedProperties {
@@ -448,6 +449,7 @@ mod test {
                         )
                     ])
                 ),
+                parsed_rrule_set: None,
             },
 
             indexed_properties:  IndexedProperties {

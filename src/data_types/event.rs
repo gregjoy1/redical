@@ -146,25 +146,27 @@ impl EventOccurrenceOverrides {
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct ScheduleProperties {
-    pub rrule:       Option<HashSet<KeyValuePair>>,
-    pub exrule:      Option<HashSet<KeyValuePair>>,
-    pub rdate:       Option<HashSet<KeyValuePair>>,
-    pub exdate:      Option<HashSet<KeyValuePair>>,
-    pub duration:    Option<HashSet<KeyValuePair>>,
-    pub dtstart:     Option<HashSet<KeyValuePair>>,
-    pub dtend:       Option<HashSet<KeyValuePair>>,
+    pub rrule:            Option<HashSet<KeyValuePair>>,
+    pub exrule:           Option<HashSet<KeyValuePair>>,
+    pub rdate:            Option<HashSet<KeyValuePair>>,
+    pub exdate:           Option<HashSet<KeyValuePair>>,
+    pub duration:         Option<HashSet<KeyValuePair>>,
+    pub dtstart:          Option<HashSet<KeyValuePair>>,
+    pub dtend:            Option<HashSet<KeyValuePair>>,
+    pub parsed_rrule_set: Option<rrule::RRuleSet>,
 }
 
 impl ScheduleProperties {
     pub fn new() -> ScheduleProperties {
         ScheduleProperties {
-            rrule:       None,
-            exrule:      None,
-            rdate:       None,
-            exdate:      None,
-            duration:    None,
-            dtstart:     None,
-            dtend:       None,
+            rrule:            None,
+            exrule:           None,
+            rdate:            None,
+            exdate:           None,
+            duration:         None,
+            dtstart:          None,
+            dtend:            None,
+            parsed_rrule_set: None,
         }
     }
 
@@ -269,8 +271,12 @@ impl ScheduleProperties {
         }
     }
 
-    fn validate_rrule(&self) -> bool {
-        self.parse_rrule().is_ok()
+    fn build_parsed_rrule_set(&mut self) -> Result<(), rrule::RRuleError> {
+        let parsed_rrule_set = self.parse_rrule()?;
+
+        self.parsed_rrule_set = Some(parsed_rrule_set);
+
+        Ok(())
     }
 }
 
@@ -674,13 +680,14 @@ mod test {
             uuid: String::from("event_UUID"),
 
             schedule_properties: ScheduleProperties {
-                rrule:    None,
-                exrule:   None,
-                rdate:    None,
-                exdate:   None,
-                duration: None,
-                dtstart:  None,
-                dtend:    None,
+                rrule:            None,
+                exrule:           None,
+                rdate:            None,
+                exdate:           None,
+                duration:         None,
+                dtstart:          None,
+                dtend:            None,
+                parsed_rrule_set: None,
             },
 
             indexed_properties: IndexedProperties {
@@ -948,6 +955,7 @@ mod test {
                     duration:         None,
                     dtstart:          None,
                     dtend:            None,
+                    parsed_rrule_set: None,
                 },
 
                 indexed_properties:  IndexedProperties {
@@ -1013,6 +1021,7 @@ mod test {
                         ])
                     ),
                     dtend:            None,
+                    parsed_rrule_set: None,
                 },
 
                 indexed_properties:  IndexedProperties::new(),
@@ -1078,10 +1087,10 @@ mod test {
     }
 
     #[test]
-    fn test_validate_rrule() {
+    fn test_build_parsed_rrule_set() {
         let ical: &str = "RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH DTSTART:16010101T020000";
 
-        let parsed_event = Event::parse_ical("event_UUID", ical).unwrap();
+        let mut parsed_event = Event::parse_ical("event_UUID", ical).unwrap();
 
         assert_eq!(
             parsed_event,
@@ -1110,6 +1119,7 @@ mod test {
                         ])
                     ),
                     dtend:            None,
+                    parsed_rrule_set: None,
                 },
 
                 indexed_properties:  IndexedProperties::new(),
@@ -1124,11 +1134,11 @@ mod test {
             }
         );
 
-        assert!(parsed_event.schedule_properties.validate_rrule());
+        assert!(parsed_event.schedule_properties.build_parsed_rrule_set().is_ok());
 
         let ical: &str = "RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH";
 
-        let parsed_event = Event::parse_ical("event_UUID", ical).unwrap();
+        let mut parsed_event = Event::parse_ical("event_UUID", ical).unwrap();
 
         assert_eq!(
             parsed_event,
@@ -1150,6 +1160,7 @@ mod test {
                     duration:         None,
                     dtstart:          None,
                     dtend:            None,
+                    parsed_rrule_set: None,
                 },
 
                 indexed_properties:  IndexedProperties::new(),
@@ -1164,7 +1175,7 @@ mod test {
             }
         );
 
-        assert_eq!(parsed_event.schedule_properties.validate_rrule(), false);
+        assert!(parsed_event.schedule_properties.build_parsed_rrule_set().is_err());
     }
 
     #[test]
@@ -1250,6 +1261,7 @@ mod test {
                             ])
                         ),
                         dtend:            None,
+                        parsed_rrule_set: None,
                     },
 
                     indexed_properties:  IndexedProperties::new(),
@@ -1367,6 +1379,7 @@ mod test {
                             ])
                         ),
                         dtend:            None,
+                        parsed_rrule_set: None,
                     },
 
                     indexed_properties:  IndexedProperties::new(),
@@ -1427,6 +1440,7 @@ mod test {
                     duration:         None,
                     dtstart:          None,
                     dtend:            None,
+                    parsed_rrule_set: None,
                 },
 
                 indexed_properties:  IndexedProperties {
@@ -1503,6 +1517,7 @@ mod test {
                         ])
                     ),
                     dtend:            None,
+                    parsed_rrule_set: None,
                 },
 
                 indexed_properties:  IndexedProperties::new(),

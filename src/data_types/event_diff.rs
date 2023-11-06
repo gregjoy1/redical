@@ -242,6 +242,7 @@ mod test {
                     ])
                 ),
                 dtend:            None,
+                parsed_rrule_set: None,
             },
 
             indexed_properties: IndexedProperties {
@@ -371,6 +372,7 @@ mod test {
                     ])
                 ),
                 dtend:            None,
+                parsed_rrule_set: None,
             },
 
             indexed_properties: IndexedProperties {
