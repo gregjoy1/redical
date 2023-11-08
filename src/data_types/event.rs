@@ -271,7 +271,7 @@ impl ScheduleProperties {
         }
     }
 
-    fn build_parsed_rrule_set(&mut self) -> Result<(), rrule::RRuleError> {
+    pub fn build_parsed_rrule_set(&mut self) -> Result<(), rrule::RRuleError> {
         let parsed_rrule_set = self.parse_rrule()?;
 
         self.parsed_rrule_set = Some(parsed_rrule_set);

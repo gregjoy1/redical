@@ -5,7 +5,7 @@ use serde::{Serialize, Deserialize};
 use crate::parsers::ical_properties::{parse_properties, ParsedProperty};
 use crate::parsers::ical_common::ParsedValue;
 
-use crate::parsers::datetime::{datestring_to_date, ParseError};
+use crate::parsers::datetime::{extract_datetime_from_str, extract_and_parse_timezone_from_str, datestring_to_date, ParseError};
 
 use crate::data_types::utils::KeyValuePair;
 
@@ -37,7 +37,10 @@ impl EventOccurrenceOverride {
 
     pub fn get_dtend_timestamp(&self) -> Result<Option<i64>, ParseError> {
         if let Some(datetime) = self.dtend.as_ref() {
-            return match datestring_to_date(&datetime.to_string(), None, "DTEND") {
+            let datetime_str = extract_datetime_from_str(&datetime.to_string())?;
+            let timezone = extract_and_parse_timezone_from_str(&datetime.to_string())?;
+
+            return match datestring_to_date(&datetime_str, timezone, "DTEND") {
                 Ok(datetime) => Ok(Some(datetime.timestamp())),
                 Err(error) => Err(error),
             };

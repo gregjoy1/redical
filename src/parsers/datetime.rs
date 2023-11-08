@@ -1,4 +1,43 @@
-//! DateTime parsing utility function (and all dependencies) extracted and copied out of the rust-rrule crate.
+lazy_static! {
+    static ref FLOATING_DATESTR_RE: Regex =
+        Regex::new(r"(?P<datetime>(?P<date>[0-9]{4}[0-9]{2}[0-9]{2})(?P<time>T[0-9]{2}[0-9]{2}[0-9]{2}Z?)?)")
+            .expect("FLOATING_DATESTR_RE regex failed");
+}
+
+pub fn extract_datetime_from_str(val: &str) -> Result<String, ParseError> {
+    if let Some(captures) = FLOATING_DATESTR_RE.captures(val) {
+        Ok(
+            captures["datetime"].to_string()
+        )
+    } else {
+        Err(
+            ParseError::InvalidDateTimeFormat(val.into())
+        )
+    }
+}
+
+lazy_static! {
+    static ref TZID_TZSTR_RE: Regex =
+        Regex::new(r";TZID=(?P<timezone>([A-Za-z_]+/)?[A-Za-z0-9+_-]+):")
+            .expect("FLOATING_DATESTR_RE regex failed");
+}
+
+pub fn extract_and_parse_timezone_from_str(val: &str) -> Result<Option<Tz>, ParseError> {
+    if let Some(captures) = TZID_TZSTR_RE.captures(val) {
+        let timezone_capture = &captures["timezone"];
+
+        return match parse_timezone(timezone_capture) {
+            Ok(parsed_timezone) => Ok(Some(parsed_timezone)),
+            Err(error) => Err(error),
+        };
+    }
+
+    Ok(None)
+}
+
+// DateTime parsing utility function below (and all dependencies) extracted and copied out of the rust-rrule
+// crate.
+
 // As the rust-rrule crate only accepts and parses iCal DTSTART, RDATE, and EXDATE properties, we are unable
 // to parse DTEND, and DURATION properties (either used in determining a duration). Unfortunately the parser
 // used is a private submodule in the rust-rrule crate and inaccessible to us, so we had to copy and extract
@@ -388,5 +427,76 @@ mod tests {
             let res = datestring_to_date(datetime_str, timezone, "DTSTART");
             assert!(res.is_err());
         }
+    }
+
+    #[test]
+    fn test_extract_datetime_from_str() {
+        assert_eq!(
+            extract_datetime_from_str("DTEND:19700101T000830Z "),
+            Ok(String::from("19700101T000830Z"))
+        );
+
+        assert_eq!(
+            extract_datetime_from_str("DTEND:19700101T000830 ++"),
+            Ok(String::from("19700101T000830"))
+        );
+
+        assert_eq!(
+            extract_datetime_from_str("DTEND:19700101_"),
+            Ok(String::from("19700101"))
+        );
+
+        assert_eq!(
+            extract_datetime_from_str("DTEND:197001_"),
+            Err(ParseError::InvalidDateTimeFormat(String::from("DTEND:197001_")))
+        );
+    }
+
+    #[test]
+    fn test_extract_and_parse_timezone_from_str() {
+        assert_eq!(
+            extract_and_parse_timezone_from_str("DTEND;TZID=America/New_York:19700101T000830Z"),
+            Ok(Some(Tz::America__New_York))
+        );
+
+        assert_eq!(
+            extract_and_parse_timezone_from_str("DTEND;TZID=EST5EDT:19700101T000830Z"),
+            Ok(Some(Tz::EST5EDT))
+        );
+
+        assert_eq!(
+            extract_and_parse_timezone_from_str("DTEND;TZID=Etc/GMT:19700101T000830Z"),
+            Ok(Some(Tz::Etc__GMT))
+        );
+
+        assert_eq!(
+            extract_and_parse_timezone_from_str("DTEND;TZID=Etc/GMT+0:19700101T000830Z"),
+            Ok(Some(Tz::Etc__GMTPlus0))
+        );
+
+        assert_eq!(
+            extract_and_parse_timezone_from_str("DTEND;TZID=Etc/GMT-6:19700101T000830Z"),
+            Ok(Some(Tz::Etc__GMTMinus6))
+        );
+
+        assert_eq!(
+            extract_and_parse_timezone_from_str("DTEND;TZID=UTC:19700101T000830Z"),
+            Ok(Some(Tz::UTC))
+        );
+
+        assert_eq!(
+            extract_and_parse_timezone_from_str("DTEND;TZID=Zulu:19700101T000830Z"),
+            Ok(Some(Tz::Zulu))
+        );
+
+        assert_eq!(
+            extract_and_parse_timezone_from_str("DTEND:197001_"),
+            Ok(None)
+        );
+
+        assert_eq!(
+            extract_and_parse_timezone_from_str("DTEND;TZID=Etc/GAAss:19700101T000830Z"),
+            Err(ParseError::InvalidTimezone(String::from("Etc/GAAss")))
+        );
     }
 }
