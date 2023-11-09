@@ -2,7 +2,7 @@ use chrono::{TimeZone, Utc};
 
 use std::collections::{HashMap, HashSet, BTreeSet};
 
-use crate::data_types::{Event, EventOccurrenceOverride, KeyValuePair, IndexedConclusion};
+use crate::data_types::{Event, EventOccurrenceOverride, KeyValuePair, IndexedConclusion, GeoPoint};
 
 use crate::data_types::event_occurrence_iterator::{EventOccurrenceIterator, LowerBoundFilterCondition, UpperBoundFilterCondition};
 
@@ -12,6 +12,7 @@ pub struct EventInstance {
     pub dtstart_timestamp:  i64,
     pub dtend_timestamp:    i64,
     pub duration:           i64,
+    pub geo:                Option<GeoPoint>,
     pub categories:         Option<HashSet<String>>,
     pub related_to:         Option<HashMap<String, HashSet<String>>>,
     pub passive_properties: BTreeSet<KeyValuePair>,
@@ -25,6 +26,7 @@ impl EventInstance {
             dtstart_timestamp:  dtstart_timestamp.to_owned(),
             dtend_timestamp:    Self::get_dtend_timestamp(dtstart_timestamp, event, event_occurrence_override),
             duration:           Self::get_duration(dtstart_timestamp, event, event_occurrence_override),
+            geo:                Self::get_geo(event, event_occurrence_override),
             categories:         Self::get_categories(event, event_occurrence_override),
             related_to:         Self::get_related_to(event, event_occurrence_override),
             passive_properties: Self::get_passive_properties(event, event_occurrence_override),
@@ -135,6 +137,16 @@ impl EventInstance {
        }
 
        0
+    }
+
+    fn get_geo(event: &Event, event_occurrence_override: Option<&EventOccurrenceOverride>) -> Option<GeoPoint> {
+        if let Some(event_occurrence_override) = event_occurrence_override {
+            if event_occurrence_override.geo.is_some() {
+                return event_occurrence_override.geo.clone();
+            }
+        }
+
+        event.indexed_properties.geo.clone()
     }
 
     fn get_categories(event: &Event, event_occurrence_override: Option<&EventOccurrenceOverride>) -> Option<HashSet<String>> {
@@ -353,6 +365,7 @@ mod test {
                 dtstart_timestamp:  100,
                 dtend_timestamp:    160,
                 duration:           60,
+                geo:                None,
                 categories:         Some(
                     HashSet::from([
                         String::from("CATEGORY_ONE"),
@@ -560,6 +573,7 @@ mod test {
                 dtstart_timestamp:  100,
                 dtend_timestamp:    160,
                 duration:           60,
+                geo:                None,
                 categories:         Some(
                     HashSet::from([
                         String::from("CATEGORY_ONE"),

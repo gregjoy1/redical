@@ -1,26 +1,19 @@
 use std::time::Duration;
-use std::marker::PhantomData;
 
 use crate::data_types::{KeyValuePair, InvertedCalendarIndexTerm, Calendar, IndexedConclusion};
 
 use crate::queries::results::QueryResults;
-use crate::queries::ordering::{QueryResultDtstartOrdering, QueryResultOrdering};
+use crate::queries::ordering::QueryOrderingCondition;
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct Query<O>
-where
-    O: QueryResultOrdering,
-{
-    where_conditional: Option<WhereConditional>,
-    result_ordering:   PhantomData<O>,
-    limit:             i64,
+pub struct Query {
+    where_conditional:  Option<WhereConditional>,
+    ordering_condition: QueryOrderingCondition,
+    limit:              i64,
 }
 
-impl<O> Query<O>
-where
-    O: QueryResultOrdering,
-{
-    pub fn execute(&mut self, calendar: &Calendar) -> Result<QueryResults<O>, String> {
+impl Query {
+    pub fn execute(&mut self, calendar: &Calendar) -> Result<QueryResults, String> {
         let where_conditional_result = 
             if let Some(where_conditional) = &mut self.where_conditional {
                 Some(where_conditional.execute(calendar)?)
@@ -28,22 +21,21 @@ where
                 None
             };
 
-        let mut query_results = QueryResults::<O>::new();
+        let mut query_results = QueryResults::new(self.ordering_condition.clone());
+
+        // TODO: implement EventInstance extrapolation...
 
         Ok(query_results)
     }
 }
 
-impl<O> Default for Query<O>
-where
-    O: QueryResultOrdering,
-{
+impl Default for Query {
 
     fn default() -> Self {
         Query {
-            where_conditional: None,
-            result_ordering:   PhantomData,
-            limit:             50,
+            where_conditional:  None,
+            ordering_condition: QueryOrderingCondition::DtStart,
+            limit:              50,
         }
     }
 
