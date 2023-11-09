@@ -48,6 +48,10 @@ pub fn redical_event_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
         event.overrides.rebase_overrides(&event_diff).map_err(|error| RedisError::String(error.to_string()))?;
     }
 
+    event.schedule_properties
+         .build_parsed_rrule_set()
+         .map_err(|error| RedisError::String(error.to_string()))?;
+
     event.rebuild_occurrence_cache(65_535)
          .map_err(|error| RedisError::String(error.to_string()))?;
 

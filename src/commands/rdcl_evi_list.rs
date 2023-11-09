@@ -18,23 +18,41 @@ pub fn redical_event_instance_list(ctx: &Context, args: Vec<RedisString>) -> Red
 
     ctx.log_debug(format!("rdcl.evi_list: calendar_uuid: {calendar_uuid} event_uuid: {event_uuid}").as_str());
 
-    if let Some(calendar) = calendar_key.get_value::<Calendar>(&CALENDAR_DATA_TYPE)? {
-        if let Some(event) = calendar.events.get(&String::from(event_uuid.clone())) {
-            return Ok(
-                RedisValue::Array(
-                    EventInstanceIterator::new(event, None).map(|event_instance| {
-                        RedisValue::Array(
-                            event_instance.serialize_to_ical()
-                                 .iter()
-                                 .map(|ical_part| RedisValue::SimpleString(ical_part.to_owned()))
-                                 .collect()
-                        )
-                    })
-                    .collect()
-                )
-            );
-        }
-    }
+    let Some(calendar) = calendar_key.get_value::<Calendar>(&CALENDAR_DATA_TYPE)? else {
+        return Ok(RedisValue::Null);
+    };
 
-    Ok(RedisValue::Null)
+    let Some(event) = calendar.events.get(&String::from(event_uuid.clone())) else {
+        return Ok(RedisValue::Null);
+    };
+
+    let event_instance_iterator =
+        EventInstanceIterator::new(
+            event,
+            None,
+            None,
+            None,
+            None,
+        );
+
+    match event_instance_iterator {
+        Ok(event_instance_iterator) => {
+            let event_instances =
+                event_instance_iterator.map(|event_instance| {
+                    RedisValue::Array(
+                        event_instance.serialize_to_ical()
+                             .iter()
+                             .map(|ical_part| RedisValue::SimpleString(ical_part.to_owned()))
+                             .collect()
+                    )
+                })
+                .collect();
+
+            Ok(RedisValue::Array(event_instances))
+        },
+
+        Err(error) => {
+            Err(RedisError::String(error))
+        },
+    }
 }

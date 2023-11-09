@@ -4,7 +4,7 @@ use std::collections::{HashMap, HashSet, BTreeSet};
 
 use crate::data_types::{Event, EventOccurrenceOverride, KeyValuePair, IndexedConclusion};
 
-use crate::data_types::occurrence_cache::{OccurrenceCacheIterator, OccurrenceCacheValue};
+use crate::data_types::event_occurrence_iterator::{EventOccurrenceIterator, LowerBoundFilterCondition, UpperBoundFilterCondition};
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct EventInstance {
@@ -191,26 +191,33 @@ impl EventInstance {
 #[derive(Debug)]
 pub struct EventInstanceIterator<'a> {
     event:         &'a Event,
-    internal_iter: Option<OccurrenceCacheIterator<'a>>,
+    internal_iter: EventOccurrenceIterator<'a>,
 }
 
 impl<'a> EventInstanceIterator<'a> {
-    pub fn new(event: &'a Event, filtering_indexed_conclusion: Option<&'a IndexedConclusion>) -> Self {
-        let internal_iter = event.occurrence_cache.as_ref().and_then(|occurrence_cache| {
-            Some(
-                OccurrenceCacheIterator::new(
-                    &occurrence_cache,
-                    None,
-                    None,
-                    filtering_indexed_conclusion.cloned(),
-                )
-            )
-        });
+    pub fn new(
+        event:                        &'a Event,
+        limit:                        Option<u16>,
+        filter_from:                  Option<LowerBoundFilterCondition>,
+        filter_until:                 Option<UpperBoundFilterCondition>,
+        filtering_indexed_conclusion: Option<IndexedConclusion>,
+    ) -> Result<EventInstanceIterator<'a>, String> {
+        let internal_iter =
+            EventOccurrenceIterator::new(
+                &event.schedule_properties,
+                &event.overrides,
+                limit,
+                filter_from,
+                filter_until,
+                filtering_indexed_conclusion.clone(),
+            )?;
 
-        EventInstanceIterator {
-            event,
-            internal_iter,
-        }
+        Ok(
+            EventInstanceIterator {
+                event,
+                internal_iter,
+            }
+        )
     }
 
 }
@@ -219,30 +226,21 @@ impl<'a> Iterator for EventInstanceIterator<'a> {
     type Item = EventInstance;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match &mut self.internal_iter {
-            Some(iterator) => {
-                // Filter occurrence index iterator timestamps according to IndexedConclusion if
-                // present, else include all.
-                iterator.next()
-                        .and_then(
-                            |(dtstart_timestamp, _, occurrence_cache_value)| {
-                                match occurrence_cache_value {
-                                    OccurrenceCacheValue::Occurrence => {
-                                        Some(EventInstance::new(&dtstart_timestamp, self.event, None))
-                                    },
-
-                                    OccurrenceCacheValue::Override(_) => {
-                                        let event_occurrence_override = self.event.overrides.current.get(&dtstart_timestamp);
-
-                                        Some(EventInstance::new(&dtstart_timestamp, self.event, event_occurrence_override))
-                                    },
-                                }
-                            }
+        // Filter occurrence index iterator timestamps according to IndexedConclusion if
+        // present, else include all.
+        self.internal_iter
+            .next()
+            .and_then(
+                |(dtstart_timestamp, dtend_timestamp, event_occurrence_override)| {
+                    Some(
+                        EventInstance::new(
+                            &dtstart_timestamp,
+                            self.event,
+                            event_occurrence_override.as_ref(),
                         )
-            },
-
-            None => None
-        }
+                    )
+                }
+            )
     }
 }
 
@@ -639,6 +637,7 @@ mod test {
         ).unwrap();
 
         assert!(event.rebuild_occurrence_cache(65_535).is_ok());
+        assert!(event.schedule_properties.build_parsed_rrule_set().is_ok());
 
         assert!(
             event.override_occurrence(
@@ -754,7 +753,14 @@ mod test {
         ]);
 
         // Testing without any filtered index conclusion
-        let mut event_instance_iterator = EventInstanceIterator::new(&event, None);
+        let mut event_instance_iterator =
+            EventInstanceIterator::new(
+                &event,
+                None,
+                None,
+                None,
+                None,
+            ).unwrap();
 
         assert_eq!(
             event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
@@ -784,7 +790,14 @@ mod test {
         assert_eq!(event_instance_iterator.next(), None);
 
         // Testing with filtered IndexedConclusion::Include without exceptions
-        let mut event_instance_iterator = EventInstanceIterator::new(&event, Some(&IndexedConclusion::Include(None)));
+        let mut event_instance_iterator =
+            EventInstanceIterator::new(
+                &event,
+                None,
+                None,
+                None,
+                Some(IndexedConclusion::Include(None)),
+            ).unwrap();
 
         assert_eq!(
             event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
@@ -815,9 +828,24 @@ mod test {
 
 
         // Testing with filtered IndexedConclusion::Include with exceptions
-        let indexed_conclusion = IndexedConclusion::Include(Some(HashSet::from([1609871400, 1611081000, 1612290600])));
-
-        let mut event_instance_iterator = EventInstanceIterator::new(&event, Some(&indexed_conclusion));
+        let mut event_instance_iterator =
+            EventInstanceIterator::new(
+                &event,
+                None,
+                None,
+                None,
+                Some(
+                    IndexedConclusion::Include(
+                        Some(
+                            HashSet::from([
+                                1609871400,
+                                1611081000,
+                                1612290600
+                            ])
+                        )
+                    )
+                ),
+            ).unwrap();
 
         assert_eq!(
             event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
@@ -833,14 +861,35 @@ mod test {
 
         // Testing with filtered IndexedConclusion::Exclude without exceptions
         assert_eq!(
-            EventInstanceIterator::new(&event, Some(&IndexedConclusion::Exclude(None))).next(),
+            EventInstanceIterator::new(
+                &event,
+                None,
+                None,
+                None,
+                Some(IndexedConclusion::Exclude(None)),
+            ).unwrap().next(),
             None
         );
 
         // Testing with filtered IndexedConclusion::Exclude with exceptions
-        let indexed_conclusion = IndexedConclusion::Exclude(Some(HashSet::from([1609871400, 1611081000, 1612290600])));
-
-        let mut event_instance_iterator = EventInstanceIterator::new(&event, Some(&indexed_conclusion));
+        let mut event_instance_iterator =
+            EventInstanceIterator::new(
+                &event,
+                None,
+                None,
+                None,
+                Some(
+                    IndexedConclusion::Exclude(
+                        Some(
+                            HashSet::from([
+                                1609871400,
+                                1611081000,
+                                1612290600,
+                            ])
+                        )
+                    )
+                ),
+            ).unwrap();
 
         assert_eq!(
             event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
