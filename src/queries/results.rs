@@ -1,4 +1,4 @@
-use std::collections::BinaryHeap;
+use std::collections::BTreeSet;
 use std::cmp::Ordering;
 
 use crate::data_types::EventInstance;
@@ -7,14 +7,14 @@ use super::ordering::{QueryOrderingCondition, QueryResultOrdering};
 
 pub struct QueryResults {
     pub ordering_condition: QueryOrderingCondition,
-    pub results:            BinaryHeap<QueryResult>,
+    pub results:            BTreeSet<QueryResult>,
 }
 
 impl QueryResults {
     pub fn new(ordering_condition: QueryOrderingCondition) -> QueryResults {
         QueryResults {
             ordering_condition,
-            results: BinaryHeap::new(),
+            results: BTreeSet::new(),
         }
     }
 
@@ -26,7 +26,7 @@ impl QueryResults {
             event_instance,
         };
 
-        self.results.push(result);
+        self.results.insert(result);
     }
 }
 
@@ -123,7 +123,7 @@ mod test {
         query_results.push(build_event_instance_four());
 
         assert_eq!(
-            query_results.results.clone().into_sorted_vec(),
+            query_results.results.clone().into_iter().collect::<Vec<QueryResult>>(),
             vec![
                 QueryResult {
                     result_ordering: QueryResultOrdering::DtStart(400),
@@ -135,7 +135,7 @@ mod test {
         query_results.push(build_event_instance_one());
 
         assert_eq!(
-            query_results.results.clone().into_sorted_vec(),
+            query_results.results.clone().into_iter().collect::<Vec<QueryResult>>(),
             vec![
                 QueryResult {
                     result_ordering: QueryResultOrdering::DtStart(100),
@@ -152,7 +152,7 @@ mod test {
         query_results.push(build_event_instance_two());
 
         assert_eq!(
-            query_results.results.clone().into_sorted_vec(),
+            query_results.results.clone().into_iter().collect::<Vec<QueryResult>>(),
             vec![
                 QueryResult {
                     result_ordering: QueryResultOrdering::DtStart(100),
@@ -188,7 +188,7 @@ mod test {
         query_results.push(build_event_instance_four());
 
         assert_eq!(
-            query_results.results.clone().into_sorted_vec(),
+            query_results.results.clone().into_iter().collect::<Vec<QueryResult>>(),
             vec![
                 QueryResult {
                     result_ordering: QueryResultOrdering::DtStartGeoDist(400, Some(GeoDistance::Kilometers((64595, 658072)))),
@@ -200,7 +200,7 @@ mod test {
         query_results.push(build_event_instance_one());
 
         assert_eq!(
-            query_results.results.clone().into_sorted_vec(),
+            query_results.results.clone().into_iter().collect::<Vec<QueryResult>>(),
             vec![
                 QueryResult {
                     result_ordering: QueryResultOrdering::DtStartGeoDist(100, None),
@@ -217,7 +217,7 @@ mod test {
         query_results.push(build_event_instance_two());
 
         assert_eq!(
-            query_results.results.clone().into_sorted_vec(),
+            query_results.results.clone().into_iter().collect::<Vec<QueryResult>>(),
             vec![
                 QueryResult {
                     result_ordering: QueryResultOrdering::DtStartGeoDist(100, None),
@@ -253,7 +253,7 @@ mod test {
         query_results.push(build_event_instance_four());
 
         assert_eq!(
-            query_results.results.clone().into_sorted_vec(),
+            query_results.results.clone().into_iter().collect::<Vec<QueryResult>>(),
             vec![
                 QueryResult {
                     result_ordering: QueryResultOrdering::GeoDistDtStart(Some(GeoDistance::Kilometers((64595, 658072))), 400),
@@ -265,7 +265,7 @@ mod test {
         query_results.push(build_event_instance_one());
 
         assert_eq!(
-            query_results.results.clone().into_sorted_vec(),
+            query_results.results.clone().into_iter().collect::<Vec<QueryResult>>(),
             vec![
                 QueryResult {
                     result_ordering: QueryResultOrdering::GeoDistDtStart(Some(GeoDistance::Kilometers((64595, 658072))), 400),
@@ -282,7 +282,7 @@ mod test {
         query_results.push(build_event_instance_two());
 
         assert_eq!(
-            query_results.results.clone().into_sorted_vec(),
+            query_results.results.clone().into_iter().collect::<Vec<QueryResult>>(),
             vec![
                 QueryResult {
                     result_ordering: QueryResultOrdering::GeoDistDtStart(Some(GeoDistance::Kilometers((64595, 658072))), 400),

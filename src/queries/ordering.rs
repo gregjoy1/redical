@@ -53,31 +53,31 @@ impl QueryOrderingCondition {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Ord, Clone)]
+#[derive(Debug, PartialOrd, PartialEq, Eq, Clone)]
 pub enum QueryResultOrdering {
     DtStart(i64),
     DtStartGeoDist(i64, Option<GeoDistance>),
     GeoDistDtStart(Option<GeoDistance>, i64),
 }
 
-impl PartialOrd for QueryResultOrdering {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+impl Ord for QueryResultOrdering {
+    fn cmp(&self, other: &Self) -> Ordering {
         match (&self, &other) {
             (
                 QueryResultOrdering::DtStart(self_dtstart_timestamp),
                 QueryResultOrdering::DtStart(other_dtstart_timestamp),
             ) => {
-                self_dtstart_timestamp.partial_cmp(&other_dtstart_timestamp)
+                self_dtstart_timestamp.cmp(&other_dtstart_timestamp)
             },
 
             (
                 QueryResultOrdering::DtStartGeoDist(self_dtstart_timestamp,  self_geo_distance),
                 QueryResultOrdering::DtStartGeoDist(other_dtstart_timestamp, other_geo_distance),
             ) => {
-                let dtstart_timestamp_comparison = self_dtstart_timestamp.partial_cmp(&other_dtstart_timestamp);
+                let dtstart_timestamp_comparison = self_dtstart_timestamp.cmp(&other_dtstart_timestamp);
 
-                if dtstart_timestamp_comparison.is_some_and(|ordering| ordering.is_eq()) {
-                    self_geo_distance.partial_cmp(&other_geo_distance)
+                if dtstart_timestamp_comparison.is_eq() {
+                    self_geo_distance.cmp(&other_geo_distance)
                 } else {
                     dtstart_timestamp_comparison
                 }
@@ -94,24 +94,24 @@ impl PartialOrd for QueryResultOrdering {
                             Some(self_geo_distance),
                             Some(other_geo_distance),
                         ) => {
-                            self_geo_distance.partial_cmp(&other_geo_distance)
+                            self_geo_distance.cmp(&other_geo_distance)
                         },
 
                         (Some(_), None) => {
-                            Some(Ordering::Less)
+                            Ordering::Less
                         },
 
                         (None, Some(_)) => {
-                            Some(Ordering::Greater)
+                            Ordering::Greater
                         },
 
                         (None, None) => {
-                            Some(Ordering::Equal)
+                            Ordering::Equal
                         },
                     };
 
-                if geo_distance_comparison.is_some_and(|ordering| ordering.is_eq()) {
-                    self_dtstart_timestamp.partial_cmp(&other_dtstart_timestamp)
+                if geo_distance_comparison.is_eq() {
+                    self_dtstart_timestamp.cmp(&other_dtstart_timestamp)
                 } else {
                     geo_distance_comparison
                 }
