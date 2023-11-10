@@ -3,7 +3,7 @@ use std::cmp::Ordering;
 
 use crate::data_types::EventInstance;
 
-use super::ordering::{OrderingCondition, QueryResultOrdering};
+use super::results_ordering::{OrderingCondition, QueryResultOrdering};
 
 pub struct QueryResults {
     pub ordering_condition: OrderingCondition,
