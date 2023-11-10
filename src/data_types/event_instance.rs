@@ -285,105 +285,34 @@ impl<'a> Iterator for EventInstanceIterator<'a> {
 mod test {
     use super::*;
 
-    use std::collections::BTreeMap;
+    use crate::data_types::{PassiveProperties, IndexedProperties, ScheduleProperties, EventOccurrenceOverrides};
 
-    use crate::data_types::{PassiveProperties, IndexedProperties, ScheduleProperties, EventOccurrenceOverrides, OccurrenceCacheValue};
-
-    use crate::parsers::datetime::datestring_to_date;
 
     use pretty_assertions_sorted::{assert_eq, assert_eq_sorted};
+    use crate::testing::utils::{build_event_from_ical, build_event_and_overrides_from_ical};
 
     #[test]
     fn test_event_instance_without_override() {
-        let event = Event {
-            uuid: String::from("event_UUID"),
-
-            // Ends 60 seconds after it starts.
-            schedule_properties: ScheduleProperties {
-                rrule:            None,
-                exrule:           None,
-                rdate:            None,
-                exdate:           None,
-                duration:         None,
-                dtstart:          Some(
-                    HashSet::from([
-                        KeyValuePair::new(
-                            String::from("DTSTART"),
-                            String::from(":20201231T183000Z"),
-                        )
-                    ])
-                ),
-                dtend:            Some(
-                    HashSet::from([
-                        KeyValuePair::new(
-                            String::from("DTEND"),
-                            String::from(":20201231T183100Z"),
-                        )
-                    ])
-                ),
-                parsed_rrule_set: None,
-            },
-
-            indexed_properties:  IndexedProperties {
-                geo:              None,
-                categories:       Some(
-                    HashSet::from([
-                        String::from("CATEGORY_ONE"),
-                        String::from("CATEGORY_TWO"),
-                        String::from("CATEGORY THREE")
-                    ])
-                ),
-                related_to: Some(
-                    HashMap::from([
-                        (
-                            String::from("X-IDX-CAL"),
-                            HashSet::from([
-                                String::from("redical//IndexedCalendar_One"),
-                                String::from("redical//IndexedCalendar_Two"),
-                                String::from("redical//IndexedCalendar_Three"),
-                            ])
-                        ),
-                        (
-                            String::from("PARENT"),
-                            HashSet::from([
-                                String::from("ParentUUID_One"),
-                                String::from("ParentUUID_Two"),
-                            ])
-                        ),
-                        (
-                            String::from("CHILD"),
-                            HashSet::from([
-                                String::from("ChildUUID"),
-                            ])
-                        )
-                    ])
-                ),
-            },
-
-            passive_properties:  PassiveProperties {
-                properties: BTreeSet::from([
-                                KeyValuePair::new(
-                                    String::from("DESCRIPTION"),
-                                    String::from(":Event description text."),
-                                ),
-
-                                KeyValuePair::new(
-                                    String::from("LOCATION"),
-                                    String::from(":Event address text."),
-                                ),
-                ])
-            },
-
-            overrides:           EventOccurrenceOverrides::new(),
-            occurrence_cache:    None,
-            indexed_categories:  None,
-            indexed_related_to:  None,
-            indexed_geo:         None,
-        };
+        let event = build_event_from_ical(
+            "event_UUID",
+            vec![
+                "DTSTART:20201231T183000Z",
+                "DTEND:20201231T183100Z",
+                "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,CATEGORY THREE",
+                "RELATED-TO;RELTYPE=CHILD:ChildUUID",
+                "RELATED-TO;RELTYPE=PARENT:ParentUUID_One",
+                "RELATED-TO;RELTYPE=PARENT:ParentUUID_Two",
+                "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_One",
+                "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Three",
+                "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Two",
+                "DESCRIPTION:Event description text.",
+                "LOCATION:Event address text.",
+            ]
+        );
 
         let event_instance = EventInstance::new(&100, &event, None);
 
-        assert_eq!(
+        assert_eq_sorted!(
             event_instance,
             EventInstance {
                 uuid:               String::from("event_UUID"),
@@ -459,144 +388,48 @@ mod test {
 
     #[test]
     fn test_event_instance_with_override() {
-        let event = Event {
-            uuid: String::from("event_UUID"),
+        let event = build_event_and_overrides_from_ical(
+            "event_UUID",
+            vec![
+                "DTSTART:20201231T183000Z",
+                "DTEND:20201231T183100Z", // Ends 60 seconds after it starts.
+                "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,CATEGORY THREE",
+                "RELATED-TO;RELTYPE=CHILD:ChildUUID",
+                "RELATED-TO;RELTYPE=PARENT:ParentUUID_One",
+                "RELATED-TO;RELTYPE=PARENT:ParentUUID_Two",
+                "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_One",
+                "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Three",
+                "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Two",
+                "DESCRIPTION:Event description text.",
+                "LOCATION:Event address text.",
+            ],
+            vec![
+                (
+                    "20201231T183000Z",
+                    vec![
+                        "LOCATION:Overridden Event address text.",
+                        "CATEGORIES:CATEGORY_ONE,CATEGORY_FOUR",
+                        "RELATED-TO;RELTYPE=CHILD:ChildUUID",
+                        "RELATED-TO;RELTYPE=PARENT:ParentUUID_Three",
+                        "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_One",
+                        "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Four",
+                    ],
+                )
+            ],
+        );
 
-            // Ends 60 seconds after it starts.
-            schedule_properties: ScheduleProperties {
-                rrule:            None,
-                exrule:           None,
-                rdate:            None,
-                exdate:           None,
-                duration:         None,
-                dtstart:          Some(
-                    HashSet::from([
-                        KeyValuePair::new(
-                            String::from("DTSTART"),
-                            String::from(":20201231T183000Z"),
-                        )
-                    ])
-                ),
-                dtend:            Some(
-                    HashSet::from([
-                        KeyValuePair::new(
-                            String::from("DTEND"),
-                            String::from(":20201231T183100Z"),
-                        )
-                    ])
-                ),
-                parsed_rrule_set: None,
-            },
-
-            indexed_properties:  IndexedProperties {
-                geo:              None,
-                categories:       Some(
-                    HashSet::from([
-                        String::from("CATEGORY_ONE"),
-                        String::from("CATEGORY_TWO"),
-                        String::from("CATEGORY THREE")
-                    ])
-                ),
-                related_to: Some(
-                    HashMap::from([
-                        (
-                            String::from("X-IDX-CAL"),
-                            HashSet::from([
-                                String::from("redical//IndexedCalendar_One"),
-                                String::from("redical//IndexedCalendar_Two"),
-                                String::from("redical//IndexedCalendar_Three"),
-                            ])
-                        ),
-                        (
-                            String::from("PARENT"),
-                            HashSet::from([
-                                String::from("ParentUUID_One"),
-                                String::from("ParentUUID_Two"),
-                            ])
-                        ),
-                        (
-                            String::from("CHILD"),
-                            HashSet::from([
-                                String::from("ChildUUID"),
-                            ])
-                        )
-                    ])
-                ),
-            },
-
-            passive_properties:  PassiveProperties {
-                properties: BTreeSet::from([
-                                KeyValuePair::new(
-                                    String::from("DESCRIPTION"),
-                                    String::from(":Event description text."),
-                                ),
-
-                                KeyValuePair::new(
-                                    String::from("LOCATION"),
-                                    String::from(":Event address text."),
-                                ),
-                ])
-            },
-
-            overrides:           EventOccurrenceOverrides::new(),
-            occurrence_cache:    None,
-            indexed_categories:  None,
-            indexed_related_to:  None,
-            indexed_geo:         None,
+        let Some(event_occurrence_override) = event.overrides.current.get(&1609439400) else {
+            panic!("Expected event to have an occurrence...");
         };
 
-        let event_occurrence_override = EventOccurrenceOverride {
-            geo:              None,
-            properties:       Some(
-                BTreeSet::from([
-                    KeyValuePair::new(
-                        String::from("LOCATION"),
-                        String::from(":Overridden Event address text."),
-                    )
-                ])
-            ),
-            categories:       Some(
-                HashSet::from([
-                    String::from("CATEGORY_ONE"),
-                    String::from("CATEGORY_FOUR"),
-                ])
-            ),
-            duration:         None,
-            dtstart:          None,
-            dtend:            None,
-            related_to:       Some(
-                HashMap::from([
-                    (
-                        String::from("X-IDX-CAL"),
-                        HashSet::from([
-                            String::from("redical//IndexedCalendar_One"),
-                            String::from("redical//IndexedCalendar_Four"),
-                        ])
-                    ),
-                    (
-                        String::from("PARENT"),
-                        HashSet::from([
-                            String::from("ParentUUID_Three"),
-                        ])
-                    ),
-                    (
-                        String::from("CHILD"),
-                        HashSet::from([
-                            String::from("ChildUUID"),
-                        ])
-                    )
-                ])
-            ),
-        };
-
-        let event_instance = EventInstance::new(&100, &event, Some(&event_occurrence_override));
+        let event_instance = EventInstance::new(&1609439400, &event, Some(&event_occurrence_override));
 
         assert_eq!(
             event_instance,
             EventInstance {
                 uuid:               String::from("event_UUID"),
-                dtstart_timestamp:  100,
-                dtend_timestamp:    160,
+                dtstart_timestamp:  1609439400,
+                dtend_timestamp:    1609439460,
                 duration:           60,
                 geo:                None,
                 categories:         Some(
@@ -647,10 +480,10 @@ mod test {
             vec![
                  String::from("CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE"),
                  String::from("DESCRIPTION:Event description text."),
-                 String::from("DTEND:1970-01-01T00:02:40+00:00"),
-                 String::from("DTSTART:1970-01-01T00:01:40+00:00"),
+                 String::from("DTEND:2020-12-31T18:31:00+00:00"),
+                 String::from("DTSTART:2020-12-31T18:30:00+00:00"),
                  String::from("LOCATION:Overridden Event address text."),
-                 String::from("RECURRENCE-ID;VALUE=DATE-TIME:1970-01-01T00:01:40+00:00"),
+                 String::from("RECURRENCE-ID;VALUE=DATE-TIME:2020-12-31T18:30:00+00:00"),
                  String::from("RELATED_TO;RELTYPE=CHILD:ChildUUID"),
                  String::from("RELATED_TO;RELTYPE=PARENT:ParentUUID_Three"),
                  String::from("RELATED_TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Four"),
@@ -662,9 +495,9 @@ mod test {
 
     #[test]
     fn test_event_instance_iterator() {
-        let mut event = Event::parse_ical(
+        let event = build_event_and_overrides_from_ical(
             "event_UUID",
-            [
+            vec![
                 "DESCRIPTION:BASE description text.",
                 "DTSTART:20210105T183000Z",
                 "DTEND:20210105T190000Z",
@@ -672,53 +505,34 @@ mod test {
                 "CATEGORIES:BASE_CATEGORY_ONE,BASE_CATEGORY_TWO",
                 "RELATED-TO;RELTYPE=PARENT:BASE_ParentdUUID",
                 "RELATED-TO;RELTYPE=CHILD:BASE_ChildUUID",
-            ].join(" ").as_str()
-        ).unwrap();
-
-        assert!(event.rebuild_occurrence_cache(65_535).is_ok());
-        assert!(event.schedule_properties.build_parsed_rrule_set().is_ok());
-
-        assert!(
-            event.override_occurrence(
-                datestring_to_date("20210105T183000Z", None, "").unwrap().timestamp(),
-                &EventOccurrenceOverride::parse_ical(
-                    [
+            ],
+            vec![
+                (
+                    "20210105T183000Z",
+                    vec![
                         "DESCRIPTION:OVERRIDDEN description text.",
                         "CATEGORIES:BASE_CATEGORY_ONE,OVERRIDDEN_CATEGORY_ONE",
                         "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUUID",
-                    ].join(" ").as_str()
-                ).unwrap()
-            ).is_ok()
-        );
-
-        assert!(
-            event.override_occurrence(
-                datestring_to_date("20210112T183000Z", None, "").unwrap().timestamp(),
-                &EventOccurrenceOverride::parse_ical(
-                    [
+                    ],
+                ),
+                (
+                    "20210112T183000Z",
+                    vec![
                         "RELATED-TO;RELTYPE=CHILD:BASE_ChildUUID",
                         "RELATED-TO;RELTYPE=CHILD:OVERRIDDEN_ChildUUID",
-                    ].join(" ").as_str()
-                ).unwrap()
-            ).is_ok()
-        );
-
-        assert!(
-            event.override_occurrence(
-                datestring_to_date("20210126T183000Z", None, "").unwrap().timestamp(),
-                &EventOccurrenceOverride::parse_ical(
-                    [
+                    ],
+                ),
+                (
+                    "20210126T183000Z",
+                    vec![
                         "DESCRIPTION:OVERRIDDEN description text.",
                         "CATEGORIES:OVERRIDDEN_CATEGORY_ONE,OVERRIDDEN_CATEGORY_TWO",
                         "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUUID",
                         "RELATED-TO;RELTYPE=CHILD:OVERRIDDEN_ChildUUID",
-                    ].join(" ").as_str()
-                ).unwrap()
-            ).is_ok()
+                    ]
+                ),
+            ],
         );
-
-        assert!(event.rebuild_indexed_categories().is_ok());
-        assert!(event.rebuild_indexed_related_to().is_ok());
 
         let expected_event_instances_ical = HashMap::from([
             (

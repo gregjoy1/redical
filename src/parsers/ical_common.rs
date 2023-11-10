@@ -455,6 +455,10 @@ mod test {
         let data: &str = "The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH";
 
         assert_eq!(find_next_property_in_unquoted_value(data), Some(58));
+
+        let data: &str = "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,CATEGORY THREE RELATED-TO;RELTYPE=CHILD:ChildUUID";
+
+        assert_eq!(find_next_property_in_unquoted_value(data), Some(51));
     }
 
     #[test]

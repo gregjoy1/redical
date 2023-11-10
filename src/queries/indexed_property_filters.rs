@@ -447,16 +447,7 @@ mod test {
 
         assert_eq!(where_conditional_analyses.len(), 10);
 
-        macro_rules! assert_where_conditional_analysis {
-            ($array: ident, $index: expr, $depth: expr, $output_count: expr, $details: expr) => {
-                let (depth, details, where_conditional_analysis) = &$array[$index];
-
-                assert_eq!(depth, &$depth);
-                assert_eq!(details, &$details);
-                assert_eq!(where_conditional_analysis.output_count, $output_count);
-                assert_eq!(where_conditional_analysis.elapsed_duration.is_zero(), false);
-            }
-        }
+        use crate::testing::macros::assert_where_conditional_analysis;
 
         assert_where_conditional_analysis!(where_conditional_analyses, 0, 0, 6usize,  String::from("Group"));
         assert_where_conditional_analysis!(where_conditional_analyses, 1, 1, 6usize,  String::from("Operator: And"));

@@ -5,6 +5,9 @@ mod data_types;
 mod parsers;
 mod queries;
 
+#[cfg(test)]
+mod testing;
+
 use data_types::{EVENT_DATA_TYPE, CALENDAR_DATA_TYPE};
 
 fn on_event(ctx: &Context, event_type: NotifyEvent, event: &str, key: &[u8]) {

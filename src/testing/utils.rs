@@ -1,0 +1,48 @@
+use crate::data_types::{Event, EventOccurrenceOverride};
+use crate::parsers::datetime::datestring_to_date;
+
+pub fn build_event_from_ical(
+    event_uuid:       &str,
+    event_ical_parts: Vec<&str>,
+) -> crate::data_types::Event {
+    build_event_and_overrides_from_ical(
+        event_uuid,
+        event_ical_parts,
+        vec![],
+    )
+}
+
+pub fn build_event_and_overrides_from_ical(
+    event_uuid:       &str,
+    event_ical_parts: Vec<&str>,
+    event_overrides:  Vec<(&str, Vec<&str>)>,
+) -> crate::data_types::Event {
+    let mut event = Event::parse_ical(
+        event_uuid,
+        event_ical_parts.join(" ").as_str()
+    ).unwrap();
+
+    if let Err(error) = event.rebuild_occurrence_cache(65_535) {
+        panic!("Build Event '{event_uuid}' from ical failed -- rebuild_occurrence_cache error: {:#?}", error);
+    }
+
+    if let Err(error) = event.schedule_properties.build_parsed_rrule_set() {
+        panic!("Build Event '{event_uuid}' from ical failed -- build_parsed_rrule_set returned error: {:#?}", error);
+    }
+
+    for (override_dtstart, override_ical_parts) in event_overrides {
+        assert!(
+            event.override_occurrence(
+                datestring_to_date(override_dtstart, None, "").unwrap().timestamp(),
+                &EventOccurrenceOverride::parse_ical(
+                    override_ical_parts.join(" ").as_str()
+                ).unwrap()
+            ).is_ok()
+        );
+    }
+
+    assert!(event.rebuild_indexed_categories().is_ok());
+    assert!(event.rebuild_indexed_related_to().is_ok());
+
+    event
+}

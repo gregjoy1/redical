@@ -189,37 +189,58 @@ impl ScheduleProperties {
     }
 
     pub fn parse_rrule(&self) -> Result<RRuleSet, RRuleError> {
+        let mut is_missing_rules = true;
         let mut ical_parts = vec![];
 
-        if self.dtstart.is_some() {
-            self.dtstart.clone().unwrap().into_iter().for_each(|content_line| {
-                ical_parts.push(content_line.to_string());
+        if let Some(rrules_content_lines) = &self.rrule {
+            rrules_content_lines.iter().for_each(|rrule_content_line| {
+                is_missing_rules = false;
+
+                ical_parts.push(rrule_content_line.to_string());
             });
         }
 
-        if self.rrule.is_some() {
-            self.rrule.clone().unwrap().into_iter().for_each(|content_line| {
-                ical_parts.push(content_line.to_string());
+        if let Some(exrules_content_lines) = &self.exrule {
+            exrules_content_lines.iter().for_each(|exrule_content_line| {
+                is_missing_rules = false;
+
+                ical_parts.push(exrule_content_line.to_string());
             });
         }
 
-        if self.exrule.is_some() {
-            self.exrule.clone().unwrap().into_iter().for_each(|content_line| {
-                ical_parts.push(content_line.to_string());
+        if let Some(rdates_content_lines) = &self.rdate {
+            rdates_content_lines.iter().for_each(|rdate_content_line| {
+                is_missing_rules = false;
+
+                ical_parts.push(rdate_content_line.to_string());
             });
         }
 
-        if self.rdate.is_some() {
-            self.rdate.clone().unwrap().into_iter().for_each(|content_line| {
-                ical_parts.push(content_line.to_string());
+        if let Some(exdates_content_lines) = &self.exdate {
+            exdates_content_lines.iter().for_each(|exdate_content_line| {
+                is_missing_rules = false;
+
+                ical_parts.push(exdate_content_line.to_string());
             });
         }
 
-        if self.exdate.is_some() {
-            self.exdate.clone().unwrap().into_iter().for_each(|content_line| {
-                ical_parts.push(content_line.to_string());
+        if let Some(dtstart_content_lines) = &self.dtstart {
+            // TODO: There should not be more than one DTSTART properties, raise validation error.
+            dtstart_content_lines.iter().for_each(|dtstart_content_line| {
+                ical_parts.push(dtstart_content_line.to_string());
+
+                // If parsed ical does not contain any RRULE or RDATE properties, we need to
+                // artifically create them based on the specified DTSTART properties so that the
+                // rrule_set date extrapolation works, even for a single date.
+                if is_missing_rules {
+                    let rdate_content_line = KeyValuePair::new(String::from("RDATE"), dtstart_content_line.value.clone());
+
+                    ical_parts.push(rdate_content_line.to_string());
+                }
             });
         }
+
+        // TODO: Add COUNT
 
         ical_parts.join("\n").parse::<RRuleSet>()
     }
