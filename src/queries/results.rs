@@ -3,15 +3,15 @@ use std::cmp::Ordering;
 
 use crate::data_types::EventInstance;
 
-use super::ordering::{QueryOrderingCondition, QueryResultOrdering};
+use super::ordering::{OrderingCondition, QueryResultOrdering};
 
 pub struct QueryResults {
-    pub ordering_condition: QueryOrderingCondition,
+    pub ordering_condition: OrderingCondition,
     pub results:            BTreeSet<QueryResult>,
 }
 
 impl QueryResults {
-    pub fn new(ordering_condition: QueryOrderingCondition) -> QueryResults {
+    pub fn new(ordering_condition: OrderingCondition) -> QueryResults {
         QueryResults {
             ordering_condition,
             results: BTreeSet::new(),
@@ -116,7 +116,7 @@ mod test {
 
     #[test]
     fn test_query_results_dtstart_ordering() {
-        let mut query_results: QueryResults = QueryResults::new(QueryOrderingCondition::DtStart);
+        let mut query_results: QueryResults = QueryResults::new(OrderingCondition::DtStart);
 
         assert!(query_results.results.is_empty());
 
@@ -178,7 +178,7 @@ mod test {
     fn test_query_results_dtstart_geo_dist_ordering() {
         let mut query_results: QueryResults =
             QueryResults::new(
-                QueryOrderingCondition::DtStartGeoDist(
+                OrderingCondition::DtStartGeoDist(
                     GeoPoint::new(-0.0758252, 51.5055296), // London
                 )
             );
@@ -243,7 +243,7 @@ mod test {
     fn test_query_results_geo_dist_dtstart_ordering() {
         let mut query_results: QueryResults =
             QueryResults::new(
-                QueryOrderingCondition::GeoDistDtStart(
+                OrderingCondition::GeoDistDtStart(
                     GeoPoint::new(-0.0758252, 51.5055296), // London
                 )
             );

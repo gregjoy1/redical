@@ -1,14 +1,14 @@
 use std::time::Duration;
 
-use crate::data_types::{KeyValuePair, InvertedCalendarIndexTerm, Calendar, IndexedConclusion};
+use crate::data_types::{KeyValuePair, InvertedCalendarIndexTerm, Calendar};
 
 use crate::queries::results::QueryResults;
-use crate::queries::ordering::QueryOrderingCondition;
+use crate::queries::ordering::OrderingCondition;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Query {
     where_conditional:  Option<WhereConditional>,
-    ordering_condition: QueryOrderingCondition,
+    ordering_condition: OrderingCondition,
     limit:              i64,
 }
 
@@ -34,7 +34,7 @@ impl Default for Query {
     fn default() -> Self {
         Query {
             where_conditional:  None,
-            ordering_condition: QueryOrderingCondition::DtStart,
+            ordering_condition: OrderingCondition::DtStart,
             limit:              50,
         }
     }
@@ -316,6 +316,7 @@ mod test {
     use pretty_assertions_sorted::{assert_eq, assert_eq_sorted};
 
     use std::collections::{HashSet, HashMap};
+    use crate::data_types::IndexedConclusion;
 
     #[test]
     fn test_query_where_conditional() {

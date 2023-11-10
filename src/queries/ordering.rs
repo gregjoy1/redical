@@ -3,22 +3,22 @@ use crate::data_types::{EventInstance, GeoDistance, GeoPoint};
 use std::cmp::Ordering;
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum QueryOrderingCondition {
+pub enum OrderingCondition {
     DtStart,
     DtStartGeoDist(GeoPoint),
     GeoDistDtStart(GeoPoint),
 }
 
-impl QueryOrderingCondition {
+impl OrderingCondition {
     pub fn build_result_ordering_for_event_instance(&self, event_instance: &EventInstance) -> QueryResultOrdering {
         match &self {
-            QueryOrderingCondition::DtStart => {
+            OrderingCondition::DtStart => {
                 QueryResultOrdering::DtStart(
                     event_instance.dtstart_timestamp.clone()
                 )
             },
 
-            QueryOrderingCondition::DtStartGeoDist(ordering_geo_point) => {
+            OrderingCondition::DtStartGeoDist(ordering_geo_point) => {
                 let dtstart_timestamp = event_instance.dtstart_timestamp.clone();
                 let geo_distance = event_instance.geo.clone().and_then(|event_instance_geo_point| {
                     Some(
@@ -34,7 +34,7 @@ impl QueryOrderingCondition {
                 )
             },
 
-            QueryOrderingCondition::GeoDistDtStart(ordering_geo_point) => {
+            OrderingCondition::GeoDistDtStart(ordering_geo_point) => {
                 let dtstart_timestamp = event_instance.dtstart_timestamp.clone();
                 let geo_distance = event_instance.geo.clone().and_then(|event_instance_geo_point| {
                     Some(
