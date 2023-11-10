@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use chrono::{TimeZone, Utc};
 
 use std::collections::{HashMap, HashSet, BTreeSet};
@@ -197,6 +198,30 @@ impl EventInstance {
         }
 
         passive_properties
+    }
+}
+
+impl PartialOrd for EventInstance {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        let dtstart_timestamp_comparison = self.dtstart_timestamp.partial_cmp(&other.dtstart_timestamp);
+
+        if dtstart_timestamp_comparison.is_some_and(|comparison| comparison.is_eq()) {
+            self.dtend_timestamp.partial_cmp(&other.dtend_timestamp)
+        } else {
+            dtstart_timestamp_comparison
+        }
+    }
+}
+
+impl Ord for EventInstance {
+    fn cmp(&self, other: &Self) -> Ordering {
+        let dtstart_timestamp_comparison = self.dtstart_timestamp.cmp(&other.dtstart_timestamp);
+
+        if dtstart_timestamp_comparison.is_eq() {
+            self.dtend_timestamp.cmp(&other.dtend_timestamp)
+        } else {
+            dtstart_timestamp_comparison
+        }
     }
 }
 

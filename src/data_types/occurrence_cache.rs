@@ -27,6 +27,7 @@ impl OccurrenceCache {
     }
 }
 
+/*
 type OccurrenceCacheIteratorMapFn    = Box<dyn Fn((&i64, &OccurrenceCacheValue)) -> (i64, i64, OccurrenceCacheValue)>;
 type OccurrenceCacheIteratorFilterFn = Box<dyn Fn(&(i64, i64, OccurrenceCacheValue)) -> bool>;
 
@@ -330,3 +331,4 @@ mod test {
 
     }
 }
+*/

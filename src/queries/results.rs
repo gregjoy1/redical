@@ -18,7 +18,11 @@ impl QueryResults {
         }
     }
 
-    fn push(&mut self, event_instance: EventInstance) {
+    pub fn len(&self) -> usize {
+        self.results.len()
+    }
+
+    pub fn push(&mut self, event_instance: EventInstance) {
         let result_ordering = self.ordering_condition.build_result_ordering_for_event_instance(&event_instance);
 
         let result = QueryResult {
