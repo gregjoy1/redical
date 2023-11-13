@@ -4,6 +4,7 @@ mod commands;
 mod data_types;
 mod parsers;
 mod queries;
+mod serializers;
 
 #[cfg(test)]
 mod testing;

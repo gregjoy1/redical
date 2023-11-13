@@ -1,11 +1,12 @@
 use std::cmp::Ordering;
-use chrono::{TimeZone, Utc};
+use rrule::Tz;
 
 use std::collections::{HashMap, HashSet, BTreeSet};
 
 use crate::data_types::{Event, EventOccurrenceOverride, KeyValuePair, IndexedConclusion, GeoPoint};
 
 use crate::data_types::event_occurrence_iterator::{EventOccurrenceIterator, LowerBoundFilterCondition, UpperBoundFilterCondition};
+use crate::serializers::ical_datetime::{serialize_timestamp_to_ical_datetime, serialize_timestamp_to_ical_utc_datetime};
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct EventInstance {
@@ -34,14 +35,14 @@ impl EventInstance {
         }
     }
 
-    pub fn serialize_to_ical(&self) -> Vec<String> {
-        self.serialize_to_ical_set()
+    pub fn serialize_to_ical(&self, timezone: Tz) -> Vec<String> {
+        self.serialize_to_ical_set(timezone)
             .iter()
             .map(|key_value_pair| key_value_pair.to_string())
             .collect()
     }
 
-    pub fn serialize_to_ical_set(&self) -> BTreeSet<KeyValuePair> {
+    pub fn serialize_to_ical_set(&self, timezone: Tz) -> BTreeSet<KeyValuePair> {
         let mut serialized_output = self.passive_properties.clone();
         serialized_output.insert(
             KeyValuePair::new(
@@ -50,30 +51,27 @@ impl EventInstance {
             )
         );
 
-        // TODO: handle the error case...
-        let dtstart_datetime = Utc.timestamp_opt(self.dtstart_timestamp, 0).unwrap();
-
         serialized_output.insert(
             KeyValuePair::new(
                 String::from("RECURRENCE-ID"),
-                format!(";VALUE=DATE-TIME:{}", dtstart_datetime.to_rfc3339()),
+                format!(
+                    ";VALUE=DATE-TIME:{}",
+                    serialize_timestamp_to_ical_utc_datetime(self.dtstart_timestamp)
+                ),
             )
         );
 
         serialized_output.insert(
             KeyValuePair::new(
                 String::from("DTSTART"),
-                format!(":{}", dtstart_datetime.to_rfc3339()),
+                serialize_timestamp_to_ical_datetime(self.dtstart_timestamp, timezone)
             )
         );
-
-        // TODO: handle the error case...
-        let dtend_datetime = Utc.timestamp_opt(self.dtend_timestamp, 0).unwrap();
 
         serialized_output.insert(
             KeyValuePair::new(
                 String::from("DTEND"),
-                format!(":{}", dtend_datetime.to_rfc3339()),
+                serialize_timestamp_to_ical_datetime(self.dtend_timestamp, timezone)
             )
         );
 
@@ -367,14 +365,14 @@ mod test {
         );
 
         assert_eq!(
-            event_instance.serialize_to_ical(),
+            event_instance.serialize_to_ical(Tz::Europe__London),
             vec![
                 String::from("CATEGORIES:CATEGORY THREE,CATEGORY_ONE,CATEGORY_TWO"),
                 String::from("DESCRIPTION:Event description text."),
-                String::from("DTEND:1970-01-01T00:02:40+00:00"),
-                String::from("DTSTART:1970-01-01T00:01:40+00:00"),
+                String::from("DTEND;TZID=Europe/London:19700101T010240"),
+                String::from("DTSTART;TZID=Europe/London:19700101T010140"),
                 String::from("LOCATION:Event address text."),
-                String::from("RECURRENCE-ID;VALUE=DATE-TIME:1970-01-01T00:01:40+00:00"),
+                String::from("RECURRENCE-ID;VALUE=DATE-TIME:19700101T000140Z"),
                 String::from("RELATED_TO;RELTYPE=CHILD:ChildUUID"),
                 String::from("RELATED_TO;RELTYPE=PARENT:ParentUUID_One"),
                 String::from("RELATED_TO;RELTYPE=PARENT:ParentUUID_Two"),
@@ -476,14 +474,14 @@ mod test {
         );
 
         assert_eq!(
-            event_instance.serialize_to_ical(),
+            event_instance.serialize_to_ical(Tz::UTC),
             vec![
                  String::from("CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE"),
                  String::from("DESCRIPTION:Event description text."),
-                 String::from("DTEND:2020-12-31T18:31:00+00:00"),
-                 String::from("DTSTART:2020-12-31T18:30:00+00:00"),
+                 String::from("DTEND:20201231T183100Z"),
+                 String::from("DTSTART:20201231T183000Z"),
                  String::from("LOCATION:Overridden Event address text."),
-                 String::from("RECURRENCE-ID;VALUE=DATE-TIME:2020-12-31T18:30:00+00:00"),
+                 String::from("RECURRENCE-ID;VALUE=DATE-TIME:20201231T183000Z"),
                  String::from("RELATED_TO;RELTYPE=CHILD:ChildUUID"),
                  String::from("RELATED_TO;RELTYPE=PARENT:ParentUUID_Three"),
                  String::from("RELATED_TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Four"),
@@ -540,9 +538,9 @@ mod test {
                 vec![
                     String::from("CATEGORIES:BASE_CATEGORY_ONE,OVERRIDDEN_CATEGORY_ONE"),
                     String::from("DESCRIPTION:OVERRIDDEN description text."),
-                    String::from("DTEND:2021-01-05T19:00:00+00:00"),
-                    String::from("DTSTART:2021-01-05T18:30:00+00:00"),
-                    String::from("RECURRENCE-ID;VALUE=DATE-TIME:2021-01-05T18:30:00+00:00"),
+                    String::from("DTEND:20210105T190000Z"),
+                    String::from("DTSTART:20210105T183000Z"),
+                    String::from("RECURRENCE-ID;VALUE=DATE-TIME:20210105T183000Z"),
                     String::from("RELATED_TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUUID"),
                     String::from("UUID:event_UUID"),
                 ]
@@ -553,9 +551,9 @@ mod test {
                 vec![
                     String::from("CATEGORIES:BASE_CATEGORY_ONE,BASE_CATEGORY_TWO"),
                     String::from("DESCRIPTION:BASE description text."),
-                    String::from("DTEND:2021-01-12T19:00:00+00:00"),
-                    String::from("DTSTART:2021-01-12T18:30:00+00:00"),
-                    String::from("RECURRENCE-ID;VALUE=DATE-TIME:2021-01-12T18:30:00+00:00"),
+                    String::from("DTEND:20210112T190000Z"),
+                    String::from("DTSTART:20210112T183000Z"),
+                    String::from("RECURRENCE-ID;VALUE=DATE-TIME:20210112T183000Z"),
                     String::from("RELATED_TO;RELTYPE=CHILD:BASE_ChildUUID"),
                     String::from("RELATED_TO;RELTYPE=CHILD:OVERRIDDEN_ChildUUID"),
                     String::from("UUID:event_UUID"),
@@ -567,9 +565,9 @@ mod test {
                 vec![
                     String::from("CATEGORIES:BASE_CATEGORY_ONE,BASE_CATEGORY_TWO"),
                     String::from("DESCRIPTION:BASE description text."),
-                    String::from("DTEND:2021-01-19T19:00:00+00:00"),
-                    String::from("DTSTART:2021-01-19T18:30:00+00:00"),
-                    String::from("RECURRENCE-ID;VALUE=DATE-TIME:2021-01-19T18:30:00+00:00"),
+                    String::from("DTEND:20210119T190000Z"),
+                    String::from("DTSTART:20210119T183000Z"),
+                    String::from("RECURRENCE-ID;VALUE=DATE-TIME:20210119T183000Z"),
                     String::from("RELATED_TO;RELTYPE=CHILD:BASE_ChildUUID"),
                     String::from("RELATED_TO;RELTYPE=PARENT:BASE_ParentdUUID"),
                     String::from("UUID:event_UUID"),
@@ -581,9 +579,9 @@ mod test {
                 vec![
                     String::from("CATEGORIES:OVERRIDDEN_CATEGORY_ONE,OVERRIDDEN_CATEGORY_TWO"),
                     String::from("DESCRIPTION:OVERRIDDEN description text."),
-                    String::from("DTEND:2021-01-26T19:00:00+00:00"),
-                    String::from("DTSTART:2021-01-26T18:30:00+00:00"),
-                    String::from("RECURRENCE-ID;VALUE=DATE-TIME:2021-01-26T18:30:00+00:00"),
+                    String::from("DTEND:20210126T190000Z"),
+                    String::from("DTSTART:20210126T183000Z"),
+                    String::from("RECURRENCE-ID;VALUE=DATE-TIME:20210126T183000Z"),
                     String::from("RELATED_TO;RELTYPE=CHILD:OVERRIDDEN_ChildUUID"),
                     String::from("RELATED_TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUUID"),
                     String::from("UUID:event_UUID"),
@@ -595,9 +593,9 @@ mod test {
                 vec![
                     String::from("CATEGORIES:BASE_CATEGORY_ONE,BASE_CATEGORY_TWO"),
                     String::from("DESCRIPTION:BASE description text."),
-                    String::from("DTEND:2021-02-02T19:00:00+00:00"),
-                    String::from("DTSTART:2021-02-02T18:30:00+00:00"),
-                    String::from("RECURRENCE-ID;VALUE=DATE-TIME:2021-02-02T18:30:00+00:00"),
+                    String::from("DTEND:20210202T190000Z"),
+                    String::from("DTSTART:20210202T183000Z"),
+                    String::from("RECURRENCE-ID;VALUE=DATE-TIME:20210202T183000Z"),
                     String::from("RELATED_TO;RELTYPE=CHILD:BASE_ChildUUID"),
                     String::from("RELATED_TO;RELTYPE=PARENT:BASE_ParentdUUID"),
                     String::from("UUID:event_UUID"),
@@ -616,27 +614,27 @@ mod test {
             ).unwrap();
 
         assert_eq!(
-            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
+            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical(Tz::UTC))),
             Some(expected_event_instances_ical[&1609871400].clone())
         );
 
         assert_eq!(
-            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
+            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical(Tz::UTC))),
             Some(expected_event_instances_ical[&1610476200].clone())
         );
 
         assert_eq!(
-            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
+            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical(Tz::UTC))),
             Some(expected_event_instances_ical[&1611081000].clone())
         );
 
         assert_eq!(
-            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
+            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical(Tz::UTC))),
             Some(expected_event_instances_ical[&1611685800].clone())
         );
 
         assert_eq!(
-            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
+            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical(Tz::UTC))),
             Some(expected_event_instances_ical[&1612290600].clone())
         );
 
@@ -653,27 +651,27 @@ mod test {
             ).unwrap();
 
         assert_eq!(
-            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
+            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical(Tz::UTC))),
             Some(expected_event_instances_ical[&1609871400].clone())
         );
 
         assert_eq!(
-            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
+            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical(Tz::UTC))),
             Some(expected_event_instances_ical[&1610476200].clone())
         );
 
         assert_eq!(
-            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
+            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical(Tz::UTC))),
             Some(expected_event_instances_ical[&1611081000].clone())
         );
 
         assert_eq!(
-            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
+            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical(Tz::UTC))),
             Some(expected_event_instances_ical[&1611685800].clone())
         );
 
         assert_eq!(
-            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
+            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical(Tz::UTC))),
             Some(expected_event_instances_ical[&1612290600].clone())
         );
 
@@ -701,12 +699,12 @@ mod test {
             ).unwrap();
 
         assert_eq!(
-            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
+            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical(Tz::UTC))),
             Some(expected_event_instances_ical[&1610476200].clone())
         );
 
         assert_eq!(
-            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
+            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical(Tz::UTC))),
             Some(expected_event_instances_ical[&1611685800].clone())
         );
 
@@ -745,17 +743,17 @@ mod test {
             ).unwrap();
 
         assert_eq!(
-            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
+            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical(Tz::UTC))),
             Some(expected_event_instances_ical[&1609871400].clone())
         );
 
         assert_eq!(
-            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
+            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical(Tz::UTC))),
             Some(expected_event_instances_ical[&1611081000].clone())
         );
 
         assert_eq!(
-            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical())),
+            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical(Tz::UTC))),
             Some(expected_event_instances_ical[&1612290600].clone())
         );
 

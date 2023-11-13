@@ -125,3 +125,87 @@ impl Default for Query {
     }
 
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    use pretty_assertions_sorted::{assert_eq, assert_eq_sorted};
+    use crate::testing::utils::{build_event_from_ical, build_event_and_overrides_from_ical};
+    use crate::data_types::{Event, Calendar};
+
+    fn build_overridden_recurring_event() -> Event {
+        build_event_and_overrides_from_ical(
+            "overridden_recurring_event_UUID",
+            vec![
+                "DESCRIPTION:BASE description text.",
+                "DTSTART:20210105T183000Z",
+                "DTEND:20210105T190000Z",
+                "RRULE:FREQ=WEEKLY;UNTIL=20210202T183000Z;INTERVAL=1",
+                "CATEGORIES:BASE_CATEGORY_ONE,BASE_CATEGORY_TWO",
+                "RELATED-TO;RELTYPE=PARENT:BASE_ParentdUUID",
+                "RELATED-TO;RELTYPE=CHILD:BASE_ChildUUID",
+            ],
+            vec![
+                (
+                    "20210105T183000Z",
+                    vec![
+                        "DESCRIPTION:OVERRIDDEN description text.",
+                        "CATEGORIES:BASE_CATEGORY_ONE,OVERRIDDEN_CATEGORY_ONE",
+                        "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUUID",
+                    ],
+                ),
+                (
+                    "20210112T183000Z",
+                    vec![
+                        "RELATED-TO;RELTYPE=CHILD:BASE_ChildUUID",
+                        "RELATED-TO;RELTYPE=CHILD:OVERRIDDEN_ChildUUID",
+                    ],
+                ),
+                (
+                    "20210126T183000Z",
+                    vec![
+                        "DESCRIPTION:OVERRIDDEN description text.",
+                        "CATEGORIES:OVERRIDDEN_CATEGORY_ONE,OVERRIDDEN_CATEGORY_TWO",
+                        "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUUID",
+                        "RELATED-TO;RELTYPE=CHILD:OVERRIDDEN_ChildUUID",
+                    ]
+                ),
+            ],
+        )
+    }
+
+    fn build_one_off_event() -> Event {
+        build_event_from_ical(
+            "one_off_event_UUID",
+            vec![
+                "DTSTART:20201231T183000Z",
+                "DTEND:20201231T183100Z",
+                "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,CATEGORY THREE",
+                "RELATED-TO;RELTYPE=CHILD:ChildUUID",
+                "RELATED-TO;RELTYPE=PARENT:ParentUUID_One",
+                "RELATED-TO;RELTYPE=PARENT:ParentUUID_Two",
+                "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_One",
+                "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Three",
+                "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Two",
+                "DESCRIPTION:Event description text.",
+                "LOCATION:Event address text.",
+            ]
+        )
+    }
+
+    #[test]
+    fn test_query_execute_with_dtstart_ordering() {
+        let mut calendar = Calendar::new(String::from("calendar_UUID"));
+
+        calendar.events.insert(
+            String::from("one_off_event_UUID"),
+            build_one_off_event(),
+        );
+
+        calendar.events.insert(
+            String::from("overridden_recurring_event_UUID"),
+            build_overridden_recurring_event(),
+        );
+    }
+}

@@ -40,7 +40,7 @@ pub fn redical_event_instance_list(ctx: &Context, args: Vec<RedisString>) -> Red
             let event_instances =
                 event_instance_iterator.map(|event_instance| {
                     RedisValue::Array(
-                        event_instance.serialize_to_ical()
+                        event_instance.serialize_to_ical(rrule::Tz::UTC)
                              .iter()
                              .map(|ical_part| RedisValue::SimpleString(ical_part.to_owned()))
                              .collect()
