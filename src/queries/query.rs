@@ -1,3 +1,4 @@
+use rrule::Tz;
 use crate::data_types::{KeyValuePair, InvertedCalendarIndexTerm, Calendar, EventInstance, EventInstanceIterator, LowerBoundFilterCondition, UpperBoundFilterCondition};
 
 use crate::queries::results::QueryResults;
@@ -13,6 +14,7 @@ pub struct Query {
     ordering_condition:          OrderingCondition,
     lower_bound_range_condition: Option<LowerBoundRangeCondition>,
     upper_bound_range_condition: Option<UpperBoundRangeCondition>,
+    in_timezone:                 Tz,
     limit:                       usize,
 }
 
@@ -120,6 +122,7 @@ impl Default for Query {
             ordering_condition:          OrderingCondition::DtStart,
             lower_bound_range_condition: None,
             upper_bound_range_condition: None,
+            in_timezone:                 Tz::UTC,
             limit:                       50,
         }
     }

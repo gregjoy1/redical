@@ -1,12 +1,11 @@
 use serde::{Serialize, Deserialize};
-use std::option::Option;
 use std::collections::HashMap;
 use std::str;
 
 use crate::data_types::KeyValuePair;
 
 use nom::{
-    error::{context, ParseError, ContextError, ErrorKind},
+    error::{context, ParseError, ContextError, ErrorKind, VerboseError},
     multi::{separated_list0, separated_list1},
     sequence::{preceded, delimited, terminated, tuple, separated_pair},
     branch::alt,
@@ -15,6 +14,8 @@ use nom::{
     character::complete::{char, alphanumeric1, one_of, space1},
     IResult
 };
+
+pub type ParserResult<T, U> = IResult<T, U, VerboseError<T>>;
 
 #[derive(Debug)]
 pub enum ParsedPropertyContentError<'a> {
@@ -46,44 +47,53 @@ pub enum ParsedValue<'a> {
 
 impl<'a> ParsedValue<'a> {
 
-    pub fn parse_list(input: &'a str) -> IResult<&'a str, Self> {
-        let (remaining, parsed_value_list) = separated_list1(
-            char(','),
-            alt(
-                (
-                    param_text,
-                    quoted_string
+    pub fn parse_list(input: &'a str) -> ParserResult<&'a str, Self> {
+        context(
+            "parsed list value",
+            separated_list1(
+                char(','),
+                alt(
+                    (
+                        param_text,
+                        quoted_string
+                    )
                 )
             )
-        )(input)?;
-
-        Ok(
-            (
-                remaining,
-                Self::List(parsed_value_list)
-            )
+        )(input).map(
+            |(remaining, parsed_value_list)| {
+                (
+                    remaining,
+                    Self::List(parsed_value_list)
+                )
+            }
         )
     }
 
-    pub fn parse_single(input: &'a str) -> IResult<&'a str, Self> {
-        let (remaining, parsed_single_value) = value(input)?;
-
-        Ok(
-            (
-                remaining,
-                Self::Single(parsed_single_value)
-            )
+    pub fn parse_single(input: &'a str) -> ParserResult<&'a str, Self> {
+        context(
+            "parsed single value",
+            value,
+        )(input).map(
+            |(remaining, parsed_single_value)| {
+                (
+                    remaining,
+                    Self::Single(parsed_single_value)
+                )
+            }
         )
     }
 
-    pub fn parse_params(input: &'a str) -> IResult<&'a str, Self> {
-        let (remaining, parsed_param_value) = params(input)?;
-
-        Ok(
-            (
-                remaining,
-                Self::Params(parsed_param_value)
-            )
+    pub fn parse_params(input: &'a str) -> ParserResult<&'a str, Self> {
+        context(
+            "parsed params",
+            params,
+        )(input).map(
+            |(remaining, parsed_param_value)| {
+                (
+                    remaining,
+                    Self::Params(parsed_param_value)
+                )
+            }
         )
     }
 }
@@ -97,44 +107,56 @@ pub fn is_name_char(chr: char) -> bool {
 
 // iana-token    = 1*(ALPHA / DIGIT / "-")
 // ; iCalendar identifier registered with IANA
-pub fn iana_token(input: &str) -> IResult<&str, &str> {
-    take_while1(is_name_char)(input)
+pub fn iana_token(input: &str) -> ParserResult<&str, &str> {
+    context(
+        "IANA token",
+        take_while1(is_name_char),
+    )(input)
 }
 
 // x-name        = "X-" [vendorid "-"] 1*(ALPHA / DIGIT / "-")
 // ; Reserved for experimental use.
 // vendorid      = 3*(ALPHA / DIGIT)
 // ; Vendor identification
-pub fn x_name(input: &str) -> IResult<&str, &str> {
-    recognize(
-        preceded(
-            tag_no_case("X-"),
-            separated_list1(char('-'), alphanumeric1)
-        )
+pub fn x_name(input: &str) -> ParserResult<&str, &str> {
+    context(
+        "x-name",
+        recognize(
+            preceded(
+                tag_no_case("X-"),
+                separated_list1(char('-'), alphanumeric1)
+            )
+        ),
     )(input)
 }
 
 // name          = iana-token / x-name
-pub fn name(input: &str) -> IResult<&str, &str> {
-    preceded(
-        take_while(is_white_space_char),
-        alt(
-            (
-                iana_token,
-                x_name
+pub fn name(input: &str) -> ParserResult<&str, &str> {
+    context(
+        "name",
+        preceded(
+            take_while(is_white_space_char),
+            alt(
+                (
+                    iana_token,
+                    x_name
+                )
             )
-        )
+        ),
     )(input)
 }
 
-pub fn params(input: &str) -> IResult<&str, HashMap<&str, Vec<&str>>> {
-    map(
-        separated_list1(semicolon_delimeter, param),
-        |tuple_vec| {
-            tuple_vec.into_iter()
-                     .map(|(key, value)| (key, value))
-                     .collect()
-        }
+pub fn params(input: &str) -> ParserResult<&str, HashMap<&str, Vec<&str>>> {
+    context(
+        "params",
+        map(
+            separated_list1(semicolon_delimeter, param),
+            |tuple_vec| {
+                tuple_vec.into_iter()
+                         .map(|(key, value)| (key, value))
+                         .collect()
+            }
+        ),
     )(input)
 }
 
@@ -142,39 +164,48 @@ pub fn params(input: &str) -> IResult<&str, HashMap<&str, Vec<&str>>> {
 // ; Each property defines the specific ABNF for the parameters
 // ; allowed on the property.  Refer to specific properties for
 // ; precise parameter ABNF.
-pub fn param(input: &str) -> IResult<&str, (&str, Vec<&str>)> {
-    separated_pair(
-        param_name,
-        char('='),
-        separated_list1(
-            char(','),
-            param_value
-        )
+pub fn param(input: &str) -> ParserResult<&str, (&str, Vec<&str>)> {
+    context(
+        "param",
+        separated_pair(
+            param_name,
+            char('='),
+            separated_list1(
+                char(','),
+                param_value
+            )
+        ),
     )(input)
 }
 
 // param-name    = iana-token / x-name
-pub fn param_name(input: &str) -> IResult<&str, &str> {
-    alt(
-        (
-            iana_token,
-            x_name
-        )
+pub fn param_name(input: &str) -> ParserResult<&str, &str> {
+    context(
+        "param name",
+        alt(
+            (
+                iana_token,
+                x_name
+            )
+        ),
     )(input)
 }
 
 // param-value   = paramtext / quoted-string
-pub fn param_value(input: &str) -> IResult<&str, &str> {
-    alt(
-        (
-            param_text,
-            quoted_string
-        )
+pub fn param_value(input: &str) -> ParserResult<&str, &str> {
+    context(
+        "param value",
+        alt(
+            (
+                param_text,
+                quoted_string
+            )
+        ),
     )(input)
 }
 
 // paramtext     = *SAFE-CHAR
-pub fn param_text(input: &str) -> IResult<&str, &str> {
+pub fn param_text(input: &str) -> ParserResult<&str, &str> {
     let next_property_index: usize = match find_next_property_in_unquoted_value(input) {
         Some(found_property_index) => {
             // println!("param_text -- found_property_index - {found_property_index} -- {:#?}", &input[..=found_property_index]);
@@ -186,28 +217,36 @@ pub fn param_text(input: &str) -> IResult<&str, &str> {
         }
     };
 
-    let (_remaining, extracted_param_text) = take_while1(is_safe_char)(input)?;
+    context(
+        "param text",
+        take_while1(is_safe_char),
+    )(input).map(
+        |(_remaining, extracted_param_text)| {
+            let extracted_param_text_index = extracted_param_text.len();
 
-    let extracted_param_text_index = extracted_param_text.len();
+            let split_at_index = std::cmp::min(next_property_index, extracted_param_text_index);
 
-    let split_at_index = std::cmp::min(next_property_index, extracted_param_text_index);
+            // println!("param_text - min - {split_at_index} - next_property_index {next_property_index} - extracted_param_text_index {extracted_param_text_index} - input: {input}");
 
-    // println!("param_text - min - {split_at_index} - next_property_index {next_property_index} - extracted_param_text_index {extracted_param_text_index} - input: {input}");
+            let result = input.split_at(split_at_index);
 
-    let result = input.split_at(split_at_index);
-
-    Ok((result.1, result.0))
+            (result.1, result.0)
+        }
+    )
 }
 
-pub fn values(input: &str) -> IResult<&str, Vec<&str>> {
-    separated_list1(
-        char(','),
-        value
+pub fn values(input: &str) -> ParserResult<&str, Vec<&str>> {
+    context(
+        "values",
+        separated_list1(
+            char(','),
+            value
+        )
     )(input)
 }
 
 // value         = *VALUE-CHAR
-pub fn value(input: &str) -> IResult<&str, &str> {
+pub fn value(input: &str) -> ParserResult<&str, &str> {
     let next_property_index: usize = match find_next_property_in_unquoted_value(input) {
         Some(found_property_index) => {
             // println!("value -- found_property_index - {found_property_index} -- {:#?}", &input[..=found_property_index]);
@@ -219,21 +258,26 @@ pub fn value(input: &str) -> IResult<&str, &str> {
         }
     };
 
-    let (_remaining, extracted_value) = take_while1(is_value_char)(input)?;
+    context(
+        "value",
+        take_while1(is_value_char),
+    )(input).map(
+        |(_remaining, extracted_value)| {
+            let extracted_value_index = extracted_value.len();
 
-    let extracted_value_index = extracted_value.len();
+            let split_at_index = std::cmp::min(next_property_index, extracted_value_index);
 
-    let split_at_index = std::cmp::min(next_property_index, extracted_value_index);
+            // println!("value - min - {split_at_index} - next_property_index {next_property_index} - extracted_value_index {extracted_value_index} - input: {input}");
 
-    // println!("value - min - {split_at_index} - next_property_index {next_property_index} - extracted_value_index {extracted_value_index} - input: {input}");
+            let result = input.split_at(split_at_index);
 
-    let result = input.split_at(split_at_index);
-
-    Ok((result.1, result.0))
+            (result.1, result.0)
+        }
+    )
 }
 
 // quoted-string = DQUOTE *QSAFE-CHAR DQUOTE
-pub fn quoted_string(input: &str) -> IResult<&str, &str> {
+pub fn quoted_string(input: &str) -> ParserResult<&str, &str> {
     delimited(
         char('"'),
         quote_safe_char,
@@ -250,7 +294,7 @@ pub fn is_quote_safe_char(chr: char) -> bool {
     is_non_us_ascii_char(chr)
 }
 
-pub fn quote_safe_char(input: &str) -> IResult<&str, &str> {
+pub fn quote_safe_char(input: &str) -> ParserResult<&str, &str> {
     take_while(is_quote_safe_char)(input)
 }
 
@@ -270,7 +314,7 @@ pub fn is_value_char(chr: char) -> bool {
     is_white_space_char(chr) || is_ascii_char(chr) || is_non_us_ascii_char(chr)
 }
 
-pub fn white_space(input: &str) -> IResult<&str, &str> {
+pub fn white_space(input: &str) -> ParserResult<&str, &str> {
     take_while(is_white_space_char)(input)
 }
 
@@ -307,15 +351,15 @@ pub fn is_semicolon_delimeter(chr: char) -> bool {
     chr == '\x3B'
 }
 
-pub fn colon_delimeter(input: &str) -> IResult<&str, &str> {
+pub fn colon_delimeter(input: &str) -> ParserResult<&str, &str> {
     tag(":")(input)
 }
 
-pub fn semicolon_delimeter(input: &str) -> IResult<&str, &str> {
+pub fn semicolon_delimeter(input: &str) -> ParserResult<&str, &str> {
     tag(";")(input)
 }
 
-pub fn parse_property_parameters(input: &str) -> IResult<&str, Option<HashMap<&str, Vec<&str>>>> {
+pub fn parse_property_parameters(input: &str) -> ParserResult<&str, Option<HashMap<&str, Vec<&str>>>> {
     opt(
         preceded(
             semicolon_delimeter,
@@ -333,7 +377,7 @@ pub fn consumed_input_string<'a>(original_input: &'a str, remaining_input: &'a s
     )
 }
 
-pub fn parse_property_content(input: &str) -> IResult<&str, ParsedPropertyContent> {
+pub fn parse_property_content(input: &str) -> ParserResult<&str, ParsedPropertyContent> {
     let (remaining, parsed_name) = name(input)?;
 
     let (remaining, parsed_params) = parse_property_parameters(remaining)?;
@@ -354,7 +398,7 @@ pub fn parse_property_content(input: &str) -> IResult<&str, ParsedPropertyConten
     Ok((remaining, parsed_property))
 }
 
-pub fn take_until_next_property(input: &str) -> IResult<&str, &str> {
+pub fn take_until_next_property(input: &str) -> ParserResult<&str, &str> {
     match find_next_property_in_unquoted_value(input) {
         Some(found_property_index) => {
             take(found_property_index)(input)

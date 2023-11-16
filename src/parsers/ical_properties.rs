@@ -1,12 +1,11 @@
 use serde::{Serialize, Deserialize};
-use std::option::Option;
 use std::collections::HashMap;
 use std::str;
 
 use crate::data_types::KeyValuePair;
 
 use nom::{
-    error::{context, ParseError, ContextError, ErrorKind},
+    error::{context, ParseError, ContextError, ErrorKind, VerboseError, VerboseErrorKind},
     multi::{separated_list0, separated_list1},
     sequence::{preceded, delimited, terminated, tuple, separated_pair},
     branch::alt,
@@ -20,6 +19,7 @@ use nom::{
 // ==============
 
 use crate::parsers::ical_common;
+use crate::parsers::ical_common::ParserResult;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub enum ParsedProperty<'a> {
@@ -59,7 +59,48 @@ impl<'a> ParsedProperty<'a> {
 
 }
 
-pub fn parse_properties(input: &str) -> IResult<&str, Vec<ParsedProperty>> {
+macro_rules! build_date_time_property_parser {
+    (
+        $property_name:expr,
+        $input_variable:ident
+    ) => {
+        preceded(
+            tag($property_name),
+            cut(
+                context(
+                    $property_name,
+                    tuple(
+                        (
+                            ical_common::parse_property_parameters,
+                            ical_common::colon_delimeter,
+                            ical_common::ParsedValue::parse_single,
+                        )
+                    )
+                )
+            )
+        )($input_variable).map(
+            |(remaining, (parsed_params, _colon_delimeter, parsed_value))| {
+                let parsed_content_line =
+                    ical_common::consumed_input_string(
+                        $input_variable,
+                        remaining,
+                        $property_name
+                    );
+
+                let parsed_property = ical_common::ParsedPropertyContent {
+                    name: Some($property_name),
+                    params: parsed_params,
+                    value: parsed_value,
+                    content_line: parsed_content_line
+                };
+
+                (remaining, parsed_property)
+            }
+        )
+    }
+}
+
+pub fn parse_properties(input: &str) -> ParserResult<&str, Vec<ParsedProperty>> {
     terminated(
         separated_list1(
             tag(" "),
@@ -69,249 +110,287 @@ pub fn parse_properties(input: &str) -> IResult<&str, Vec<ParsedProperty>> {
     )(input)
 }
 
-fn parse_rrule_property_content(input: &str) -> IResult<&str, ical_common::ParsedPropertyContent> {
-    let (remaining, parsed_name) = tag("RRULE")(input)?;
+fn parse_rrule_property_content(input: &str) -> ParserResult<&str, ical_common::ParsedPropertyContent> {
+    preceded(
+        tag("RRULE"),
+        cut(
+            context(
+                "RRULE",
+                tuple(
+                    (
+                        ical_common::colon_delimeter,
+                        ical_common::ParsedValue::parse_params,
+                    )
+                )
+            )
+        )
+    )(input).map(
+        |(remaining, (_colon_delimeter, parsed_value))| {
+            let parsed_content_line =
+                ical_common::consumed_input_string(
+                    input,
+                    remaining,
+                    "RRULE"
+                );
 
-    let (remaining, _) = ical_common::colon_delimeter(remaining)?;
+            let parsed_property = ical_common::ParsedPropertyContent {
+                name: Some("RRULE"),
+                params: None,
+                value: parsed_value,
+                content_line: parsed_content_line
+            };
 
-    let (remaining, parsed_value) = ical_common::ParsedValue::parse_params(remaining)?;
-
-    let parsed_content_line = ical_common::consumed_input_string(input, remaining, parsed_name);
-
-    let parsed_property = ical_common::ParsedPropertyContent {
-        name: Some(parsed_name),
-        params: None,
-        value: parsed_value,
-        content_line: parsed_content_line
-    };
-
-    Ok((remaining, parsed_property))
+            (remaining, parsed_property)
+        }
+    )
 }
 
-fn parse_exrule_property_content(input: &str) -> IResult<&str, ical_common::ParsedPropertyContent> {
-    let (remaining, parsed_name) = tag("EXRULE")(input)?;
+fn parse_exrule_property_content(input: &str) -> ParserResult<&str, ical_common::ParsedPropertyContent> {
+    preceded(
+        tag("EXRULE"),
+        cut(
+            context(
+                "EXRULE",
+                tuple(
+                    (
+                        ical_common::colon_delimeter,
+                        ical_common::ParsedValue::parse_params,
+                    )
+                )
+            )
+        )
+    )(input).map(
+        |(remaining, (_colon_delimeter, parsed_value))| {
+            let parsed_content_line =
+                ical_common::consumed_input_string(
+                    input,
+                    remaining,
+                    "EXRULE"
+                );
 
-    let (remaining, _) = ical_common::colon_delimeter(remaining)?;
+            let parsed_property = ical_common::ParsedPropertyContent {
+                name: Some("EXRULE"),
+                params: None,
+                value: parsed_value,
+                content_line: parsed_content_line
+            };
 
-    let (remaining, parsed_value) = ical_common::ParsedValue::parse_params(remaining)?;
-
-    let parsed_content_line = ical_common::consumed_input_string(input, remaining, parsed_name);
-
-    let parsed_property = ical_common::ParsedPropertyContent {
-        name: Some(parsed_name),
-        params: None,
-        value: parsed_value,
-        content_line: parsed_content_line
-    };
-
-    Ok((remaining, parsed_property))
+            (remaining, parsed_property)
+        }
+    )
 }
 
 // TODO: parse exact date format
 // https://www.kanzaki.com/docs/ical/dateTime.html
-fn parse_rdate_property_content(input: &str) -> IResult<&str, ical_common::ParsedPropertyContent> {
-    let (remaining, parsed_name) = tag("RDATE")(input)?;
-
-    let (remaining, parsed_params) = ical_common::parse_property_parameters(remaining)?;
-
-    let (remaining, _) = ical_common::colon_delimeter(remaining)?;
-
-    let (remaining, parsed_value_list) = ical_common::ParsedValue::parse_list(remaining)?;
-
-    let parsed_content_line = ical_common::consumed_input_string(input, remaining, parsed_name);
-
-    let parsed_property = ical_common::ParsedPropertyContent {
-        name: Some(parsed_name),
-        params: parsed_params,
-        value: parsed_value_list,
-        content_line: parsed_content_line
-    };
-
-    Ok((remaining, parsed_property))
+fn parse_rdate_property_content(input: &str) -> ParserResult<&str, ical_common::ParsedPropertyContent> {
+    build_date_time_property_parser!("RDATE", input)
 }
 
 // TODO: parse exact date format
 // https://www.kanzaki.com/docs/ical/dateTime.html
-fn parse_exdate_property_content(input: &str) -> IResult<&str, ical_common::ParsedPropertyContent> {
-    let (remaining, parsed_name) = tag("EXDATE")(input)?;
-
-    let (remaining, parsed_params) = ical_common::parse_property_parameters(remaining)?;
-
-    let (remaining, _) = ical_common::colon_delimeter(remaining)?;
-
-    let (remaining, parsed_value_list) = ical_common::ParsedValue::parse_list(remaining)?;
-
-    let parsed_content_line = ical_common::consumed_input_string(input, remaining, parsed_name);
-
-    let parsed_property = ical_common::ParsedPropertyContent {
-        name: Some(parsed_name),
-        params: parsed_params,
-        value: parsed_value_list,
-        content_line: parsed_content_line
-    };
-
-    Ok((remaining, parsed_property))
+fn parse_exdate_property_content(input: &str) -> ParserResult<&str, ical_common::ParsedPropertyContent> {
+    build_date_time_property_parser!("EXDATE", input)
 }
 
 // TODO: parse exact duration format
 // https://icalendar.org/iCalendar-RFC-5545/3-3-6-duration.html
 // https://www.kanzaki.com/docs/ical/duration.html
-fn parse_duration_property_content(input: &str) -> IResult<&str, ical_common::ParsedPropertyContent> {
-    let (remaining, parsed_name) = tag("DURATION")(input)?;
+fn parse_duration_property_content(input: &str) -> ParserResult<&str, ical_common::ParsedPropertyContent> {
+    preceded(
+        tag("DURATION"),
+        cut(
+            context(
+                "DURATION",
+                tuple(
+                    (
+                        ical_common::parse_property_parameters,
+                        ical_common::colon_delimeter,
+                        ical_common::ParsedValue::parse_single,
+                    )
+                )
+            )
+        )
+    )(input).map(
+        |(remaining, (parsed_params, _colon_delimeter, parsed_value))| {
+            let parsed_content_line =
+                ical_common::consumed_input_string(
+                    input,
+                    remaining,
+                    "DURATION"
+                );
 
-    let (remaining, parsed_params) = ical_common::parse_property_parameters(remaining)?;
+            let parsed_property = ical_common::ParsedPropertyContent {
+                name: Some("DURATION"),
+                params: parsed_params,
+                value: parsed_value,
+                content_line: parsed_content_line
+            };
 
-    let (remaining, _) = ical_common::colon_delimeter(remaining)?;
-
-    let (remaining, parsed_value_list) = ical_common::ParsedValue::parse_single(remaining)?;
-
-    let parsed_content_line = ical_common::consumed_input_string(input, remaining, parsed_name);
-
-    let parsed_property = ical_common::ParsedPropertyContent {
-        name: Some(parsed_name),
-        params: parsed_params,
-        value: parsed_value_list,
-        content_line: parsed_content_line
-    };
-
-    Ok((remaining, parsed_property))
+            (remaining, parsed_property)
+        }
+    )
 }
 
 // TODO: parse exact datetime format
 // https://www.kanzaki.com/docs/ical/dtstart.html
-fn parse_dtstart_property_content(input: &str) -> IResult<&str, ical_common::ParsedPropertyContent> {
-    let (remaining, parsed_name) = tag("DTSTART")(input)?;
-
-    let (remaining, parsed_params) = ical_common::parse_property_parameters(remaining)?;
-
-    let (remaining, _) = ical_common::colon_delimeter(remaining)?;
-
-    let (remaining, parsed_value_list) = ical_common::ParsedValue::parse_single(remaining)?;
-
-    let parsed_content_line = ical_common::consumed_input_string(input, remaining, parsed_name);
-
-    let parsed_property = ical_common::ParsedPropertyContent {
-        name: Some(parsed_name),
-        params: parsed_params,
-        value: parsed_value_list,
-        content_line: parsed_content_line
-    };
-
-    Ok((remaining, parsed_property))
+fn parse_dtstart_property_content(input: &str) -> ParserResult<&str, ical_common::ParsedPropertyContent> {
+    build_date_time_property_parser!("DTSTART", input)
 }
 
 // TODO: parse exact datetime format
 // https://www.kanzaki.com/docs/ical/dtend.html
-fn parse_dtend_property_content(input: &str) -> IResult<&str, ical_common::ParsedPropertyContent> {
-    let (remaining, parsed_name) = tag("DTEND")(input)?;
-
-    let (remaining, parsed_params) = ical_common::parse_property_parameters(remaining)?;
-
-    let (remaining, _) = ical_common::colon_delimeter(remaining)?;
-
-    let (remaining, parsed_value_list) = ical_common::ParsedValue::parse_single(remaining)?;
-
-    let parsed_content_line = ical_common::consumed_input_string(input, remaining, parsed_name);
-
-    let parsed_property = ical_common::ParsedPropertyContent {
-        name: Some(parsed_name),
-        params: parsed_params,
-        value: parsed_value_list,
-        content_line: parsed_content_line
-    };
-
-    Ok((remaining, parsed_property))
+fn parse_dtend_property_content(input: &str) -> ParserResult<&str, ical_common::ParsedPropertyContent> {
+    build_date_time_property_parser!("DTEND", input)
 }
 
-fn parse_description_property_content(input: &str) -> IResult<&str, ical_common::ParsedPropertyContent> {
-    let (remaining, parsed_name) = tag("DESCRIPTION")(input)?;
+fn parse_description_property_content(input: &str) -> ParserResult<&str, ical_common::ParsedPropertyContent> {
+    preceded(
+        tag("DESCRIPTION"),
+        cut(
+            context(
+                "DESCRIPTION",
+                tuple(
+                    (
+                        ical_common::parse_property_parameters,
+                        ical_common::colon_delimeter,
+                        ical_common::ParsedValue::parse_single,
+                    )
+                )
+            )
+        )
+    )(input).map(
+        |(remaining, (parsed_params, _colon_delimeter, parsed_value))| {
+            let parsed_content_line =
+                ical_common::consumed_input_string(
+                    input,
+                    remaining,
+                    "DESCRIPTION"
+                );
 
-    let (remaining, parsed_params) = ical_common::parse_property_parameters(remaining)?;
+            let parsed_property = ical_common::ParsedPropertyContent {
+                name: Some("DESCRIPTION"),
+                params: parsed_params,
+                value: parsed_value,
+                content_line: parsed_content_line
+            };
 
-    let (remaining, _) = ical_common::colon_delimeter(remaining)?;
-
-    let (remaining, parsed_value) = ical_common::ParsedValue::parse_single(remaining)?;
-
-    let parsed_content_line = ical_common::consumed_input_string(input, remaining, parsed_name);
-
-    let parsed_property = ical_common::ParsedPropertyContent {
-        name: Some(parsed_name),
-        params: parsed_params,
-        value: parsed_value,
-        content_line: parsed_content_line
-    };
-
-    Ok((remaining, parsed_property))
+            (remaining, parsed_property)
+        }
+    )
 }
 
-fn parse_categories_property_content(input: &str) -> IResult<&str, ical_common::ParsedPropertyContent> {
-    let (remaining, parsed_name) = tag("CATEGORIES")(input)?;
+fn parse_categories_property_content(input: &str) -> ParserResult<&str, ical_common::ParsedPropertyContent> {
+    preceded(
+        tag("CATEGORIES"),
+        cut(
+            context(
+                "CATEGORIES",
+                tuple(
+                    (
+                        ical_common::parse_property_parameters,
+                        ical_common::colon_delimeter,
+                        ical_common::ParsedValue::parse_list,
+                    )
+                )
+            )
+        )
+    )(input).map(
+        |(remaining, (parsed_params, _colon_delimeter, parsed_value_list))| {
+            let parsed_content_line =
+                ical_common::consumed_input_string(
+                    input,
+                    remaining,
+                    "CATEGORIES"
+                );
 
-    let (remaining, parsed_params) = ical_common::parse_property_parameters(remaining)?;
+            let parsed_property = ical_common::ParsedPropertyContent {
+                name: Some("CATEGORIES"),
+                params: parsed_params,
+                value: parsed_value_list,
+                content_line: parsed_content_line
+            };
 
-    let (remaining, _) = ical_common::colon_delimeter(remaining)?;
-
-    let (remaining, parsed_value_list) = ical_common::ParsedValue::parse_list(remaining)?;
-
-    let parsed_content_line = ical_common::consumed_input_string(input, remaining, parsed_name);
-
-    let parsed_property = ical_common::ParsedPropertyContent {
-        name: Some(parsed_name),
-        params: parsed_params,
-        value: parsed_value_list,
-        content_line: parsed_content_line
-    };
-
-    Ok((remaining, parsed_property))
+            (remaining, parsed_property)
+        }
+    )
 }
 
-fn parse_related_to_property_content(input: &str) -> IResult<&str, ical_common::ParsedPropertyContent> {
-    let (remaining, parsed_name) = tag("RELATED-TO")(input)?;
+fn parse_related_to_property_content(input: &str) -> ParserResult<&str, ical_common::ParsedPropertyContent> {
+    preceded(
+        tag("RELATED-TO"),
+        cut(
+            context(
+                "RELATED-TO",
+                tuple(
+                    (
+                        ical_common::parse_property_parameters,
+                        ical_common::colon_delimeter,
+                        ical_common::ParsedValue::parse_list,
+                    )
+                )
+            )
+        )
+    )(input).map(
+        |(remaining, (parsed_params, _colon_delimeter, parsed_value_list))| {
+            let parsed_content_line =
+                ical_common::consumed_input_string(
+                    input,
+                    remaining,
+                    "RELATED-TO"
+                );
 
-    let (remaining, parsed_params) = ical_common::parse_property_parameters(remaining)?;
+            let parsed_property = ical_common::ParsedPropertyContent {
+                name: Some("RELATED-TO"),
+                params: parsed_params,
+                value: parsed_value_list,
+                content_line: parsed_content_line
+            };
 
-    let (remaining, _) = ical_common::colon_delimeter(remaining)?;
-
-    let (remaining, parsed_value_list) = ical_common::ParsedValue::parse_list(remaining)?;
-
-    let parsed_content_line = ical_common::consumed_input_string(input, remaining, parsed_name);
-
-    let parsed_property = ical_common::ParsedPropertyContent {
-        name: Some(parsed_name),
-        params: parsed_params,
-        value: parsed_value_list,
-        content_line: parsed_content_line
-    };
-
-    Ok((remaining, parsed_property))
+            (remaining, parsed_property)
+        }
+    )
 }
 
-fn parse_geo_property_content(input: &str) -> IResult<&str, ical_common::ParsedPropertyContent> {
-    let (remaining, parsed_name) = tag("GEO")(input)?;
+fn parse_geo_property_content(input: &str) -> ParserResult<&str, ical_common::ParsedPropertyContent> {
+    preceded(
+        tag("GEO"),
+        cut(
+            context(
+                "GEO",
+                tuple(
+                    (
+                        ical_common::colon_delimeter,
+                        recognize_float,
+                        ical_common::semicolon_delimeter,
+                        recognize_float,
+                    )
+                )
+            )
+        )
+    )(input).map(
+        |(remaining, (_colon_delimeter, parsed_latitude, _semicolon_delimeter, parsed_longitude))| {
+            let parsed_content_line =
+                ical_common::consumed_input_string(
+                    input,
+                    remaining,
+                    "GEO"
+                );
 
-    let (remaining, _) = ical_common::colon_delimeter(remaining)?;
+            let parsed_value_pair = ical_common::ParsedValue::Pair((parsed_latitude, parsed_longitude));
 
-    let (remaining, parsed_latitude) = recognize_float(remaining)?;
+            let parsed_property = ical_common::ParsedPropertyContent {
+                name: Some("GEO"),
+                params: None,
+                value: parsed_value_pair,
+                content_line: parsed_content_line
+            };
 
-    let (remaining, _) = ical_common::semicolon_delimeter(remaining)?;
-
-    let (remaining, parsed_longitude) = recognize_float(remaining)?;
-
-    let parsed_content_line = ical_common::consumed_input_string(input, remaining, parsed_name);
-
-    let parsed_value = ical_common::ParsedValue::Pair((parsed_latitude, parsed_longitude));
-
-    let parsed_property = ical_common::ParsedPropertyContent {
-        name: Some(parsed_name),
-        params: None,
-        value: parsed_value,
-        content_line: parsed_content_line
-    };
-
-    Ok((remaining, parsed_property))
+            (remaining, parsed_property)
+        }
+    )
 }
 
-fn parse_property(input: &str) -> IResult<&str, ParsedProperty> {
+fn parse_property(input: &str) -> ParserResult<&str, ParsedProperty> {
     // println!("parse_property - input - {input}");
     alt(
         (
@@ -516,11 +595,31 @@ mod test {
     }
 
     #[test]
-    fn test_parse_rrule_property_content() {
-        let data: &str = "RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH";
+    fn test_parse_dtstart_property_content() {
+        let data: &str = "DTSTART:20201231T183000Z";
 
         assert_eq!(
-            parse_rrule_property_content(data).unwrap(),
+            parse_dtstart_property_content(data).unwrap(),
+            (
+                "",
+                ical_common::ParsedPropertyContent {
+                    name: Some("DTSTART"),
+                    params: None,
+                    value: ical_common::ParsedValue::Single("20201231T183000Z"),
+                    content_line: KeyValuePair::new(
+                        String::from("DTSTART"),
+                        String::from(":20201231T183000Z"),
+                    )
+                }
+            )
+        );
+    }
+
+    #[test]
+    fn test_parse_rrule_property_content() {
+        // Testing valid RRULE
+        assert_eq!(
+            parse_rrule_property_content("RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH").unwrap(),
             (
                 "",
                 ical_common::ParsedPropertyContent {
@@ -541,6 +640,25 @@ mod test {
                         String::from(":FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH"),
                     )
                 }
+            )
+        );
+
+        // Testing invalid RRULE
+        assert_eq!(
+            parse_rrule_property_content("RRULE;FREQ=WEEKLY;SOMETHING,ELSE"),
+            Err(
+                nom::Err::Failure(
+                    VerboseError {
+                        errors: vec![
+                            (
+                                ";FREQ=WEEKLY;SOMETHING,ELSE", VerboseErrorKind::Nom(ErrorKind::Tag),
+                            ),
+                            (
+                                ";FREQ=WEEKLY;SOMETHING,ELSE", VerboseErrorKind::Context("RRULE"),
+                            )
+                        ]
+                    }
+                )
             )
         );
     }
