@@ -111,14 +111,15 @@ pub(crate) struct ParsedDateString {
     pub day: u32,
     pub time: Option<ParsedDateStringTime>,
     pub flags: ParsedDateStringFlags,
+    pub dt: String,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub(crate) struct ParsedDateStringFlags {
     pub zulu_timezone_set: bool,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub(crate) struct ParsedDateStringTime {
     pub hour: u32,
     pub min: u32,
@@ -166,13 +167,105 @@ impl ParsedDateString {
         };
         let flags = ParsedDateStringFlags { zulu_timezone_set };
 
+        let dt = val.to_string();
+
         Ok(Self {
             year,
             month,
             day,
             time,
             flags,
+            dt,
         })
+    }
+
+    /// Method version of datestring_to_date for already instantiated ParsedDateString
+    ///
+    /// Convert a datetime string and a timezone to a `chrono::DateTime<Tz>`.
+    /// If the string specifies a zulu timezone with `Z`, then the timezone
+    /// argument will be ignored.
+    pub(crate) fn to_date(&self, tz: Option<Tz>, property: &str) -> Result<DateTime, ParseError> {
+        let year = self.year.clone();
+        let month = self.month.clone();
+        let day = self.day.clone();
+        let time = self.time.clone();
+        let flags = self.flags.clone();
+        let dt = self.dt.as_str().clone();
+
+        // Combine parts to create data time.
+        let date =
+            NaiveDate::from_ymd_opt(year, month, day).ok_or_else(|| ParseError::InvalidDateTime {
+                value: dt.into(),
+                property: property.into(),
+            })?;
+
+        // Spec defines this is a date-time OR date
+        // So the time can will be set to 0:0:0 if only a date is given.
+        // https://icalendar.org/iCalendar-RFC-5545/3-8-2-4-date-time-start.html
+        let (hour, min, sec) = if let Some(time) = time {
+            (time.hour, time.min, time.sec)
+        } else {
+            (0, 0, 0)
+        };
+        let datetime = date
+            .and_hms_opt(hour, min, sec)
+            .ok_or_else(|| ParseError::InvalidDateTime {
+                value: dt.into(),
+                property: property.into(),
+            })?;
+
+        // Apply timezone appended to the datetime before converting to UTC.
+        // For more info https://icalendar.org/iCalendar-RFC-5545/3-3-5-date-time.html
+        let datetime: chrono::DateTime<Tz> = if flags.zulu_timezone_set {
+            // If a `Z` is present, UTC should be used.
+            chrono::DateTime::<chrono::Utc>::from_utc(datetime, chrono::Utc).with_timezone(&Tz::UTC)
+        } else {
+            // If no `Z` is present, local time should be used.
+            use chrono::offset::LocalResult;
+            // Get datetime in local time or machine local time.
+            // So this also takes into account daylight or standard time (summer/winter).
+            if let Some(tz) = tz {
+                // Use the timezone specified in the `tz`
+                match tz.from_local_datetime(&datetime) {
+                    LocalResult::None => Err(ParseError::InvalidDateTimeInLocalTimezone {
+                        value: dt.into(),
+                        property: property.into(),
+                    }),
+                    LocalResult::Single(date) => Ok(date),
+                    LocalResult::Ambiguous(date1, date2) => {
+                        Err(ParseError::DateTimeInLocalTimezoneIsAmbiguous {
+                            value: dt.into(),
+                            property: property.into(),
+                            date1: date1.to_rfc3339(),
+                            date2: date2.to_rfc3339(),
+                        })
+                    }
+                }?
+            } else {
+                // Use current system timezone
+                // TODO Add option to always use UTC when this is executed on a server.
+                let local = Tz::LOCAL;
+                match local.from_local_datetime(&datetime) {
+                    LocalResult::None => {
+                        return Err(ParseError::InvalidDateTimeInLocalTimezone {
+                            value: dt.into(),
+                            property: property.into(),
+                        })
+                    }
+                    LocalResult::Single(date) => date,
+                    LocalResult::Ambiguous(date1, date2) => {
+                        return Err(ParseError::DateTimeInLocalTimezoneIsAmbiguous {
+                            value: dt.into(),
+                            property: property.into(),
+                            date1: date1.to_rfc3339(),
+                            date2: date2.to_rfc3339(),
+                        })
+                    }
+                }
+            }
+        };
+
+        Ok(datetime)
     }
 }
 
@@ -201,91 +294,14 @@ pub(crate) fn datestring_to_date(
     tz: Option<Tz>,
     property: &str,
 ) -> Result<DateTime, ParseError> {
-    let ParsedDateString {
-        year,
-        month,
-        day,
-        time,
-        flags,
-    } = ParsedDateString::from_ical_datetime(dt).map_err(|_| ParseError::InvalidDateTime {
-        value: dt.into(),
-        property: property.into(),
-    })?;
-
-    // Combine parts to create data time.
-    let date =
-        NaiveDate::from_ymd_opt(year, month, day).ok_or_else(|| ParseError::InvalidDateTime {
-            value: dt.into(),
-            property: property.into(),
-        })?;
-
-    // Spec defines this is a date-time OR date
-    // So the time can will be set to 0:0:0 if only a date is given.
-    // https://icalendar.org/iCalendar-RFC-5545/3-8-2-4-date-time-start.html
-    let (hour, min, sec) = if let Some(time) = time {
-        (time.hour, time.min, time.sec)
-    } else {
-        (0, 0, 0)
-    };
-    let datetime = date
-        .and_hms_opt(hour, min, sec)
-        .ok_or_else(|| ParseError::InvalidDateTime {
-            value: dt.into(),
-            property: property.into(),
-        })?;
-
-    // Apply timezone appended to the datetime before converting to UTC.
-    // For more info https://icalendar.org/iCalendar-RFC-5545/3-3-5-date-time.html
-    let datetime: chrono::DateTime<Tz> = if flags.zulu_timezone_set {
-        // If a `Z` is present, UTC should be used.
-        chrono::DateTime::<chrono::Utc>::from_utc(datetime, chrono::Utc).with_timezone(&Tz::UTC)
-    } else {
-        // If no `Z` is present, local time should be used.
-        use chrono::offset::LocalResult;
-        // Get datetime in local time or machine local time.
-        // So this also takes into account daylight or standard time (summer/winter).
-        if let Some(tz) = tz {
-            // Use the timezone specified in the `tz`
-            match tz.from_local_datetime(&datetime) {
-                LocalResult::None => Err(ParseError::InvalidDateTimeInLocalTimezone {
-                    value: dt.into(),
-                    property: property.into(),
-                }),
-                LocalResult::Single(date) => Ok(date),
-                LocalResult::Ambiguous(date1, date2) => {
-                    Err(ParseError::DateTimeInLocalTimezoneIsAmbiguous {
-                        value: dt.into(),
-                        property: property.into(),
-                        date1: date1.to_rfc3339(),
-                        date2: date2.to_rfc3339(),
-                    })
-                }
-            }?
-        } else {
-            // Use current system timezone
-            // TODO Add option to always use UTC when this is executed on a server.
-            let local = Tz::LOCAL;
-            match local.from_local_datetime(&datetime) {
-                LocalResult::None => {
-                    return Err(ParseError::InvalidDateTimeInLocalTimezone {
-                        value: dt.into(),
-                        property: property.into(),
-                    })
-                }
-                LocalResult::Single(date) => date,
-                LocalResult::Ambiguous(date1, date2) => {
-                    return Err(ParseError::DateTimeInLocalTimezoneIsAmbiguous {
-                        value: dt.into(),
-                        property: property.into(),
-                        date1: date1.to_rfc3339(),
-                        date2: date2.to_rfc3339(),
-                    })
-                }
+    ParsedDateString::from_ical_datetime(dt)
+        .map_err(|_| {
+            ParseError::InvalidDateTime {
+                value: dt.into(),
+                property: property.into(),
             }
-        }
-    };
-
-    Ok(datetime)
+        })?
+        .to_date(tz, property)
 }
 
 #[cfg(test)]
@@ -311,6 +327,7 @@ mod tests {
                     flags: ParsedDateStringFlags {
                         zulu_timezone_set: true,
                     },
+                    dt: "20101017T120000Z".to_string(),
                 },
             ),
             (
@@ -323,6 +340,7 @@ mod tests {
                     flags: ParsedDateStringFlags {
                         zulu_timezone_set: false,
                     },
+                    dt: "20101017".to_string(),
                 },
             ),
             (
@@ -339,6 +357,7 @@ mod tests {
                     flags: ParsedDateStringFlags {
                         zulu_timezone_set: true,
                     },
+                    dt: "20220101T121049Z".to_string(),
                 },
             ),
             (
@@ -351,6 +370,7 @@ mod tests {
                     flags: ParsedDateStringFlags {
                         zulu_timezone_set: false,
                     },
+                    dt: "20220101".to_string(),
                 },
             ),
         ];
