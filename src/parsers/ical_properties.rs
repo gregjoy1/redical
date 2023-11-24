@@ -1,22 +1,15 @@
-use serde::{Serialize, Deserialize};
-use std::collections::HashMap;
 use std::str;
 
-use crate::data_types::KeyValuePair;
-
 use nom::{
-    error::{context, ParseError, ContextError, ErrorKind, VerboseError, VerboseErrorKind},
-    multi::{separated_list0, separated_list1},
-    sequence::{preceded, delimited, terminated, tuple, separated_pair},
+    error::context,
+    multi::separated_list1,
+    sequence::{preceded, terminated, tuple, separated_pair},
     branch::alt,
-    combinator::{cut, opt, recognize, map},
-    bytes::complete::{take_while, take, take_while1, tag, tag_no_case, escaped},
-    character::complete::{char, alphanumeric1, one_of, space1},
+    combinator::{cut, opt, map},
+    bytes::complete::tag,
+    character::complete::char,
     number::complete::recognize_float,
-    IResult
 };
-
-// ==============
 
 use crate::parsers::ical_common;
 use crate::parsers::ical_common::ParserResult;
@@ -35,27 +28,6 @@ pub enum ParsedProperty<'a> {
     RelatedTo(ical_common::ParsedPropertyContent<'a>),
     Geo(ical_common::ParsedPropertyContent<'a>),
     Other(ical_common::ParsedPropertyContent<'a>),
-}
-
-impl<'a> ParsedProperty<'a> {
-
-    pub fn content_line(&self) -> &KeyValuePair {
-        match self {
-            ParsedProperty::Categories(parsed_property_content)  => { &parsed_property_content.content_line },
-            ParsedProperty::RRule(parsed_property_content)       => { &parsed_property_content.content_line },
-            ParsedProperty::ExRule(parsed_property_content)      => { &parsed_property_content.content_line },
-            ParsedProperty::RDate(parsed_property_content)       => { &parsed_property_content.content_line },
-            ParsedProperty::ExDate(parsed_property_content)      => { &parsed_property_content.content_line },
-            ParsedProperty::Duration(parsed_property_content)    => { &parsed_property_content.content_line },
-            ParsedProperty::DtStart(parsed_property_content)     => { &parsed_property_content.content_line },
-            ParsedProperty::DtEnd(parsed_property_content)       => { &parsed_property_content.content_line },
-            ParsedProperty::Description(parsed_property_content) => { &parsed_property_content.content_line },
-            ParsedProperty::RelatedTo(parsed_property_content)   => { &parsed_property_content.content_line },
-            ParsedProperty::Geo(parsed_property_content)         => { &parsed_property_content.content_line },
-            ParsedProperty::Other(parsed_property_content)       => { &parsed_property_content.content_line }
-        }
-    }
-
 }
 
 pub fn parse_properties(input: &str) -> ParserResult<&str, Vec<ParsedProperty>> {
@@ -164,7 +136,7 @@ macro_rules! build_property_params_value_parser {
 
     ($property_name:tt, $(($param_name:expr, $param_parser:expr)),+ $(,)*) => {
         context(
-            "$property_name params",
+            concat!($property_name, " params"),
             map(
                 separated_list1(
                     ical_common::semicolon_delimeter,
@@ -172,11 +144,11 @@ macro_rules! build_property_params_value_parser {
                         (
                             $(
                                 context(
-                                    "$property_name param",
+                                    concat!($property_name, " param"),
                                     separated_pair(
                                         tag($param_name),
                                         char('='),
-                                        $param_parser,
+                                        cut($param_parser),
                                     ),
                                 ),
                             )+
@@ -305,13 +277,11 @@ fn parse_exrule_property_content(input: &str) -> ParserResult<&str, ical_common:
     )
 }
 
-// TODO: parse exact date format
 // https://www.kanzaki.com/docs/ical/dateTime.html
 fn parse_rdate_property_content(input: &str) -> ParserResult<&str, ical_common::ParsedPropertyContent> {
     build_date_time_property_parser!("RDATE", input)
 }
 
-// TODO: parse exact date format
 // https://www.kanzaki.com/docs/ical/dateTime.html
 fn parse_exdate_property_content(input: &str) -> ParserResult<&str, ical_common::ParsedPropertyContent> {
     build_date_time_property_parser!("EXDATE", input)
@@ -549,8 +519,13 @@ fn parse_property(input: &str) -> ParserResult<&str, ParsedProperty> {
 mod test {
     use super::*;
 
+    use nom::error::{VerboseError, VerboseErrorKind, ErrorKind};
+
+    use crate::data_types::KeyValuePair;
     use crate::parsers::ical_common::ParsedValue;
     use crate::parsers::datetime::{ParsedDateString, ParsedDateStringTime, ParsedDateStringFlags};
+
+    use std::collections::HashMap;
 
     #[test]
     fn test_parse_property() {
