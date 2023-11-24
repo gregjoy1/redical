@@ -1,8 +1,8 @@
-use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
 use std::str;
 
 use crate::data_types::KeyValuePair;
+use crate::parsers::datetime::{parse_timezone, ParsedDateString};
 
 use nom::{
     error::{context, ParseError, ContextError, ErrorKind, VerboseError},
@@ -22,13 +22,13 @@ pub enum ParsedPropertyContentError<'a> {
     ParseError { message: &'a str },
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct ParsedPropertyContent<'a> {
     /// Property name.
     pub name: Option<&'a str>,
 
     /// HashMap of parameters (before : delimiter).
-    pub params: Option<HashMap<&'a str, Vec<&'a str>>>,
+    pub params: Option<HashMap<&'a str, ParsedValue<'a>>>,
 
     /// Property value.
     pub value: ParsedValue<'a>,
@@ -37,12 +37,14 @@ pub struct ParsedPropertyContent<'a> {
     pub content_line: KeyValuePair,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum ParsedValue<'a> {
     List(Vec<&'a str>),
     Single(&'a str),
     Pair((&'a str, &'a str)),
-    Params(HashMap<&'a str, Vec<&'a str>>)
+    Params(HashMap<&'a str, ParsedValue<'a>>),
+    DateString(ParsedDateString),
+    TimeZone(rrule::Tz),
 }
 
 impl<'a> ParsedValue<'a> {
@@ -69,7 +71,26 @@ impl<'a> ParsedValue<'a> {
         )
     }
 
-    pub fn parse_single(input: &'a str) -> ParserResult<&'a str, Self> {
+    pub fn parse_single_param(input: &'a str) -> ParserResult<&'a str, Self> {
+        context(
+            "parsed single param",
+            alt(
+                (
+                    param_text,
+                    quoted_string
+                )
+            ),
+        )(input).map(
+            |(remaining, parsed_single_value)| {
+                (
+                    remaining,
+                    Self::Single(parsed_single_value)
+                )
+            }
+        )
+    }
+
+    pub fn parse_single_value(input: &'a str) -> ParserResult<&'a str, Self> {
         context(
             "parsed single value",
             value,
@@ -96,6 +117,71 @@ impl<'a> ParsedValue<'a> {
             }
         )
     }
+
+    pub fn parse_date_string(input: &'a str) -> ParserResult<&'a str, Self> {
+        context(
+            "parsed datetime value",
+            alphanumeric1,
+        )(input).and_then(
+            |(remaining, parsed_datetime_string)| {
+                match ParsedDateString::from_ical_datetime(parsed_datetime_string) {
+                    Ok(parsed_datetime_value) => {
+                        Ok(
+                            (
+                                remaining,
+                                Self::DateString(parsed_datetime_value)
+                            )
+                        )
+                    },
+
+                    Err(_error) => {
+                        Err(
+                            nom::Err::Error(
+                                nom::error::VerboseError::add_context(
+                                    parsed_datetime_string,
+                                    "parsed datetime value",
+                                    nom::error::VerboseError::from_error_kind(input, ErrorKind::Satisfy),
+                                )
+                            )
+                        )
+                    },
+                }
+            }
+        )
+    }
+
+    pub fn parse_timezone(input: &'a str) -> ParserResult<&'a str, Self> {
+        context(
+            "parsed timezone value",
+            take_while1(is_safe_char),
+        )(input).and_then(
+            |(remaining, parsed_timezone_string)| {
+                match parse_timezone(parsed_timezone_string) {
+                    Ok(parsed_timezone_value) => {
+                        Ok(
+                            (
+                                remaining,
+                                Self::TimeZone(parsed_timezone_value)
+                            )
+                        )
+                    },
+
+                    Err(_error) => {
+                        Err(
+                            nom::Err::Error(
+                                nom::error::VerboseError::add_context(
+                                    parsed_timezone_string,
+                                    "parsed timezone value",
+                                    nom::error::VerboseError::from_error_kind(input, ErrorKind::Satisfy),
+                                )
+                            )
+                        )
+                    },
+                }
+            }
+        )
+    }
+
 }
 
 pub fn is_name_char(chr: char) -> bool {
@@ -146,7 +232,7 @@ pub fn name(input: &str) -> ParserResult<&str, &str> {
     )(input)
 }
 
-pub fn params(input: &str) -> ParserResult<&str, HashMap<&str, Vec<&str>>> {
+pub fn params(input: &str) -> ParserResult<&str, HashMap<&str, ParsedValue>> {
     context(
         "params",
         map(
@@ -164,16 +250,13 @@ pub fn params(input: &str) -> ParserResult<&str, HashMap<&str, Vec<&str>>> {
 // ; Each property defines the specific ABNF for the parameters
 // ; allowed on the property.  Refer to specific properties for
 // ; precise parameter ABNF.
-pub fn param(input: &str) -> ParserResult<&str, (&str, Vec<&str>)> {
+pub fn param(input: &str) -> ParserResult<&str, (&str, ParsedValue)> {
     context(
         "param",
         separated_pair(
             param_name,
             char('='),
-            separated_list1(
-                char(','),
-                param_value
-            )
+            param_value
         ),
     )(input)
 }
@@ -192,13 +275,15 @@ pub fn param_name(input: &str) -> ParserResult<&str, &str> {
 }
 
 // param-value   = paramtext / quoted-string
-pub fn param_value(input: &str) -> ParserResult<&str, &str> {
+pub fn param_value(input: &str) -> ParserResult<&str, ParsedValue> {
     context(
         "param value",
         alt(
             (
-                param_text,
-                quoted_string
+                ParsedValue::parse_timezone,
+                ParsedValue::parse_date_string,
+                ParsedValue::parse_list,
+                ParsedValue::parse_single_value,
             )
         ),
     )(input)
@@ -359,7 +444,7 @@ pub fn semicolon_delimeter(input: &str) -> ParserResult<&str, &str> {
     tag(";")(input)
 }
 
-pub fn parse_property_parameters(input: &str) -> ParserResult<&str, Option<HashMap<&str, Vec<&str>>>> {
+pub fn parse_property_parameters(input: &str) -> ParserResult<&str, Option<HashMap<&str, ParsedValue>>> {
     opt(
         preceded(
             semicolon_delimeter,
@@ -384,7 +469,7 @@ pub fn parse_property_content(input: &str) -> ParserResult<&str, ParsedPropertyC
 
     let (remaining, _) = colon_delimeter(remaining)?;
 
-    let (remaining, parsed_value) = ParsedValue::parse_single(remaining)?;
+    let (remaining, parsed_value) = ParsedValue::parse_single_value(remaining)?;
 
     let parsed_content_line = consumed_input_string(input, remaining, parsed_name);
 
@@ -490,6 +575,10 @@ pub fn find_next_property_in_unquoted_value(input: &str) -> Option<usize> {
 mod test {
     use super::*;
 
+    use chrono::prelude::*;
+
+    use crate::parsers::datetime::{ParsedDateStringTime, ParsedDateStringFlags};
+
     #[test]
     fn test_find_next_property_in_unquoted_value() {
         let data: &str = "The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA; DETAILS: Some random facts...";
@@ -524,11 +613,133 @@ mod test {
         );
 
         assert_eq!(
-            ParsedValue::parse_single(data).unwrap(),
+            ParsedValue::parse_single_value(data).unwrap(),
             (
                 "",
                 ParsedValue::Single(
                     "MO,TU,TH"
+                )
+            )
+        );
+
+        assert_eq!(
+            ParsedValue::parse_date_string("MO,TU,TH"),
+            Err(
+                nom::Err::Error(
+                    nom::error::VerboseError {
+                        errors: vec![
+                            (
+                                "MO,TU,TH",
+                                nom::error::VerboseErrorKind::Nom(
+                                    nom::error::ErrorKind::Satisfy
+                                )
+                            ),
+                            (
+                                "MO",
+                                nom::error::VerboseErrorKind::Context(
+                                    "parsed datetime value"
+                                ),
+                            )
+                        ]
+                    }
+                )
+            )
+        );
+
+        assert_eq!(
+            ParsedValue::parse_date_string("19970902T090000Z"),
+            Ok(
+                (
+                    "",
+                    ParsedValue::DateString(
+                        ParsedDateString {
+                            year: 1997,
+                            month: 9,
+                            day: 2,
+                            time: Some(ParsedDateStringTime {
+                                hour: 9,
+                                min: 0,
+                                sec: 0,
+                            }),
+                            flags: ParsedDateStringFlags {
+                                zulu_timezone_set: true,
+                            },
+                            dt: "19970902T090000Z".to_string(),
+                        },
+                    )
+                )
+            )
+        );
+
+        assert_eq!(
+            ParsedValue::parse_date_string("19970902T090000"),
+            Ok(
+                (
+                    "",
+                    ParsedValue::DateString(
+                        ParsedDateString {
+                            year: 1997,
+                            month: 9,
+                            day: 2,
+                            time: Some(ParsedDateStringTime {
+                                hour: 9,
+                                min: 0,
+                                sec: 0,
+                            }),
+                            flags: ParsedDateStringFlags {
+                                zulu_timezone_set: false,
+                            },
+                            dt: "19970902T090000".to_string(),
+                        },
+                    )
+                )
+            )
+        );
+
+        assert_eq!(
+            ParsedValue::parse_timezone("MO,TU,TH"),
+            Err(
+                nom::Err::Error(
+                    nom::error::VerboseError {
+                        errors: vec![
+                            (
+                                "MO,TU,TH",
+                                nom::error::VerboseErrorKind::Nom(
+                                    nom::error::ErrorKind::Satisfy
+                                )
+                            ),
+                            (
+                                "MO",
+                                nom::error::VerboseErrorKind::Context(
+                                    "parsed timezone value"
+                                ),
+                            )
+                        ]
+                    }
+                )
+            )
+        );
+
+        assert_eq!(
+            ParsedValue::parse_timezone("UTC"),
+            Ok(
+                (
+                    "",
+                    ParsedValue::TimeZone(
+                        rrule::Tz::UTC,
+                    )
+                )
+            )
+        );
+
+        assert_eq!(
+            ParsedValue::parse_timezone("Europe/London"),
+            Ok(
+                (
+                    "",
+                    ParsedValue::TimeZone(
+                        rrule::Tz::Europe__London,
+                    )
                 )
             )
         );
@@ -575,7 +786,10 @@ mod test {
                     params: Some(
                         HashMap::from(
                             [
-                                ("ALTREP", vec!["cid:part1.0001@example.org"]),
+                                (
+                                    "ALTREP",
+                                    ParsedValue::List(vec!["cid:part1.0001@example.org"])
+                                ),
                             ]
                         )
                     ),

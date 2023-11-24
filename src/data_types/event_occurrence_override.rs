@@ -92,13 +92,24 @@ impl EventOccurrenceOverride {
                                 let reltype: String = match content.params {
                                     Some(params) => {
                                         match params.get(&"RELTYPE") {
-                                            Some(values) => {
-                                                if values.is_empty() {
-                                                    default_reltype
-                                                } else if values.len() == 1 {
-                                                    String::from(values[0])
-                                                } else {
-                                                    return Err(String::from("Expected related_to RELTYPE to be a single value."))
+                                            Some(value) => {
+                                                // TODO: Clean this up...
+                                                match value {
+                                                    ParsedValue::List(list_values) => {
+                                                        if list_values.len() == 1 {
+                                                            String::from(list_values[0])
+                                                        } else {
+                                                            return Err(String::from("Expected related_to RELTYPE to be a single value."))
+                                                        }
+                                                    },
+
+                                                    ParsedValue::Single(value) => {
+                                                        String::from(*value)
+                                                    },
+
+                                                    _ => {
+                                                        return Err(String::from("Expected related_to RELTYPE to be a single value."))
+                                                    }
                                                 }
                                             },
 

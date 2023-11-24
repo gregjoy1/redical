@@ -21,9 +21,8 @@ use nom::{
 use crate::parsers::ical_common;
 use crate::parsers::ical_common::ParserResult;
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum ParsedProperty<'a> {
-    #[serde(borrow)]
     Categories(ical_common::ParsedPropertyContent<'a>),
     RRule(ical_common::ParsedPropertyContent<'a>),
     ExRule(ical_common::ParsedPropertyContent<'a>),
@@ -59,6 +58,16 @@ impl<'a> ParsedProperty<'a> {
 
 }
 
+pub fn parse_properties(input: &str) -> ParserResult<&str, Vec<ParsedProperty>> {
+    terminated(
+        separated_list1(
+            tag(" "),
+            parse_property
+        ),
+        opt(tag(" ")),
+    )(input)
+}
+
 macro_rules! build_date_time_property_parser {
     (
         $property_name:expr,
@@ -71,9 +80,9 @@ macro_rules! build_date_time_property_parser {
                     $property_name,
                     tuple(
                         (
-                            ical_common::parse_property_parameters,
+                            build_property_params_parser!($property_name, ("TZID", ical_common::ParsedValue::parse_timezone)),
                             ical_common::colon_delimeter,
-                            ical_common::ParsedValue::parse_single,
+                            ical_common::ParsedValue::parse_date_string,
                         )
                     )
                 )
@@ -100,14 +109,96 @@ macro_rules! build_date_time_property_parser {
     }
 }
 
-pub fn parse_properties(input: &str) -> ParserResult<&str, Vec<ParsedProperty>> {
-    terminated(
-        separated_list1(
-            tag(" "),
-            parse_property
-        ),
-        opt(tag(" ")),
-    )(input)
+macro_rules! build_property_params_parser {
+    ($property_name:tt) => {
+        opt(
+            preceded(
+                ical_common::semicolon_delimeter,
+                build_property_params_value_parser!($property_name)
+            )
+        )
+    };
+
+    ($property_name:tt, $(($param_name:expr, $param_parser:expr)),+ $(,)*) => {
+        opt(
+            preceded(
+                ical_common::semicolon_delimeter,
+                build_property_params_value_parser!(
+                    $property_name,
+                    $(
+                        ($param_name, $param_parser),
+                    )+
+                )
+            )
+        )
+    }
+}
+
+macro_rules! build_property_params_value_parser {
+    ($property_name:tt) => {
+        context(
+            "$property_name params",
+            map(
+                separated_list1(
+                    ical_common::semicolon_delimeter,
+                    context(
+                        "param",
+                        separated_pair(
+                            ical_common::param_name,
+                            char('='),
+                            ical_common::param_value,
+                        ),
+                    ),
+                ),
+                |parsed_params| {
+                    let params: HashMap<&str, ical_common::ParsedValue> =
+                        parsed_params.into_iter()
+                                     .map(|(key, value)| (key, value))
+                                     .collect();
+
+                    ical_common::ParsedValue::Params(params)
+                }
+            ),
+        )
+    };
+
+    ($property_name:tt, $(($param_name:expr, $param_parser:expr)),+ $(,)*) => {
+        context(
+            "$property_name params",
+            map(
+                separated_list1(
+                    ical_common::semicolon_delimeter,
+                    alt(
+                        (
+                            $(
+                                context(
+                                    "$property_name param",
+                                    separated_pair(
+                                        tag($param_name),
+                                        char('='),
+                                        $param_parser,
+                                    ),
+                                ),
+                            )+
+                            context(
+                                "param",
+                                separated_pair(
+                                    ical_common::param_name,
+                                    char('='),
+                                    ical_common::param_value,
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+                |parsed_params| {
+                    parsed_params.into_iter()
+                                 .map(|(key, value)| (key, value))
+                                 .collect()
+                }
+            ),
+        )
+    }
 }
 
 fn parse_rrule_property_content(input: &str) -> ParserResult<&str, ical_common::ParsedPropertyContent> {
@@ -119,7 +210,24 @@ fn parse_rrule_property_content(input: &str) -> ParserResult<&str, ical_common::
                 tuple(
                     (
                         ical_common::colon_delimeter,
-                        ical_common::ParsedValue::parse_params,
+                        build_property_params_value_parser!(
+                            "RRULE",
+                            ("FREQ",       ical_common::ParsedValue::parse_single_param),
+                            ("INTERVAL",   ical_common::ParsedValue::parse_single_param),
+                            ("COUNT",      ical_common::ParsedValue::parse_single_param),
+                            ("WKST",       ical_common::ParsedValue::parse_single_param),
+                            ("UNTIL",      ical_common::ParsedValue::parse_date_string),
+                            ("BYSECOND",   ical_common::ParsedValue::parse_list),
+                            ("BYMINUTE",   ical_common::ParsedValue::parse_list),
+                            ("BYHOUR",     ical_common::ParsedValue::parse_list),
+                            ("BYDAY",      ical_common::ParsedValue::parse_list),
+                            ("BYWEEKNO",   ical_common::ParsedValue::parse_list),
+                            ("BYMONTH",    ical_common::ParsedValue::parse_list),
+                            ("BYMONTHDAY", ical_common::ParsedValue::parse_list),
+                            ("BYYEARDAY",  ical_common::ParsedValue::parse_list),
+                            ("BYEASTER",   ical_common::ParsedValue::parse_list),
+                            ("BYSETPOS",   ical_common::ParsedValue::parse_list),
+                        )
                     )
                 )
             )
@@ -136,7 +244,7 @@ fn parse_rrule_property_content(input: &str) -> ParserResult<&str, ical_common::
             let parsed_property = ical_common::ParsedPropertyContent {
                 name: Some("RRULE"),
                 params: None,
-                value: parsed_value,
+                value: ical_common::ParsedValue::Params(parsed_value),
                 content_line: parsed_content_line
             };
 
@@ -154,7 +262,24 @@ fn parse_exrule_property_content(input: &str) -> ParserResult<&str, ical_common:
                 tuple(
                     (
                         ical_common::colon_delimeter,
-                        ical_common::ParsedValue::parse_params,
+                        build_property_params_value_parser!(
+                            "RRULE",
+                            ("FREQ",       ical_common::ParsedValue::parse_single_param),
+                            ("INTERVAL",   ical_common::ParsedValue::parse_single_param),
+                            ("COUNT",      ical_common::ParsedValue::parse_single_param),
+                            ("WKST",       ical_common::ParsedValue::parse_single_param),
+                            ("UNTIL",      ical_common::ParsedValue::parse_date_string),
+                            ("BYSECOND",   ical_common::ParsedValue::parse_list),
+                            ("BYMINUTE",   ical_common::ParsedValue::parse_list),
+                            ("BYHOUR",     ical_common::ParsedValue::parse_list),
+                            ("BYDAY",      ical_common::ParsedValue::parse_list),
+                            ("BYWEEKNO",   ical_common::ParsedValue::parse_list),
+                            ("BYMONTH",    ical_common::ParsedValue::parse_list),
+                            ("BYMONTHDAY", ical_common::ParsedValue::parse_list),
+                            ("BYYEARDAY",  ical_common::ParsedValue::parse_list),
+                            ("BYEASTER",   ical_common::ParsedValue::parse_list),
+                            ("BYSETPOS",   ical_common::ParsedValue::parse_list),
+                        )
                     )
                 )
             )
@@ -171,7 +296,7 @@ fn parse_exrule_property_content(input: &str) -> ParserResult<&str, ical_common:
             let parsed_property = ical_common::ParsedPropertyContent {
                 name: Some("EXRULE"),
                 params: None,
-                value: parsed_value,
+                value: ical_common::ParsedValue::Params(parsed_value),
                 content_line: parsed_content_line
             };
 
@@ -205,7 +330,7 @@ fn parse_duration_property_content(input: &str) -> ParserResult<&str, ical_commo
                     (
                         ical_common::parse_property_parameters,
                         ical_common::colon_delimeter,
-                        ical_common::ParsedValue::parse_single,
+                        ical_common::ParsedValue::parse_single_value,
                     )
                 )
             )
@@ -251,9 +376,13 @@ fn parse_description_property_content(input: &str) -> ParserResult<&str, ical_co
                 "DESCRIPTION",
                 tuple(
                     (
-                        ical_common::parse_property_parameters,
+                        build_property_params_parser!(
+                            "DESCRIPTION",
+                            ("ALTREP",   ical_common::ParsedValue::parse_single_param),
+                            ("LANGUAGE", ical_common::ParsedValue::parse_single_param),
+                        ),
                         ical_common::colon_delimeter,
-                        ical_common::ParsedValue::parse_single,
+                        ical_common::ParsedValue::parse_single_value,
                     )
                 )
             )
@@ -287,7 +416,10 @@ fn parse_categories_property_content(input: &str) -> ParserResult<&str, ical_com
                 "CATEGORIES",
                 tuple(
                     (
-                        ical_common::parse_property_parameters,
+                        build_property_params_parser!(
+                            "CATEGORIES",
+                            ("LANGUAGE", ical_common::ParsedValue::parse_single_param),
+                        ),
                         ical_common::colon_delimeter,
                         ical_common::ParsedValue::parse_list,
                     )
@@ -323,7 +455,10 @@ fn parse_related_to_property_content(input: &str) -> ParserResult<&str, ical_com
                 "RELATED-TO",
                 tuple(
                     (
-                        ical_common::parse_property_parameters,
+                        build_property_params_parser!(
+                            "RELATED-TO",
+                            ("RELTYPE", ical_common::ParsedValue::parse_single_param),
+                        ),
                         ical_common::colon_delimeter,
                         ical_common::ParsedValue::parse_list,
                     )
@@ -414,6 +549,9 @@ fn parse_property(input: &str) -> ParserResult<&str, ParsedProperty> {
 mod test {
     use super::*;
 
+    use crate::parsers::ical_common::ParsedValue;
+    use crate::parsers::datetime::{ParsedDateString, ParsedDateStringTime, ParsedDateStringFlags};
+
     #[test]
     fn test_parse_property() {
         let data: &str = "RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH";
@@ -429,10 +567,29 @@ mod test {
                         value: ical_common::ParsedValue::Params(
                             HashMap::from(
                                 [
-                                    ("FREQ", vec!["WEEKLY"]),
-                                    ("UNTIL", vec!["20211231T183000Z"]),
-                                    ("INTERVAL", vec!["1"]),
-                                    ("BYDAY", vec!["TU","TH"])
+                                    ("FREQ", ParsedValue::Single("WEEKLY")),
+                                    ("INTERVAL", ParsedValue::Single("1")),
+                                    ("BYDAY", ParsedValue::List(vec!["TU","TH"])),
+
+                                    (
+                                        "UNTIL", 
+                                        ParsedValue::DateString(
+                                            ParsedDateString {
+                                                year: 2021,
+                                                month: 12,
+                                                day: 31,
+                                                time: Some(ParsedDateStringTime {
+                                                    hour: 18,
+                                                    min: 30,
+                                                    sec: 0,
+                                                }),
+                                                flags: ParsedDateStringFlags {
+                                                    zulu_timezone_set: true,
+                                                },
+                                                dt: "20211231T183000Z".to_string(),
+                                            },
+                                        ),
+                                    ),
                                 ]
                             )
                         ),
@@ -482,7 +639,7 @@ mod test {
                         params: Some(
                             HashMap::from(
                                 [
-                                    ("ALTREP", vec!["cid:part1.0001@example.org"]),
+                                    ("ALTREP", ParsedValue::Single("cid:part1.0001@example.org")),
                                 ]
                             )
                         ),
@@ -537,11 +694,9 @@ mod test {
                         ical_common::ParsedPropertyContent {
                             name: Some("DESCRIPTION"),
                             params: Some(
-                                HashMap::from(
-                                    [
-                                        ("ALTREP", vec!["cid:part1.0001@example.org"]),
-                                    ]
-                                )
+                                HashMap::from([
+                                    ("ALTREP", ParsedValue::Single("cid:part1.0001@example.org")),
+                                ])
                             ),
                             value: ical_common::ParsedValue::Single(
                                 "The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA"
@@ -559,10 +714,10 @@ mod test {
                             value: ical_common::ParsedValue::Params(
                                 HashMap::from(
                                     [
-                                        ("FREQ", vec!["WEEKLY"]),
-                                        ("UNTIL", vec!["20211231T183000Z"]),
-                                        ("INTERVAL", vec!["1"]),
-                                        ("BYDAY", vec!["TU","TH"])
+                                        ("FREQ", ParsedValue::Single("WEEKLY")),
+                                        ("UNTIL", ParsedValue::Single("20211231T183000Z")),
+                                        ("INTERVAL", ParsedValue::Single("1")),
+                                        ("BYDAY", ParsedValue::List(vec!["TU","TH"])),
                                     ]
                                 )
                             ),
@@ -596,19 +751,108 @@ mod test {
 
     #[test]
     fn test_parse_dtstart_property_content() {
-        let data: &str = "DTSTART:20201231T183000Z";
-
         assert_eq!(
-            parse_dtstart_property_content(data).unwrap(),
+            parse_dtstart_property_content("DTSTART:20201231T183000Z").unwrap(),
             (
                 "",
                 ical_common::ParsedPropertyContent {
                     name: Some("DTSTART"),
                     params: None,
-                    value: ical_common::ParsedValue::Single("20201231T183000Z"),
+                    value: ical_common::ParsedValue::DateString(
+                        ParsedDateString {
+                            year: 2020,
+                            month: 12,
+                            day: 31,
+                            time: Some(
+                                ParsedDateStringTime {
+                                    hour: 18,
+                                    min: 30,
+                                    sec: 0,
+                                }
+                            ),
+                            flags: ParsedDateStringFlags {
+                                zulu_timezone_set: true
+                            },
+                            dt: "20201231T183000Z".to_string()
+                        },
+                    ),
                     content_line: KeyValuePair::new(
                         String::from("DTSTART"),
                         String::from(":20201231T183000Z"),
+                    )
+                }
+            )
+        );
+
+        assert_eq!(
+            parse_dtstart_property_content("DTSTART;TZID=Europe/London:20201231T183000").unwrap(),
+            (
+                "",
+                ical_common::ParsedPropertyContent {
+                    name: Some("DTSTART"),
+                    params: Some(
+                        HashMap::from([
+                            ("TZID", ParsedValue::TimeZone(rrule::Tz::Europe__London)),
+                        ])
+                    ),
+                    value: ical_common::ParsedValue::DateString(
+                        ParsedDateString {
+                            year: 2020,
+                            month: 12,
+                            day: 31,
+                            time: Some(
+                                ParsedDateStringTime {
+                                    hour: 18,
+                                    min: 30,
+                                    sec: 0,
+                                }
+                            ),
+                            flags: ParsedDateStringFlags {
+                                zulu_timezone_set: false
+                            },
+                            dt: "20201231T183000".to_string()
+                        },
+                    ),
+                    content_line: KeyValuePair::new(
+                        String::from("DTSTART"),
+                        String::from(";TZID=Europe/London:20201231T183000"),
+                    )
+                }
+            )
+        );
+
+        assert_eq!(
+            parse_dtstart_property_content("DTSTART;TZID=Europe/London:20201231T183000Z").unwrap(),
+            (
+                "",
+                ical_common::ParsedPropertyContent {
+                    name: Some("DTSTART"),
+                    params: Some(
+                        HashMap::from([
+                            ("TZID", ParsedValue::TimeZone(rrule::Tz::Europe__London)),
+                        ])
+                    ),
+                    value: ical_common::ParsedValue::DateString(
+                        ParsedDateString {
+                            year: 2020,
+                            month: 12,
+                            day: 31,
+                            time: Some(
+                                ParsedDateStringTime {
+                                    hour: 18,
+                                    min: 30,
+                                    sec: 0,
+                                }
+                            ),
+                            flags: ParsedDateStringFlags {
+                                zulu_timezone_set: true
+                            },
+                            dt: "20201231T183000Z".to_string()
+                        },
+                    ),
+                    content_line: KeyValuePair::new(
+                        String::from("DTSTART"),
+                        String::from(";TZID=Europe/London:20201231T183000Z"),
                     )
                 }
             )
@@ -628,10 +872,29 @@ mod test {
                     value: ical_common::ParsedValue::Params(
                         HashMap::from(
                             [
-                                ("FREQ", vec!["WEEKLY"]),
-                                ("UNTIL", vec!["20211231T183000Z"]),
-                                ("INTERVAL", vec!["1"]),
-                                ("BYDAY", vec!["TU","TH"])
+                                ("FREQ", ParsedValue::Single("WEEKLY")),
+                                ("INTERVAL", ParsedValue::Single("1")),
+                                ("BYDAY", ParsedValue::List(vec!["TU","TH"])),
+
+                                (
+                                    "UNTIL", 
+                                    ParsedValue::DateString(
+                                        ParsedDateString {
+                                            year: 2021,
+                                            month: 12,
+                                            day: 31,
+                                            time: Some(ParsedDateStringTime {
+                                                hour: 18,
+                                                min: 30,
+                                                sec: 0,
+                                            }),
+                                            flags: ParsedDateStringFlags {
+                                                zulu_timezone_set: true,
+                                            },
+                                            dt: "20211231T183000Z".to_string(),
+                                        },
+                                    ),
+                                ),
                             ]
                         )
                     ),

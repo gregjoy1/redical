@@ -104,7 +104,7 @@ lazy_static! {
             .expect("DATESTR_RE regex failed");
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub(crate) struct ParsedDateString {
     pub year: i32,
     pub month: u32,
