@@ -456,6 +456,7 @@ fn parse_related_to_property_content(input: &str) -> ParserResult<&str, ical_com
     )
 }
 
+// TODO: use ParsedValue::parse_lat_long
 fn parse_geo_property_content(input: &str) -> ParserResult<&str, ical_common::ParsedPropertyContent> {
     preceded(
         tag("GEO"),

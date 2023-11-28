@@ -12,6 +12,7 @@ use nom::{
     combinator::{cut, opt, recognize, map},
     bytes::complete::{take_while, take, take_while1, tag, tag_no_case, escaped},
     character::complete::{char, alphanumeric1, one_of, space1},
+    number::complete::double,
     IResult
 };
 
@@ -42,6 +43,7 @@ pub enum ParsedValue<'a> {
     List(Vec<&'a str>),
     Single(&'a str),
     Pair((&'a str, &'a str)),
+    LatLong(f64, f64),
     Params(HashMap<&'a str, ParsedValue<'a>>),
     DateString(ParsedDateString),
     TimeZone(rrule::Tz),
@@ -113,6 +115,26 @@ impl<'a> ParsedValue<'a> {
                 (
                     remaining,
                     Self::Params(parsed_param_value)
+                )
+            }
+        )
+    }
+
+    pub fn parse_lat_long(input: &'a str) -> ParserResult<&'a str, Self> {
+        context(
+            "parsed lat long value",
+            tuple(
+                (
+                    double,
+                    semicolon_delimeter,
+                    double,
+                )
+            ),
+        )(input).map(
+            |(remaining, (latitude, _semicolon_delimeter, longitude))| {
+                (
+                    remaining,
+                    Self::LatLong(latitude, longitude)
                 )
             }
         )
@@ -740,6 +762,43 @@ mod test {
                     ParsedValue::TimeZone(
                         rrule::Tz::Europe__London,
                     )
+                )
+            )
+        );
+
+        assert_eq!(
+            ParsedValue::parse_lat_long("37.386013;-122.082932"),
+            Ok(
+                (
+                    "",
+                    ParsedValue::LatLong(
+                        37.386013f64,
+                        -122.082932f64,
+                    )
+                )
+            )
+        );
+
+        assert_eq!(
+            ParsedValue::parse_lat_long("37.386013;bad"),
+            Err(
+                nom::Err::Error(
+                    nom::error::VerboseError {
+                        errors: vec![
+                            (
+                                "bad",
+                                nom::error::VerboseErrorKind::Nom(
+                                    nom::error::ErrorKind::Float
+                                )
+                            ),
+                            (
+                                "37.386013;bad",
+                                nom::error::VerboseErrorKind::Context(
+                                    "parsed lat long value"
+                                )
+                            ),
+                        ]
+                    }
                 )
             )
         );
