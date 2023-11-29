@@ -175,7 +175,7 @@ impl<'a> ParsedValue<'a> {
     pub fn parse_timezone(input: &'a str) -> ParserResult<&'a str, Self> {
         context(
             "parsed timezone value",
-            take_while1(is_safe_char),
+            take_while1(is_tzid_char),
         )(input).and_then(
             |(remaining, parsed_timezone_string)| {
                 match parse_timezone(parsed_timezone_string) {
@@ -414,6 +414,17 @@ pub fn is_safe_char(chr: char) -> bool {
     (chr >= '\x2D' && chr <= '\x39') ||
     (chr >= '\x3C' && chr <= '\x7E') ||
     is_non_us_ascii_char(chr)
+}
+
+// TZID-CHAR     = %X2B / %X2D / %X2F / %X30-39 / %X41-5A / %5F / %X61-7A
+//                  +      -      /       0-9       A-Z      _      a-z
+pub fn is_tzid_char(chr: char) -> bool {
+    chr == '\x2B'                    ||
+    chr == '\x2D'                    ||
+    chr == '\x2F'                    ||
+    (chr >= '\x30' && chr <= '\x39') ||
+    (chr >= '\x41' && chr <= '\x5A') ||
+    (chr >= '\x61' && chr <= '\x7A')
 }
 
 // VALUE-CHAR    = WSP / %x21-7E / NON-US-ASCII

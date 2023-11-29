@@ -12,6 +12,7 @@ use nom::{
 };
 
 use crate::data_types::{KeyValuePair, GeoPoint};
+use crate::queries::query::Query;
 use crate::queries::results_ordering::OrderingCondition;
 use crate::queries::results_range_bounds::{LowerBoundRangeCondition, UpperBoundRangeCondition, RangeConditionProperty};
 use crate::queries::indexed_property_filters::{WhereOperator, WhereConditional};
@@ -21,6 +22,7 @@ use crate::parsers::ical_common::ParserResult;
 
 use crate::parsers::datetime::ParsedDateString;
 
+#[derive(Debug)]
 pub enum ParsedQueryComponent {
     Limit(usize),
     FromDateTime(LowerBoundRangeCondition),
@@ -194,7 +196,7 @@ fn parse_from_query_property_content(input: &str) -> ParserResult<&str, ParsedQu
                         build_property_params_value_parser!(
                             "X-FROM",
                             ("PROP", map(alt((tag("DTSTART"), tag("DTEND"))), |value| ical_common::ParsedValue::Single(value))),
-                            ("OP",   map(alt((tag("GT"),      tag("GTE"))), |value| ical_common::ParsedValue::Single(value))),
+                            ("OP",   map(alt((tag("GTE"),     tag("GT"))),    |value| ical_common::ParsedValue::Single(value))),
                             ("TZID", ical_common::ParsedValue::parse_timezone),
                             ("UUID", ical_common::ParsedValue::parse_single_param),
                         ),
@@ -261,7 +263,7 @@ fn parse_until_query_property_content(input: &str) -> ParserResult<&str, ParsedQ
                         build_property_params_value_parser!(
                             "X-UNTIL",
                             ("PROP", map(alt((tag("DTSTART"), tag("DTEND"))), |value| ical_common::ParsedValue::Single(value))),
-                            ("OP",   map(alt((tag("LT"),      tag("LTE"))), |value| ical_common::ParsedValue::Single(value))),
+                            ("OP",   map(alt((tag("LTE"),     tag("LT"))),    |value| ical_common::ParsedValue::Single(value))),
                             ("TZID", ical_common::ParsedValue::parse_timezone),
                         ),
                         ical_common::colon_delimeter,
@@ -417,9 +419,9 @@ fn parse_order_to_query_property_content(input: &str) -> ParserResult<&str, Pars
                         map(
                             alt(
                                 (
-                                    tag("DTSTART"),
-                                    tag("DTSTART-GEO-DIST"),
                                     tag("GEO-DIST-DTSTART"),
+                                    tag("DTSTART-GEO-DIST"),
+                                    tag("DTSTART"),
                                 )
                             ),
                             |value| ical_common::ParsedValue::Single(value)
@@ -483,4 +485,133 @@ fn parse_order_to_query_property_content(input: &str) -> ParserResult<&str, Pars
             )
         }
     )?
+}
+
+// parse_timezone_query_property_content
+// parse_limit_query_property_content
+// parse_from_query_property_content
+// parse_until_query_property_content
+// parse_categories_query_property_content
+// parse_related_to_query_property_content
+// parse_order_to_query_property_content
+
+fn parse_query_string(input: &str) -> ParserResult<&str, Query> {
+    let (remaining, query_properties) =
+        terminated(
+            separated_list1(
+                tag(" "),
+                alt(
+                    (
+                        parse_timezone_query_property_content,
+                        parse_limit_query_property_content,
+                        parse_from_query_property_content,
+                        parse_until_query_property_content,
+                        parse_order_to_query_property_content,
+                    )
+                )
+            ),
+            opt(tag(" ")),
+        )(input)?;
+
+    let query =
+        query_properties.iter()
+                        .fold(
+                            Query::default(),
+                            |mut query, query_property| {
+                                match query_property {
+                                    ParsedQueryComponent::Limit(limit) => {
+                                        query.limit = limit.clone();
+                                    },
+
+                                    ParsedQueryComponent::FromDateTime(lower_bound_range_condition) => {
+                                        query.lower_bound_range_condition = Some(lower_bound_range_condition.clone());
+                                    },
+
+                                    ParsedQueryComponent::UntilDateTime(upper_bound_range_condition) => {
+                                        query.upper_bound_range_condition = Some(upper_bound_range_condition.clone());
+                                    },
+
+                                    ParsedQueryComponent::InTimezone(timezone) => {
+                                        query.in_timezone = timezone.clone();
+                                    },
+
+                                    ParsedQueryComponent::Order(ordering_condition) => {
+                                        query.ordering_condition = ordering_condition.clone();
+                                    },
+
+                                    _ => {
+                                        panic!("Unexpected query property: {:#?}", query_property);
+                                    },
+                                }
+
+                                query
+                            }
+                        );
+
+    Ok(
+        (
+            remaining,
+            query,
+        )
+    )
+}
+
+#[cfg(test)]
+mod test {
+
+    use super::*;
+    use pretty_assertions_sorted::assert_eq;
+
+    #[test]
+    fn test_parse_query_string() {
+        let query_string = [
+            "X-FROM;PROP=DTSTART;OP=GT;TZID=Europe/London;UUID=Event_UUID:19971002T090000",
+            "X-UNTIL;PROP=DTSTART;OP=LTE;TZID=UTC:19971102T090000",
+            "X-LIMIT:50",
+            "X-TZID:Europe/Vilnius",
+            "X-ORDER-BY;GEO=48.85299;2.36885:DTSTART-GEO-DIST",
+        ].join(" ");
+
+        assert_eq!(
+            parse_query_string(query_string.as_str()),
+            Ok(
+                (
+                    "",
+                    Query {
+                        where_conditional: None,
+
+                        ordering_condition: OrderingCondition::DtStartGeoDist(
+                            GeoPoint {
+                                long: 2.36885,
+                                lat: 48.85299,
+                            },
+                        ),
+
+                        lower_bound_range_condition: Some(
+                            LowerBoundRangeCondition::GreaterThan(
+                                RangeConditionProperty::DtStart(
+                                    875779200,
+                                ),
+                                Some(
+                                    String::from("Event_UUID"),
+                                ),
+                            ),
+                        ),
+
+                        upper_bound_range_condition: Some(
+                            UpperBoundRangeCondition::LessEqualThan(
+                                RangeConditionProperty::DtStart(
+                                    878461200,
+                                ),
+                            ),
+                        ),
+
+                        in_timezone: rrule::Tz::Europe__Vilnius,
+
+                        limit: 50,
+                    }
+                )
+            )
+        );
+    }
 }

@@ -10,12 +10,12 @@ use crate::data_types::MergedIterator;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Query {
-    where_conditional:           Option<WhereConditional>,
-    ordering_condition:          OrderingCondition,
-    lower_bound_range_condition: Option<LowerBoundRangeCondition>,
-    upper_bound_range_condition: Option<UpperBoundRangeCondition>,
-    in_timezone:                 Tz,
-    limit:                       usize,
+    pub where_conditional:           Option<WhereConditional>,
+    pub ordering_condition:          OrderingCondition,
+    pub lower_bound_range_condition: Option<LowerBoundRangeCondition>,
+    pub upper_bound_range_condition: Option<UpperBoundRangeCondition>,
+    pub in_timezone:                 Tz,
+    pub limit:                       usize,
 }
 
 impl Query {
