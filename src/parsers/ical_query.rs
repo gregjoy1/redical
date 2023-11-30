@@ -15,7 +15,7 @@ use crate::data_types::{KeyValuePair, GeoPoint};
 use crate::queries::query::Query;
 use crate::queries::results_ordering::OrderingCondition;
 use crate::queries::results_range_bounds::{LowerBoundRangeCondition, UpperBoundRangeCondition, RangeConditionProperty};
-use crate::queries::indexed_property_filters::{WhereOperator, WhereConditional};
+use crate::queries::indexed_property_filters::{WhereOperator, WhereConditional, WhereConditionalProperty};
 
 use crate::parsers::ical_common;
 use crate::parsers::ical_common::ParserResult;
@@ -30,7 +30,7 @@ pub enum ParsedQueryComponent {
     InTimezone(rrule::Tz),
     Order(OrderingCondition),
     WhereCategories(Vec<String>, WhereOperator),
-    WhereRelatedTo(KeyValuePair, WhereOperator),
+    WhereRelatedTo(String, Vec<String>, WhereOperator),
     WhereGroup(Box<Vec<Self>>),
     WhereAnd(Box<Self>),
     WhereOr(Box<Self>),
@@ -318,26 +318,37 @@ fn parse_categories_query_property_content(input: &str) -> ParserResult<&str, Pa
                 "X-CATEGORIES",
                 tuple(
                     (
-                        ical_common::semicolon_delimeter,
-                        build_property_params_value_parser!(
-                            "X-CATEGORIES",
-                            ("OP", map(alt((tag("AND"), tag("OR"))), |value| ical_common::ParsedValue::Single(value))),
+                        opt(
+                            preceded(
+                                ical_common::semicolon_delimeter,
+                                build_property_params_value_parser!(
+                                    "X-CATEGORIES",
+                                    ("OP", map(alt((tag("AND"), tag("OR"))), |value| ical_common::ParsedValue::Single(value))),
+                                ),
+                            )
                         ),
-                        ical_common::colon_delimeter,
-                        ical_common::ParsedValue::parse_list,
+                        preceded(
+                            ical_common::colon_delimeter,
+                            ical_common::ParsedValue::parse_list,
+                        ),
                     )
                 )
             )
         )
     )(input).map(
-        |(remaining, (_semicolon_delimeter, parsed_params,_colon_delimeter, parsed_value)): (&str, (&str, HashMap<&str, ical_common::ParsedValue>, &str, ical_common::ParsedValue))| {
-            let where_operator =
-                match parsed_params.get(&"OP") {
-                    Some(ical_common::ParsedValue::Single("AND")) => WhereOperator::And,
-                    Some(ical_common::ParsedValue::Single("OR"))  => WhereOperator::Or,
+        |(remaining, (parsed_params, parsed_value)): (&str, (Option<HashMap<&str, ical_common::ParsedValue>>, ical_common::ParsedValue))| {
+            // Defaults
+            let mut where_operator = WhereOperator::And;
 
-                    _ => WhereOperator::And,
-                };
+            if let Some(parsed_params) = parsed_params {
+                where_operator =
+                    match parsed_params.get(&"OP") {
+                        Some(ical_common::ParsedValue::Single("AND")) => WhereOperator::And,
+                        Some(ical_common::ParsedValue::Single("OR"))  => WhereOperator::Or,
+
+                        _ => WhereOperator::And,
+                    };
+            }
 
             let ical_common::ParsedValue::List(parsed_categories) = parsed_value else {
                 panic!("Expected categories to be a list of Strings, received: {:#?}", parsed_value);
@@ -359,42 +370,62 @@ fn parse_related_to_query_property_content(input: &str) -> ParserResult<&str, Pa
                 "X-RELATED-TO",
                 tuple(
                     (
-                        ical_common::semicolon_delimeter,
-                        build_property_params_value_parser!(
-                            "X-RELATED-TO",
-                            ("OP",      map(alt((tag("AND"), tag("OR"))), |value| ical_common::ParsedValue::Single(value))),
-                            ("RELTYPE", ical_common::ParsedValue::parse_single_param),
+                        opt(
+                            preceded(
+                                ical_common::semicolon_delimeter,
+                                build_property_params_value_parser!(
+                                    "X-RELATED-TO",
+                                    ("OP",      map(alt((tag("AND"), tag("OR"))), |value| ical_common::ParsedValue::Single(value))),
+                                    ("RELTYPE", ical_common::ParsedValue::parse_single_param),
+                                )
+                            )
                         ),
-                        ical_common::colon_delimeter,
-                        ical_common::ParsedValue::parse_single_param,
+                        preceded(
+                            ical_common::colon_delimeter,
+                            ical_common::ParsedValue::parse_list,
+                        ),
                     )
                 )
             )
         )
     )(input).map(
-        |(remaining, (_semicolon_delimeter, parsed_params,_colon_delimeter, parsed_value)): (&str, (&str, HashMap<&str, ical_common::ParsedValue>, &str, ical_common::ParsedValue))| {
-            let where_operator =
-                match parsed_params.get(&"OP") {
-                    Some(ical_common::ParsedValue::Single("AND")) => WhereOperator::And,
-                    Some(ical_common::ParsedValue::Single("OR"))  => WhereOperator::Or,
+        |(remaining, (parsed_params, parsed_value)): (&str, (Option<HashMap<&str, ical_common::ParsedValue>>, ical_common::ParsedValue))| {
+            // Defaults
+            let mut where_operator = WhereOperator::And;
+            let mut parsed_reltype = String::from("PARENT");
 
-                    _ => WhereOperator::And,
-                };
 
-            let parsed_reltype =
-                match parsed_params.get(&"OP") {
-                    Some(ical_common::ParsedValue::Single(reltype)) => String::from(*reltype),
+            if let Some(parsed_params) = parsed_params {
+                where_operator =
+                    match parsed_params.get(&"OP") {
+                        Some(ical_common::ParsedValue::Single("AND")) => WhereOperator::And,
+                        Some(ical_common::ParsedValue::Single("OR"))  => WhereOperator::Or,
 
-                    _ => String::from("PARENT"),
-                };
+                        _ => WhereOperator::And,
+                    };
 
-            let parsed_related_to_uuid = match parsed_value {
-                ical_common::ParsedValue::Single(related_to_uuid) => String::from(related_to_uuid),
+                parsed_reltype =
+                    match parsed_params.get(&"RELTYPE") {
+                        Some(ical_common::ParsedValue::Single(reltype)) => String::from(*reltype),
 
-                _ => String::from("PARENT"),
+                        _ => String::from("PARENT"),
+                    };
             };
 
-            (remaining, ParsedQueryComponent::WhereRelatedTo(KeyValuePair::new(parsed_reltype, parsed_related_to_uuid), where_operator))
+            let ical_common::ParsedValue::List(parsed_related_to_uuids) = parsed_value else {
+                panic!("Expected related-to UUIDS to be a list of Strings, received: {:#?}", parsed_value);
+            };
+
+            let parsed_related_to_uuids: Vec<String> = parsed_related_to_uuids.into_iter().map(|related_to_uuid| String::from(related_to_uuid)).collect();
+
+            (
+                remaining,
+                ParsedQueryComponent::WhereRelatedTo(
+                    parsed_reltype,
+                    parsed_related_to_uuids,
+                    where_operator
+                )
+            )
         }
     )
 }
@@ -507,6 +538,8 @@ fn parse_query_string(input: &str) -> ParserResult<&str, Query> {
                         parse_from_query_property_content,
                         parse_until_query_property_content,
                         parse_order_to_query_property_content,
+                        parse_categories_query_property_content,
+                        parse_related_to_query_property_content,
                     )
                 )
             ),
@@ -539,6 +572,46 @@ fn parse_query_string(input: &str) -> ParserResult<&str, Query> {
                                         query.ordering_condition = ordering_condition.clone();
                                     },
 
+                                    ParsedQueryComponent::WhereCategories(categories, operator) => {
+                                        let Some(mut new_where_conditional) = where_categories_to_where_conditional(categories, operator) else {
+                                            return query;
+                                        };
+
+                                        new_where_conditional =
+                                            if let Some(current_where_conditional) = query.where_conditional {
+                                                WhereConditional::Operator(
+                                                    Box::new(current_where_conditional),
+                                                    Box::new(new_where_conditional),
+                                                    WhereOperator::And,
+                                                    None,
+                                                )
+                                            } else {
+                                                new_where_conditional
+                                            };
+
+                                        query.where_conditional = Some(new_where_conditional);
+                                    },
+
+                                    ParsedQueryComponent::WhereRelatedTo(reltype, related_to_uuids, operator) => {
+                                        let Some(mut new_where_conditional) = where_related_to_uuids_to_where_conditional(reltype, related_to_uuids, operator) else {
+                                            return query;
+                                        };
+
+                                        new_where_conditional =
+                                            if let Some(current_where_conditional) = query.where_conditional {
+                                                WhereConditional::Operator(
+                                                    Box::new(current_where_conditional),
+                                                    Box::new(new_where_conditional),
+                                                    WhereOperator::And,
+                                                    None,
+                                                )
+                                            } else {
+                                                new_where_conditional
+                                            };
+
+                                        query.where_conditional = Some(new_where_conditional);
+                                    },
+
                                     _ => {
                                         panic!("Unexpected query property: {:#?}", query_property);
                                     },
@@ -556,6 +629,125 @@ fn parse_query_string(input: &str) -> ParserResult<&str, Query> {
     )
 }
 
+fn where_categories_to_where_conditional(categories: &Vec<String>, operator: &WhereOperator) -> Option<WhereConditional> {
+    match categories.len() {
+        0 => None,
+
+        1 => {
+            Some(
+                WhereConditional::Property(
+                    WhereConditionalProperty::Categories(
+                        categories[0].clone()
+                    ),
+                    None,
+                )
+            )
+        },
+
+        _ => {
+            let mut current_property =
+                WhereConditional::Property(
+                    WhereConditionalProperty::Categories(
+                        categories[0].clone()
+                    ),
+                    None,
+                );
+
+            for category in categories[1..].iter() {
+                current_property =
+                    WhereConditional::Operator(
+                        Box::new(
+                            current_property
+                        ),
+                        Box::new(
+                            WhereConditional::Property(
+                                WhereConditionalProperty::Categories(
+                                    category.clone()
+                                ),
+                                None,
+                            )
+                        ),
+                        operator.clone(),
+                        None,
+                    );
+            }
+
+            Some(
+                WhereConditional::Group(
+                    Box::new(
+                        current_property
+                    ),
+                    None,
+                )
+            )
+        },
+    }
+}
+
+fn where_related_to_uuids_to_where_conditional(reltype: &String, related_to_uuids: &Vec<String>, operator: &WhereOperator) -> Option<WhereConditional> {
+    match related_to_uuids.len() {
+        0 => None,
+
+        1 => {
+            Some(
+                WhereConditional::Property(
+                    WhereConditionalProperty::RelatedTo(
+                        KeyValuePair::new(
+                            reltype.clone(),
+                            related_to_uuids[0].clone(),
+                        )
+                    ),
+                    None,
+                )
+            )
+        },
+
+        _ => {
+            let mut current_property =
+                WhereConditional::Property(
+                    WhereConditionalProperty::RelatedTo(
+                        KeyValuePair::new(
+                            reltype.clone(),
+                            related_to_uuids[0].clone(),
+                        )
+                    ),
+                    None,
+                );
+
+            for related_to_uuid in related_to_uuids[1..].iter() {
+                current_property =
+                    WhereConditional::Operator(
+                        Box::new(
+                            current_property
+                        ),
+                        Box::new(
+                            WhereConditional::Property(
+                                WhereConditionalProperty::RelatedTo(
+                                    KeyValuePair::new(
+                                        reltype.clone(),
+                                        related_to_uuid.clone(),
+                                    )
+                                ),
+                                None,
+                            )
+                        ),
+                        operator.clone(),
+                        None,
+                    );
+            }
+
+            Some(
+                WhereConditional::Group(
+                    Box::new(
+                        current_property
+                    ),
+                    None,
+                )
+            )
+        },
+    }
+}
+
 #[cfg(test)]
 mod test {
 
@@ -563,10 +755,187 @@ mod test {
     use pretty_assertions_sorted::assert_eq;
 
     #[test]
+    fn test_where_categories_to_where_conditional() {
+        assert_eq!(
+            where_categories_to_where_conditional(
+                &vec![],
+                &WhereOperator::And,
+            ),
+            None,
+        );
+
+        assert_eq!(
+            where_categories_to_where_conditional(
+                &vec![
+                    String::from("CATEGORY_ONE"),
+                ],
+                &WhereOperator::And,
+            ),
+            Some(
+                WhereConditional::Property(
+                    WhereConditionalProperty::Categories(
+                        String::from("CATEGORY_ONE"),
+                    ),
+                    None,
+                )
+            ),
+        );
+
+        assert_eq!(
+            where_categories_to_where_conditional(
+                &vec![
+                    String::from("CATEGORY_ONE"),
+                    String::from("CATEGORY_TWO"),
+                    String::from("CATEGORY_THREE"),
+                ],
+                &WhereOperator::Or,
+            ),
+            Some(
+                WhereConditional::Group(
+                    Box::new(
+                        WhereConditional::Operator(
+                            Box::new(
+                                WhereConditional::Operator(
+                                    Box::new(
+                                        WhereConditional::Property(
+                                            WhereConditionalProperty::Categories(
+                                                String::from("CATEGORY_ONE"),
+                                            ),
+                                            None,
+                                        )
+                                    ),
+                                    Box::new(
+                                        WhereConditional::Property(
+                                            WhereConditionalProperty::Categories(
+                                                String::from("CATEGORY_TWO"),
+                                            ),
+                                            None,
+                                        )
+                                    ),
+                                    WhereOperator::Or,
+                                    None,
+                                )
+                            ),
+                            Box::new(
+                                WhereConditional::Property(
+                                    WhereConditionalProperty::Categories(
+                                        String::from("CATEGORY_THREE"),
+                                    ),
+                                    None,
+                                )
+                            ),
+                            WhereOperator::Or,
+                            None,
+                        )
+                    ),
+                    None,
+                )
+            ),
+        );
+    }
+
+    #[test]
+    fn test_where_related_to_uuids_to_where_conditional() {
+        assert_eq!(
+            where_related_to_uuids_to_where_conditional(
+                &String::from("PARENT"),
+                &vec![],
+                &WhereOperator::And,
+            ),
+            None,
+        );
+
+        assert_eq!(
+            where_related_to_uuids_to_where_conditional(
+                &String::from("PARENT"),
+                &vec![
+                    String::from("PARENT_UUID_ONE"),
+                ],
+                &WhereOperator::And,
+            ),
+            Some(
+                WhereConditional::Property(
+                    WhereConditionalProperty::RelatedTo(
+                        KeyValuePair::new(
+                            String::from("PARENT"),
+                            String::from("PARENT_UUID_ONE"),
+                        )
+                    ),
+                    None,
+                )
+            ),
+        );
+
+        assert_eq!(
+            where_related_to_uuids_to_where_conditional(
+                &String::from("PARENT"),
+                &vec![
+                    String::from("PARENT_UUID_ONE"),
+                    String::from("PARENT_UUID_TWO"),
+                    String::from("PARENT_UUID_THREE"),
+                ],
+                &WhereOperator::Or,
+            ),
+            Some(
+                WhereConditional::Group(
+                    Box::new(
+                        WhereConditional::Operator(
+                            Box::new(
+                                WhereConditional::Operator(
+                                    Box::new(
+                                        WhereConditional::Property(
+                                            WhereConditionalProperty::RelatedTo(
+                                                KeyValuePair::new(
+                                                    String::from("PARENT"),
+                                                    String::from("PARENT_UUID_ONE"),
+                                                )
+                                            ),
+                                            None,
+                                        )
+                                    ),
+                                    Box::new(
+                                        WhereConditional::Property(
+                                            WhereConditionalProperty::RelatedTo(
+                                                KeyValuePair::new(
+                                                    String::from("PARENT"),
+                                                    String::from("PARENT_UUID_TWO"),
+                                                )
+                                            ),
+                                            None,
+                                        )
+                                    ),
+                                    WhereOperator::Or,
+                                    None,
+                                )
+                            ),
+                            Box::new(
+                                WhereConditional::Property(
+                                    WhereConditionalProperty::RelatedTo(
+                                        KeyValuePair::new(
+                                            String::from("PARENT"),
+                                            String::from("PARENT_UUID_THREE"),
+                                        )
+                                    ),
+                                    None,
+                                )
+                            ),
+                            WhereOperator::Or,
+                            None,
+                        )
+                    ),
+                    None,
+                )
+            ),
+        );
+    }
+
+    #[test]
     fn test_parse_query_string() {
         let query_string = [
             "X-FROM;PROP=DTSTART;OP=GT;TZID=Europe/London;UUID=Event_UUID:19971002T090000",
             "X-UNTIL;PROP=DTSTART;OP=LTE;TZID=UTC:19971102T090000",
+            "X-CATEGORIES;OP=OR:CATEGORY_ONE,CATEGORY_TWO",
+            "X-RELATED-TO:PARENT_UUID",
             "X-LIMIT:50",
             "X-TZID:Europe/Vilnius",
             "X-ORDER-BY;GEO=48.85299;2.36885:DTSTART-GEO-DIST",
@@ -578,7 +947,50 @@ mod test {
                 (
                     "",
                     Query {
-                        where_conditional: None,
+                        where_conditional: Some(
+                           WhereConditional::Operator(
+                                Box::new(
+                                    WhereConditional::Group(
+                                        Box::new(
+                                            WhereConditional::Operator(
+                                                Box::new(
+                                                    WhereConditional::Property(
+                                                        WhereConditionalProperty::Categories(
+                                                            String::from("CATEGORY_ONE"),
+                                                        ),
+                                                        None,
+                                                    )
+                                                ),
+                                                Box::new(
+                                                    WhereConditional::Property(
+                                                        WhereConditionalProperty::Categories(
+                                                            String::from("CATEGORY_TWO"),
+                                                        ),
+                                                        None,
+                                                    )
+                                                ),
+                                                WhereOperator::Or,
+                                                None,
+                                            )
+                                        ),
+                                        None,
+                                    )
+                                ),
+                                Box::new(
+                                    WhereConditional::Property(
+                                        WhereConditionalProperty::RelatedTo(
+                                            KeyValuePair::new(
+                                                String::from("PARENT"),
+                                                String::from("PARENT_UUID"),
+                                            )
+                                        ),
+                                        None,
+                                    )
+                                ),
+                                WhereOperator::And,
+                                None,
+                            )
+                        ),
 
                         ordering_condition: OrderingCondition::DtStartGeoDist(
                             GeoPoint {
