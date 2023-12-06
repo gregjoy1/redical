@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use nom::{
     error::{context, ParseError, ContextError, ErrorKind, VerboseError},
-    multi::separated_list1,
-    sequence::{preceded, terminated, tuple, separated_pair},
+    multi::{separated_list0, separated_list1, many1},
+    sequence::{preceded, terminated, tuple, separated_pair, delimited},
     branch::alt,
     combinator::{cut, opt, map},
     bytes::complete::tag,
@@ -29,11 +29,9 @@ pub enum ParsedQueryComponent {
     UntilDateTime(UpperBoundRangeCondition),
     InTimezone(rrule::Tz),
     Order(OrderingCondition),
-    WhereCategories(Vec<String>, WhereOperator),
-    WhereRelatedTo(String, Vec<String>, WhereOperator),
-    WhereGroup(Box<Vec<Self>>),
-    WhereAnd(Box<Self>),
-    WhereOr(Box<Self>),
+    WhereCategories(Vec<String>, WhereOperator, WhereOperator),
+    WhereRelatedTo(String, Vec<String>, WhereOperator, WhereOperator),
+    WhereGroup(Vec<Self>, WhereOperator),
 }
 
 macro_rules! build_property_params_parser {
@@ -338,10 +336,10 @@ fn parse_categories_query_property_content(input: &str) -> ParserResult<&str, Pa
     )(input).map(
         |(remaining, (parsed_params, parsed_value)): (&str, (Option<HashMap<&str, ical_common::ParsedValue>>, ical_common::ParsedValue))| {
             // Defaults
-            let mut where_operator = WhereOperator::And;
+            let mut internal_where_operator = WhereOperator::And;
 
             if let Some(parsed_params) = parsed_params {
-                where_operator =
+                internal_where_operator =
                     match parsed_params.get(&"OP") {
                         Some(ical_common::ParsedValue::Single("AND")) => WhereOperator::And,
                         Some(ical_common::ParsedValue::Single("OR"))  => WhereOperator::Or,
@@ -355,8 +353,16 @@ fn parse_categories_query_property_content(input: &str) -> ParserResult<&str, Pa
             };
 
             let parsed_categories: Vec<String> = parsed_categories.into_iter().map(|category| String::from(category)).collect();
+            dbg!("X-CATEGORIES", &parsed_categories);
 
-            (remaining, ParsedQueryComponent::WhereCategories(parsed_categories, where_operator))
+            (
+                remaining,
+                ParsedQueryComponent::WhereCategories(
+                    parsed_categories,
+                    internal_where_operator,
+                    WhereOperator::And
+                )
+            )
         }
     )
 }
@@ -391,12 +397,12 @@ fn parse_related_to_query_property_content(input: &str) -> ParserResult<&str, Pa
     )(input).map(
         |(remaining, (parsed_params, parsed_value)): (&str, (Option<HashMap<&str, ical_common::ParsedValue>>, ical_common::ParsedValue))| {
             // Defaults
-            let mut where_operator = WhereOperator::And;
+            let mut internal_where_operator = WhereOperator::And;
             let mut parsed_reltype = String::from("PARENT");
 
 
             if let Some(parsed_params) = parsed_params {
-                where_operator =
+                internal_where_operator =
                     match parsed_params.get(&"OP") {
                         Some(ical_common::ParsedValue::Single("AND")) => WhereOperator::And,
                         Some(ical_common::ParsedValue::Single("OR"))  => WhereOperator::Or,
@@ -423,7 +429,8 @@ fn parse_related_to_query_property_content(input: &str) -> ParserResult<&str, Pa
                 ParsedQueryComponent::WhereRelatedTo(
                     parsed_reltype,
                     parsed_related_to_uuids,
-                    where_operator
+                    internal_where_operator,
+                    WhereOperator::And
                 )
             )
         }
@@ -518,6 +525,196 @@ fn parse_order_to_query_property_content(input: &str) -> ParserResult<&str, Pars
     )?
 }
 
+fn parse_operator_prefixed_where_query_property_content(input: &str) -> ParserResult<&str, ParsedQueryComponent> {
+    tuple(
+        (
+            terminated(
+                alt(
+                    (
+                        tag("AND"),
+                        tag("&&"),
+                        tag("OR"),
+                        tag("||"),
+                    )
+                ),
+                ical_common::white_space,
+            ),
+            context(
+                "operator prefix",
+                alt(
+                    (
+                        parse_categories_query_property_content,
+                        parse_related_to_query_property_content,
+                        parse_group_query_property_component,
+                    )
+                )
+            )
+        )
+    )(input).map(
+        |(remaining, (parsed_operator, parsed_query_component))| {
+            let parsed_external_where_operator =
+                match parsed_operator {
+                    "AND" | "&&" => WhereOperator::And,
+                    "OR"  | "||" => WhereOperator::Or,
+
+                    _ => panic!("Expected operator to be either 'AND', '&&', 'OR', '||' - received: {:#?}", parsed_operator)
+                };
+
+            let parsed_where_query_component = match parsed_query_component {
+                ParsedQueryComponent::WhereCategories(
+                    categories,
+                    internal_operator,
+                    _external_operator
+                ) => {
+                    ParsedQueryComponent::WhereCategories(
+                        categories,
+                        internal_operator,
+                        parsed_external_where_operator
+                    )
+                },
+
+                ParsedQueryComponent::WhereRelatedTo(
+                    reltype,
+                    related_to_uuids,
+                    internal_operator,
+                    _external_operator
+                ) => {
+                    ParsedQueryComponent::WhereRelatedTo(
+                        reltype,
+                        related_to_uuids,
+                        internal_operator,
+                        parsed_external_where_operator
+                    )
+                },
+
+                ParsedQueryComponent::WhereGroup(
+                    parsed_query_properties,
+                    _external_operator
+                ) => {
+                    ParsedQueryComponent::WhereGroup(
+                        parsed_query_properties,
+                        parsed_external_where_operator
+                    )
+                },
+
+                _ => panic!("Expected where query property."),
+            };
+
+            (
+                remaining,
+                parsed_where_query_component,
+            )
+        }
+    )
+}
+
+fn parse_group_query_property_component(input: &str) -> ParserResult<&str, ParsedQueryComponent> {
+    delimited(
+        preceded(
+            char('('),
+            ical_common::white_space,
+        ),
+        cut(
+            context(
+                "group",
+                tuple(
+                    (
+                        alt(
+                            (
+                                parse_categories_query_property_content,
+                                parse_related_to_query_property_content,
+                                parse_group_query_property_component,
+                            )
+                        ),
+                        opt(
+                            ical_common::white_space,
+                        ),
+                        separated_list0(
+                            ical_common::white_space,
+                            parse_operator_prefixed_where_query_property_content,
+                        ),
+                    )
+                )
+            )
+        ),
+        preceded(
+            ical_common::white_space,
+            char(')'),
+        ),
+    )(input).map(
+        |(remaining, (initial_parsed_query_property, _seperator, parsed_query_properties))| {
+            let mut parsed_query_properties = parsed_query_properties;
+
+            parsed_query_properties.insert(0, initial_parsed_query_property);
+
+            (
+                remaining,
+                ParsedQueryComponent::WhereGroup(parsed_query_properties, WhereOperator::And),
+            )
+        }
+    )
+}
+
+fn where_group_to_where_conditional(parsed_query_properties: &Vec<ParsedQueryComponent>) -> Option<WhereConditional> {
+    let mut current_where_conditional: Option<WhereConditional> = None;
+
+    for query_property in parsed_query_properties {
+        let (new_where_conditional, external_operator) =
+            match &query_property {
+                ParsedQueryComponent::WhereCategories(categories, internal_operator, external_operator) => {
+                    (
+                        where_categories_to_where_conditional(categories, internal_operator),
+                        external_operator,
+                    )
+                },
+
+                ParsedQueryComponent::WhereRelatedTo(reltype, related_to_uuids, internal_operator, external_operator) => {
+                    (
+                        where_related_to_uuids_to_where_conditional(reltype, related_to_uuids, internal_operator),
+                        external_operator,
+                    )
+                },
+
+                ParsedQueryComponent::WhereGroup(parsed_query_properties, external_operator) => {
+                    (
+                        where_group_to_where_conditional(parsed_query_properties),
+                        external_operator,
+                    )
+                },
+
+                _ => panic!("Expected where query property."),
+            };
+
+
+        if let Some(new_where_conditional) = new_where_conditional {
+            if let Some(existing_where_conditional) = current_where_conditional {
+                current_where_conditional =
+                    Some(
+                        WhereConditional::Operator(
+                            Box::new(existing_where_conditional),
+                            Box::new(new_where_conditional),
+                            external_operator.clone(),
+                            None,
+                        )
+                    )
+            } else {
+                current_where_conditional = Some(new_where_conditional);
+            }
+        }
+    }
+
+    current_where_conditional.and_then(|where_conditional| {
+        Some(
+            WhereConditional::Group(
+                Box::new(
+                    where_conditional
+                ),
+                None,
+            )
+        )
+    })
+}
+
 // parse_timezone_query_property_content
 // parse_limit_query_property_content
 // parse_from_query_property_content
@@ -525,12 +722,13 @@ fn parse_order_to_query_property_content(input: &str) -> ParserResult<&str, Pars
 // parse_categories_query_property_content
 // parse_related_to_query_property_content
 // parse_order_to_query_property_content
+// parse_group_query_property_component
 
 fn parse_query_string(input: &str) -> ParserResult<&str, Query> {
     let (remaining, query_properties) =
         terminated(
             separated_list1(
-                tag(" "),
+                char(' '),
                 alt(
                     (
                         parse_timezone_query_property_content,
@@ -540,10 +738,11 @@ fn parse_query_string(input: &str) -> ParserResult<&str, Query> {
                         parse_order_to_query_property_content,
                         parse_categories_query_property_content,
                         parse_related_to_query_property_content,
+                        parse_group_query_property_component,
                     )
                 )
             ),
-            opt(tag(" ")),
+            opt(char(' ')),
         )(input)?;
 
     let query =
@@ -572,8 +771,8 @@ fn parse_query_string(input: &str) -> ParserResult<&str, Query> {
                                         query.ordering_condition = ordering_condition.clone();
                                     },
 
-                                    ParsedQueryComponent::WhereCategories(categories, operator) => {
-                                        let Some(mut new_where_conditional) = where_categories_to_where_conditional(categories, operator) else {
+                                    ParsedQueryComponent::WhereCategories(categories, internal_operator, _external_operator) => {
+                                        let Some(mut new_where_conditional) = where_categories_to_where_conditional(categories, internal_operator) else {
                                             return query;
                                         };
 
@@ -592,8 +791,8 @@ fn parse_query_string(input: &str) -> ParserResult<&str, Query> {
                                         query.where_conditional = Some(new_where_conditional);
                                     },
 
-                                    ParsedQueryComponent::WhereRelatedTo(reltype, related_to_uuids, operator) => {
-                                        let Some(mut new_where_conditional) = where_related_to_uuids_to_where_conditional(reltype, related_to_uuids, operator) else {
+                                    ParsedQueryComponent::WhereRelatedTo(reltype, related_to_uuids, internal_operator, _external_operator) => {
+                                        let Some(mut new_where_conditional) = where_related_to_uuids_to_where_conditional(reltype, related_to_uuids, internal_operator) else {
                                             return query;
                                         };
 
@@ -612,8 +811,24 @@ fn parse_query_string(input: &str) -> ParserResult<&str, Query> {
                                         query.where_conditional = Some(new_where_conditional);
                                     },
 
-                                    _ => {
-                                        panic!("Unexpected query property: {:#?}", query_property);
+                                    ParsedQueryComponent::WhereGroup(parsed_query_properties, _external_operator) => {
+                                        let Some(mut new_where_conditional) = where_group_to_where_conditional(parsed_query_properties) else {
+                                            return query;
+                                        };
+
+                                        new_where_conditional =
+                                            if let Some(current_where_conditional) = query.where_conditional {
+                                                WhereConditional::Operator(
+                                                    Box::new(current_where_conditional),
+                                                    Box::new(new_where_conditional),
+                                                    WhereOperator::And,
+                                                    None,
+                                                )
+                                            } else {
+                                                new_where_conditional
+                                            };
+
+                                        query.where_conditional = Some(new_where_conditional);
                                     },
                                 }
 
@@ -748,11 +963,131 @@ fn where_related_to_uuids_to_where_conditional(reltype: &String, related_to_uuid
     }
 }
 
+pub fn parse_with_look_ahead_parser<I, O, E, F, F2>(mut parser: F, mut look_ahead_parser: F2) -> impl FnMut(I) -> nom::IResult<I, I, E>
+where
+    I: Clone + nom::InputLength + nom::Slice<std::ops::Range<usize>> + nom::Slice<std::ops::RangeFrom<usize>> + std::fmt::Debug + Copy,
+    F: nom::Parser<I, I, E>,
+    F2: nom::Parser<I, O, E>,
+{
+  move |input: I| {
+      let (remaining, output) = parser.parse(input.clone())?;
+
+      let parser_max_index = input.input_len() - remaining.input_len();
+      let input_max_index = input.input_len() - 1;
+
+      let max_index =
+          if input_max_index > parser_max_index {
+              parser_max_index + 1
+          } else {
+              parser_max_index
+          };
+
+      let mut look_ahead_max_index = max_index;
+
+      for index in 0..=parser_max_index {
+        let sliced_input = input.slice(index..max_index);
+
+        dbg!(index, sliced_input);
+        if look_ahead_parser.parse(sliced_input).is_ok() {
+            look_ahead_max_index = index;
+
+            break;
+        }
+      }
+
+      if look_ahead_max_index >= max_index || look_ahead_max_index >= (input.input_len() - 1) {
+          return Ok((remaining, output));
+      }
+
+      let refined_output = input.slice(0..look_ahead_max_index);
+      let refined_remaining = input.slice(look_ahead_max_index..);
+
+      Ok((refined_remaining, refined_output))
+  }
+}
+
 #[cfg(test)]
 mod test {
 
     use super::*;
     use pretty_assertions_sorted::assert_eq;
+
+    use nom::bytes::complete::take_while1;
+    use nom::combinator::recognize;
+
+    #[test]
+    fn test_parse_with_look_ahead_parser() {
+        let mut test_parser =
+            parse_with_look_ahead_parser(
+                take_while1(ical_common::is_safe_char),
+                recognize(
+                    tuple(
+                        (
+                            ical_common::white_space,
+                            tag("OR"),
+                            ical_common::white_space,
+                            tag("X-CATEGORIES:"),
+                        )
+                    )
+                ),
+            );
+
+        assert_eq!(
+            test_parser("Test Category Text ONE OR X-CATEGORIES:Test Category Text TWO"),
+            Ok(
+                (
+                    " OR X-CATEGORIES:Test Category Text TWO",
+                    "Test Category Text ONE",
+                )
+            )
+        );
+
+        assert_eq!(
+            test_parser("Test Category Text ONE"),
+            Ok(
+                (
+                    "",
+                    "Test Category Text ONE",
+                )
+            )
+        );
+
+        assert_eq!(
+            test_parser(""),
+            Err(
+                nom::Err::Error(
+                    nom::error::VerboseError {
+                        errors: vec![
+                            (
+                                "",
+                                nom::error::VerboseErrorKind::Nom(
+                                    nom::error::ErrorKind::TakeWhile1,
+                                ),
+                            ),
+                        ],
+                    },
+                )
+            )
+        );
+
+        assert_eq!(
+            test_parser("::: TEST"),
+            Err(
+                nom::Err::Error(
+                    nom::error::VerboseError {
+                        errors: vec![
+                            (
+                                "::: TEST",
+                                nom::error::VerboseErrorKind::Nom(
+                                    nom::error::ErrorKind::TakeWhile1,
+                                ),
+                            ),
+                        ],
+                    },
+                )
+            )
+        );
+    }
 
     #[test]
     fn test_where_categories_to_where_conditional() {
@@ -989,6 +1324,142 @@ mod test {
                                 ),
                                 WhereOperator::And,
                                 None,
+                            )
+                        ),
+
+                        ordering_condition: OrderingCondition::DtStartGeoDist(
+                            GeoPoint {
+                                long: 2.36885,
+                                lat: 48.85299,
+                            },
+                        ),
+
+                        lower_bound_range_condition: Some(
+                            LowerBoundRangeCondition::GreaterThan(
+                                RangeConditionProperty::DtStart(
+                                    875779200,
+                                ),
+                                Some(
+                                    String::from("Event_UUID"),
+                                ),
+                            ),
+                        ),
+
+                        upper_bound_range_condition: Some(
+                            UpperBoundRangeCondition::LessEqualThan(
+                                RangeConditionProperty::DtStart(
+                                    878461200,
+                                ),
+                            ),
+                        ),
+
+                        in_timezone: rrule::Tz::Europe__Vilnius,
+
+                        limit: 50,
+                    }
+                )
+            )
+        );
+    }
+
+    #[test]
+    fn test_parse_query_string_with_grouped_conditionals() {
+        let query_string = [
+            "X-FROM;PROP=DTSTART;OP=GT;TZID=Europe/London;UUID=Event_UUID:19971002T090000",
+            "X-UNTIL;PROP=DTSTART;OP=LTE;TZID=UTC:19971102T090000",
+            "(",
+                "(",
+                    "X-CATEGORIES:CATEGORY_ONE",
+                    "OR",
+                    "X-RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                ")",
+                "AND",
+                "(",
+                    "X-CATEGORIES:CATEGORY_TWO",
+                    "OR",
+                    "X-RELATED-TO;RELTYPE=CHILD:CHILD_UUID",
+                ")",
+            ")",
+            "X-LIMIT:50",
+            "X-TZID:Europe/Vilnius",
+            "X-ORDER-BY;GEO=48.85299;2.36885:DTSTART-GEO-DIST",
+        ].join(" ");
+
+        assert_eq!(
+            parse_query_string(query_string.as_str()),
+            Ok(
+                (
+                    "",
+                    Query {
+                        where_conditional: Some(
+                            WhereConditional::Group(
+                                Box::new(
+                                    WhereConditional::Operator(
+                                        Box::new(
+                                            WhereConditional::Group(
+                                                Box::new(
+                                                    WhereConditional::Operator(
+                                                        Box::new(
+                                                            WhereConditional::Property(
+                                                                WhereConditionalProperty::Categories(
+                                                                    String::from("CATEGORY_ONE")
+                                                                ),
+                                                                None,
+                                                            )
+                                                        ),
+                                                        Box::new(
+                                                            WhereConditional::Property(
+                                                                WhereConditionalProperty::RelatedTo(
+                                                                    KeyValuePair::new(
+                                                                        String::from("PARENT"),
+                                                                        String::from("PARENT_UUID"),
+                                                                    )
+                                                                ),
+                                                                None
+                                                            )
+                                                        ),
+                                                        WhereOperator::Or,
+                                                        None,
+                                                    )
+                                                ),
+                                                None
+                                            )
+                                        ),
+                                        Box::new(
+                                            WhereConditional::Group(
+                                                Box::new(
+                                                    WhereConditional::Operator(
+                                                        Box::new(
+                                                            WhereConditional::Property(
+                                                                WhereConditionalProperty::Categories(
+                                                                    String::from("CATEGORY_TWO")
+                                                                ),
+                                                                None,
+                                                            )
+                                                        ),
+                                                        Box::new(
+                                                            WhereConditional::Property(
+                                                                WhereConditionalProperty::RelatedTo(
+                                                                    KeyValuePair::new(
+                                                                        String::from("CHILD"),
+                                                                        String::from("CHILD_UUID"),
+                                                                    )
+                                                                ),
+                                                                None,
+                                                            )
+                                                        ),
+                                                        WhereOperator::Or,
+                                                        None,
+                                                    )
+                                                ),
+                                                None
+                                            )
+                                        ),
+                                        WhereOperator::And,
+                                        None,
+                                    )
+                                ),
+                                None
                             )
                         ),
 
