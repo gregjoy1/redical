@@ -58,8 +58,8 @@ impl<'a> ParsedValue<'a> {
                 char(','),
                 alt(
                     (
+                        quoted_string,
                         param_text,
-                        quoted_string
                     )
                 )
             )
@@ -78,8 +78,8 @@ impl<'a> ParsedValue<'a> {
             "parsed single param",
             alt(
                 (
+                    quoted_string,
                     param_text,
-                    quoted_string
                 )
             ),
         )(input).map(
@@ -313,33 +313,20 @@ pub fn param_value(input: &str) -> ParserResult<&str, ParsedValue> {
 
 // paramtext     = *SAFE-CHAR
 pub fn param_text(input: &str) -> ParserResult<&str, &str> {
-    let next_property_index: usize = match find_next_property_in_unquoted_value(input) {
-        Some(found_property_index) => {
-            // println!("param_text -- found_property_index - {found_property_index} -- {:#?}", &input[..=found_property_index]);
-            found_property_index
-        },
-        None => {
-            // println!("param_text -- not found_property_index -- {:#?}", input);
-            input.len()
-        }
-    };
-
     context(
         "param text",
-        take_while1(is_safe_char),
-    )(input).map(
-        |(_remaining, extracted_param_text)| {
-            let extracted_param_text_index = extracted_param_text.len();
-
-            let split_at_index = std::cmp::min(next_property_index, extracted_param_text_index);
-
-            // println!("param_text - min - {split_at_index} - next_property_index {next_property_index} - extracted_param_text_index {extracted_param_text_index} - input: {input}");
-
-            let result = input.split_at(split_at_index);
-
-            (result.1, result.0)
-        }
-    )
+        parse_with_look_ahead_parser(
+            take_while1(is_safe_char),
+            recognize(
+                tuple(
+                    (
+                        white_space1,
+                        parse_property_content,
+                    )
+                )
+            ),
+        ),
+    )(input)
 }
 
 pub fn values(input: &str) -> ParserResult<&str, Vec<&str>> {
@@ -347,48 +334,45 @@ pub fn values(input: &str) -> ParserResult<&str, Vec<&str>> {
         "values",
         separated_list1(
             char(','),
-            value
+            value,
         )
     )(input)
 }
 
 // value         = *VALUE-CHAR
 pub fn value(input: &str) -> ParserResult<&str, &str> {
-    let next_property_index: usize = match find_next_property_in_unquoted_value(input) {
-        Some(found_property_index) => {
-            // println!("value -- found_property_index - {found_property_index} -- {:#?}", &input[..=found_property_index]);
-            found_property_index
-        },
-        None => {
-            // println!("value -- not found_property_index -- {:#?}", input);
-            input.len()
-        }
-    };
-
     context(
         "value",
-        take_while1(is_value_char),
-    )(input).map(
-        |(_remaining, extracted_value)| {
-            let extracted_value_index = extracted_value.len();
-
-            let split_at_index = std::cmp::min(next_property_index, extracted_value_index);
-
-            // println!("value - min - {split_at_index} - next_property_index {next_property_index} - extracted_value_index {extracted_value_index} - input: {input}");
-
-            let result = input.split_at(split_at_index);
-
-            (result.1, result.0)
-        }
-    )
+        parse_with_look_ahead_parser(
+            take_while1(is_value_char),
+            recognize(
+                tuple(
+                    (
+                        white_space1,
+                        parse_property_content,
+                    )
+                )
+            ),
+        ),
+    )(input)
 }
 
 // quoted-string = DQUOTE *QSAFE-CHAR DQUOTE
 pub fn quoted_string(input: &str) -> ParserResult<&str, &str> {
     delimited(
-        char('"'),
+        alt(
+            (
+                tag(r#"""#),
+                escaped(char('"'), '\\', one_of(r#""n\"#)),
+            )
+        ),
         quote_safe_char,
-        char('"')
+        alt(
+            (
+                tag(r#"""#),
+                escaped(char('"'), '\\', one_of(r#""n\"#)),
+            )
+        ),
     )(input)
 }
 
@@ -434,6 +418,10 @@ pub fn is_value_char(chr: char) -> bool {
 
 pub fn white_space(input: &str) -> ParserResult<&str, &str> {
     take_while(is_white_space_char)(input)
+}
+
+pub fn white_space1(input: &str) -> ParserResult<&str, &str> {
+    take_while1(is_white_space_char)(input)
 }
 
 pub fn is_white_space_char(chr: char) -> bool {
@@ -516,115 +504,129 @@ pub fn parse_property_content(input: &str) -> ParserResult<&str, ParsedPropertyC
     Ok((remaining, parsed_property))
 }
 
-pub fn take_until_next_property(input: &str) -> ParserResult<&str, &str> {
-    match find_next_property_in_unquoted_value(input) {
-        Some(found_property_index) => {
-            take(found_property_index)(input)
-        },
-        None => {
-            Ok(("", input))
+pub fn parse_with_look_ahead_parser<I, O, E, F, F2>(mut parser: F, mut look_ahead_parser: F2) -> impl FnMut(I) -> nom::IResult<I, I, E>
+where
+    I: Clone + nom::InputLength + nom::Slice<std::ops::Range<usize>> + nom::Slice<std::ops::RangeFrom<usize>> + std::fmt::Debug + Copy,
+    F: nom::Parser<I, I, E>,
+    F2: nom::Parser<I, O, E>,
+{
+  move |input: I| {
+      let (remaining, output) = parser.parse(input.clone())?;
+
+      let parser_max_index = input.input_len() - remaining.input_len();
+      let input_max_index = input.input_len() - 1;
+
+      let max_index = std::cmp::max(input_max_index, parser_max_index);
+
+      let mut look_ahead_max_index = max_index;
+
+      for index in 0..=parser_max_index {
+        let sliced_input = input.slice(index..max_index);
+
+        // dbg!(index, sliced_input);
+        if look_ahead_parser.parse(sliced_input).is_ok() {
+            look_ahead_max_index = index;
+
+            break;
         }
-    }
-}
+      }
 
-pub fn find_next_property_in_unquoted_value(input: &str) -> Option<usize> {
-    enum State {
-        Unset,
-        WhiteSpace,
-        NameChar
-    }
+      if look_ahead_max_index >= max_index || look_ahead_max_index >= (input.input_len() - 1) {
+          return Ok((remaining, output));
+      }
 
-    let mut state = State::Unset;
+      let refined_output = input.slice(0..look_ahead_max_index);
+      let refined_remaining = input.slice(look_ahead_max_index..);
 
-    let mut found_index = None;
-
-    for (index, input_char) in input.chars().enumerate() {
-        match state {
-            State::Unset if is_white_space_char(input_char) => {
-                // println!("index - {index} input_char - {input_char} -- State::Unset if is_white_space_char");
-                state = State::WhiteSpace;
-                found_index = Some(index);
-            },
-
-            State::Unset => {
-                // println!("index - {index} input_char - {input_char} -- State::Unset");
-                state = State::Unset;
-                found_index = None;
-            },
-
-            State::WhiteSpace if is_white_space_char(input_char) => {
-                // println!("index - {index} input_char - {input_char} -- State::WhiteSpace if is_white_space_char");
-            },
-
-            State::WhiteSpace if is_name_char(input_char) => {
-                // println!("index - {index} input_char - {input_char} -- State::WhiteSpace if is_name_char");
-                state = State::NameChar;
-            },
-
-            State::WhiteSpace => {
-                // println!("index - {index} input_char - {input_char} -- State::WhiteSpace");
-                state = State::Unset;
-                found_index = None;
-            },
-
-            State::NameChar if ";:".contains(input_char) => {
-                // println!("index - {index} input_char - {input_char} -- State::NameChar if ;:");
-
-                match parse_property_content(&input[found_index.unwrap()..]) {
-                    Ok(_) => {
-                        // println!("index - {index} input_char - {input_char} -- State::NameChar if ;: -- parsed_property_content Ok -- {:#?}", &input[found_index.unwrap()..]);
-                        return found_index;
-                    },
-                    Err(_) => {
-                        // println!("index - {index} input_char - {input_char} -- State::NameChar if ;: -- parsed_property_content Err -- {:#?}", &input[found_index.unwrap()..]);
-                    }
-                }
-
-                break;
-            },
-
-            State::NameChar if is_white_space_char(input_char) => {
-                // println!("index - {index} input_char - {input_char} -- State::NameChar if is_white_space_char");
-                state = State::WhiteSpace;
-                found_index = Some(index);
-            },
-
-            State::NameChar if is_name_char(input_char) => {
-                // println!("index - {index} input_char - {input_char} -- State::NameChar if is_name_char");
-            },
-
-            State::NameChar => {
-                // println!("index - {index} input_char - {input_char} -- State::NameChar");
-                state = State::Unset;
-                found_index = None;
-            }
-        }
-    }
-
-    None
+      Ok((refined_remaining, refined_output))
+  }
 }
 
 #[cfg(test)]
 mod test {
+
     use super::*;
+    use pretty_assertions_sorted::assert_eq;
 
     use chrono::prelude::*;
 
     use crate::parsers::datetime::{ParsedDateStringTime, ParsedDateStringFlags};
 
+    use nom::bytes::complete::take_while1;
+    use nom::combinator::recognize;
+
     #[test]
-    fn test_find_next_property_in_unquoted_value() {
-        let data: &str = "The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA; DETAILS: Some random facts...";
+    fn test_parse_with_look_ahead_parser() {
+        let mut test_parser =
+            parse_with_look_ahead_parser(
+                take_while1(is_safe_char),
+                recognize(
+                    tuple(
+                        (
+                            white_space,
+                            tag("OR"),
+                            white_space,
+                            tag("X-CATEGORIES:"),
+                        )
+                    )
+                ),
+            );
 
-        assert_eq!(find_next_property_in_unquoted_value(data), None);
+        assert_eq!(
+            test_parser("Test Category Text ONE OR X-CATEGORIES:Test Category Text TWO"),
+            Ok(
+                (
+                    " OR X-CATEGORIES:Test Category Text TWO",
+                    "Test Category Text ONE",
+                )
+            )
+        );
 
-        let data: &str = "The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH";
+        assert_eq!(
+            test_parser("Test Category Text ONE"),
+            Ok(
+                (
+                    "",
+                    "Test Category Text ONE",
+                )
+            )
+        );
 
-        assert_eq!(find_next_property_in_unquoted_value(data), Some(58));
+        assert_eq!(
+            test_parser(""),
+            Err(
+                nom::Err::Error(
+                    nom::error::VerboseError {
+                        errors: vec![
+                            (
+                                "",
+                                nom::error::VerboseErrorKind::Nom(
+                                    nom::error::ErrorKind::TakeWhile1,
+                                ),
+                            ),
+                        ],
+                    },
+                )
+            )
+        );
 
-        let data: &str = "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,CATEGORY THREE RELATED-TO;RELTYPE=CHILD:ChildUUID";
-
-        assert_eq!(find_next_property_in_unquoted_value(data), Some(51));
+        assert_eq!(
+            test_parser("::: TEST"),
+            Err(
+                nom::Err::Error(
+                    nom::error::VerboseError {
+                        errors: vec![
+                            (
+                                "::: TEST",
+                                nom::error::VerboseErrorKind::Nom(
+                                    nom::error::ErrorKind::TakeWhile1,
+                                ),
+                            ),
+                        ],
+                    },
+                )
+            )
+        );
     }
 
     #[test]

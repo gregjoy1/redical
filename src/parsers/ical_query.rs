@@ -963,49 +963,6 @@ fn where_related_to_uuids_to_where_conditional(reltype: &String, related_to_uuid
     }
 }
 
-pub fn parse_with_look_ahead_parser<I, O, E, F, F2>(mut parser: F, mut look_ahead_parser: F2) -> impl FnMut(I) -> nom::IResult<I, I, E>
-where
-    I: Clone + nom::InputLength + nom::Slice<std::ops::Range<usize>> + nom::Slice<std::ops::RangeFrom<usize>> + std::fmt::Debug + Copy,
-    F: nom::Parser<I, I, E>,
-    F2: nom::Parser<I, O, E>,
-{
-  move |input: I| {
-      let (remaining, output) = parser.parse(input.clone())?;
-
-      let parser_max_index = input.input_len() - remaining.input_len();
-      let input_max_index = input.input_len() - 1;
-
-      let max_index =
-          if input_max_index > parser_max_index {
-              parser_max_index + 1
-          } else {
-              parser_max_index
-          };
-
-      let mut look_ahead_max_index = max_index;
-
-      for index in 0..=parser_max_index {
-        let sliced_input = input.slice(index..max_index);
-
-        dbg!(index, sliced_input);
-        if look_ahead_parser.parse(sliced_input).is_ok() {
-            look_ahead_max_index = index;
-
-            break;
-        }
-      }
-
-      if look_ahead_max_index >= max_index || look_ahead_max_index >= (input.input_len() - 1) {
-          return Ok((remaining, output));
-      }
-
-      let refined_output = input.slice(0..look_ahead_max_index);
-      let refined_remaining = input.slice(look_ahead_max_index..);
-
-      Ok((refined_remaining, refined_output))
-  }
-}
-
 #[cfg(test)]
 mod test {
 
@@ -1018,7 +975,7 @@ mod test {
     #[test]
     fn test_parse_with_look_ahead_parser() {
         let mut test_parser =
-            parse_with_look_ahead_parser(
+            ical_common::parse_with_look_ahead_parser(
                 take_while1(ical_common::is_safe_char),
                 recognize(
                     tuple(
