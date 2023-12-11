@@ -14,6 +14,40 @@ use nom::{
 use crate::parsers::ical_common;
 use crate::parsers::ical_common::ParserResult;
 
+fn parse_list_values(input: &str) -> ParserResult<&str, &str> {
+    alt(
+        (
+            ical_common::quoted_string,
+            param_text
+        )
+    )(input)
+}
+
+fn parse_single_value(input: &str) -> ParserResult<&str, &str> {
+    alt(
+        (
+            ical_common::quoted_string,
+            param_text
+        )
+    )(input)
+}
+
+// paramtext     = *SAFE-CHAR
+fn param_text(input: &str) -> ParserResult<&str, &str> {
+    ical_common::parse_with_look_ahead_parser(
+        ical_common::param_text,
+        ical_common::look_ahead_property_parser,
+    )(input)
+}
+
+// value         = *VALUE-CHAR
+fn value(input: &str) -> ParserResult<&str, &str> {
+    ical_common::parse_with_look_ahead_parser(
+        ical_common::value,
+        ical_common::look_ahead_property_parser,
+    )(input)
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum ParsedProperty<'a> {
     Categories(ical_common::ParsedPropertyContent<'a>),
@@ -184,21 +218,21 @@ fn parse_rrule_property_content(input: &str) -> ParserResult<&str, ical_common::
                         ical_common::colon_delimeter,
                         build_property_params_value_parser!(
                             "RRULE",
-                            ("FREQ",       ical_common::ParsedValue::parse_single_param),
-                            ("INTERVAL",   ical_common::ParsedValue::parse_single_param),
-                            ("COUNT",      ical_common::ParsedValue::parse_single_param),
-                            ("WKST",       ical_common::ParsedValue::parse_single_param),
+                            ("FREQ",       ical_common::ParsedValue::parse_single(parse_single_value)),
+                            ("INTERVAL",   ical_common::ParsedValue::parse_single(parse_single_value)),
+                            ("COUNT",      ical_common::ParsedValue::parse_single(parse_single_value)),
+                            ("WKST",       ical_common::ParsedValue::parse_single(parse_single_value)),
                             ("UNTIL",      ical_common::ParsedValue::parse_date_string),
-                            ("BYSECOND",   ical_common::ParsedValue::parse_list),
-                            ("BYMINUTE",   ical_common::ParsedValue::parse_list),
-                            ("BYHOUR",     ical_common::ParsedValue::parse_list),
-                            ("BYDAY",      ical_common::ParsedValue::parse_list),
-                            ("BYWEEKNO",   ical_common::ParsedValue::parse_list),
-                            ("BYMONTH",    ical_common::ParsedValue::parse_list),
-                            ("BYMONTHDAY", ical_common::ParsedValue::parse_list),
-                            ("BYYEARDAY",  ical_common::ParsedValue::parse_list),
-                            ("BYEASTER",   ical_common::ParsedValue::parse_list),
-                            ("BYSETPOS",   ical_common::ParsedValue::parse_list),
+                            ("BYSECOND",   ical_common::ParsedValue::parse_list(parse_list_values)),
+                            ("BYMINUTE",   ical_common::ParsedValue::parse_list(parse_list_values)),
+                            ("BYHOUR",     ical_common::ParsedValue::parse_list(parse_list_values)),
+                            ("BYDAY",      ical_common::ParsedValue::parse_list(parse_list_values)),
+                            ("BYWEEKNO",   ical_common::ParsedValue::parse_list(parse_list_values)),
+                            ("BYMONTH",    ical_common::ParsedValue::parse_list(parse_list_values)),
+                            ("BYMONTHDAY", ical_common::ParsedValue::parse_list(parse_list_values)),
+                            ("BYYEARDAY",  ical_common::ParsedValue::parse_list(parse_list_values)),
+                            ("BYEASTER",   ical_common::ParsedValue::parse_list(parse_list_values)),
+                            ("BYSETPOS",   ical_common::ParsedValue::parse_list(parse_list_values)),
                         )
                     )
                 )
@@ -236,21 +270,21 @@ fn parse_exrule_property_content(input: &str) -> ParserResult<&str, ical_common:
                         ical_common::colon_delimeter,
                         build_property_params_value_parser!(
                             "RRULE",
-                            ("FREQ",       ical_common::ParsedValue::parse_single_param),
-                            ("INTERVAL",   ical_common::ParsedValue::parse_single_param),
-                            ("COUNT",      ical_common::ParsedValue::parse_single_param),
-                            ("WKST",       ical_common::ParsedValue::parse_single_param),
+                            ("FREQ",       ical_common::ParsedValue::parse_single(parse_single_value)),
+                            ("INTERVAL",   ical_common::ParsedValue::parse_single(parse_single_value)),
+                            ("COUNT",      ical_common::ParsedValue::parse_single(parse_single_value)),
+                            ("WKST",       ical_common::ParsedValue::parse_single(parse_single_value)),
                             ("UNTIL",      ical_common::ParsedValue::parse_date_string),
-                            ("BYSECOND",   ical_common::ParsedValue::parse_list),
-                            ("BYMINUTE",   ical_common::ParsedValue::parse_list),
-                            ("BYHOUR",     ical_common::ParsedValue::parse_list),
-                            ("BYDAY",      ical_common::ParsedValue::parse_list),
-                            ("BYWEEKNO",   ical_common::ParsedValue::parse_list),
-                            ("BYMONTH",    ical_common::ParsedValue::parse_list),
-                            ("BYMONTHDAY", ical_common::ParsedValue::parse_list),
-                            ("BYYEARDAY",  ical_common::ParsedValue::parse_list),
-                            ("BYEASTER",   ical_common::ParsedValue::parse_list),
-                            ("BYSETPOS",   ical_common::ParsedValue::parse_list),
+                            ("BYSECOND",   ical_common::ParsedValue::parse_list(parse_list_values)),
+                            ("BYMINUTE",   ical_common::ParsedValue::parse_list(parse_list_values)),
+                            ("BYHOUR",     ical_common::ParsedValue::parse_list(parse_list_values)),
+                            ("BYDAY",      ical_common::ParsedValue::parse_list(parse_list_values)),
+                            ("BYWEEKNO",   ical_common::ParsedValue::parse_list(parse_list_values)),
+                            ("BYMONTH",    ical_common::ParsedValue::parse_list(parse_list_values)),
+                            ("BYMONTHDAY", ical_common::ParsedValue::parse_list(parse_list_values)),
+                            ("BYYEARDAY",  ical_common::ParsedValue::parse_list(parse_list_values)),
+                            ("BYEASTER",   ical_common::ParsedValue::parse_list(parse_list_values)),
+                            ("BYSETPOS",   ical_common::ParsedValue::parse_list(parse_list_values)),
                         )
                     )
                 )
@@ -300,7 +334,7 @@ fn parse_duration_property_content(input: &str) -> ParserResult<&str, ical_commo
                     (
                         ical_common::parse_property_parameters,
                         ical_common::colon_delimeter,
-                        ical_common::ParsedValue::parse_single_value,
+                        ical_common::ParsedValue::parse_single(ical_common::value),
                     )
                 )
             )
@@ -348,11 +382,11 @@ fn parse_description_property_content(input: &str) -> ParserResult<&str, ical_co
                     (
                         build_property_params_parser!(
                             "DESCRIPTION",
-                            ("ALTREP",   ical_common::ParsedValue::parse_single_param),
-                            ("LANGUAGE", ical_common::ParsedValue::parse_single_param),
+                            ("ALTREP",   ical_common::ParsedValue::parse_single(parse_single_value)),
+                            ("LANGUAGE", ical_common::ParsedValue::parse_single(parse_single_value)),
                         ),
                         ical_common::colon_delimeter,
-                        ical_common::ParsedValue::parse_single_value,
+                        ical_common::ParsedValue::parse_single(value),
                     )
                 )
             )
@@ -388,10 +422,10 @@ fn parse_categories_property_content(input: &str) -> ParserResult<&str, ical_com
                     (
                         build_property_params_parser!(
                             "CATEGORIES",
-                            ("LANGUAGE", ical_common::ParsedValue::parse_single_param),
+                            ("LANGUAGE", ical_common::ParsedValue::parse_single(parse_single_value)),
                         ),
                         ical_common::colon_delimeter,
-                        ical_common::ParsedValue::parse_list,
+                        ical_common::ParsedValue::parse_list(parse_list_values),
                     )
                 )
             )
@@ -427,10 +461,10 @@ fn parse_related_to_property_content(input: &str) -> ParserResult<&str, ical_com
                     (
                         build_property_params_parser!(
                             "RELATED-TO",
-                            ("RELTYPE", ical_common::ParsedValue::parse_single_param),
+                            ("RELTYPE", ical_common::ParsedValue::parse_single(parse_single_value)),
                         ),
                         ical_common::colon_delimeter,
-                        ical_common::ParsedValue::parse_list,
+                        ical_common::ParsedValue::parse_list(parse_list_values),
                     )
                 )
             )

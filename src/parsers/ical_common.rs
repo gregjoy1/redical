@@ -51,59 +51,51 @@ pub enum ParsedValue<'a> {
 
 impl<'a> ParsedValue<'a> {
 
-    pub fn parse_list(input: &'a str) -> ParserResult<&'a str, Self> {
-        context(
-            "parsed list value",
-            separated_list1(
-                char(','),
-                alt(
+    pub fn parse_list<F>(mut parser: F) -> impl FnMut(&'a str) -> ParserResult<&str, Self>
+    where
+        F: nom::Parser<&'a str, &'a str, VerboseError<&'a str>>,
+    {
+        move |input: &'a str| {
+            // Wrap the FnMut parser inside a Fn closure that implements copy.
+            let parser = |input| parser.parse(input);
+
+            context(
+                "parsed list values",
+                separated_list1(
+                    char(','),
+                    parser,
+                )
+            )(input).map(
+                |(remaining, parsed_value_list)| {
                     (
-                        quoted_string,
-                        param_text,
+                        remaining,
+                        Self::List(parsed_value_list)
                     )
-                )
+                }
             )
-        )(input).map(
-            |(remaining, parsed_value_list)| {
-                (
-                    remaining,
-                    Self::List(parsed_value_list)
-                )
-            }
-        )
+        }
     }
 
-    pub fn parse_single_param(input: &'a str) -> ParserResult<&'a str, Self> {
-        context(
-            "parsed single param",
-            alt(
-                (
-                    quoted_string,
-                    param_text,
-                )
-            ),
-        )(input).map(
-            |(remaining, parsed_single_value)| {
-                (
-                    remaining,
-                    Self::Single(parsed_single_value)
-                )
-            }
-        )
-    }
+    pub fn parse_single<F>(mut parser: F) -> impl FnMut(&'a str) -> ParserResult<&str, Self>
+    where
+        F: nom::Parser<&'a str, &'a str, VerboseError<&'a str>>,
+    {
+        move |input: &'a str| {
+            // Wrap the FnMut parser inside a Fn closure that implements copy.
+            let parser = |input| parser.parse(input);
 
-    pub fn parse_single_value(input: &'a str) -> ParserResult<&'a str, Self> {
-        context(
-            "parsed single value",
-            value,
-        )(input).map(
-            |(remaining, parsed_single_value)| {
-                (
-                    remaining,
-                    Self::Single(parsed_single_value)
-                )
-            }
-        )
+            context(
+                "parsed single value",
+                parser,
+            )(input).map(
+                |(remaining, parsed_single_value)| {
+                    (
+                        remaining,
+                        Self::Single(parsed_single_value)
+                    )
+                }
+            )
+        }
     }
 
     pub fn parse_params(input: &'a str) -> ParserResult<&'a str, Self> {
@@ -304,10 +296,34 @@ pub fn param_value(input: &str) -> ParserResult<&str, ParsedValue> {
             (
                 ParsedValue::parse_timezone,
                 ParsedValue::parse_date_string,
-                ParsedValue::parse_list,
-                ParsedValue::parse_single_value,
+                ParsedValue::parse_list(
+                    alt(
+                        (
+                            quoted_string,
+                            param_text,
+                        )
+                    )
+                ),
+                ParsedValue::parse_single(value),
             )
         ),
+    )(input)
+}
+
+pub fn look_ahead_property_parser(input: &str) -> ParserResult<&str, &str> {
+    recognize(
+        tuple(
+            (
+                white_space1,
+                name,
+                alt(
+                    (
+                        semicolon_delimeter,
+                        colon_delimeter,
+                    )
+                ),
+            )
+        )
     )(input)
 }
 
@@ -315,17 +331,7 @@ pub fn param_value(input: &str) -> ParserResult<&str, ParsedValue> {
 pub fn param_text(input: &str) -> ParserResult<&str, &str> {
     context(
         "param text",
-        parse_with_look_ahead_parser(
-            take_while1(is_safe_char),
-            recognize(
-                tuple(
-                    (
-                        white_space1,
-                        parse_property_content,
-                    )
-                )
-            ),
-        ),
+        take_while1(is_safe_char),
     )(input)
 }
 
@@ -343,17 +349,7 @@ pub fn values(input: &str) -> ParserResult<&str, Vec<&str>> {
 pub fn value(input: &str) -> ParserResult<&str, &str> {
     context(
         "value",
-        parse_with_look_ahead_parser(
-            take_while1(is_value_char),
-            recognize(
-                tuple(
-                    (
-                        white_space1,
-                        parse_property_content,
-                    )
-                )
-            ),
-        ),
+        take_while1(is_value_char),
     )(input)
 }
 
@@ -490,7 +486,13 @@ pub fn parse_property_content(input: &str) -> ParserResult<&str, ParsedPropertyC
 
     let (remaining, _) = colon_delimeter(remaining)?;
 
-    let (remaining, parsed_value) = ParsedValue::parse_single_value(remaining)?;
+    let (remaining, parsed_value) =
+        ParsedValue::parse_single(
+            parse_with_look_ahead_parser(
+                value,
+                look_ahead_property_parser,
+            )
+        )(remaining)?;
 
     let parsed_content_line = consumed_input_string(input, remaining, parsed_name);
 
@@ -523,7 +525,6 @@ where
       for index in 0..=parser_max_index {
         let sliced_input = input.slice(index..max_index);
 
-        // dbg!(index, sliced_input);
         if look_ahead_parser.parse(sliced_input).is_ok() {
             look_ahead_max_index = index;
 
@@ -634,7 +635,14 @@ mod test {
         let data: &str = "MO,TU,TH";
 
         assert_eq!(
-            ParsedValue::parse_list(data).unwrap(),
+            ParsedValue::parse_list(
+                alt(
+                    (
+                        quoted_string,
+                        param_text,
+                    )
+                )
+            )(data).unwrap(),
             (
                 "",
                 ParsedValue::List(
@@ -648,7 +656,7 @@ mod test {
         );
 
         assert_eq!(
-            ParsedValue::parse_single_value(data).unwrap(),
+            ParsedValue::parse_single(value)(data).unwrap(),
             (
                 "",
                 ParsedValue::Single(

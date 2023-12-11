@@ -5,7 +5,7 @@ use nom::{
     multi::{separated_list0, separated_list1, many1},
     sequence::{preceded, terminated, tuple, separated_pair, delimited},
     branch::alt,
-    combinator::{cut, opt, map},
+    combinator::{cut, opt, map, recognize},
     bytes::complete::tag,
     character::complete::{char, digit1},
     number::complete::recognize_float,
@@ -20,7 +20,85 @@ use crate::queries::indexed_property_filters::{WhereOperator, WhereConditional, 
 use crate::parsers::ical_common;
 use crate::parsers::ical_common::ParserResult;
 
-use crate::parsers::datetime::ParsedDateString;
+fn parse_list_values(input: &str) -> ParserResult<&str, &str> {
+    alt(
+        (
+            ical_common::quoted_string,
+            param_text
+        )
+    )(input)
+}
+
+fn parse_single_value(input: &str) -> ParserResult<&str, &str> {
+    alt(
+        (
+            ical_common::quoted_string,
+            param_text
+        )
+    )(input)
+}
+
+fn look_ahead_property_parser(input: &str) -> ParserResult<&str, &str> {
+    alt(
+        (
+            preceded(
+                ical_common::white_space,
+                tag(")"),
+            ),
+            recognize(
+                tuple(
+                    (
+                        ical_common::white_space1,
+                        alt(
+                            (
+                                tag("AND"),
+                                tag("&&"),
+                                tag("OR"),
+                                tag("||"),
+                            )
+                        ),
+                        ical_common::white_space1,
+                        tag("X-RELATED-TO"),
+                        // ical_common::name,
+                        alt(
+                            (
+                                ical_common::colon_delimeter,
+                                ical_common::semicolon_delimeter,
+                            )
+                        ),
+                    )
+                )
+            ),
+            ical_common::look_ahead_property_parser,
+        )
+    )(input)
+}
+
+// paramtext     = *SAFE-CHAR
+fn param_text(input: &str) -> ParserResult<&str, &str> {
+    ical_common::parse_with_look_ahead_parser(
+        ical_common::param_text,
+        look_ahead_property_parser,
+    )(input)
+}
+
+pub fn values(input: &str) -> ParserResult<&str, Vec<&str>> {
+    context(
+        "values",
+        separated_list1(
+            char(','),
+            value,
+        )
+    )(input)
+}
+
+// value         = *VALUE-CHAR
+fn value(input: &str) -> ParserResult<&str, &str> {
+    ical_common::parse_with_look_ahead_parser(
+        ical_common::value,
+        look_ahead_property_parser,
+    )(input)
+}
 
 #[derive(Debug)]
 pub enum ParsedQueryComponent {
@@ -196,7 +274,7 @@ fn parse_from_query_property_content(input: &str) -> ParserResult<&str, ParsedQu
                             ("PROP", map(alt((tag("DTSTART"), tag("DTEND"))), |value| ical_common::ParsedValue::Single(value))),
                             ("OP",   map(alt((tag("GTE"),     tag("GT"))),    |value| ical_common::ParsedValue::Single(value))),
                             ("TZID", ical_common::ParsedValue::parse_timezone),
-                            ("UUID", ical_common::ParsedValue::parse_single_param),
+                            ("UUID", ical_common::ParsedValue::parse_single(parse_single_value)),
                         ),
                         ical_common::colon_delimeter,
                         ical_common::ParsedValue::parse_date_string,
@@ -327,7 +405,7 @@ fn parse_categories_query_property_content(input: &str) -> ParserResult<&str, Pa
                         ),
                         preceded(
                             ical_common::colon_delimeter,
-                            ical_common::ParsedValue::parse_list,
+                            ical_common::ParsedValue::parse_list(parse_list_values),
                         ),
                     )
                 )
@@ -353,7 +431,6 @@ fn parse_categories_query_property_content(input: &str) -> ParserResult<&str, Pa
             };
 
             let parsed_categories: Vec<String> = parsed_categories.into_iter().map(|category| String::from(category)).collect();
-            dbg!("X-CATEGORIES", &parsed_categories);
 
             (
                 remaining,
@@ -382,13 +459,13 @@ fn parse_related_to_query_property_content(input: &str) -> ParserResult<&str, Pa
                                 build_property_params_value_parser!(
                                     "X-RELATED-TO",
                                     ("OP",      map(alt((tag("AND"), tag("OR"))), |value| ical_common::ParsedValue::Single(value))),
-                                    ("RELTYPE", ical_common::ParsedValue::parse_single_param),
+                                    ("RELTYPE", ical_common::ParsedValue::parse_single(parse_single_value)),
                                 )
                             )
                         ),
                         preceded(
                             ical_common::colon_delimeter,
-                            ical_common::ParsedValue::parse_list,
+                            ical_common::ParsedValue::parse_list(parse_list_values),
                         ),
                     )
                 )
@@ -610,7 +687,8 @@ fn parse_operator_prefixed_where_query_property_content(input: &str) -> ParserRe
 
 fn parse_group_query_property_component(input: &str) -> ParserResult<&str, ParsedQueryComponent> {
     delimited(
-        preceded(
+        delimited(
+            ical_common::white_space,
             char('('),
             ical_common::white_space,
         ),
@@ -619,25 +697,31 @@ fn parse_group_query_property_component(input: &str) -> ParserResult<&str, Parse
                 "group",
                 tuple(
                     (
-                        alt(
-                            (
-                                parse_categories_query_property_content,
-                                parse_related_to_query_property_content,
-                                parse_group_query_property_component,
+                        context(
+                            "group initial property",
+                            alt(
+                                (
+                                    parse_categories_query_property_content,
+                                    parse_related_to_query_property_content,
+                                    parse_group_query_property_component,
+                                )
                             )
                         ),
                         opt(
-                            ical_common::white_space,
+                            ical_common::white_space1,
                         ),
-                        separated_list0(
-                            ical_common::white_space,
-                            parse_operator_prefixed_where_query_property_content,
+                        context(
+                            "group subsequent properties",
+                            separated_list0(
+                                ical_common::white_space1,
+                                parse_operator_prefixed_where_query_property_content,
+                            )
                         ),
                     )
                 )
             )
         ),
-        preceded(
+        terminated(
             ical_common::white_space,
             char(')'),
         ),
@@ -726,9 +810,10 @@ fn where_group_to_where_conditional(parsed_query_properties: &Vec<ParsedQueryCom
 
 fn parse_query_string(input: &str) -> ParserResult<&str, Query> {
     let (remaining, query_properties) =
-        terminated(
+        context(
+            "outer parse query string",
             separated_list1(
-                char(' '),
+                ical_common::white_space1,
                 alt(
                     (
                         parse_timezone_query_property_content,
@@ -741,8 +826,7 @@ fn parse_query_string(input: &str) -> ParserResult<&str, Query> {
                         parse_group_query_property_component,
                     )
                 )
-            ),
-            opt(char(' ')),
+            )
         )(input)?;
 
     let query =
