@@ -5,6 +5,7 @@ use crate::queries::results::QueryResults;
 use crate::queries::results_ordering::OrderingCondition;
 use crate::queries::results_range_bounds::{LowerBoundRangeCondition, UpperBoundRangeCondition};
 use crate::queries::indexed_property_filters::WhereConditional;
+use crate::parsers::ical_query::parse_query_string;
 
 use crate::data_types::MergedIterator;
 
@@ -28,7 +29,6 @@ impl Query {
             };
 
         let mut query_results = QueryResults::new(self.ordering_condition.clone());
-
 
         /*
         TODO: DtStartGeoDist and GeoDistDtStart
@@ -104,14 +104,38 @@ impl Query {
         }
 
         for (_, event_instance) in merged_iterator {
-            query_results.push(event_instance);
-
-            if query_results.len() > self.limit {
+            if query_results.len() >= self.limit {
                 break;
             }
-        }
 
+            query_results.push(event_instance);
+        }
     }
+}
+
+impl TryFrom<&str> for Query {
+    type Error = String;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match parse_query_string(value.trim()) {
+            Ok((remaining, parsed_query)) => {
+                if remaining.is_empty() {
+                    Ok(parsed_query)
+                } else {
+                    Err(
+                        format!("Unexpected values: {remaining}")
+                    )
+                }
+            },
+
+            Err(error) => {
+                Err(
+                    error.to_string()
+                )
+            },
+        }
+    }
+
 }
 
 impl Default for Query {
@@ -135,7 +159,9 @@ mod test {
 
     use pretty_assertions_sorted::{assert_eq, assert_eq_sorted};
     use crate::testing::utils::{build_event_from_ical, build_event_and_overrides_from_ical};
-    use crate::data_types::{Event, Calendar};
+    use crate::data_types::{Event, Calendar, GeoPoint};
+    use crate::queries::results_range_bounds::{LowerBoundRangeCondition, UpperBoundRangeCondition, RangeConditionProperty};
+    use crate::queries::indexed_property_filters::{WhereOperator, WhereConditional, WhereConditionalProperty};
 
     fn build_overridden_recurring_event() -> Event {
         build_event_and_overrides_from_ical(
@@ -209,6 +235,117 @@ mod test {
         calendar.events.insert(
             String::from("overridden_recurring_event_UUID"),
             build_overridden_recurring_event(),
+        );
+    }
+
+    #[test]
+    fn test_from_str() {
+        assert_eq!(
+            Query::try_from("X-LIMIT:50 UNCONSUMED_ENDING"),
+            Err(
+                String::from("Parsing Failure: VerboseError { errors: [(\"UNCONSUMED_ENDING\", Char('(')), (\"UNCONSUMED_ENDING\", Nom(Alt)), (\"X-LIMIT:50 UNCONSUMED_ENDING\", Context(\"outer parse query string\"))] }")
+            )
+        );
+
+        assert_eq!(
+            Query::try_from("INVALID"),
+            Err(
+                String::from("Parsing Failure: VerboseError { errors: [(\"INVALID\", Char('(')), (\"INVALID\", Nom(Alt)), (\"INVALID\", Context(\"outer parse query string\"))] }")
+            )
+        );
+
+        let query_string = [
+            " ",
+            "X-FROM;PROP=DTSTART;OP=GT;TZID=Europe/London;UUID=Event_UUID:19971002T090000",
+            "X-UNTIL;PROP=DTSTART;OP=LTE;TZID=UTC:19971102T090000",
+            "X-CATEGORIES;OP=OR:CATEGORY_ONE,CATEGORY_TWO",
+            "X-RELATED-TO:PARENT_UUID",
+            "X-LIMIT:50",
+            "X-TZID:Europe/Vilnius",
+            "X-ORDER-BY;GEO=48.85299;2.36885:DTSTART-GEO-DIST",
+            "   ",
+        ].join(" ");
+
+        assert_eq!(
+            Query::try_from(query_string.as_str()),
+            Ok(
+                Query {
+                    where_conditional: Some(
+                       WhereConditional::Operator(
+                            Box::new(
+                                WhereConditional::Group(
+                                    Box::new(
+                                        WhereConditional::Operator(
+                                            Box::new(
+                                                WhereConditional::Property(
+                                                    WhereConditionalProperty::Categories(
+                                                        String::from("CATEGORY_ONE"),
+                                                    ),
+                                                    None,
+                                                )
+                                            ),
+                                            Box::new(
+                                                WhereConditional::Property(
+                                                    WhereConditionalProperty::Categories(
+                                                        String::from("CATEGORY_TWO"),
+                                                    ),
+                                                    None,
+                                                )
+                                            ),
+                                            WhereOperator::Or,
+                                            None,
+                                        )
+                                    ),
+                                    None,
+                                )
+                            ),
+                            Box::new(
+                                WhereConditional::Property(
+                                    WhereConditionalProperty::RelatedTo(
+                                        KeyValuePair::new(
+                                            String::from("PARENT"),
+                                            String::from("PARENT_UUID"),
+                                        )
+                                    ),
+                                    None,
+                                )
+                            ),
+                            WhereOperator::And,
+                            None,
+                        )
+                    ),
+
+                    ordering_condition: OrderingCondition::DtStartGeoDist(
+                        GeoPoint {
+                            long: 2.36885,
+                            lat: 48.85299,
+                        },
+                    ),
+
+                    lower_bound_range_condition: Some(
+                        LowerBoundRangeCondition::GreaterThan(
+                            RangeConditionProperty::DtStart(
+                                875779200,
+                            ),
+                            Some(
+                                String::from("Event_UUID"),
+                            ),
+                        ),
+                    ),
+
+                    upper_bound_range_condition: Some(
+                        UpperBoundRangeCondition::LessEqualThan(
+                            RangeConditionProperty::DtStart(
+                                878461200,
+                            ),
+                        ),
+                    ),
+
+                    in_timezone: rrule::Tz::Europe__Vilnius,
+
+                    limit: 50,
+                }
+            )
         );
     }
 }

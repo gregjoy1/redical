@@ -109,7 +109,7 @@ impl EventInstance {
                 reltype_uuids.iter().for_each(|reltype_uuid| {
                     serialized_output.insert(
                         KeyValuePair::new(
-                            String::from("RELATED_TO"),
+                            String::from("RELATED-TO"),
                             format!(";RELTYPE={}:{}", reltype, reltype_uuid)
                         )
                     );
@@ -373,12 +373,12 @@ mod test {
                 String::from("DTSTART;TZID=Europe/London:19700101T010140"),
                 String::from("LOCATION:Event address text."),
                 String::from("RECURRENCE-ID;VALUE=DATE-TIME:19700101T000140Z"),
-                String::from("RELATED_TO;RELTYPE=CHILD:ChildUUID"),
-                String::from("RELATED_TO;RELTYPE=PARENT:ParentUUID_One"),
-                String::from("RELATED_TO;RELTYPE=PARENT:ParentUUID_Two"),
-                String::from("RELATED_TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_One"),
-                String::from("RELATED_TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Three"),
-                String::from("RELATED_TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Two"),
+                String::from("RELATED-TO;RELTYPE=CHILD:ChildUUID"),
+                String::from("RELATED-TO;RELTYPE=PARENT:ParentUUID_One"),
+                String::from("RELATED-TO;RELTYPE=PARENT:ParentUUID_Two"),
+                String::from("RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_One"),
+                String::from("RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Three"),
+                String::from("RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Two"),
                 String::from("UUID:event_UUID"),
             ]
         );
@@ -482,10 +482,10 @@ mod test {
                  String::from("DTSTART:20201231T183000Z"),
                  String::from("LOCATION:Overridden Event address text."),
                  String::from("RECURRENCE-ID;VALUE=DATE-TIME:20201231T183000Z"),
-                 String::from("RELATED_TO;RELTYPE=CHILD:ChildUUID"),
-                 String::from("RELATED_TO;RELTYPE=PARENT:ParentUUID_Three"),
-                 String::from("RELATED_TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Four"),
-                 String::from("RELATED_TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_One"),
+                 String::from("RELATED-TO;RELTYPE=CHILD:ChildUUID"),
+                 String::from("RELATED-TO;RELTYPE=PARENT:ParentUUID_Three"),
+                 String::from("RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Four"),
+                 String::from("RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_One"),
                  String::from("UUID:event_UUID"),
             ]
         );
@@ -541,7 +541,7 @@ mod test {
                     String::from("DTEND:20210105T190000Z"),
                     String::from("DTSTART:20210105T183000Z"),
                     String::from("RECURRENCE-ID;VALUE=DATE-TIME:20210105T183000Z"),
-                    String::from("RELATED_TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUUID"),
+                    String::from("RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUUID"),
                     String::from("UUID:event_UUID"),
                 ]
             ),
@@ -554,8 +554,8 @@ mod test {
                     String::from("DTEND:20210112T190000Z"),
                     String::from("DTSTART:20210112T183000Z"),
                     String::from("RECURRENCE-ID;VALUE=DATE-TIME:20210112T183000Z"),
-                    String::from("RELATED_TO;RELTYPE=CHILD:BASE_ChildUUID"),
-                    String::from("RELATED_TO;RELTYPE=CHILD:OVERRIDDEN_ChildUUID"),
+                    String::from("RELATED-TO;RELTYPE=CHILD:BASE_ChildUUID"),
+                    String::from("RELATED-TO;RELTYPE=CHILD:OVERRIDDEN_ChildUUID"),
                     String::from("UUID:event_UUID"),
                 ]
             ),
@@ -568,8 +568,8 @@ mod test {
                     String::from("DTEND:20210119T190000Z"),
                     String::from("DTSTART:20210119T183000Z"),
                     String::from("RECURRENCE-ID;VALUE=DATE-TIME:20210119T183000Z"),
-                    String::from("RELATED_TO;RELTYPE=CHILD:BASE_ChildUUID"),
-                    String::from("RELATED_TO;RELTYPE=PARENT:BASE_ParentdUUID"),
+                    String::from("RELATED-TO;RELTYPE=CHILD:BASE_ChildUUID"),
+                    String::from("RELATED-TO;RELTYPE=PARENT:BASE_ParentdUUID"),
                     String::from("UUID:event_UUID"),
                 ]
             ),
@@ -582,8 +582,8 @@ mod test {
                     String::from("DTEND:20210126T190000Z"),
                     String::from("DTSTART:20210126T183000Z"),
                     String::from("RECURRENCE-ID;VALUE=DATE-TIME:20210126T183000Z"),
-                    String::from("RELATED_TO;RELTYPE=CHILD:OVERRIDDEN_ChildUUID"),
-                    String::from("RELATED_TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUUID"),
+                    String::from("RELATED-TO;RELTYPE=CHILD:OVERRIDDEN_ChildUUID"),
+                    String::from("RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUUID"),
                     String::from("UUID:event_UUID"),
                 ]
             ),
@@ -596,8 +596,8 @@ mod test {
                     String::from("DTEND:20210202T190000Z"),
                     String::from("DTSTART:20210202T183000Z"),
                     String::from("RECURRENCE-ID;VALUE=DATE-TIME:20210202T183000Z"),
-                    String::from("RELATED_TO;RELTYPE=CHILD:BASE_ChildUUID"),
-                    String::from("RELATED_TO;RELTYPE=PARENT:BASE_ParentdUUID"),
+                    String::from("RELATED-TO;RELTYPE=CHILD:BASE_ChildUUID"),
+                    String::from("RELATED-TO;RELTYPE=PARENT:BASE_ParentdUUID"),
                     String::from("UUID:event_UUID"),
                 ]
             ),

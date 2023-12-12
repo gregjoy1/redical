@@ -5,6 +5,7 @@ use crate::data_types::EventInstance;
 
 use super::results_ordering::{OrderingCondition, QueryResultOrdering};
 
+#[derive(Debug)]
 pub struct QueryResults {
     pub ordering_condition: OrderingCondition,
     pub results:            BTreeSet<QueryResult>,
@@ -42,13 +43,25 @@ pub struct QueryResult {
 
 impl PartialOrd for QueryResult {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.result_ordering.partial_cmp(&other.result_ordering)
+        let partial_ordering = self.result_ordering.partial_cmp(&other.result_ordering);
+
+        if partial_ordering.is_some_and(|partial_ordering| partial_ordering.is_eq()) {
+            self.event_instance.uuid.partial_cmp(&other.event_instance.uuid)
+        } else {
+            partial_ordering
+        }
     }
 }
 
 impl Ord for QueryResult {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.result_ordering.cmp(&other.result_ordering)
+        let ordering = self.result_ordering.cmp(&other.result_ordering);
+
+        if ordering.is_eq() {
+            self.event_instance.uuid.cmp(&other.event_instance.uuid)
+        } else {
+            ordering
+        }
     }
 }
 

@@ -1,9 +1,10 @@
 use redis_module::{Context, NextArg, RedisResult, RedisString, RedisError, RedisValue};
 
 use crate::data_types::{CALENDAR_DATA_TYPE, Calendar};
+use crate::queries::query::Query;
 
 pub fn redical_calendar_query(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
-    if args.len() < 3 {
+    if args.len() < 2 {
         ctx.log_debug(format!("rdcl.cal_query: event_set WrongArity: {{args.len()}}").as_str());
 
         return Err(RedisError::WrongArity);
@@ -11,25 +12,50 @@ pub fn redical_calendar_query(ctx: &Context, args: Vec<RedisString>) -> RedisRes
 
     let mut args = args.into_iter().skip(1);
 
-    let key_name = args.next_arg()?;
+    let calendar_uuid = args.next_arg()?;
 
-    // Queries either on Event level or Event Instances level.
-    let query_subject = args.next_arg()?;
+    let calendar_key = ctx.open_key(&calendar_uuid);
 
-    let other: String = args.map(|arg| arg.try_as_str().unwrap_or("")).collect::<Vec<&str>>().join(" ").as_str().to_owned();
+    let Some(calendar) = calendar_key.get_value::<Calendar>(&CALENDAR_DATA_TYPE)? else {
+        return Err(RedisError::String(format!("rdcl.cal_query: No Calendar found on key: {calendar_uuid}")));
+    };
 
-    let key = ctx.open_key(&key_name);
+    ctx.log_debug(format!("rdcl.cal_query: calendar_uuid: {calendar_uuid}").as_str());
 
-    ctx.log_debug(format!("rdcl.cal_query: key: {key_name}").as_str());
+    let query_string: String = args.map(|arg| arg.try_as_str().unwrap_or("")).collect::<Vec<&str>>().join(" ").as_str().to_owned();
 
-    match key.get_value::<Calendar>(&CALENDAR_DATA_TYPE)? {
-        Some(calendar) => {
-            // TODO: run query...
+    let mut parsed_query = Query::try_from(query_string.as_str()).map_err(|error| RedisError::String(error))?;
 
-            Ok(RedisValue::BulkString(format!("calendar already exists with UUID: {:?} - {:?}", calendar.uuid, calendar)))
-        },
+    ctx.log_debug(format!("rdcl.cal_query: calendar_uuid: {calendar_uuid} parsed query: {:#?}", parsed_query).as_str());
 
-        None => Ok(RedisValue::Null),
-    }
+    let query_results = parsed_query.execute(calendar).map_err(|error| RedisError::String(error))?;
 
+    // TODO: Clean up and properly serialize this grimeyness
+    let query_result_items =
+        query_results.results.iter()
+                             .map(|query_result| {
+                                 RedisValue::Array(
+                                     vec![
+                                         RedisValue::Array(
+                                             vec![
+                                                 RedisValue::BulkString(format!("{:#?}", query_result.result_ordering).to_owned()),
+                                             ]
+                                         ),
+                                         RedisValue::Array(
+                                             query_result.event_instance
+                                                         .serialize_to_ical(rrule::Tz::UTC)
+                                                         .iter()
+                                                         .map(|ical_part| RedisValue::SimpleString(ical_part.to_owned()))
+                                                         .collect()
+                                         )
+                                     ]
+                                 )
+                             })
+                             .collect();
+
+    Ok(
+        RedisValue::Array(
+            query_result_items
+        )
+    )
 }

@@ -808,22 +808,24 @@ fn where_group_to_where_conditional(parsed_query_properties: &Vec<ParsedQueryCom
 // parse_order_to_query_property_content
 // parse_group_query_property_component
 
-fn parse_query_string(input: &str) -> ParserResult<&str, Query> {
+pub fn parse_query_string(input: &str) -> ParserResult<&str, Query> {
     let (remaining, query_properties) =
         context(
             "outer parse query string",
             separated_list1(
                 ical_common::white_space1,
-                alt(
-                    (
-                        parse_timezone_query_property_content,
-                        parse_limit_query_property_content,
-                        parse_from_query_property_content,
-                        parse_until_query_property_content,
-                        parse_order_to_query_property_content,
-                        parse_categories_query_property_content,
-                        parse_related_to_query_property_content,
-                        parse_group_query_property_component,
+                cut(
+                    alt(
+                        (
+                            parse_timezone_query_property_content,
+                            parse_limit_query_property_content,
+                            parse_from_query_property_content,
+                            parse_until_query_property_content,
+                            parse_order_to_query_property_content,
+                            parse_categories_query_property_content,
+                            parse_related_to_query_property_content,
+                            parse_group_query_property_component,
+                        )
                     )
                 )
             )
