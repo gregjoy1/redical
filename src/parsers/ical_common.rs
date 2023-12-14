@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::str;
 
-use crate::data_types::KeyValuePair;
+use crate::data_types::{KeyValuePair, GeoDistance};
 use crate::parsers::datetime::{parse_timezone, ParsedDateString};
 
 use nom::{
@@ -44,6 +44,7 @@ pub enum ParsedValue<'a> {
     Single(&'a str),
     Pair((&'a str, &'a str)),
     LatLong(f64, f64),
+    GeoDistance(GeoDistance),
     Params(HashMap<&'a str, ParsedValue<'a>>),
     DateString(ParsedDateString),
     TimeZone(rrule::Tz),
@@ -127,6 +128,49 @@ impl<'a> ParsedValue<'a> {
                 (
                     remaining,
                     Self::LatLong(latitude, longitude)
+                )
+            }
+        )
+    }
+
+    pub fn parse_geo_distance(input: &'a str) -> ParserResult<&'a str, Self> {
+        context(
+            "parsed geo distance value",
+            tuple(
+                (
+                    double,
+                    alt(
+                        (
+                            tag("KM"),
+                            tag("MI"),
+                        )
+                    ),
+                )
+            ),
+        )(input).and_then(
+            |(remaining, (distance, unit))| {
+                let parsed_geo_distance = match unit {
+                    "KM" => GeoDistance::new_from_kilometers_float(distance),
+                    "MI" => GeoDistance::new_from_miles_float(distance),
+
+                    _ => {
+                        return Err(
+                            nom::Err::Error(
+                                nom::error::VerboseError::add_context(
+                                    input,
+                                    "parsed geo distance value",
+                                    nom::error::VerboseError::from_error_kind(input, ErrorKind::Satisfy),
+                                )
+                            )
+                        )
+                    }
+                };
+
+                Ok(
+                    (
+                        remaining,
+                        Self::GeoDistance(parsed_geo_distance)
+                    )
                 )
             }
         )
@@ -734,6 +778,30 @@ mod test {
                             },
                             dt: "19970902T090000".to_string(),
                         },
+                    )
+                )
+            )
+        );
+
+        assert_eq!(
+            ParsedValue::parse_geo_distance("1.5KM"),
+            Ok(
+                (
+                    "",
+                    ParsedValue::GeoDistance(
+                        GeoDistance::new_from_kilometers_float(1.5)
+                    )
+                )
+            )
+        );
+
+        assert_eq!(
+            ParsedValue::parse_geo_distance("30MI"),
+            Ok(
+                (
+                    "",
+                    ParsedValue::GeoDistance(
+                        GeoDistance::new_from_miles_float(30.0)
                     )
                 )
             )

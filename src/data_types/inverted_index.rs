@@ -3,6 +3,7 @@ use serde::{Serialize, Deserialize};
 use std::collections::{HashMap, HashSet};
 
 use crate::data_types::event::Event;
+use crate::data_types::geo_index::GeoPoint;
 
 use crate::data_types::utils::{KeyValuePair, UpdatedHashMapMembers, UpdatedSetMembers};
 
@@ -227,6 +228,25 @@ where
         }
 
         indexed_related_to
+    }
+
+    // TODO: Add tests...
+    pub fn new_from_event_geo(event: &Event) -> InvertedEventIndex<GeoPoint> {
+        let mut indexed_geo = InvertedEventIndex {
+            terms: HashMap::new()
+        };
+
+        if let Some(ref geo_point) = event.indexed_properties.geo {
+            indexed_geo.insert(geo_point);
+        }
+
+        for (timestamp, event_override) in event.overrides.current.iter() {
+            if let Some(overridden_geo) = &event_override.geo {
+                indexed_geo.insert_override(timestamp.clone(), &HashSet::from([overridden_geo.clone()]));
+            }
+        }
+
+        indexed_geo
     }
 
     pub fn diff_indexed_terms(original: Option<&InvertedEventIndex<K>>, updated: Option<&InvertedEventIndex<K>>) -> UpdatedHashMapMembers<K, IndexedConclusion> {

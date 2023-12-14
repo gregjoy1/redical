@@ -181,7 +181,7 @@ impl ScheduleProperties {
             ParsedProperty::DtEnd(content)    => { property_option_set_or_insert(&mut self.dtend, content.content_line); },
 
             _ => {
-                return Err(String::from("Expected schedule property (RRULE, EXRULE, RDATE, EXDATE, DURATION, DTSTART, DTEND), received: {property.content_line}"))
+                return Err(format!("Expected schedule property (RRULE, EXRULE, RDATE, EXDATE, DURATION, DTSTART, DTEND), received: {:#?}", property))
             }
         }
 
@@ -520,37 +520,37 @@ impl Event {
                 let new_event: &mut Event = &mut Event::new(String::from(uuid));
 
                 parsed_properties.into_iter()
-                    .try_for_each(|parsed_property: ParsedProperty| {
-                        match parsed_property {
-                            ParsedProperty::Categories(_) | ParsedProperty::RelatedTo(_) => {
-                                if let Err(error) = new_event.indexed_properties.insert(parsed_property) {
-                                    return Err(error);
-                                }
-                            },
+                                 .try_for_each(|parsed_property: ParsedProperty| {
+                                     match parsed_property {
+                                         ParsedProperty::Geo(_) | ParsedProperty::Categories(_) | ParsedProperty::RelatedTo(_) => {
+                                             if let Err(error) = new_event.indexed_properties.insert(parsed_property) {
+                                                 return Err(error);
+                                             }
+                                         },
 
-                            ParsedProperty::Description(_) | ParsedProperty::Other(_) => {
-                                if let Err(error) = new_event.passive_properties.insert(parsed_property) {
-                                    return Err(error);
-                                }
-                            },
+                                         ParsedProperty::Description(_) | ParsedProperty::Other(_) => {
+                                             if let Err(error) = new_event.passive_properties.insert(parsed_property) {
+                                                 return Err(error);
+                                             }
+                                         },
 
-                            // Assumed to be any of:
-                            //   - ParsedProperty::RRule
-                            //   - ParsedProperty::ExRule
-                            //   - ParsedProperty::RDate
-                            //   - ParsedProperty::ExDate
-                            //   - ParsedProperty::Duration
-                            //   - ParsedProperty::DtStart
-                            //   - ParsedProperty::DtEnd
-                            _ => {
-                                if let Err(error) = new_event.schedule_properties.insert(parsed_property) {
-                                    return Err(error);
-                                }
-                            }
-                        }
+                                         // Assumed to be any of:
+                                         //   - ParsedProperty::RRule
+                                         //   - ParsedProperty::ExRule
+                                         //   - ParsedProperty::RDate
+                                         //   - ParsedProperty::ExDate
+                                         //   - ParsedProperty::Duration
+                                         //   - ParsedProperty::DtStart
+                                         //   - ParsedProperty::DtEnd
+                                         _ => {
+                                             if let Err(error) = new_event.schedule_properties.insert(parsed_property) {
+                                                 return Err(error);
+                                             }
+                                         }
+                                     }
 
-                        Ok(())
-                    })?;
+                                     Ok(())
+                                 })?;
 
                 Ok(new_event.clone())
             },
@@ -569,6 +569,15 @@ impl Event {
     pub fn rebuild_indexed_related_to(&mut self) -> Result<&mut Self, String> {
         self.indexed_related_to = Some(
             InvertedEventIndex::<KeyValuePair>::new_from_event_related_to(self)
+        );
+
+        Ok(self)
+    }
+
+    // TODO: Add tests...
+    pub fn rebuild_indexed_geo(&mut self) -> Result<&mut Self, String> {
+        self.indexed_geo = Some(
+            InvertedEventIndex::<GeoPoint>::new_from_event_geo(self)
         );
 
         Ok(self)

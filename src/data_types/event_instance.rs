@@ -117,6 +117,16 @@ impl EventInstance {
             }
         }
 
+        if let Some(geo) = &self.geo {
+            serialized_output.insert(
+                KeyValuePair::new(
+                    String::from("GEO"),
+                    format!(":{};{}", geo.lat, geo.long)
+                )
+            );
+        }
+
+
         serialized_output
     }
 
@@ -303,6 +313,7 @@ mod test {
                 "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_One",
                 "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Three",
                 "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Two",
+                "GEO:48.85299;2.36885",
                 "DESCRIPTION:Event description text.",
                 "LOCATION:Event address text.",
             ]
@@ -317,7 +328,12 @@ mod test {
                 dtstart_timestamp:  100,
                 dtend_timestamp:    160,
                 duration:           60,
-                geo:                None,
+                geo:                Some(
+                    GeoPoint::new(
+                        2.36885,
+                        48.85299,
+                    )
+                ),
                 categories:         Some(
                     HashSet::from([
                         String::from("CATEGORY_ONE"),
@@ -371,6 +387,7 @@ mod test {
                 String::from("DESCRIPTION:Event description text."),
                 String::from("DTEND;TZID=Europe/London:19700101T010240"),
                 String::from("DTSTART;TZID=Europe/London:19700101T010140"),
+                String::from("GEO:48.85299;2.36885"),
                 String::from("LOCATION:Event address text."),
                 String::from("RECURRENCE-ID;VALUE=DATE-TIME:19700101T000140Z"),
                 String::from("RELATED-TO;RELTYPE=CHILD:ChildUUID"),

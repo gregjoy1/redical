@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use crate::data_types::{KeyValuePair, InvertedCalendarIndexTerm, Calendar};
+use crate::data_types::{KeyValuePair, InvertedCalendarIndexTerm, Calendar, GeoPoint, GeoDistance};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum WhereOperator {
@@ -164,6 +164,7 @@ impl WhereConditional {
 pub enum WhereConditionalProperty {
     Categories(String),
     RelatedTo(KeyValuePair),
+    Geo(GeoDistance, GeoPoint),
 }
 
 impl WhereConditionalProperty {
@@ -176,6 +177,10 @@ impl WhereConditionalProperty {
 
             WhereConditionalProperty::RelatedTo(reltype_uuids) => {
                 format!("RELATED-TO;RELTYPE={}:{}", reltype_uuids.key, reltype_uuids.value)
+            },
+
+            WhereConditionalProperty::Geo(distance, long_lat) => {
+                format!("GEO;DIST={}:{}", distance.to_string(), long_lat.to_string())
             },
         }
     }
@@ -205,61 +210,112 @@ impl WhereConditionalProperty {
                             .clone()
                 )
             },
+
+            WhereConditionalProperty::Geo(distance, long_lat) => {
+                Ok(
+                    calendar.indexed_geo
+                            .locate_within_distance(long_lat, distance)
+                )
+            },
         }
     }
 
     pub fn merge_and(&self, inverted_index_term_a: &InvertedCalendarIndexTerm, calendar: &Calendar) -> Result<InvertedCalendarIndexTerm, String> {
         let empty_calendar_index_term = InvertedCalendarIndexTerm::new();
 
-        let inverted_index_term_b = match &self {
+        match &self {
             WhereConditionalProperty::Categories(category) => {
-                calendar.indexed_categories
-                        .terms
-                        .get(category)
-                        .unwrap_or(&empty_calendar_index_term)
+                let inverted_index_term_b =
+                    calendar.indexed_categories
+                            .terms
+                            .get(category)
+                            .unwrap_or(&empty_calendar_index_term);
+
+                Ok(
+                    InvertedCalendarIndexTerm::merge_and(
+                        inverted_index_term_a,
+                        inverted_index_term_b
+                    )
+                )
             },
 
             WhereConditionalProperty::RelatedTo(reltype_uuids) => {
-                calendar.indexed_related_to
-                        .terms
-                        .get(reltype_uuids)
-                        .unwrap_or(&empty_calendar_index_term)
-            },
-        };
+                let inverted_index_term_b =
+                    calendar.indexed_related_to
+                            .terms
+                            .get(reltype_uuids)
+                            .unwrap_or(&empty_calendar_index_term);
 
-        Ok(
-            InvertedCalendarIndexTerm::merge_and(
-                inverted_index_term_a,
-                inverted_index_term_b
-            )
-        )
+                Ok(
+                    InvertedCalendarIndexTerm::merge_and(
+                        inverted_index_term_a,
+                        inverted_index_term_b
+                    )
+                )
+            },
+
+            WhereConditionalProperty::Geo(distance, long_lat) => {
+                let inverted_index_term_b =
+                    calendar.indexed_geo
+                            .locate_within_distance(long_lat, distance);
+
+                Ok(
+                    InvertedCalendarIndexTerm::merge_and(
+                        inverted_index_term_a,
+                        &inverted_index_term_b
+                    )
+                )
+            },
+        }
     }
 
     pub fn merge_or(&self, inverted_index_term_a: &InvertedCalendarIndexTerm, calendar: &Calendar) -> Result<InvertedCalendarIndexTerm, String> {
         let empty_calendar_index_term = InvertedCalendarIndexTerm::new();
 
-        let inverted_index_term_b = match &self {
+        match &self {
             WhereConditionalProperty::Categories(category) => {
-                calendar.indexed_categories
-                        .terms
-                        .get(category)
-                        .unwrap_or(&empty_calendar_index_term)
+                let inverted_index_term_b =
+                    calendar.indexed_categories
+                            .terms
+                            .get(category)
+                            .unwrap_or(&empty_calendar_index_term);
+
+                Ok(
+                    InvertedCalendarIndexTerm::merge_or(
+                        inverted_index_term_a,
+                        inverted_index_term_b
+                    )
+                )
             },
 
             WhereConditionalProperty::RelatedTo(reltype_uuids) => {
-                calendar.indexed_related_to
-                        .terms
-                        .get(reltype_uuids)
-                        .unwrap_or(&empty_calendar_index_term)
-            },
-        };
+                let inverted_index_term_b =
+                    calendar.indexed_related_to
+                            .terms
+                            .get(reltype_uuids)
+                            .unwrap_or(&empty_calendar_index_term);
 
-        Ok(
-            InvertedCalendarIndexTerm::merge_or(
-                inverted_index_term_a,
-                inverted_index_term_b
-            )
-        )
+                Ok(
+                    InvertedCalendarIndexTerm::merge_or(
+                        inverted_index_term_a,
+                        inverted_index_term_b
+                    )
+                )
+            },
+
+            WhereConditionalProperty::Geo(distance, long_lat) => {
+                let inverted_index_term_b =
+                    calendar.indexed_geo
+                            .locate_within_distance(long_lat, distance);
+
+                Ok(
+                    InvertedCalendarIndexTerm::merge_or(
+                        inverted_index_term_a,
+                        &inverted_index_term_b
+                    )
+                )
+            },
+        }
     }
 
 }
@@ -346,6 +402,8 @@ mod test {
                     ])
             }
         );
+
+        // TODO: Test GEO where params...
 
         // (
         //      ( CATEGORIES:CATEGORY_ONE OR RELATED-TO;RELTYPE=PARENT:PARENT_UUID )

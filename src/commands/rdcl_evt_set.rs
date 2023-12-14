@@ -57,6 +57,7 @@ pub fn redical_event_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
 
     event.rebuild_indexed_categories().map_err(RedisError::String)?;
     event.rebuild_indexed_related_to().map_err(RedisError::String)?;
+    event.rebuild_indexed_geo().map_err(RedisError::String)?;
 
     let updated_event_categories_diff = InvertedEventIndex::diff_indexed_terms(
         existing_event.clone().and_then(|existing_event| existing_event.indexed_categories.clone()).as_ref(),

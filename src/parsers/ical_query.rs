@@ -11,7 +11,7 @@ use nom::{
     number::complete::recognize_float,
 };
 
-use crate::data_types::{KeyValuePair, GeoPoint};
+use crate::data_types::{KeyValuePair, GeoPoint, GeoDistance};
 use crate::queries::query::Query;
 use crate::queries::results_ordering::OrderingCondition;
 use crate::queries::results_range_bounds::{LowerBoundRangeCondition, UpperBoundRangeCondition, RangeConditionProperty};
@@ -109,6 +109,7 @@ pub enum ParsedQueryComponent {
     Order(OrderingCondition),
     WhereCategories(Vec<String>, WhereOperator, WhereOperator),
     WhereRelatedTo(String, Vec<String>, WhereOperator, WhereOperator),
+    WhereGeo(GeoDistance, GeoPoint, WhereOperator),
     WhereGroup(Vec<Self>, WhereOperator),
 }
 
@@ -283,7 +284,7 @@ fn parse_from_query_property_content(input: &str) -> ParserResult<&str, ParsedQu
             )
         )
     )(input).map(
-        |(remaining, (_semicolon_delimeter, parsed_params,_colon_delimeter, parsed_value)): (&str, (&str, HashMap<&str, ical_common::ParsedValue>, &str, ical_common::ParsedValue))| {
+        |(remaining, (_semicolon_delimeter, parsed_params, _colon_delimeter, parsed_value)): (&str, (&str, HashMap<&str, ical_common::ParsedValue>, &str, ical_common::ParsedValue))| {
             let ical_common::ParsedValue::DateString(parsed_date_string) = parsed_value else {
                 panic!("Expected parsed date string, received: {:#?}", parsed_value);
             };
@@ -349,7 +350,7 @@ fn parse_until_query_property_content(input: &str) -> ParserResult<&str, ParsedQ
             )
         )
     )(input).map(
-        |(remaining, (_semicolon_delimeter, parsed_params,_colon_delimeter, parsed_value)): (&str, (&str, HashMap<&str, ical_common::ParsedValue>, &str, ical_common::ParsedValue))| {
+        |(remaining, (_semicolon_delimeter, parsed_params, _colon_delimeter, parsed_value)): (&str, (&str, HashMap<&str, ical_common::ParsedValue>, &str, ical_common::ParsedValue))| {
             let ical_common::ParsedValue::DateString(parsed_date_string) = parsed_value else {
                 panic!("Expected parsed date string, received: {:#?}", parsed_value);
             };
@@ -514,6 +515,81 @@ fn parse_related_to_query_property_content(input: &str) -> ParserResult<&str, Pa
     )
 }
 
+// X-GEO;DIST=1.5KM:48.85299;2.36885
+// X-GEO;DIST=30MI:48.85299;2.36885
+fn parse_geo_distance_query_property_content(input: &str) -> ParserResult<&str, ParsedQueryComponent> {
+    preceded(
+        tag("X-GEO"),
+        cut(
+            context(
+                "X-GEO",
+                tuple(
+                    (
+                        ical_common::semicolon_delimeter,
+                        build_property_params_value_parser!(
+                            "X-GEO",
+                            ("DIST", ical_common::ParsedValue::parse_geo_distance),
+                        ),
+                        ical_common::colon_delimeter,
+                        ical_common::ParsedValue::parse_lat_long,
+                    )
+                )
+            )
+        )
+    )(input).map(
+        |(remaining, (_semicolon_delimeter, parsed_params, _colon_delimeter, parsed_value)): (&str, (&str, HashMap<&str, ical_common::ParsedValue>, &str, ical_common::ParsedValue))| {
+            let parsed_geo_distance =
+                match parsed_params.get(&"DIST") {
+                    Some(ical_common::ParsedValue::GeoDistance(geo_distance)) => {
+                        geo_distance.clone()
+                    },
+
+                    _ => {
+                        return Err(
+                            nom::Err::Error(
+                                nom::error::VerboseError::add_context(
+                                    input,
+                                    "expected DIST param to be present",
+                                    nom::error::VerboseError::from_error_kind(input, ErrorKind::Satisfy),
+                                )
+                            )
+                        )
+                    },
+                };
+
+            let parsed_geo_point =
+                match parsed_value {
+                    ical_common::ParsedValue::LatLong(latitude, longitude) => {
+                        GeoPoint::new(longitude, latitude)
+                    },
+
+                    _ => {
+                        return Err(
+                            nom::Err::Error(
+                                nom::error::VerboseError::add_context(
+                                    input,
+                                    "expected latitude and longitude to be present",
+                                    nom::error::VerboseError::from_error_kind(input, ErrorKind::Satisfy),
+                                )
+                            )
+                        )
+                    },
+                };
+
+            Ok(
+                (
+                    remaining,
+                    ParsedQueryComponent::WhereGeo(
+                        parsed_geo_distance,
+                        parsed_geo_point,
+                        WhereOperator::And,
+                    )
+                )
+            )
+        }
+    )?
+}
+
 // X-ORDER-BY:DTSTART
 // X-ORDER-BY;GEO=48.85299;2.36885:DTSTART-GEO-DIST
 // X-ORDER-BY;GEO=48.85299;2.36885:GEO-DIST-DTSTART
@@ -546,7 +622,7 @@ fn parse_order_to_query_property_content(input: &str) -> ParserResult<&str, Pars
             )
         )
     )(input).map(
-        |(remaining, (_semicolon_delimeter, parsed_params,_colon_delimeter, parsed_value)): (&str, (&str, HashMap<&str, ical_common::ParsedValue>, &str, ical_common::ParsedValue))| {
+        |(remaining, (_semicolon_delimeter, parsed_params, _colon_delimeter, parsed_value)): (&str, (&str, HashMap<&str, ical_common::ParsedValue>, &str, ical_common::ParsedValue))| {
             let parsed_geo_point =
                 match parsed_params.get(&"GEO") {
                     Some(ical_common::ParsedValue::LatLong(latitude, longitude)) => {
@@ -622,6 +698,7 @@ fn parse_operator_prefixed_where_query_property_content(input: &str) -> ParserRe
                     (
                         parse_categories_query_property_content,
                         parse_related_to_query_property_content,
+                        parse_geo_distance_query_property_content,
                         parse_group_query_property_component,
                     )
                 )
@@ -703,6 +780,7 @@ fn parse_group_query_property_component(input: &str) -> ParserResult<&str, Parse
                                 (
                                     parse_categories_query_property_content,
                                     parse_related_to_query_property_content,
+                                    parse_geo_distance_query_property_content,
                                     parse_group_query_property_component,
                                 )
                             )
@@ -759,6 +837,13 @@ fn where_group_to_where_conditional(parsed_query_properties: &Vec<ParsedQueryCom
                     )
                 },
 
+                ParsedQueryComponent::WhereGeo(distance, long_lat, external_operator) => {
+                    (
+                        where_geo_distance_to_where_conditional(distance, long_lat),
+                        external_operator,
+                    )
+                },
+
                 ParsedQueryComponent::WhereGroup(parsed_query_properties, external_operator) => {
                     (
                         where_group_to_where_conditional(parsed_query_properties),
@@ -805,6 +890,7 @@ fn where_group_to_where_conditional(parsed_query_properties: &Vec<ParsedQueryCom
 // parse_until_query_property_content
 // parse_categories_query_property_content
 // parse_related_to_query_property_content
+// parse_geo_distance_query_property_content
 // parse_order_to_query_property_content
 // parse_group_query_property_component
 
@@ -824,6 +910,7 @@ pub fn parse_query_string(input: &str) -> ParserResult<&str, Query> {
                             parse_order_to_query_property_content,
                             parse_categories_query_property_content,
                             parse_related_to_query_property_content,
+                            parse_geo_distance_query_property_content,
                             parse_group_query_property_component,
                         )
                     )
@@ -879,6 +966,26 @@ pub fn parse_query_string(input: &str) -> ParserResult<&str, Query> {
 
                                     ParsedQueryComponent::WhereRelatedTo(reltype, related_to_uuids, internal_operator, _external_operator) => {
                                         let Some(mut new_where_conditional) = where_related_to_uuids_to_where_conditional(reltype, related_to_uuids, internal_operator) else {
+                                            return query;
+                                        };
+
+                                        new_where_conditional =
+                                            if let Some(current_where_conditional) = query.where_conditional {
+                                                WhereConditional::Operator(
+                                                    Box::new(current_where_conditional),
+                                                    Box::new(new_where_conditional),
+                                                    WhereOperator::And,
+                                                    None,
+                                                )
+                                            } else {
+                                                new_where_conditional
+                                            };
+
+                                        query.where_conditional = Some(new_where_conditional);
+                                    },
+
+                                    ParsedQueryComponent::WhereGeo(distance, long_lat, _external_operator) => {
+                                        let Some(mut new_where_conditional) = where_geo_distance_to_where_conditional(distance, long_lat) else {
                                             return query;
                                         };
 
@@ -1047,6 +1154,18 @@ fn where_related_to_uuids_to_where_conditional(reltype: &String, related_to_uuid
             )
         },
     }
+}
+
+fn where_geo_distance_to_where_conditional(distance: &GeoDistance, long_lat: &GeoPoint) -> Option<WhereConditional> {
+    Some(
+        WhereConditional::Property(
+            WhereConditionalProperty::Geo(
+                distance.clone(),
+                long_lat.clone(),
+            ),
+            None,
+        )
+    )
 }
 
 #[cfg(test)]
@@ -1314,6 +1433,7 @@ mod test {
             "X-UNTIL;PROP=DTSTART;OP=LTE;TZID=UTC:19971102T090000",
             "X-CATEGORIES;OP=OR:CATEGORY_ONE,CATEGORY_TWO",
             "X-RELATED-TO:PARENT_UUID",
+            "X-GEO;DIST=1.5KM:48.85299;2.36885",
             "X-LIMIT:50",
             "X-TZID:Europe/Vilnius",
             "X-ORDER-BY;GEO=48.85299;2.36885:DTSTART-GEO-DIST",
@@ -1326,79 +1446,99 @@ mod test {
                     "",
                     Query {
                         where_conditional: Some(
-                           WhereConditional::Operator(
+                            WhereConditional::Operator(
                                 Box::new(
-                                    WhereConditional::Group(
+                                    WhereConditional::Operator(
                                         Box::new(
-                                            WhereConditional::Operator(
+                                            WhereConditional::Group(
                                                 Box::new(
-                                                    WhereConditional::Property(
-                                                        WhereConditionalProperty::Categories(
-                                                            String::from("CATEGORY_ONE"),
+                                                    WhereConditional::Operator(
+                                                        Box::new(
+                                                            WhereConditional::Property(
+                                                                WhereConditionalProperty::Categories(
+                                                                    String::from("CATEGORY_ONE"),
+                                                                ),
+                                                                None,
+                                                            )
                                                         ),
+                                                        Box::new(
+                                                            WhereConditional::Property(
+                                                                WhereConditionalProperty::Categories(
+                                                                    String::from("CATEGORY_TWO"),
+                                                                ),
+                                                                None,
+                                                            )
+                                                        ),
+                                                        WhereOperator::Or,
                                                         None,
                                                     )
                                                 ),
-                                                Box::new(
-                                                    WhereConditional::Property(
-                                                        WhereConditionalProperty::Categories(
-                                                            String::from("CATEGORY_TWO"),
-                                                        ),
-                                                        None,
-                                                    )
-                                                ),
-                                                WhereOperator::Or,
                                                 None,
                                             )
                                         ),
+                                        Box::new(
+                                            WhereConditional::Property(
+                                                WhereConditionalProperty::RelatedTo(
+                                                    KeyValuePair::new(
+                                                        String::from("PARENT"),
+                                                        String::from("PARENT_UUID"),
+                                                    )
+                                                ),
+                                                None,
+                                            )
+                                        ),
+                                        WhereOperator::And,
                                         None,
-                                    )
+                                    ),
                                 ),
                                 Box::new(
                                     WhereConditional::Property(
-                                        WhereConditionalProperty::RelatedTo(
-                                            KeyValuePair::new(
-                                                String::from("PARENT"),
-                                                String::from("PARENT_UUID"),
-                                            )
+                                        WhereConditionalProperty::Geo(
+                                            GeoDistance::new_from_kilometers_float(
+                                                1.5
+                                            ),
+                                            GeoPoint {
+                                                long: 2.36885,
+                                                lat: 48.85299,
+                                            },
                                         ),
                                         None,
                                     )
                                 ),
                                 WhereOperator::And,
                                 None,
-                            )
-                        ),
+                           )
+                       ),
 
-                        ordering_condition: OrderingCondition::DtStartGeoDist(
-                            GeoPoint {
-                                long: 2.36885,
-                                lat: 48.85299,
-                            },
-                        ),
+                       ordering_condition: OrderingCondition::DtStartGeoDist(
+                           GeoPoint {
+                               long: 2.36885,
+                               lat: 48.85299,
+                           },
+                       ),
 
-                        lower_bound_range_condition: Some(
-                            LowerBoundRangeCondition::GreaterThan(
-                                RangeConditionProperty::DtStart(
-                                    875779200,
-                                ),
-                                Some(
-                                    String::from("Event_UUID"),
-                                ),
-                            ),
-                        ),
+                       lower_bound_range_condition: Some(
+                           LowerBoundRangeCondition::GreaterThan(
+                               RangeConditionProperty::DtStart(
+                                   875779200,
+                               ),
+                               Some(
+                                   String::from("Event_UUID"),
+                               ),
+                           ),
+                       ),
 
-                        upper_bound_range_condition: Some(
-                            UpperBoundRangeCondition::LessEqualThan(
-                                RangeConditionProperty::DtStart(
-                                    878461200,
-                                ),
-                            ),
-                        ),
+                       upper_bound_range_condition: Some(
+                           UpperBoundRangeCondition::LessEqualThan(
+                               RangeConditionProperty::DtStart(
+                                   878461200,
+                               ),
+                           ),
+                       ),
 
-                        in_timezone: rrule::Tz::Europe__Vilnius,
+                       in_timezone: rrule::Tz::Europe__Vilnius,
 
-                        limit: 50,
+                       limit: 50,
                     }
                 )
             )
@@ -1412,6 +1552,8 @@ mod test {
             "X-UNTIL;PROP=DTSTART;OP=LTE;TZID=UTC:19971102T090000",
             "(",
                 "(",
+                    "X-GEO;DIST=1.5KM:48.85299;2.36885",
+                    "OR",
                     "X-CATEGORIES:CATEGORY_ONE",
                     "OR",
                     "X-RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
@@ -1443,12 +1585,32 @@ mod test {
                                                 Box::new(
                                                     WhereConditional::Operator(
                                                         Box::new(
-                                                            WhereConditional::Property(
-                                                                WhereConditionalProperty::Categories(
-                                                                    String::from("CATEGORY_ONE")
+                                                            WhereConditional::Operator(
+                                                                Box::new(
+                                                                    WhereConditional::Property(
+                                                                        WhereConditionalProperty::Geo(
+                                                                            GeoDistance::new_from_kilometers_float(
+                                                                                1.5
+                                                                            ),
+                                                                            GeoPoint {
+                                                                                long: 2.36885,
+                                                                                lat: 48.85299,
+                                                                            },
+                                                                        ),
+                                                                        None,
+                                                                    )
                                                                 ),
+                                                                Box::new(
+                                                                    WhereConditional::Property(
+                                                                        WhereConditionalProperty::Categories(
+                                                                            String::from("CATEGORY_ONE")
+                                                                        ),
+                                                                        None,
+                                                                    )
+                                                                ),
+                                                                WhereOperator::Or,
                                                                 None,
-                                                            )
+                                                            ),
                                                         ),
                                                         Box::new(
                                                             WhereConditional::Property(
