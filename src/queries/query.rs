@@ -1,5 +1,5 @@
 use rrule::Tz;
-use crate::data_types::{KeyValuePair, InvertedCalendarIndexTerm, Calendar, EventInstance, EventInstanceIterator, LowerBoundFilterCondition, UpperBoundFilterCondition};
+use crate::data_types::{KeyValuePair, InvertedCalendarIndexTerm, Calendar, EventInstance, EventInstanceIterator, LowerBoundFilterCondition, UpperBoundFilterCondition, GeoPoint};
 
 use crate::queries::results::QueryResults;
 use crate::queries::results_ordering::OrderingCondition;
@@ -30,40 +30,47 @@ impl Query {
 
         let mut query_results = QueryResults::new(self.ordering_condition.clone());
 
-        /*
-        TODO: DtStartGeoDist and GeoDistDtStart
-        match self.ordering_condition {
+        match &self.ordering_condition {
             OrderingCondition::DtStart => {
+                self.execute_for_dtstart_ordering(calendar, &mut query_results, &where_conditional_result);
             },
 
             OrderingCondition::DtStartGeoDist(geo_point) => {
+                // TODO: implement propert - get all events with matching DTSTART, sort them by
+                //       distance, and then limit;
+                self.execute_for_dtstart_ordering(calendar, &mut query_results, &where_conditional_result);
             },
 
             OrderingCondition::GeoDistDtStart(geo_point) => {
+                self.execute_for_geo_dist_dtstart_ordering(geo_point, calendar, &mut query_results, &where_conditional_result);
             },
         }
-        */
 
-        self.execute_for_dtstart_ordering(calendar, &mut query_results, &where_conditional_result);
 
         Ok(query_results)
+    }
+
+    fn get_lower_bound_filter_condition(&self) -> Option<LowerBoundFilterCondition> {
+        self.lower_bound_range_condition.clone().and_then(|lower_bound_range_condition| {
+            let lower_bound_filter_condition: LowerBoundFilterCondition = lower_bound_range_condition.into();
+
+            Some(lower_bound_filter_condition)
+        })
+    }
+
+    fn get_upper_bound_filter_condition(&self) -> Option<UpperBoundFilterCondition> {
+        self.upper_bound_range_condition.clone().and_then(|upper_bound_range_condition| {
+            let upper_bound_filter_condition: UpperBoundFilterCondition = upper_bound_range_condition.into();
+
+            Some(upper_bound_filter_condition)
+        })
     }
 
     fn execute_for_dtstart_ordering(&self, calendar: &Calendar, query_results: &mut QueryResults, where_conditional_result: &Option<InvertedCalendarIndexTerm>) {
         let mut merged_iterator: MergedIterator<EventInstance, EventInstanceIterator> = MergedIterator::new();
 
-        let lower_bound_filter_condition: Option<LowerBoundFilterCondition> = self.lower_bound_range_condition.clone().and_then(|lower_bound_range_condition| {
-            let lower_bound_filter_condition: LowerBoundFilterCondition = lower_bound_range_condition.into();
-
-            Some(lower_bound_filter_condition)
-        });
-
-        let upper_bound_filter_condition: Option<UpperBoundFilterCondition> = self.upper_bound_range_condition.clone().and_then(|upper_bound_range_condition| {
-            let upper_bound_filter_condition: UpperBoundFilterCondition = upper_bound_range_condition.into();
-
-            Some(upper_bound_filter_condition)
-        });
-
+        let lower_bound_filter_condition = self.get_lower_bound_filter_condition();
+        let upper_bound_filter_condition = self.get_upper_bound_filter_condition();
 
         match where_conditional_result {
             Some(inverted_calendar_index_term) => {
@@ -109,6 +116,57 @@ impl Query {
             }
 
             query_results.push(event_instance);
+        }
+    }
+
+    fn execute_for_geo_dist_dtstart_ordering(&self, geo_point: &GeoPoint, calendar: &Calendar, query_results: &mut QueryResults, where_conditional_result: &Option<InvertedCalendarIndexTerm>) {
+        let lower_bound_filter_condition = self.get_lower_bound_filter_condition();
+        let upper_bound_filter_condition = self.get_upper_bound_filter_condition();
+
+        for (point, _distance) in calendar.indexed_geo.coords.nearest_neighbor_iter_with_distance_2(&geo_point.to_point()) {
+            let mut merged_iterator: MergedIterator<EventInstance, EventInstanceIterator> = MergedIterator::new();
+
+            let current_inverted_index_calendar_term = match where_conditional_result {
+                Some(inverted_calendar_index_term) => {
+                    InvertedCalendarIndexTerm::merge_and(
+                        &point.data,
+                        inverted_calendar_index_term,
+                    )
+                },
+
+                None => {
+                    point.data.to_owned()
+                },
+            };
+
+            for (event_uuid, indexed_conclusion) in &current_inverted_index_calendar_term.events {
+                let Some(event) = calendar.events.get(event_uuid) else {
+                    // TODO: handle missing indexed event...
+
+                    continue;
+                };
+
+                let event_instance_iterator =
+                    EventInstanceIterator::new(
+                        event,
+                        None,
+                        lower_bound_filter_condition.clone(),
+                        upper_bound_filter_condition.clone(),
+                        Some(indexed_conclusion.clone()),
+                    ).unwrap(); // TODO: handle this properly...
+
+                let _result = merged_iterator.add_iter(event_uuid.clone(), event_instance_iterator);
+            }
+
+            for (_, event_instance) in merged_iterator {
+                if query_results.len() >= self.limit {
+                    break;
+                }
+
+                // TODO: Consider maybe reusing the distance available from iterator instead of
+                //       wastefully re-calculating it.
+                query_results.push(event_instance);
+            }
         }
     }
 }
@@ -221,21 +279,6 @@ mod test {
                 "LOCATION:Event address text.",
             ]
         )
-    }
-
-    #[test]
-    fn test_query_execute_with_dtstart_ordering() {
-        let mut calendar = Calendar::new(String::from("calendar_UUID"));
-
-        calendar.events.insert(
-            String::from("one_off_event_UUID"),
-            build_one_off_event(),
-        );
-
-        calendar.events.insert(
-            String::from("overridden_recurring_event_UUID"),
-            build_overridden_recurring_event(),
-        );
     }
 
     #[test]
