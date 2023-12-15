@@ -2,6 +2,7 @@ use redis_module::{Context, NextArg, RedisResult, RedisString, RedisError, Redis
 
 use crate::data_types::{CALENDAR_DATA_TYPE, Calendar};
 use crate::queries::query::Query;
+use crate::serializers::ical_serializer::ICalSerializer;
 
 pub fn redical_calendar_query(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     if args.len() < 2 {
@@ -37,13 +38,15 @@ pub fn redical_calendar_query(ctx: &Context, args: Vec<RedisString>) -> RedisRes
                                  RedisValue::Array(
                                      vec![
                                          RedisValue::Array(
-                                             vec![
-                                                 RedisValue::BulkString(format!("{:#?}", query_result.result_ordering).to_owned()),
-                                             ]
+                                             query_result.result_ordering
+                                                         .serialize_to_ical(&parsed_query.in_timezone)
+                                                         .iter()
+                                                         .map(|ical_part| RedisValue::SimpleString(ical_part.to_owned()))
+                                                         .collect()
                                          ),
                                          RedisValue::Array(
                                              query_result.event_instance
-                                                         .serialize_to_ical(rrule::Tz::UTC)
+                                                         .serialize_to_ical(&parsed_query.in_timezone)
                                                          .iter()
                                                          .map(|ical_part| RedisValue::SimpleString(ical_part.to_owned()))
                                                          .collect()

@@ -1,6 +1,14 @@
-use geo::HaversineDistance;
-use crate::data_types::{EventInstance, GeoDistance, GeoPoint};
 use std::cmp::Ordering;
+use std::collections::BTreeSet;
+
+use rrule::Tz;
+
+use geo::HaversineDistance;
+
+use crate::data_types::{EventInstance, GeoDistance, GeoPoint, KeyValuePair};
+
+use crate::serializers::ical_serializer;
+use crate::serializers::ical_serializer::ICalSerializer;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum OrderingCondition {
@@ -58,6 +66,48 @@ pub enum QueryResultOrdering {
     DtStart(i64),
     DtStartGeoDist(i64, Option<GeoDistance>),
     GeoDistDtStart(Option<GeoDistance>, i64),
+}
+
+impl ICalSerializer for QueryResultOrdering {
+
+    fn serialize_to_ical_set(&self, timezone: &Tz) -> BTreeSet<KeyValuePair> {
+        let mut serialized_ical_set = BTreeSet::new();
+
+        match self {
+            QueryResultOrdering::DtStart(dtstart_timestamp) => {
+                serialized_ical_set.insert(ical_serializer::serialize_dtstart_timestamp_to_ical(dtstart_timestamp, &timezone));
+            },
+
+            QueryResultOrdering::DtStartGeoDist(dtstart_timestamp, geo_distance) => {
+                serialized_ical_set.insert(ical_serializer::serialize_dtstart_timestamp_to_ical(dtstart_timestamp, &timezone));
+
+                if let Some(geo_distance) = geo_distance {
+                    serialized_ical_set.insert(
+                        KeyValuePair::new(
+                            String::from("X-GEO-DIST"),
+                            format!(":{}", geo_distance.to_string()),
+                        )
+                    );
+                }
+            },
+
+            QueryResultOrdering::GeoDistDtStart(geo_distance, dtstart_timestamp) => {
+                serialized_ical_set.insert(ical_serializer::serialize_dtstart_timestamp_to_ical(dtstart_timestamp, &timezone));
+
+                if let Some(geo_distance) = geo_distance {
+                    serialized_ical_set.insert(
+                        KeyValuePair::new(
+                            String::from("X-GEO-DIST"),
+                            format!(":{}", geo_distance.to_string()),
+                        )
+                    );
+                }
+            }
+        }
+
+        serialized_ical_set
+    }
+
 }
 
 impl Ord for QueryResultOrdering {

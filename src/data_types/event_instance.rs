@@ -6,7 +6,9 @@ use std::collections::{HashMap, HashSet, BTreeSet};
 use crate::data_types::{Event, EventOccurrenceOverride, KeyValuePair, IndexedConclusion, GeoPoint};
 
 use crate::data_types::event_occurrence_iterator::{EventOccurrenceIterator, LowerBoundFilterCondition, UpperBoundFilterCondition};
-use crate::serializers::ical_datetime::{serialize_timestamp_to_ical_datetime, serialize_timestamp_to_ical_utc_datetime};
+
+use crate::serializers::ical_serializer::ICalSerializer;
+use crate::serializers::ical_serializer;
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct EventInstance {
@@ -33,101 +35,6 @@ impl EventInstance {
             related_to:         Self::get_related_to(event, event_occurrence_override),
             passive_properties: Self::get_passive_properties(event, event_occurrence_override),
         }
-    }
-
-    pub fn serialize_to_ical(&self, timezone: Tz) -> Vec<String> {
-        self.serialize_to_ical_set(timezone)
-            .iter()
-            .map(|key_value_pair| key_value_pair.to_string())
-            .collect()
-    }
-
-    pub fn serialize_to_ical_set(&self, timezone: Tz) -> BTreeSet<KeyValuePair> {
-        let mut serialized_output = self.passive_properties.clone();
-        serialized_output.insert(
-            KeyValuePair::new(
-                String::from("UUID"),
-                format!(":{}", self.uuid),
-            )
-        );
-
-        serialized_output.insert(
-            KeyValuePair::new(
-                String::from("RECURRENCE-ID"),
-                format!(
-                    ";VALUE=DATE-TIME:{}",
-                    serialize_timestamp_to_ical_utc_datetime(self.dtstart_timestamp)
-                ),
-            )
-        );
-
-        serialized_output.insert(
-            KeyValuePair::new(
-                String::from("DTSTART"),
-                serialize_timestamp_to_ical_datetime(self.dtstart_timestamp, timezone)
-            )
-        );
-
-        serialized_output.insert(
-            KeyValuePair::new(
-                String::from("DTEND"),
-                serialize_timestamp_to_ical_datetime(self.dtend_timestamp, timezone)
-            )
-        );
-
-        if let Some(categories) = &self.categories {
-            let mut categories: Vec<String> = Vec::from_iter(
-                categories.iter()
-                          .map(|element| element.to_owned())
-            );
-
-            categories.sort();
-
-            if categories.len() > 0 {
-                serialized_output.insert(
-                    KeyValuePair::new(
-                        String::from("CATEGORIES"),
-                        format!(":{}", categories.join(","))
-                    )
-                );
-            }
-        }
-
-        if let Some(related_to) = &self.related_to {
-            for (reltype, reltype_uuids) in related_to {
-                if reltype_uuids.is_empty() {
-                    continue;
-                }
-
-                let mut reltype_uuids: Vec<String> = Vec::from_iter(
-                    reltype_uuids.iter()
-                                 .map(|element| element.to_owned())
-                );
-
-                reltype_uuids.sort();
-
-                reltype_uuids.iter().for_each(|reltype_uuid| {
-                    serialized_output.insert(
-                        KeyValuePair::new(
-                            String::from("RELATED-TO"),
-                            format!(";RELTYPE={}:{}", reltype, reltype_uuid)
-                        )
-                    );
-                });
-            }
-        }
-
-        if let Some(geo) = &self.geo {
-            serialized_output.insert(
-                KeyValuePair::new(
-                    String::from("GEO"),
-                    format!(":{};{}", geo.lat, geo.long)
-                )
-            );
-        }
-
-
-        serialized_output
     }
 
     fn get_dtend_timestamp(dtstart_timestamp: &i64, event: &Event, event_occurrence_override: Option<&EventOccurrenceOverride>) -> i64 {
@@ -206,6 +113,44 @@ impl EventInstance {
         }
 
         passive_properties
+    }
+}
+
+impl ICalSerializer for EventInstance {
+
+    fn serialize_to_ical_set(&self, timezone: &Tz) -> BTreeSet<KeyValuePair> {
+        let mut serialized_ical_set = self.passive_properties.clone();
+
+        serialized_ical_set.insert(ical_serializer::serialize_uuid_to_ical(&self.uuid));
+
+        serialized_ical_set.insert(ical_serializer::serialize_dtstart_timestamp_to_ical(&self.dtstart_timestamp, &timezone));
+        serialized_ical_set.insert(ical_serializer::serialize_dtend_timestamp_to_ical(&self.dtend_timestamp, &timezone));
+
+        serialized_ical_set.append(
+            &mut ical_serializer::serialize_indexed_categories_to_ical_set(&self.categories)
+        );
+
+        serialized_ical_set.append(
+            &mut ical_serializer::serialize_indexed_related_to_ical_set(&self.related_to)
+        );
+
+        if let Some(geo) = &self.geo {
+            serialized_ical_set.insert(
+                ical_serializer::serialize_indexed_geo_to_ical(geo)
+            );
+        }
+
+        serialized_ical_set.insert(
+            KeyValuePair::new(
+                String::from("RECURRENCE-ID"),
+                format!(
+                    ";VALUE=DATE-TIME:{}",
+                    ical_serializer::serialize_timestamp_to_ical_utc_datetime(&self.dtstart_timestamp)
+                ),
+            )
+        );
+
+        serialized_ical_set
     }
 }
 
@@ -381,7 +326,7 @@ mod test {
         );
 
         assert_eq!(
-            event_instance.serialize_to_ical(Tz::Europe__London),
+            event_instance.serialize_to_ical(&Tz::Europe__London),
             vec![
                 String::from("CATEGORIES:CATEGORY THREE,CATEGORY_ONE,CATEGORY_TWO"),
                 String::from("DESCRIPTION:Event description text."),
@@ -491,7 +436,7 @@ mod test {
         );
 
         assert_eq!(
-            event_instance.serialize_to_ical(Tz::UTC),
+            event_instance.serialize_to_ical(&Tz::UTC),
             vec![
                  String::from("CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE"),
                  String::from("DESCRIPTION:Event description text."),
@@ -631,27 +576,27 @@ mod test {
             ).unwrap();
 
         assert_eq!(
-            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical(Tz::UTC))),
+            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical(&Tz::UTC))),
             Some(expected_event_instances_ical[&1609871400].clone())
         );
 
         assert_eq!(
-            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical(Tz::UTC))),
+            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical(&Tz::UTC))),
             Some(expected_event_instances_ical[&1610476200].clone())
         );
 
         assert_eq!(
-            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical(Tz::UTC))),
+            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical(&Tz::UTC))),
             Some(expected_event_instances_ical[&1611081000].clone())
         );
 
         assert_eq!(
-            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical(Tz::UTC))),
+            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical(&Tz::UTC))),
             Some(expected_event_instances_ical[&1611685800].clone())
         );
 
         assert_eq!(
-            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical(Tz::UTC))),
+            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical(&Tz::UTC))),
             Some(expected_event_instances_ical[&1612290600].clone())
         );
 
@@ -668,27 +613,27 @@ mod test {
             ).unwrap();
 
         assert_eq!(
-            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical(Tz::UTC))),
+            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical(&Tz::UTC))),
             Some(expected_event_instances_ical[&1609871400].clone())
         );
 
         assert_eq!(
-            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical(Tz::UTC))),
+            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical(&Tz::UTC))),
             Some(expected_event_instances_ical[&1610476200].clone())
         );
 
         assert_eq!(
-            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical(Tz::UTC))),
+            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical(&Tz::UTC))),
             Some(expected_event_instances_ical[&1611081000].clone())
         );
 
         assert_eq!(
-            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical(Tz::UTC))),
+            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical(&Tz::UTC))),
             Some(expected_event_instances_ical[&1611685800].clone())
         );
 
         assert_eq!(
-            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical(Tz::UTC))),
+            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical(&Tz::UTC))),
             Some(expected_event_instances_ical[&1612290600].clone())
         );
 
@@ -716,12 +661,12 @@ mod test {
             ).unwrap();
 
         assert_eq!(
-            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical(Tz::UTC))),
+            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical(&Tz::UTC))),
             Some(expected_event_instances_ical[&1610476200].clone())
         );
 
         assert_eq!(
-            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical(Tz::UTC))),
+            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical(&Tz::UTC))),
             Some(expected_event_instances_ical[&1611685800].clone())
         );
 
@@ -760,17 +705,17 @@ mod test {
             ).unwrap();
 
         assert_eq!(
-            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical(Tz::UTC))),
+            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical(&Tz::UTC))),
             Some(expected_event_instances_ical[&1609871400].clone())
         );
 
         assert_eq!(
-            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical(Tz::UTC))),
+            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical(&Tz::UTC))),
             Some(expected_event_instances_ical[&1611081000].clone())
         );
 
         assert_eq!(
-            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical(Tz::UTC))),
+            event_instance_iterator.next().and_then(|event_instance| Some(event_instance.serialize_to_ical(&Tz::UTC))),
             Some(expected_event_instances_ical[&1612290600].clone())
         );
 

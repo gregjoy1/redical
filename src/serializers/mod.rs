@@ -1,1 +1,1 @@
-pub mod ical_datetime;
+pub mod ical_serializer;
