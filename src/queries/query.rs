@@ -35,10 +35,8 @@ impl Query {
                 self.execute_for_dtstart_ordering(calendar, &mut query_results, &where_conditional_result);
             },
 
-            OrderingCondition::DtStartGeoDist(geo_point) => {
-                // TODO: implement propert - get all events with matching DTSTART, sort them by
-                //       distance, and then limit;
-                self.execute_for_dtstart_ordering(calendar, &mut query_results, &where_conditional_result);
+            OrderingCondition::DtStartGeoDist(_geo_point) => {
+                self.execute_for_dtstart_geo_dist_ordering(calendar, &mut query_results, &where_conditional_result);
             },
 
             OrderingCondition::GeoDistDtStart(geo_point) => {
@@ -66,9 +64,7 @@ impl Query {
         })
     }
 
-    fn execute_for_dtstart_ordering(&self, calendar: &Calendar, query_results: &mut QueryResults, where_conditional_result: &Option<InvertedCalendarIndexTerm>) {
-        let mut merged_iterator: MergedIterator<EventInstance, EventInstanceIterator> = MergedIterator::new();
-
+    fn populate_merged_iterator_for_dtstart_ordering<'iter, 'cal: 'iter>(&self, calendar: &'cal Calendar, merged_iterator: &'iter mut MergedIterator<EventInstance, EventInstanceIterator<'cal>>, where_conditional_result: &Option<InvertedCalendarIndexTerm>) {
         let lower_bound_filter_condition = self.get_lower_bound_filter_condition();
         let upper_bound_filter_condition = self.get_upper_bound_filter_condition();
 
@@ -109,6 +105,12 @@ impl Query {
                 }
             },
         }
+    }
+
+    fn execute_for_dtstart_ordering(&self, calendar: &Calendar, query_results: &mut QueryResults, where_conditional_result: &Option<InvertedCalendarIndexTerm>) {
+        let mut merged_iterator: MergedIterator<EventInstance, EventInstanceIterator> = MergedIterator::new();
+
+        self.populate_merged_iterator_for_dtstart_ordering(calendar, &mut merged_iterator, where_conditional_result);
 
         for (_, event_instance) in merged_iterator {
             if query_results.len() >= self.limit {
@@ -117,6 +119,39 @@ impl Query {
 
             query_results.push(event_instance);
         }
+    }
+
+    fn execute_for_dtstart_geo_dist_ordering(&self, calendar: &Calendar, query_results: &mut QueryResults, where_conditional_result: &Option<InvertedCalendarIndexTerm>) {
+        let mut merged_iterator: MergedIterator<EventInstance, EventInstanceIterator> = MergedIterator::new();
+
+        self.populate_merged_iterator_for_dtstart_ordering(calendar, &mut merged_iterator, where_conditional_result);
+
+        // This is functionally similar to the DtStart ordering, except we need to include all the
+        // EventInstances sharing the same dtstart_timestamp before truncating so that they can be
+        // ordered by geographical distance.
+        //
+        // We do this to prevent a group of EventInstances sharing the same dtstart_timestamp from
+        // being cut off half way through when the later EventInstances are closer geographically
+        // than those pulled in earlier.
+        //
+        // We can enforce the result limit after this has finished, as the result set will sort
+        // itself.
+        let mut previous_dtstart_timestamp = None;
+
+        for (_, event_instance) in merged_iterator {
+            let is_unique_dtstart_timestamp =
+                previous_dtstart_timestamp.is_some_and(|dtstart_timestamp| dtstart_timestamp != event_instance.dtstart_timestamp);
+
+            if is_unique_dtstart_timestamp && query_results.len() >= self.limit {
+                break;
+            }
+
+            previous_dtstart_timestamp = Some(event_instance.dtstart_timestamp.clone());
+
+            query_results.push(event_instance);
+        }
+
+        query_results.truncate(self.limit);
     }
 
     fn execute_for_geo_dist_dtstart_ordering(&self, geo_point: &GeoPoint, calendar: &Calendar, query_results: &mut QueryResults, where_conditional_result: &Option<InvertedCalendarIndexTerm>) {

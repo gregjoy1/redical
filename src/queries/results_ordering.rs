@@ -22,7 +22,7 @@ impl OrderingCondition {
                 let dtstart_timestamp = event_instance.dtstart_timestamp.clone();
                 let geo_distance = event_instance.geo.clone().and_then(|event_instance_geo_point| {
                     Some(
-                        GeoDistance::new_from_kilometers_float(
+                        GeoDistance::new_from_meters_float(
                             event_instance_geo_point.haversine_distance(&ordering_geo_point)
                         )
                     )
@@ -38,7 +38,7 @@ impl OrderingCondition {
                 let dtstart_timestamp = event_instance.dtstart_timestamp.clone();
                 let geo_distance = event_instance.geo.clone().and_then(|event_instance_geo_point| {
                     Some(
-                        GeoDistance::new_from_kilometers_float(
+                        GeoDistance::new_from_meters_float(
                             event_instance_geo_point.haversine_distance(&ordering_geo_point)
                         )
                     )

@@ -19,6 +19,12 @@ impl QueryResults {
         }
     }
 
+    pub fn truncate(&mut self, length: usize) {
+        while self.len() > length {
+            self.results.pop_last();
+        }
+    }
+
     pub fn len(&self) -> usize {
         self.results.len()
     }
@@ -132,6 +138,78 @@ mod test {
     }
 
     #[test]
+    fn test_query_results_truncate() {
+        let mut query_results: QueryResults = QueryResults::new(OrderingCondition::DtStart);
+
+        assert!(query_results.results.is_empty());
+
+        query_results.push(build_event_instance_one());
+        query_results.push(build_event_instance_two());
+        query_results.push(build_event_instance_three());
+        query_results.push(build_event_instance_four());
+
+        let all_expected_query_results =
+            vec![
+                QueryResult {
+                    result_ordering: QueryResultOrdering::DtStart(100),
+                    event_instance:  build_event_instance_one(),
+                },
+                QueryResult {
+                    result_ordering: QueryResultOrdering::DtStart(200),
+                    event_instance:  build_event_instance_two(),
+                },
+                QueryResult {
+                    result_ordering: QueryResultOrdering::DtStart(300),
+                    event_instance:  build_event_instance_three(),
+                },
+                QueryResult {
+                    result_ordering: QueryResultOrdering::DtStart(400),
+                    event_instance:  build_event_instance_four(),
+                },
+            ];
+
+        assert_eq!(
+            query_results.results.clone().into_iter().collect::<Vec<QueryResult>>(),
+            all_expected_query_results,
+        );
+
+        query_results.truncate(6);
+
+        assert_eq!(
+            query_results.results.clone().into_iter().collect::<Vec<QueryResult>>(),
+            all_expected_query_results,
+        );
+
+        query_results.truncate(4);
+
+        assert_eq!(
+            query_results.results.clone().into_iter().collect::<Vec<QueryResult>>(),
+            all_expected_query_results,
+        );
+
+        query_results.truncate(3);
+
+        assert_eq!(
+            query_results.results.clone().into_iter().collect::<Vec<QueryResult>>(),
+            all_expected_query_results[0..=2],
+        );
+
+        query_results.truncate(1);
+
+        assert_eq!(
+            query_results.results.clone().into_iter().collect::<Vec<QueryResult>>(),
+            all_expected_query_results[0..=0],
+        );
+
+        query_results.truncate(0);
+
+        assert_eq!(
+            query_results.results.clone().into_iter().collect::<Vec<QueryResult>>(),
+            vec![],
+        );
+    }
+
+    #[test]
     fn test_query_results_dtstart_ordering() {
         let mut query_results: QueryResults = QueryResults::new(OrderingCondition::DtStart);
 
@@ -208,7 +286,7 @@ mod test {
             query_results.results.clone().into_iter().collect::<Vec<QueryResult>>(),
             vec![
                 QueryResult {
-                    result_ordering: QueryResultOrdering::DtStartGeoDist(400, Some(GeoDistance::Kilometers((64595, 658072)))),
+                    result_ordering: QueryResultOrdering::DtStartGeoDist(400, Some(GeoDistance::Kilometers((64, 595658)))),
                     event_instance:  build_event_instance_four(),
                 },
             ]
@@ -224,7 +302,7 @@ mod test {
                     event_instance:  build_event_instance_one(),
                 },
                 QueryResult {
-                    result_ordering: QueryResultOrdering::DtStartGeoDist(400, Some(GeoDistance::Kilometers((64595, 658072)))),
+                    result_ordering: QueryResultOrdering::DtStartGeoDist(400, Some(GeoDistance::Kilometers((64, 595658)))),
                     event_instance:  build_event_instance_four(),
                 },
             ]
@@ -241,15 +319,15 @@ mod test {
                     event_instance:  build_event_instance_one(),
                 },
                 QueryResult {
-                    result_ordering: QueryResultOrdering::DtStartGeoDist(200, Some(GeoDistance::Kilometers((144636, 981656)))),
+                    result_ordering: QueryResultOrdering::DtStartGeoDist(200, Some(GeoDistance::Kilometers((144, 636981)))),
                     event_instance:  build_event_instance_two(),
                 },
                 QueryResult {
-                    result_ordering: QueryResultOrdering::DtStartGeoDist(300, Some(GeoDistance::Kilometers((85341, 678641)))),
+                    result_ordering: QueryResultOrdering::DtStartGeoDist(300, Some(GeoDistance::Kilometers((85, 341678)))),
                     event_instance:  build_event_instance_three(),
                 },
                 QueryResult {
-                    result_ordering: QueryResultOrdering::DtStartGeoDist(400, Some(GeoDistance::Kilometers((64595, 658072)))),
+                    result_ordering: QueryResultOrdering::DtStartGeoDist(400, Some(GeoDistance::Kilometers((64, 595658)))),
                     event_instance:  build_event_instance_four(),
                 },
             ]
@@ -273,7 +351,7 @@ mod test {
             query_results.results.clone().into_iter().collect::<Vec<QueryResult>>(),
             vec![
                 QueryResult {
-                    result_ordering: QueryResultOrdering::GeoDistDtStart(Some(GeoDistance::Kilometers((64595, 658072))), 400),
+                    result_ordering: QueryResultOrdering::GeoDistDtStart(Some(GeoDistance::Kilometers((64, 595658))), 400),
                     event_instance:  build_event_instance_four(),
                 },
             ]
@@ -285,7 +363,7 @@ mod test {
             query_results.results.clone().into_iter().collect::<Vec<QueryResult>>(),
             vec![
                 QueryResult {
-                    result_ordering: QueryResultOrdering::GeoDistDtStart(Some(GeoDistance::Kilometers((64595, 658072))), 400),
+                    result_ordering: QueryResultOrdering::GeoDistDtStart(Some(GeoDistance::Kilometers((64, 595658))), 400),
                     event_instance:  build_event_instance_four(),
                 },
                 QueryResult {
@@ -302,15 +380,15 @@ mod test {
             query_results.results.clone().into_iter().collect::<Vec<QueryResult>>(),
             vec![
                 QueryResult {
-                    result_ordering: QueryResultOrdering::GeoDistDtStart(Some(GeoDistance::Kilometers((64595, 658072))), 400),
+                    result_ordering: QueryResultOrdering::GeoDistDtStart(Some(GeoDistance::Kilometers((64, 595658))), 400),
                     event_instance:  build_event_instance_four(),
                 },
                 QueryResult {
-                    result_ordering: QueryResultOrdering::GeoDistDtStart(Some(GeoDistance::Kilometers((85341, 678641))), 300),
+                    result_ordering: QueryResultOrdering::GeoDistDtStart(Some(GeoDistance::Kilometers((85, 341678))), 300),
                     event_instance:  build_event_instance_three(),
                 },
                 QueryResult {
-                    result_ordering: QueryResultOrdering::GeoDistDtStart(Some(GeoDistance::Kilometers((144636, 981656))), 200),
+                    result_ordering: QueryResultOrdering::GeoDistDtStart(Some(GeoDistance::Kilometers((144, 636981))), 200),
                     event_instance:  build_event_instance_two(),
                 },
                 QueryResult {

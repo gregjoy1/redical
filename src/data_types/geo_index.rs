@@ -18,9 +18,9 @@ pub enum GeoDistance {
 }
 
 impl GeoDistance {
-    const FRACTIONAL_PREC: f64 = 1000000.0;
-    const KM_TO_MILE:      f64 = 1.609344;
-    const MILE_TO_KM:      f64 = 0.621371;
+    const FRACTIONAL_PREC: f64 = 1000000.0_f64;
+    const KM_TO_MILE:      f64 = 1.609344_f64;
+    const MILE_TO_KM:      f64 = 0.621371_f64;
 
     pub fn to_string(&self) -> String {
         match self {
@@ -63,6 +63,12 @@ impl GeoDistance {
                 Self::int_fractional_tuple_to_float((mile_int, fractional_int))
             },
         }
+    }
+
+    pub fn new_from_meters_float(mt_float: f64) -> Self {
+        GeoDistance::Kilometers(
+            Self::float_to_int_fractional_tuple(&(mt_float / 1000_f64))
+        )
     }
 
     pub fn new_from_kilometers_float(km_float: f64) -> Self {
@@ -188,11 +194,11 @@ impl GeoPoint {
     }
 
     pub fn validate(&self) -> Result<&Self, String> {
-        if self.lat < -90f64 || self.lat > 90f64 {
+        if self.lat < -90_f64 || self.lat > 90_f64 {
             return Err(format!("Expected latitude: {} to be greater than -90 and less than 90.", self.lat));
         }
 
-        if self.long < -180f64 || self.long > 180f64 {
+        if self.long < -180_f64 || self.long > 180_f64 {
             return Err(format!("Expected latitude: {} to be greater than -180 and less than 180.", self.long));
         }
 
@@ -366,8 +372,8 @@ mod test {
     fn test_geo_spatial_calendar_index() {
         let mut geo_spatial_calendar_index = GeoSpatialCalendarIndex::new();
 
-        let london = GeoPoint::new(-0.1278f64,    51.5074f64);
-        let oxford = GeoPoint::new(-1.2475878f64, 51.8773f64);
+        let london = GeoPoint::new(-0.1278_f64,    51.5074_f64);
+        let oxford = GeoPoint::new(-1.2475878_f64, 51.8773_f64);
 
         assert_eq!(
             geo_spatial_calendar_index,
@@ -545,12 +551,12 @@ mod test {
     fn test_geo_spatial_calendar_index_locate_within_distance() {
         let mut geo_spatial_calendar_index = GeoSpatialCalendarIndex::new();
 
-        let random             = GeoPoint::new(-1.4701705f64, 51.7854972f64);
-        let random_plus_offset = GeoPoint::new(-1.470240f64,  51.785341f64);
-        let new_york_city      = GeoPoint::new(-74.006f64,    40.7128f64);
-        let churchdown         = GeoPoint::new(-2.1686f64,    51.8773f64);
-        let london             = GeoPoint::new(-0.1278f64,    51.5074f64);
-        let oxford             = GeoPoint::new(-1.2475878f64, 51.8773f64);
+        let random             = GeoPoint::new(-1.4701705_f64, 51.7854972_f64);
+        let random_plus_offset = GeoPoint::new(-1.470240_f64,  51.785341_f64);
+        let new_york_city      = GeoPoint::new(-74.006_f64,    40.7128_f64);
+        let churchdown         = GeoPoint::new(-2.1686_f64,    51.8773_f64);
+        let london             = GeoPoint::new(-0.1278_f64,    51.5074_f64);
+        let oxford             = GeoPoint::new(-1.2475878_f64, 51.8773_f64);
 
         assert!(
             geo_spatial_calendar_index.insert(
@@ -661,7 +667,7 @@ mod test {
         );
 
         assert_eq_sorted!(
-            geo_spatial_calendar_index.locate_within_distance(&oxford, &GeoDistance::new_from_kilometers_float(1.0f64)),
+            geo_spatial_calendar_index.locate_within_distance(&oxford, &GeoDistance::new_from_kilometers_float(1.0_f64)),
             InvertedCalendarIndexTerm {
                 events: HashMap::from([
                             (String::from("oxford_event_one_uuid"), IndexedConclusion::Include(None)),
@@ -671,7 +677,7 @@ mod test {
         );
 
         assert_eq_sorted!(
-            geo_spatial_calendar_index.locate_within_distance(&oxford, &GeoDistance::new_from_kilometers_float(87.0f64)),
+            geo_spatial_calendar_index.locate_within_distance(&oxford, &GeoDistance::new_from_kilometers_float(87.0_f64)),
             InvertedCalendarIndexTerm {
                 events: HashMap::from([
                             (String::from("churchdown_event_uuid"),                    IndexedConclusion::Include(None)),
@@ -686,7 +692,7 @@ mod test {
         );
 
         assert_eq_sorted!(
-            geo_spatial_calendar_index.locate_within_distance(&oxford, &GeoDistance::new_from_kilometers_float(87.5f64)),
+            geo_spatial_calendar_index.locate_within_distance(&oxford, &GeoDistance::new_from_kilometers_float(87.5_f64)),
             InvertedCalendarIndexTerm {
                 events: HashMap::from([
                             (String::from("churchdown_event_uuid"),                    IndexedConclusion::Include(None)),
@@ -706,12 +712,12 @@ mod test {
     fn test_geo_distance_rtree() {
         let mut tree = RTree::new();
 
-        let random             = GeoPoint::new(-1.4701705f64, 51.7854972f64);
-        let random_plus_offset = GeoPoint::new(-1.470240f64,  51.785341f64);
-        let new_york_city      = GeoPoint::new(-74.006f64,    40.7128f64);
-        let churchdown         = GeoPoint::new(-2.1686f64,    51.8773f64);
-        let london             = GeoPoint::new(-0.1278f64,    51.5074f64);
-        let oxford             = GeoPoint::new(-1.2475878f64, 51.8773f64);
+        let random             = GeoPoint::new(-1.4701705_f64, 51.7854972_f64);
+        let random_plus_offset = GeoPoint::new(-1.470240_f64,  51.785341_f64);
+        let new_york_city      = GeoPoint::new(-74.006_f64,    40.7128_f64);
+        let churchdown         = GeoPoint::new(-2.1686_f64,    51.8773_f64);
+        let london             = GeoPoint::new(-0.1278_f64,    51.5074_f64);
+        let oxford             = GeoPoint::new(-1.2475878_f64, 51.8773_f64);
 
         tree.insert(random.clone());
         tree.insert(random_plus_offset.clone());
@@ -724,7 +730,7 @@ mod test {
         let (point, distance) = results.next().unwrap();
         assert_eq!(
             (point,   distance),
-            (&random, 18388.59700968325f64)
+            (&random, 18388.59700968325_f64)
         );
 
 
@@ -732,33 +738,33 @@ mod test {
 
         assert_eq!(
             (point,               distance),
-            (&random_plus_offset, 18402.23696221235f64)
+            (&random_plus_offset, 18402.23696221235_f64)
         );
 
         let (point, distance) = results.next().unwrap();
 
         assert_eq!(
             (point,       distance),
-            (&churchdown, 63223.39709694926f64)
+            (&churchdown, 63223.39709694926_f64)
         );
 
         let (point, distance) = results.next().unwrap();
 
         assert_eq!(
             (point,   distance),
-            (&london, 87458.64969073102f64)
+            (&london, 87458.64969073102_f64)
         );
 
         let (point, distance) = results.next().unwrap();
 
         assert_eq!(
             (point,          distance),
-            (&new_york_city, 5484158.985172745f64)
+            (&new_york_city, 5484158.985172745_f64)
         );
 
         assert_eq!(results.next(), None);
 
-        let results: Vec<&GeoPoint> = tree.locate_within_distance(oxford.to_point().clone(), 65000.0f64).collect();
+        let results: Vec<&GeoPoint> = tree.locate_within_distance(oxford.to_point().clone(), 65000.0_f64).collect();
 
         assert_eq_sorted!(results, vec![&churchdown, &random_plus_offset, &random]);
     }
@@ -766,42 +772,47 @@ mod test {
     #[test]
     fn test_geo_distance_enum() {
         assert_eq!(
-            GeoDistance::new_from_kilometers_float(4321.123456789f64),
-            GeoDistance::Kilometers((4321u32, 123456u32)),
+            GeoDistance::new_from_kilometers_float(4321.123456789_f64),
+            GeoDistance::Kilometers((4321_u32, 123456_u32)),
         );
 
         assert_eq!(
-            GeoDistance::new_from_miles_float(4321.123456789f64),
-            GeoDistance::Miles((4321u32, 123456u32)),
+            GeoDistance::new_from_meters_float(4321.123456789_f64),
+            GeoDistance::Kilometers((4_u32, 321123_u32)),
         );
 
         assert_eq!(
-            GeoDistance::new_from_kilometers_float(-4321.123456789f64),
-            GeoDistance::Kilometers((4321u32, 123456u32)),
+            GeoDistance::new_from_miles_float(4321.123456789_f64),
+            GeoDistance::Miles((4321_u32, 123456_u32)),
+        );
+
+        assert_eq!(
+            GeoDistance::new_from_kilometers_float(-4321.123456789_f64),
+            GeoDistance::Kilometers((4321_u32, 123456_u32)),
         );
 
         assert_eq!(
             GeoDistance::new_from_miles_float(f64::NAN),
-            GeoDistance::Miles((0u32, 0u32)),
+            GeoDistance::Miles((0_u32, 0_u32)),
         );
 
         assert_eq!(
             GeoDistance::new_from_kilometers_float(1.5),
-            GeoDistance::Kilometers((1u32, 500000u32)),
+            GeoDistance::Kilometers((1_u32, 500000_u32)),
         );
 
         let one_and_a_half_km = GeoDistance::new_from_kilometers_float(1.5);
 
         assert_eq!(one_and_a_half_km.to_kilometers_float(), 1.5);
         assert_eq!(one_and_a_half_km.to_miles_float(), 0.932056);
-        assert_eq!(one_and_a_half_km.to_miles(), GeoDistance::Miles((0u32, 932056u32)));
+        assert_eq!(one_and_a_half_km.to_miles(), GeoDistance::Miles((0_u32, 932056_u32)));
         assert_eq!(one_and_a_half_km.to_string(), String::from("1.5KM"));
 
         let one_and_a_half_miles = GeoDistance::new_from_miles_float(1.5);
 
         assert_eq!(one_and_a_half_miles.to_miles_float(), 1.5);
         assert_eq!(one_and_a_half_miles.to_kilometers_float(), 2.414016);
-        assert_eq!(one_and_a_half_miles.to_kilometers(), GeoDistance::Kilometers((2u32, 414016u32)));
+        assert_eq!(one_and_a_half_miles.to_kilometers(), GeoDistance::Kilometers((2_u32, 414016_u32)));
         assert_eq!(one_and_a_half_miles.to_string(), String::from("1.5MI"));
     }
 }
