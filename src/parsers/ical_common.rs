@@ -274,6 +274,151 @@ pub fn x_name(input: &str) -> ParserResult<&str, &str> {
     )(input)
 }
 
+// All iana registered icalendar properties
+// https://www.iana.org/assignments/icalendar/icalendar.xhtml
+//
+// Use this over iana_token as it is too permissive and permits invalid non-vendor specific
+// property names.
+pub fn known_iana_properties(input: &str) -> ParserResult<&str, &str>  {
+    context(
+        "IANA property",
+        // Tuples are restricted to 21 elements, to accomodate 67 tags, nested
+        // alt achieves the same with an insignificant impact on performance.
+        alt((
+            alt((
+                tag("CALSCALE"),
+                tag("METHOD"),
+                tag("PRODID"),
+                tag("VERSION"),
+                tag("ATTACH"),
+                tag("CATEGORIES"),
+                tag("CLASS"),
+                tag("COMMENT"),
+                tag("DESCRIPTION"),
+                tag("GEO"),
+                tag("LOCATION"),
+                tag("PERCENT-COMPLETE"),
+                tag("PRIORITY"),
+                tag("RESOURCES"),
+                tag("STATUS"),
+                tag("SUMMARY"),
+            )),
+            alt((
+                tag("COMPLETED"),
+                tag("DTEND"),
+                tag("DUE"),
+                tag("DTSTART"),
+                tag("DURATION"),
+                tag("FREEBUSY"),
+                tag("TRANSP"),
+                tag("TZID"),
+                tag("TZNAME"),
+                tag("TZOFFSETFROM"),
+                tag("TZOFFSETTO"),
+                tag("TZURL"),
+                tag("ATTENDEE"),
+                tag("CONTACT"),
+                tag("ORGANIZER"),
+                tag("RECURRENCE-ID"),
+            )),
+            alt((
+                tag("RELATED-TO"),
+                tag("URL"),
+                tag("UID"),
+                tag("EXDATE"),
+                tag("EXRULE"),
+                tag("RDATE"),
+                tag("RRULE"),
+                tag("ACTION"),
+                tag("REPEAT"),
+                tag("TRIGGER"),
+                tag("CREATED"),
+                tag("DTSTAMP"),
+                tag("LAST-MODIFIED"),
+                tag("SEQUENCE"),
+                tag("REQUEST-STATUS"),
+                tag("XML"),
+            )),
+            alt((
+                tag("TZUNTIL"),
+                tag("TZID-ALIAS-OF"),
+                tag("BUSYTYPE"),
+                tag("NAME"),
+                tag("REFRESH-INTERVAL"),
+                tag("SOURCE"),
+                tag("COLOR"),
+                tag("IMAGE"),
+                tag("CONFERENCE"),
+                tag("CALENDAR-ADDRESS"),
+                tag("LOCATION-TYPE"),
+                tag("PARTICIPANT-TYPE"),
+                tag("RESOURCE-TYPE"),
+                tag("STRUCTURED-DATA"),
+                tag("STYLED-DESCRIPTION"),
+                tag("ACKNOWLEDGED"),
+                tag("PROXIMITY"),
+                tag("CONCEPT"),
+                tag("LINK"),
+                tag("REFID"),
+            )),
+        ))
+    )(input)
+}
+
+// All iana registered icalendar properties
+// https://www.iana.org/assignments/icalendar/icalendar.xhtml
+//
+// Use this over iana_token as it is too permissive and permits invalid non-vendor specific
+// property names.
+pub fn known_iana_parameters(input: &str) -> ParserResult<&str, &str>  {
+    context(
+        "IANA parameter",
+        // Tuples are restricted to 21 elements, to accomodate 33 tags, nested
+        // alt achieves the same with an insignificant impact on performance.
+        alt((
+            alt((
+                tag("ALTREP"),
+                tag("CN"),
+                tag("CUTYPE"),
+                tag("DELEGATED-FROM"),
+                tag("DELEGATED-TO"),
+                tag("DIR"),
+                tag("ENCODING"),
+                tag("FMTTYPE"),
+                tag("FBTYPE"),
+                tag("LANGUAGE"),
+                tag("MEMBER"),
+                tag("PARTSTAT"),
+                tag("RANGE"),
+                tag("RELATED"),
+                tag("RELTYPE"),
+                tag("ROLE"),
+                tag("RSVP"),
+            )),
+            alt((
+                tag("SCHEDULE-AGENT"),
+                tag("SCHEDULE-FORCE-SEND"),
+                tag("SCHEDULE-STATUS"),
+                tag("SENT-BY"),
+                tag("TZID"),
+                tag("VALUE"),
+                tag("DISPLAY"),
+                tag("EMAIL"),
+                tag("FEATURE"),
+                tag("LABEL"),
+                tag("SIZE"),
+                tag("FILENAME"),
+                tag("MANAGED-ID"),
+                tag("ORDER"),
+                tag("SCHEMA"),
+                tag("DERIVED"),
+                tag("GAP"),
+                tag("LINKREL"),
+            ))
+        ))
+    )(input)
+}
+
 // name          = iana-token / x-name
 pub fn name(input: &str) -> ParserResult<&str, &str> {
     context(
@@ -282,7 +427,7 @@ pub fn name(input: &str) -> ParserResult<&str, &str> {
             take_while(is_white_space_char),
             alt(
                 (
-                    iana_token,
+                    known_iana_properties,
                     x_name
                 )
             )
@@ -325,7 +470,7 @@ pub fn param_name(input: &str) -> ParserResult<&str, &str> {
         "param name",
         alt(
             (
-                iana_token,
+                known_iana_parameters,
                 x_name
             )
         ),
@@ -399,20 +544,47 @@ pub fn value(input: &str) -> ParserResult<&str, &str> {
 
 // quoted-string = DQUOTE *QSAFE-CHAR DQUOTE
 pub fn quoted_string(input: &str) -> ParserResult<&str, &str> {
-    delimited(
-        alt(
-            (
-                tag(r#"""#),
-                escaped(char('"'), '\\', one_of(r#""n\"#)),
-            )
-        ),
-        quote_safe_char,
-        alt(
-            (
-                tag(r#"""#),
-                escaped(char('"'), '\\', one_of(r#""n\"#)),
-            )
-        ),
+    alt(
+        (
+            // Attempt to extract quoted string without double quote characters if used
+            // unnecessarily.
+            delimited(
+                alt(
+                    (
+                        tag(r#"""#),
+                        escaped(char('"'), '\\', one_of(r#""n\"#)),
+                    )
+                ),
+                param_text,
+                alt(
+                    (
+                        tag(r#"""#),
+                        escaped(char('"'), '\\', one_of(r#""n\"#)),
+                    )
+                ),
+            ),
+
+            // If double quoted text contains characters which justify the double quote character
+            // presence, we preserve the use of the double quotes so that the strings can be safely
+            // serialized.
+            recognize(
+                delimited(
+                    alt(
+                        (
+                            tag(r#"""#),
+                            escaped(char('"'), '\\', one_of(r#""n\"#)),
+                        )
+                    ),
+                    quote_safe_char,
+                    alt(
+                        (
+                            tag(r#"""#),
+                            escaped(char('"'), '\\', one_of(r#""n\"#)),
+                        )
+                    ),
+                ),
+            ),
+        )
     )(input)
 }
 
@@ -936,7 +1108,7 @@ mod test {
                             [
                                 (
                                     "ALTREP",
-                                    ParsedValue::List(vec!["cid:part1.0001@example.org"])
+                                    ParsedValue::List(vec!["\"cid:part1.0001@example.org\""])
                                 ),
                             ]
                         )
@@ -960,4 +1132,31 @@ mod test {
             )
         );
     }
+
+    #[test]
+    fn test_quoted_string() {
+        // Preserves double quotes if required.
+        assert_eq!(
+            quoted_string("\"cid:part1.0001@example.org\""),
+            Ok(
+                (
+                    "",
+                    "\"cid:part1.0001@example.org\"",
+                )
+            ),
+        );
+
+        // Double quotes omitted if used unnecessarily.
+        assert_eq!(
+            quoted_string("\"valid text\""),
+            Ok(
+                (
+                    "",
+                    "valid text",
+                )
+            ),
+        );
+
+    }
+
 }

@@ -562,6 +562,8 @@ mod test {
 
     use std::collections::HashMap;
 
+    use pretty_assertions_sorted::assert_eq;
+
     #[test]
     fn test_parse_property() {
         let data: &str = "RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH";
@@ -649,7 +651,7 @@ mod test {
                         params: Some(
                             HashMap::from(
                                 [
-                                    ("ALTREP", ParsedValue::Single("cid:part1.0001@example.org")),
+                                    ("ALTREP", ParsedValue::Single("\"cid:part1.0001@example.org\"")),
                                 ]
                             )
                         ),
