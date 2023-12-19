@@ -114,27 +114,6 @@ impl SchedulePropertiesDiff {
         }
     }
 
-    pub fn get_schedule_rebuild_consensus(&self) -> ScheduleRebuildConsensus {
-        fn property_has_changed(property: Option<&UpdatedSetMembers<KeyValuePair>>) -> bool {
-            property.is_some_and(|property| property.is_changed())
-        }
-
-        #[allow(unused_parens)]
-        if (
-            property_has_changed(self.rrule.as_ref())  ||
-            property_has_changed(self.exrule.as_ref()) ||
-            property_has_changed(self.rdate.as_ref())  ||
-            property_has_changed(self.exdate.as_ref()) ||
-            property_has_changed(self.dtstart.as_ref())
-        ) {
-            // TODO: handle more granular changes yielding ScheduleRebuildConsensus::Partial for partial
-            // updated occurrence extrapolation.
-            ScheduleRebuildConsensus::Full
-        } else {
-            ScheduleRebuildConsensus::None
-        }
-    }
-
     fn build_updated_set_members<T>(original_set: Option<&HashSet<T>>, updated_set: Option<&HashSet<T>>) -> Option<UpdatedSetMembers<T>>
     where
         T: Eq + PartialEq + Hash + Clone
@@ -147,19 +126,13 @@ impl SchedulePropertiesDiff {
     }
 }
 
-pub enum ScheduleRebuildConsensus {
-    None,
-    Full,
-    Partial,
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
 
     use std::collections::{HashMap, BTreeSet, BTreeMap};
 
-    use crate::data_types::{ScheduleProperties, IndexedProperties, PassiveProperties, EventOccurrenceOverrides, InvertedEventIndex, KeyValuePair};
+    use crate::data_types::{ScheduleProperties, IndexedProperties, PassiveProperties, EventOccurrenceOverrides, KeyValuePair};
 
     #[test]
     fn test_event_diff() {
