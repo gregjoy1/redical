@@ -22,10 +22,6 @@ pub fn build_event_and_overrides_from_ical(
         event_ical_parts.join(" ").as_str()
     ).unwrap();
 
-    if let Err(error) = event.rebuild_occurrence_cache(65_535) {
-        panic!("Build Event '{event_uuid}' from ical failed -- rebuild_occurrence_cache error: {:#?}", error);
-    }
-
     if let Err(error) = event.schedule_properties.build_parsed_rrule_set() {
         panic!("Build Event '{event_uuid}' from ical failed -- build_parsed_rrule_set returned error: {:#?}", error);
     }

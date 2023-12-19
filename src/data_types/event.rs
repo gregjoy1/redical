@@ -12,8 +12,6 @@ use crate::parsers::ical_common::ParsedValue;
 
 use crate::parsers::datetime::{datestring_to_date, ParseError};
 
-use crate::data_types::occurrence_cache::{OccurrenceCache, OccurrenceCacheValue};
-
 use crate::data_types::event_occurrence_override::EventOccurrenceOverride;
 
 use crate::data_types::inverted_index::InvertedEventIndex;
@@ -482,7 +480,6 @@ pub struct Event {
     pub passive_properties:  PassiveProperties,
 
     pub overrides:           EventOccurrenceOverrides,
-    pub occurrence_cache:    Option<OccurrenceCache>,
     pub indexed_categories:  Option<InvertedEventIndex<String>>,
     pub indexed_related_to:  Option<InvertedEventIndex<KeyValuePair>>,
     pub indexed_geo:         Option<InvertedEventIndex<GeoPoint>>,
@@ -499,7 +496,6 @@ impl Event {
             passive_properties:  PassiveProperties::new(),
 
             overrides:           EventOccurrenceOverrides::new(),
-            occurrence_cache:    None,
             indexed_categories:  None,
             indexed_related_to:  None,
             indexed_geo:         None,
@@ -576,109 +572,60 @@ impl Event {
     }
 
     pub fn override_occurrence(&mut self, timestamp: i64, event_occurrence_override: &EventOccurrenceOverride) -> Result<&Self, String> {
-        match &mut self.occurrence_cache {
-            Some(occurrence_cache) => {
-                let occurrences = &mut occurrence_cache.occurrences;
-                let overridden_duration = event_occurrence_override.get_duration(&timestamp).unwrap_or(None);
+        self.overrides.current.insert(timestamp, event_occurrence_override.clone());
 
-                if occurrences.contains_key(&timestamp) {
-                    occurrences.insert(timestamp, OccurrenceCacheValue::Override(overridden_duration));
+        if let Some(ref mut indexed_categories) = self.indexed_categories {
 
-                    self.overrides.current.insert(timestamp, event_occurrence_override.clone());
-                } else {
-                    return Err(format!("No overridable occurrence exists for timestamp: {timestamp}"));
-                }
-
-                if let Some(ref mut indexed_categories) = self.indexed_categories {
-
-                    if let Some(overridden_categories) = &event_occurrence_override.categories {
-                        indexed_categories.insert_override(timestamp, overridden_categories);
-                    }
-
-                } else {
-                    self.rebuild_indexed_categories()?;
-                }
-
-                if let Some(ref mut indexed_related_to) = self.indexed_related_to {
-
-                    if let Some(overridden_related_to_set) = &event_occurrence_override.build_override_related_to_set() {
-                        indexed_related_to.insert_override(timestamp, overridden_related_to_set);
-                    }
-
-                } else {
-                    self.rebuild_indexed_related_to()?;
-                }
-            },
-            None => {
-                return Err(format!("No overridable occurrence exists for timestamp: {timestamp}"));
+            if let Some(overridden_categories) = &event_occurrence_override.categories {
+                indexed_categories.insert_override(timestamp, overridden_categories);
             }
+
+        } else {
+            self.rebuild_indexed_categories()?;
+        }
+
+        if let Some(ref mut indexed_related_to) = self.indexed_related_to {
+
+            if let Some(overridden_related_to_set) = &event_occurrence_override.build_override_related_to_set() {
+                indexed_related_to.insert_override(timestamp, overridden_related_to_set);
+            }
+
+        } else {
+            self.rebuild_indexed_related_to()?;
+        }
+
+        if let Some(ref mut indexed_geo) = self.indexed_geo {
+
+            if let Some(overridden_geo) = &event_occurrence_override.geo {
+                indexed_geo.insert_override(timestamp, &HashSet::from([overridden_geo.clone()]));
+            }
+
+        } else {
+            self.rebuild_indexed_geo()?;
         }
 
         Ok(self)
     }
 
     pub fn remove_occurrence_override(&mut self, timestamp: i64) -> Result<&Self, String> {
-        match &mut self.occurrence_cache {
-            Some(occurrence_cache) => {
-                let occurrences = &mut occurrence_cache.occurrences;
 
-                match occurrences.get(&timestamp) {
-                    Some(OccurrenceCacheValue::Occurrence) => {
-                        return Err(format!("No occurrence override exists for timestamp: {timestamp}"));
-                    },
-                    Some(OccurrenceCacheValue::Override(_)) => {
-                        occurrences.insert(timestamp, OccurrenceCacheValue::Occurrence);
+        self.overrides.current.remove(&timestamp);
 
-                        self.overrides.current.remove(&timestamp);
-
-                        if let Some(ref mut indexed_categories) = self.indexed_categories {
-                            indexed_categories.remove_override(timestamp);
-                        } else {
-                            self.indexed_categories = Some(
-                                InvertedEventIndex::<String>::new_from_event_categories(&*self)
-                            );
-                        }
-
-                        if let Some(ref mut indexed_related_to) = self.indexed_related_to {
-                            indexed_related_to.remove_override(timestamp);
-                        } else {
-                            self.indexed_related_to = Some(
-                                InvertedEventIndex::<KeyValuePair>::new_from_event_related_to(&*self)
-                            );
-                        }
-                    },
-
-                    None => {
-                        return Err(format!("No overridable occurrence exists for timestamp: {timestamp}"));
-                    }
-                }
-            },
-            None => {
-                return Err(format!("No overridable occurrence exists for timestamp: {timestamp}"));
-            }
+        if let Some(ref mut indexed_categories) = self.indexed_categories {
+            indexed_categories.remove_override(timestamp);
+        } else {
+            self.indexed_categories = Some(
+                InvertedEventIndex::<String>::new_from_event_categories(&*self)
+            );
         }
 
-        Ok(self)
-    }
-
-    pub fn rebuild_occurrence_cache(&mut self, max_count: usize) -> Result<&mut Self, RRuleError> {
-        let base_duration = self.schedule_properties.get_duration().unwrap_or(None);
-        let rrule_set = self.schedule_properties.parse_rrule()?;
-        let rrule_set_iter = rrule_set.into_iter();
-
-        let mut occurrence_cache: OccurrenceCache = OccurrenceCache::new(base_duration);
-
-        let max_datetime = self.get_max_datetime();
-
-        for next_datetime in rrule_set_iter.take(max_count) {
-            if next_datetime.gt(&max_datetime) {
-                break;
-            }
-
-            occurrence_cache.occurrences.insert(next_datetime.timestamp(), OccurrenceCacheValue::Occurrence);
+        if let Some(ref mut indexed_related_to) = self.indexed_related_to {
+            indexed_related_to.remove_override(timestamp);
+        } else {
+            self.indexed_related_to = Some(
+                InvertedEventIndex::<KeyValuePair>::new_from_event_related_to(&*self)
+            );
         }
-
-        self.occurrence_cache = Some(occurrence_cache);
 
         Ok(self)
     }
@@ -831,7 +778,6 @@ mod test {
                     ]
                 ),
             },
-            occurrence_cache:   None,
             indexed_categories: None,
             indexed_related_to: None,
             indexed_geo:        None,
@@ -1013,109 +959,10 @@ mod test {
                 },
 
                 overrides:           EventOccurrenceOverrides::new(),
-                occurrence_cache:    None,
                 indexed_categories:  None,
                 indexed_related_to:  None,
                 indexed_geo:         None,
             }
-        );
-    }
-
-    #[test]
-    fn retest_build_occurrence_cache() {
-        let ical: &str = "RRULE:FREQ=WEEKLY;UNTIL=20210331T183000Z;INTERVAL=1;BYDAY=TU DTSTART:20201231T183000Z";
-
-        let mut parsed_event = Event::parse_ical("event_UUID", ical).unwrap();
-
-        assert_eq!(
-            parsed_event,
-            Event {
-                uuid:                String::from("event_UUID"),
-
-                schedule_properties: ScheduleProperties {
-                    rrule:            Some(
-                        HashSet::from([
-                            KeyValuePair::new(
-                                String::from("RRULE"),
-                                String::from(":FREQ=WEEKLY;UNTIL=20210331T183000Z;INTERVAL=1;BYDAY=TU"),
-                            )
-                        ])
-                    ),
-                    exrule:           None,
-                    rdate:            None,
-                    exdate:           None,
-                    duration:         None,
-                    dtstart:          Some(
-                        HashSet::from([
-                            KeyValuePair::new(
-                                String::from("DTSTART"),
-                                String::from(":20201231T183000Z"),
-                            )
-                        ])
-                    ),
-                    dtend:            None,
-                    parsed_rrule_set: None,
-                },
-
-                indexed_properties:  IndexedProperties::new(),
-
-                passive_properties:  PassiveProperties::new(),
-
-                overrides:           EventOccurrenceOverrides::new(),
-                occurrence_cache:    None,
-                indexed_categories:  None,
-                indexed_related_to:  None,
-                indexed_geo:         None,
-            }
-        );
-
-        assert!(
-            parsed_event.rebuild_occurrence_cache(100).is_ok()
-        );
-
-        assert_eq!(
-            parsed_event.occurrence_cache,
-            Some(
-                OccurrenceCache {
-                    base_duration: 0,
-                    occurrences:   BTreeMap::from(
-                        [
-                            (1609871400, OccurrenceCacheValue::Occurrence),
-                            (1610476200, OccurrenceCacheValue::Occurrence),
-                            (1611081000, OccurrenceCacheValue::Occurrence),
-                            (1611685800, OccurrenceCacheValue::Occurrence),
-                            (1612290600, OccurrenceCacheValue::Occurrence),
-                            (1612895400, OccurrenceCacheValue::Occurrence),
-                            (1613500200, OccurrenceCacheValue::Occurrence),
-                            (1614105000, OccurrenceCacheValue::Occurrence),
-                            (1614709800, OccurrenceCacheValue::Occurrence),
-                            (1615314600, OccurrenceCacheValue::Occurrence),
-                            (1615919400, OccurrenceCacheValue::Occurrence),
-                            (1616524200, OccurrenceCacheValue::Occurrence),
-                            (1617129000, OccurrenceCacheValue::Occurrence),
-                        ]
-                    )
-                }
-            )
-        );
-
-        assert!(
-            parsed_event.rebuild_occurrence_cache(2).is_ok()
-        );
-
-        assert_eq!(
-            parsed_event.occurrence_cache,
-            Some(
-                OccurrenceCache {
-                    base_duration: 0,
-                    occurrences:   BTreeMap::from(
-                        [
-                            (1609871400, OccurrenceCacheValue::Occurrence),
-                            (1610476200, OccurrenceCacheValue::Occurrence),
-                        ]
-                    )
-                }
-            )
         );
     }
 
@@ -1160,7 +1007,6 @@ mod test {
                 passive_properties:  PassiveProperties::new(),
 
                 overrides:           EventOccurrenceOverrides::new(),
-                occurrence_cache:    None,
                 indexed_categories:  None,
                 indexed_related_to:  None,
                 indexed_geo:         None,
@@ -1201,7 +1047,6 @@ mod test {
                 passive_properties:  PassiveProperties::new(),
 
                 overrides:           EventOccurrenceOverrides::new(),
-                occurrence_cache:    None,
                 indexed_categories:  None,
                 indexed_geo:         None,
                 indexed_related_to:  None,
@@ -1216,25 +1061,6 @@ mod test {
         let ical: &str = "RRULE:FREQ=WEEKLY;UNTIL=20210331T183000Z;INTERVAL=1;BYDAY=TU DTSTART:20201231T183000Z";
 
         let mut parsed_event = Event::parse_ical("event_UUID", ical).unwrap();
-
-        assert!(
-            parsed_event.rebuild_occurrence_cache(2).is_ok()
-        );
-
-        assert_eq!(
-            parsed_event.occurrence_cache,
-            Some(
-                OccurrenceCache {
-                    base_duration: 0,
-                    occurrences:   BTreeMap::from(
-                        [
-                            (1609871400, OccurrenceCacheValue::Occurrence),
-                            (1610476200, OccurrenceCacheValue::Occurrence),
-                        ]
-                    )
-                }
-            )
-        );
 
         let event_occurrence_override = EventOccurrenceOverride {
             geo:              None,
@@ -1258,13 +1084,6 @@ mod test {
             dtend:       None,
             related_to:  None
         };
-
-        assert_eq!(
-            parsed_event.override_occurrence(1234, &event_occurrence_override),
-            Err(
-                String::from("No overridable occurrence exists for timestamp: 1234")
-            )
-        );
 
         assert_eq!(
             parsed_event.override_occurrence(1610476200, &event_occurrence_override),
@@ -1331,17 +1150,6 @@ mod test {
                             )
                         ]),
                     },
-                    occurrence_cache:    Some(
-                        OccurrenceCache {
-                            base_duration: 0,
-                            occurrences:   BTreeMap::from(
-                                [
-                                    (1609871400, OccurrenceCacheValue::Occurrence),
-                                    (1610476200, OccurrenceCacheValue::Override(None)),
-                                ]
-                            )
-                        }
-                    ),
                     indexed_categories:  Some(
                         InvertedEventIndex {
                             terms: HashMap::from([
@@ -1365,22 +1173,12 @@ mod test {
                             terms: HashMap::from([])
                         }
                     ),
-                    indexed_geo:         None,
+                    indexed_geo:         Some(
+                        InvertedEventIndex {
+                            terms: HashMap::from([])
+                        }
+                    ),
                 }
-            )
-        );
-
-        assert_eq!(
-            parsed_event.remove_occurrence_override(1234),
-            Err(
-                String::from("No overridable occurrence exists for timestamp: 1234")
-            )
-        );
-
-        assert_eq!(
-            parsed_event.remove_occurrence_override(1609871400),
-            Err(
-                String::from("No occurrence override exists for timestamp: 1609871400")
             )
         );
 
@@ -1423,17 +1221,6 @@ mod test {
                         detached: BTreeMap::new(),
                         current:  BTreeMap::new(),
                     },
-                    occurrence_cache:    Some(
-                        OccurrenceCache {
-                            base_duration: 0,
-                            occurrences:   BTreeMap::from(
-                                [
-                                    (1609871400, OccurrenceCacheValue::Occurrence),
-                                    (1610476200, OccurrenceCacheValue::Occurrence),
-                                ]
-                            )
-                        }
-                    ),
                     indexed_categories:  Some(
                         InvertedEventIndex {
                             terms: HashMap::new()
@@ -1444,7 +1231,11 @@ mod test {
                             terms: HashMap::new()
                         }
                     ),
-                    indexed_geo:         None,
+                    indexed_geo:         Some(
+                        InvertedEventIndex {
+                            terms: HashMap::new()
+                        }
+                    ),
                 }
             )
         );
@@ -1509,72 +1300,11 @@ mod test {
                 passive_properties:  PassiveProperties::new(),
 
                 overrides:           EventOccurrenceOverrides::new(),
-                occurrence_cache:    None,
                 indexed_categories:  None,
                 indexed_related_to:  None,
                 indexed_geo:         None,
             }
         );
-    }
-
-    #[test]
-    fn benchmark_build_occurrence_cache() {
-        let ical: &str = "RRULE:FREQ=DAILY;UNTIL=20230331T183000Z;INTERVAL=1 DTSTART:20201231T183000Z";
-
-        let mut parsed_event = Event::parse_ical("event_UUID", ical).unwrap();
-
-        assert_eq!(
-            parsed_event,
-            Event {
-                uuid:                String::from("event_UUID"),
-
-                schedule_properties: ScheduleProperties {
-                    rrule:            Some(
-                        HashSet::from([
-                            KeyValuePair::new(
-                                String::from("RRULE"),
-                                String::from(":FREQ=DAILY;UNTIL=20230331T183000Z;INTERVAL=1"),
-                            )
-                        ])
-                    ),
-                    exrule:           None,
-                    rdate:            None,
-                    exdate:           None,
-                    duration:         None,
-                    dtstart:          Some(
-                        HashSet::from([
-                            KeyValuePair::new(
-                                String::from("DTSTART"),
-                                String::from(":20201231T183000Z"),
-                            )
-                        ])
-                    ),
-                    dtend:            None,
-                    parsed_rrule_set: None,
-                },
-
-                indexed_properties:  IndexedProperties::new(),
-
-                passive_properties:  PassiveProperties::new(),
-
-                overrides:           EventOccurrenceOverrides::new(),
-                occurrence_cache:    None,
-                indexed_categories:  None,
-                indexed_related_to:  None,
-                indexed_geo:         None,
-            }
-        );
-
-        let start = std::time::Instant::now();
-
-        assert!(
-            // parsed_event.rebuild_occurrence_cache(65535).is_ok()
-            parsed_event.rebuild_occurrence_cache(8760).is_ok()
-        );
-
-        let duration = start.elapsed();
-
-        println!("Time elapsed in rebuild_occurrence_cache() is: {:?}", duration);
     }
 
     #[test]
