@@ -25,11 +25,38 @@ fn on_event(ctx: &Context, event_type: NotifyEvent, event: &str, key: &[u8]) {
 pub const MODULE_NAME:    &str = "RediCal";
 pub const MODULE_VERSION: u32 = 1;
 
-#[cfg(not(test))]
+// Wrap the allocator used to that it can be replaced for testing.
+//
+// This is because redis_module::alloc::RedisAlloc is not available in the test environment, so we
+// stub its usage out and replace it with std::alloc::System.
+pub struct RedicalAlloc;
+
+unsafe impl std::alloc::GlobalAlloc for RedicalAlloc {
+    #[cfg(not(test))]
+    unsafe fn alloc(&self, layout: std::alloc::Layout) -> *mut u8 {
+        redis_module::alloc::RedisAlloc.alloc(layout)
+    }
+
+    #[cfg(test)]
+    unsafe fn alloc(&self, layout: std::alloc::Layout) -> *mut u8 {
+        std::alloc::System.alloc(layout)
+    }
+
+    #[cfg(not(test))]
+    unsafe fn dealloc(&self, ptr: *mut u8, layout: std::alloc::Layout) {
+        redis_module::alloc::RedisAlloc.dealloc(ptr, layout)
+    }
+
+    #[cfg(test)]
+    unsafe fn dealloc(&self, ptr: *mut u8, layout: std::alloc::Layout) {
+        std::alloc::System.dealloc(ptr, layout);
+    }
+}
+
 redis_module! {
     name:       MODULE_NAME,
     version:    MODULE_VERSION,
-    allocator:  (redis_module::alloc::RedisAlloc, redis_module::alloc::RedisAlloc),
+    allocator:  (RedicalAlloc, RedicalAlloc),
     data_types: [
         EVENT_DATA_TYPE,
         CALENDAR_DATA_TYPE
