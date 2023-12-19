@@ -1,26 +1,9 @@
-use serde::{Serialize, Deserialize};
-
-use std::iter::{Map, Filter};
-
-use std::collections::BTreeMap;
-
 use crate::data_types::{ScheduleProperties, EventOccurrenceOverride, EventOccurrenceOverrides, IndexedConclusion};
 
 #[derive(Debug, Clone)]
 pub enum FilterProperty {
     DtStart(i64),
     DtEnd(i64),
-}
-
-impl FilterProperty {
-
-    pub fn get_property_value(&self, dtstart_timestamp: &i64, duration: &i64) -> (i64, i64) {
-        match self {
-            FilterProperty::DtStart(comparison) => (dtstart_timestamp.to_owned(),   comparison.to_owned()),
-            FilterProperty::DtEnd(comparison)   => ((dtstart_timestamp + duration), comparison.to_owned()),
-        }
-    }
-
 }
 
 #[derive(Debug, Clone)]
@@ -30,22 +13,6 @@ pub enum LowerBoundFilterCondition {
 }
 
 impl LowerBoundFilterCondition {
-
-    pub fn is_filtered(&self, dtstart_timestamp: &i64, duration: &i64) -> bool {
-        match self {
-            LowerBoundFilterCondition::GreaterThan(filter_property) => {
-                let (value, comparison) = filter_property.get_property_value(dtstart_timestamp, duration);
-
-                value > comparison
-            },
-
-            LowerBoundFilterCondition::GreaterEqualThan(filter_property) => {
-                let (value, comparison) = filter_property.get_property_value(dtstart_timestamp, duration);
-
-                value >= comparison
-            },
-        }
-    }
 
     pub fn is_dtstart_filter_property(&self) -> bool {
         matches!(
@@ -73,22 +40,6 @@ pub enum UpperBoundFilterCondition {
 
 impl UpperBoundFilterCondition {
 
-    pub fn is_filtered(&self, dtstart_timestamp: &i64, duration: &i64) -> bool {
-        match self {
-            UpperBoundFilterCondition::LessThan(filter_property) => {
-                let (value, comparison) = filter_property.get_property_value(dtstart_timestamp, duration);
-
-                value < comparison
-            },
-
-            UpperBoundFilterCondition::LessEqualThan(filter_property) => {
-                let (value, comparison) = filter_property.get_property_value(dtstart_timestamp, duration);
-
-                value <= comparison
-            },
-        }
-    }
-
     pub fn is_dtstart_filter_property(&self) -> bool {
         matches!(
             self,
@@ -109,7 +60,6 @@ impl UpperBoundFilterCondition {
 
 #[derive(Debug)]
 pub struct EventOccurrenceIterator<'a> {
-    schedule_properties:          ScheduleProperties,
     event_occurrence_overrides:   EventOccurrenceOverrides,
     rrule_set_iter:               Option<rrule::RRuleSetIter<'a>>,
     base_duration:                i64,
@@ -139,15 +89,14 @@ impl<'a> EventOccurrenceIterator<'a> {
 
         let base_duration =
             schedule_properties.get_duration()
-                           .map_err(|error| error.to_string())?
-                           .unwrap_or(0);
+                               .map_err(|error| error.to_string())?
+                               .unwrap_or(0);
 
         let count = 0u16;
         let is_ended = false;
 
         Ok(
             EventOccurrenceIterator {
-                schedule_properties:        schedule_properties.clone(),
                 event_occurrence_overrides: event_occurrence_overrides.clone(),
                 rrule_set_iter,
                 base_duration,
@@ -357,9 +306,9 @@ mod test {
 
     use crate::data_types::KeyValuePair;
 
-    use std::collections::HashSet;
+    use std::collections::{HashSet, BTreeMap};
 
-    use pretty_assertions_sorted::{assert_eq, assert_eq_sorted};
+    use pretty_assertions_sorted::assert_eq;
 
     fn build_schedule_properties() -> ScheduleProperties {
         let mut schedule_properties = ScheduleProperties {
