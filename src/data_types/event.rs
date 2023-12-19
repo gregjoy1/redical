@@ -320,27 +320,19 @@ impl IndexedProperties {
     pub fn insert(&mut self, property: ParsedProperty) -> Result<&Self, String> {
         match property {
             ParsedProperty::Geo(content) => {
-                if let ParsedValue::Pair((latitude, longitude)) = content.value {
-                    match (longitude.parse::<f64>(), latitude.parse::<f64>()) {
-                        (Ok(parsed_longitude), Ok(parsed_latitude)) => {
-                            let geo_point = GeoPoint::from(
-                                (
-                                    parsed_longitude,
-                                    parsed_latitude,
-                                )
-                            );
+                if let ParsedValue::LatLong(parsed_latitude, parsed_longitude) = content.value {
+                    let geo_point = GeoPoint::from(
+                        (
+                            parsed_longitude,
+                            parsed_latitude,
+                        )
+                    );
 
-                            geo_point.validate()?;
+                    geo_point.validate()?;
 
-                            self.geo = Some(geo_point);
+                    self.geo = Some(geo_point);
 
-                            Ok(self)
-                        },
-
-                        _ => {
-                            return Err(format!("Expected latitude, longitude. Could not parse float."));
-                        }
-                    }
+                    Ok(self)
                 } else {
                     return Err(String::from("Expected latitude, longitude"));
                 }

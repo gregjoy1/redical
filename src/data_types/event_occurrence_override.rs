@@ -163,25 +163,19 @@ impl EventOccurrenceOverride {
                             ParsedProperty::DtEnd(content)       => { new_override.dtend       = Some(content.content_line); },
 
                             ParsedProperty::Geo(content) => {
-                                if let ParsedValue::Pair((latitude, longitude)) = content.value {
-                                    match (longitude.parse::<f64>(), latitude.parse::<f64>()) {
-                                        (Ok(parsed_longitude), Ok(parsed_latitude)) => {
-                                            let geo_point = GeoPoint::from(
-                                                (
-                                                    parsed_longitude,
-                                                    parsed_latitude,
-                                                )
-                                            );
+                                if let ParsedValue::LatLong(parsed_latitude, parsed_longitude) = content.value {
+                                    let geo_point = GeoPoint::from(
+                                        (
+                                            parsed_longitude,
+                                            parsed_latitude,
+                                        )
+                                    );
 
-                                            geo_point.validate()?;
+                                    geo_point.validate()?;
 
-                                            new_override.geo = Some(geo_point);
-                                        },
-
-                                        _ => {
-                                            return Err(format!("Expected latitude, longitude. Could not parse float."));
-                                        }
-                                    }
+                                    new_override.geo = Some(geo_point);
+                                } else {
+                                    return Err(String::from("Expected latitude, longitude"));
                                 }
                             },
 

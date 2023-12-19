@@ -42,7 +42,6 @@ pub struct ParsedPropertyContent<'a> {
 pub enum ParsedValue<'a> {
     List(Vec<&'a str>),
     Single(&'a str),
-    Pair((&'a str, &'a str)),
     LatLong(f64, f64),
     GeoDistance(GeoDistance),
     Params(HashMap<&'a str, ParsedValue<'a>>),

@@ -500,15 +500,13 @@ fn parse_geo_property_content(input: &str) -> ParserResult<&str, ical_common::Pa
                 tuple(
                     (
                         ical_common::colon_delimeter,
-                        recognize_float,
-                        ical_common::semicolon_delimeter,
-                        recognize_float,
+                        ical_common::ParsedValue::parse_lat_long,
                     )
                 )
             )
         )
     )(input).map(
-        |(remaining, (_colon_delimeter, parsed_latitude, _semicolon_delimeter, parsed_longitude))| {
+        |(remaining, (_colon_delimeter, parsed_latitude_longitude))| {
             let parsed_content_line =
                 ical_common::consumed_input_string(
                     input,
@@ -516,12 +514,10 @@ fn parse_geo_property_content(input: &str) -> ParserResult<&str, ical_common::Pa
                     "GEO"
                 );
 
-            let parsed_value_pair = ical_common::ParsedValue::Pair((parsed_latitude, parsed_longitude));
-
             let parsed_property = ical_common::ParsedPropertyContent {
                 name: Some("GEO"),
                 params: None,
-                value: parsed_value_pair,
+                value: parsed_latitude_longitude,
                 content_line: parsed_content_line
             };
 
@@ -624,11 +620,9 @@ mod test {
                     ical_common::ParsedPropertyContent {
                         name: Some("GEO"),
                         params: None,
-                        value: ical_common::ParsedValue::Pair(
-                            (
-                                "37.386013",
-                                "-122.082932",
-                            )
+                        value: ical_common::ParsedValue::LatLong(
+                            37.386013,
+                            -122.082932,
                         ),
                         content_line: KeyValuePair::new(
                             String::from("GEO"),
