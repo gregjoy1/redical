@@ -73,14 +73,11 @@ impl EventOccurrenceOverride {
                             ParsedProperty::Categories(content)  => {
                                 let mut categories: HashSet<String> = HashSet::new();
 
-                                match content.value {
-                                    ParsedValue::List(list) => {
-                                        list.iter().for_each(|category| {
-                                            categories.insert(String::from(*category));
-                                        });
-                                    },
-                                    _ => {}
-                                };
+                                if let ParsedValue::List(list) = content.value {
+                                    list.iter().for_each(|category| {
+                                        categories.insert(String::from(*category));
+                                    });
+                                }
 
                                 new_override.categories = Some(categories);
                             },

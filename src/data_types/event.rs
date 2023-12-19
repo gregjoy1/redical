@@ -4,9 +4,6 @@ use rrule::{RRuleSet, RRuleError};
 
 use serde::{Serialize, Deserialize};
 
-use chrono::prelude::*;
-use chrono::{DateTime, Utc, Months, Days};
-
 use crate::parsers::ical_properties::{parse_properties, ParsedProperty};
 use crate::parsers::ical_common::ParsedValue;
 
@@ -629,17 +626,6 @@ impl Event {
 
         Ok(self)
     }
-
-    fn get_max_datetime(&self) -> DateTime<Utc> {
-        // TODO: Get max extrapolation window from redis module config.
-        Utc::now().checked_add_months(Months::new(12))
-                  .and_then(|date_time| date_time.checked_add_days(Days::new(1)))
-                  .and_then(|date_time| date_time.with_hour(0))
-                  .and_then(|date_time| date_time.with_minute(0))
-                  .and_then(|date_time| date_time.with_second(0))
-                  .and_then(|date_time| date_time.with_nanosecond(0))
-                  .unwrap()
-    }
 }
 
 #[cfg(test)]
@@ -648,7 +634,7 @@ mod test {
 
     use crate::data_types::IndexedConclusion;
 
-    use crate::data_types::utils::{UpdatedSetMembers, UpdatedAttribute};
+    use crate::data_types::utils::UpdatedSetMembers;
 
     use std::collections::BTreeMap;
 
@@ -1245,7 +1231,9 @@ mod test {
     fn test_related_to() {
         let ical: &str = "RELATED-TO:ParentUUID_One RELATED-TO;RELTYPE=PARENT:ParentUUID_Two RELATED-TO;RELTYPE=CHILD:ChildUUID";
 
-        let parsed_event = Event::parse_ical("event_UUID", ical).unwrap();
+        assert!(
+            Event::parse_ical("event_UUID", ical).is_ok()
+        );
 
         let ical: &str = "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_One,redical//IndexedCalendar_Two RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Three,redical//IndexedCalendar_Two RELATED-TO:ParentUUID_One RELATED-TO;RELTYPE=PARENT:ParentUUID_Two RELATED-TO;RELTYPE=CHILD:ChildUUID";
 
