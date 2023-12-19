@@ -1,4 +1,3 @@
-mod event_data_type;
 mod event;
 mod event_diff;
 mod event_instance;
@@ -10,7 +9,6 @@ mod calendar_data_type;
 mod calendar;
 mod utils;
 
-pub use event_data_type::*;
 pub use event::*;
 pub use event_instance::*;
 pub use event_diff::*;

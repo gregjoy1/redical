@@ -9,7 +9,7 @@ mod serializers;
 #[cfg(test)]
 mod testing;
 
-use data_types::{EVENT_DATA_TYPE, CALENDAR_DATA_TYPE};
+use data_types::CALENDAR_DATA_TYPE;
 
 fn on_event(ctx: &Context, event_type: NotifyEvent, event: &str, key: &[u8]) {
     ctx.log_notice(
@@ -58,7 +58,6 @@ redis_module! {
     version:    MODULE_VERSION,
     allocator:  (RedicalAlloc, RedicalAlloc),
     data_types: [
-        EVENT_DATA_TYPE,
         CALENDAR_DATA_TYPE
     ],
     commands:   [
