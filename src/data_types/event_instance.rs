@@ -238,7 +238,7 @@ impl<'a> Iterator for EventInstanceIterator<'a> {
 mod test {
     use super::*;
 
-    use crate::data_types::{PassiveProperties, IndexedProperties, ScheduleProperties, EventOccurrenceOverrides};
+    use crate::data_types::{PassiveProperties, IndexedProperties, ScheduleProperties};
 
 
     use pretty_assertions_sorted::{assert_eq, assert_eq_sorted};
@@ -378,7 +378,7 @@ mod test {
             ],
         );
 
-        let Some(event_occurrence_override) = event.overrides.current.get(&1609439400) else {
+        let Some(event_occurrence_override) = event.overrides.get(&1609439400) else {
             panic!("Expected event to have an occurrence...");
         };
 

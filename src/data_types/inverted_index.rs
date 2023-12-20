@@ -197,7 +197,7 @@ where
             }
         }
 
-        for (timestamp, event_override) in event.overrides.current.iter() {
+        for (timestamp, event_override) in event.overrides.iter() {
             if let Some(override_categories_set) = &event_override.categories {
                 indexed_categories.insert_override(timestamp.clone(), &override_categories_set);
             }
@@ -221,7 +221,7 @@ where
             }
         }
 
-        for (timestamp, event_override) in event.overrides.current.iter() {
+        for (timestamp, event_override) in event.overrides.iter() {
             if let Some(override_related_to_set) = &event_override.build_override_related_to_set() {
                 indexed_related_to.insert_override(timestamp.clone(), &override_related_to_set);
             }
@@ -240,7 +240,7 @@ where
             indexed_geo.insert(geo_point);
         }
 
-        for (timestamp, event_override) in event.overrides.current.iter() {
+        for (timestamp, event_override) in event.overrides.iter() {
             if let Some(overridden_geo) = &event_override.geo {
                 indexed_geo.insert_override(timestamp.clone(), &HashSet::from([overridden_geo.clone()]));
             }

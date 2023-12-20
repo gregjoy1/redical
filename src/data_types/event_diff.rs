@@ -133,7 +133,7 @@ mod test {
 
     use std::collections::{HashMap, BTreeSet, BTreeMap};
 
-    use crate::data_types::{ScheduleProperties, IndexedProperties, PassiveProperties, EventOccurrenceOverrides, KeyValuePair};
+    use crate::data_types::{ScheduleProperties, IndexedProperties, PassiveProperties, EventOccurrenceOverride, KeyValuePair};
 
     #[test]
     fn test_event_diff() {
@@ -236,10 +236,7 @@ mod test {
                 ])
             },
 
-            overrides: EventOccurrenceOverrides {
-                detached: BTreeMap::new(),
-                current:  BTreeMap::new(),
-            },
+            overrides:          BTreeMap::new(),
             indexed_categories: None,
             indexed_related_to: None,
             indexed_geo:        None,
@@ -367,10 +364,7 @@ mod test {
                 ])
             },
 
-            overrides: EventOccurrenceOverrides {
-                detached: BTreeMap::new(),
-                current:  BTreeMap::new(),
-            },
+            overrides:          BTreeMap::new(),
             indexed_categories: None,
             indexed_related_to: None,
             indexed_geo:        None,
@@ -390,7 +384,7 @@ mod test {
                     UpdatedSetMembers {
                         removed:    HashSet::from([
                                         KeyValuePair::new(String::from("X-IDX-CAL"), String::from("indexed_calendar_UUID")),
-                                        KeyValuePair::new(String::from("PARENT"), String::from("another_event_UUID")),
+                                        KeyValuePair::new(String::from("PARENT"),    String::from("another_event_UUID")),
                         ]),
                         maintained: HashSet::new(),
                         added:      HashSet::new()

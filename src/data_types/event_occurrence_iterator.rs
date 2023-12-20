@@ -1,4 +1,5 @@
-use crate::data_types::{ScheduleProperties, EventOccurrenceOverride, EventOccurrenceOverrides, IndexedConclusion};
+use crate::data_types::{ScheduleProperties, EventOccurrenceOverride, IndexedConclusion};
+use std::collections::BTreeMap;
 
 #[derive(Debug, Clone)]
 pub enum FilterProperty {
@@ -60,7 +61,7 @@ impl UpperBoundFilterCondition {
 
 #[derive(Debug)]
 pub struct EventOccurrenceIterator<'a> {
-    event_occurrence_overrides:   EventOccurrenceOverrides,
+    event_occurrence_overrides:   BTreeMap<i64, EventOccurrenceOverride>,
     rrule_set_iter:               Option<rrule::RRuleSetIter<'a>>,
     base_duration:                i64,
     limit:                        Option<u16>,
@@ -75,7 +76,7 @@ impl<'a> EventOccurrenceIterator<'a> {
 
     pub fn new(
         schedule_properties:          &'a ScheduleProperties,
-        event_occurrence_overrides:   &'a EventOccurrenceOverrides,
+        event_occurrence_overrides:   &'a BTreeMap<i64, EventOccurrenceOverride>,
         limit:                        Option<u16>,
         filter_from:                  Option<LowerBoundFilterCondition>,
         filter_until:                 Option<UpperBoundFilterCondition>,
@@ -262,7 +263,7 @@ impl<'a> Iterator for EventOccurrenceIterator<'a> {
                     }
                 }
 
-                let event_occurrenece_override = self.event_occurrence_overrides.current.get(&dtstart_timestamp);
+                let event_occurrenece_override = self.event_occurrence_overrides.get(&dtstart_timestamp);
 
                 if let Some(event_occurrenece_override) = event_occurrenece_override {
                     duration =
@@ -400,16 +401,13 @@ mod test {
         }
     }
 
-    fn build_event_occurrence_overrides() -> EventOccurrenceOverrides {
-        EventOccurrenceOverrides {
-            detached: BTreeMap::new(),
-            current:  BTreeMap::from([
-                (300, build_event_occurrence_override_300()),
-                (500, build_event_occurrence_override_500()),
-                (700, build_event_occurrence_override_700()),
-                (900, build_event_occurrence_override_900()),
-            ])
-        }
+    fn build_event_occurrence_overrides() -> BTreeMap<i64, EventOccurrenceOverride> {
+        BTreeMap::from([
+            (300, build_event_occurrence_override_300()),
+            (500, build_event_occurrence_override_500()),
+            (700, build_event_occurrence_override_700()),
+            (900, build_event_occurrence_override_900()),
+        ])
     }
 
     // This aims to achieve the following:

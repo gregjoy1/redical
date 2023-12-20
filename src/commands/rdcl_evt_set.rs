@@ -1,6 +1,6 @@
 use redis_module::{Context, NextArg, RedisResult, RedisString, RedisError};
 
-use crate::data_types::{CALENDAR_DATA_TYPE, Event, Calendar, CalendarIndexUpdater, EventDiff, InvertedEventIndex};
+use crate::data_types::{CALENDAR_DATA_TYPE, Event, Calendar, CalendarIndexUpdater, EventDiff, InvertedEventIndex, rebase_overrides};
 
 pub fn redical_event_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     // TODO: Add option to "rebase" overrides against changes, i.e. add/remove all
@@ -45,7 +45,7 @@ pub fn redical_event_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
 
         event.overrides = existing_event.overrides.clone();
 
-        event.overrides.rebase_overrides(&event_diff).map_err(|error| RedisError::String(error.to_string()))?;
+        rebase_overrides(&mut event.overrides, &event_diff).map_err(|error| RedisError::String(error.to_string()))?;
     }
 
     event.schedule_properties

@@ -20,116 +20,98 @@ use crate::data_types::event_diff::EventDiff;
 
 use crate::data_types::utils::KeyValuePair;
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct EventOccurrenceOverrides {
-    pub detached: BTreeMap<i64, EventOccurrenceOverride>,
-    pub current:  BTreeMap<i64, EventOccurrenceOverride>,
+
+// Rebase all overrides with added/removed EventDiff properties.
+//
+// This is when an existing event with overrides is updated, and we want to update all the base
+// categories/related_to/properties on each one.
+//
+// If we don't do this, then when we update an existing event to have an additional category,
+// each overridden occurrence with not include that category.
+//
+// TODO: Look into storing diffs in the overrides as opposed to the current state of all overridden properties.
+pub fn rebase_overrides(overrides: &mut BTreeMap<i64, EventOccurrenceOverride>, event_diff: &EventDiff) -> Result<(), String> {
+    for (_timestamp, event_occurrence_override) in overrides.iter_mut() {
+        rebase_override(event_occurrence_override, event_diff);
+    }
+
+    Ok(())
 }
 
-impl EventOccurrenceOverrides {
-    pub fn new() -> EventOccurrenceOverrides {
-        EventOccurrenceOverrides {
-            detached: BTreeMap::new(),
-            current:  BTreeMap::new(),
-        }
+// Rebase specified override with added/removed EventDiff properties.
+fn rebase_override(event_occurrence_override: &mut EventOccurrenceOverride, event_diff: &EventDiff) {
+    if let Some(indexed_categories) = &event_diff.indexed_categories {
+        match event_occurrence_override.categories.as_mut() {
+            Some(overridden_categories) => {
+                for removed_category in indexed_categories.removed.iter() {
+                    overridden_categories.remove(removed_category);
+                }
+
+                for added_category in indexed_categories.added.iter() {
+                    overridden_categories.insert(added_category.clone());
+                }
+            },
+
+            None => {
+                event_occurrence_override.categories = Some(
+                    indexed_categories.added.clone()
+                );
+            }
+        };
     }
 
-    // Rebase all detached and current overrides with added/removed EventDiff properties.
-    //
-    // This is when an existing event with overrides is updated, and we want to update all the base
-    // categories/related_to/properties on each one.
-    //
-    // If we don't do this, then when we update an existing event to have an additional category,
-    // each overridden occurrence with not include that category.
-    //
-    // TODO: Look into storing diffs in the overrides as opposed to the current state of all overridden properties.
-    pub fn rebase_overrides(&mut self, event_diff: &EventDiff) -> Result<&Self, String> {
-        for (_timestamp, event_occurrence_override) in self.current.iter_mut() {
-            Self::rebase_override(event_occurrence_override, event_diff);
-        }
+    if let Some(indexed_related_to) = &event_diff.indexed_related_to {
+        match event_occurrence_override.related_to.as_mut() {
+            Some(overridden_related_to) => {
+                for removed_reltype_uuid_pair in indexed_related_to.removed.iter() {
+                    if let Some(reltype_uuids) = overridden_related_to.get_mut(&removed_reltype_uuid_pair.key) {
+                        reltype_uuids.remove(&removed_reltype_uuid_pair.value);
+                    }
+                }
 
-        for (_timestamp, event_occurrence_override) in self.detached.iter_mut() {
-            Self::rebase_override(event_occurrence_override, event_diff);
-        }
+                for added_reltype_uuid_pair in indexed_related_to.added.iter() {
+                    overridden_related_to.entry(added_reltype_uuid_pair.key.clone())
+                                         .and_modify(|reltype_uuids| { reltype_uuids.insert(added_reltype_uuid_pair.value.clone()); })
+                                         .or_insert(HashSet::from([added_reltype_uuid_pair.value.clone()]));
+                }
+            },
 
-        Ok(self)
+            None => {
+                let mut overridden_related_to = HashMap::new();
+
+                for added_reltype_uuid_pair in indexed_related_to.added.iter() {
+                    overridden_related_to.entry(added_reltype_uuid_pair.key.clone())
+                                         .and_modify(|reltype_uuids: &mut HashSet<String>| { reltype_uuids.insert(added_reltype_uuid_pair.value.clone()); })
+                                         .or_insert(HashSet::from([added_reltype_uuid_pair.value.clone()]));
+                }
+
+                event_occurrence_override.related_to = Some(overridden_related_to);
+            }
+        };
     }
 
-    // Rebase specified override with added/removed EventDiff properties.
-    fn rebase_override(event_occurrence_override: &mut EventOccurrenceOverride, event_diff: &EventDiff) {
-        if let Some(indexed_categories) = &event_diff.indexed_categories {
-            match event_occurrence_override.categories.as_mut() {
-                Some(overridden_categories) => {
-                    for removed_category in indexed_categories.removed.iter() {
-                        overridden_categories.remove(removed_category);
-                    }
-
-                    for added_category in indexed_categories.added.iter() {
-                        overridden_categories.insert(added_category.clone());
-                    }
-                },
-
-                None => {
-                    event_occurrence_override.categories = Some(
-                        indexed_categories.added.clone()
-                    );
+    if let Some(indexed_passive_properties) = &event_diff.passive_properties {
+        match event_occurrence_override.properties.as_mut() {
+            Some(overridden_passive_properties) => {
+                for removed_property_pair in indexed_passive_properties.removed.iter() {
+                    overridden_passive_properties.remove(&removed_property_pair);
                 }
-            };
-        }
 
-        if let Some(indexed_related_to) = &event_diff.indexed_related_to {
-            match event_occurrence_override.related_to.as_mut() {
-                Some(overridden_related_to) => {
-                    for removed_reltype_uuid_pair in indexed_related_to.removed.iter() {
-                        if let Some(reltype_uuids) = overridden_related_to.get_mut(&removed_reltype_uuid_pair.key) {
-                            reltype_uuids.remove(&removed_reltype_uuid_pair.value);
-                        }
-                    }
-
-                    for added_reltype_uuid_pair in indexed_related_to.added.iter() {
-                        overridden_related_to.entry(added_reltype_uuid_pair.key.clone())
-                                             .and_modify(|reltype_uuids| { reltype_uuids.insert(added_reltype_uuid_pair.value.clone()); })
-                                             .or_insert(HashSet::from([added_reltype_uuid_pair.value.clone()]));
-                    }
-                },
-
-                None => {
-                    let mut overridden_related_to = HashMap::new();
-
-                    for added_reltype_uuid_pair in indexed_related_to.added.iter() {
-                        overridden_related_to.entry(added_reltype_uuid_pair.key.clone())
-                                             .and_modify(|reltype_uuids: &mut HashSet<String>| { reltype_uuids.insert(added_reltype_uuid_pair.value.clone()); })
-                                             .or_insert(HashSet::from([added_reltype_uuid_pair.value.clone()]));
-                    }
-
-                    event_occurrence_override.related_to = Some(overridden_related_to);
+                for added_property_pair in indexed_passive_properties.added.iter() {
+                    overridden_passive_properties.insert(added_property_pair.clone());
                 }
-            };
-        }
+            },
 
-        if let Some(indexed_passive_properties) = &event_diff.passive_properties {
-            match event_occurrence_override.properties.as_mut() {
-                Some(overridden_passive_properties) => {
-                    for removed_property_pair in indexed_passive_properties.removed.iter() {
-                        overridden_passive_properties.remove(&removed_property_pair);
-                    }
-
-                    for added_property_pair in indexed_passive_properties.added.iter() {
-                        overridden_passive_properties.insert(added_property_pair.clone());
-                    }
-                },
-
-                None => {
-                    event_occurrence_override.properties = Some(
-                        BTreeSet::from_iter(
-                            indexed_passive_properties.added
-                                                      .iter()
-                                                      .map(|added_key_value_pair| added_key_value_pair.clone())
-                        )
-                    );
-                }
-            };
-        }
+            None => {
+                event_occurrence_override.properties = Some(
+                    BTreeSet::from_iter(
+                        indexed_passive_properties.added
+                                                  .iter()
+                                                  .map(|added_key_value_pair| added_key_value_pair.clone())
+                    )
+                );
+            }
+        };
     }
 }
 
@@ -463,7 +445,7 @@ pub struct Event {
 
     pub passive_properties:  PassiveProperties,
 
-    pub overrides:           EventOccurrenceOverrides,
+    pub overrides:           BTreeMap<i64, EventOccurrenceOverride>,
     pub indexed_categories:  Option<InvertedEventIndex<String>>,
     pub indexed_related_to:  Option<InvertedEventIndex<KeyValuePair>>,
     pub indexed_geo:         Option<InvertedEventIndex<GeoPoint>>,
@@ -479,7 +461,7 @@ impl Event {
 
             passive_properties:  PassiveProperties::new(),
 
-            overrides:           EventOccurrenceOverrides::new(),
+            overrides:           BTreeMap::new(),
             indexed_categories:  None,
             indexed_related_to:  None,
             indexed_geo:         None,
@@ -556,7 +538,7 @@ impl Event {
     }
 
     pub fn override_occurrence(&mut self, timestamp: i64, event_occurrence_override: &EventOccurrenceOverride) -> Result<&Self, String> {
-        self.overrides.current.insert(timestamp, event_occurrence_override.clone());
+        self.overrides.insert(timestamp, event_occurrence_override.clone());
 
         if let Some(ref mut indexed_categories) = self.indexed_categories {
 
@@ -593,7 +575,7 @@ impl Event {
 
     pub fn remove_occurrence_override(&mut self, timestamp: i64) -> Result<&Self, String> {
 
-        self.overrides.current.remove(&timestamp);
+        self.overrides.remove(&timestamp);
 
         if let Some(ref mut indexed_categories) = self.indexed_categories {
             indexed_categories.remove_override(timestamp);
@@ -659,98 +641,95 @@ mod test {
                 properties: BTreeSet::new()
             },
 
-            overrides: EventOccurrenceOverrides {
-                detached: BTreeMap::new(),
-                current:  BTreeMap::from(
-                    [
-                        // Override 100 has all event categories plus CATEGORY_FOUR
-                        (
-                            100,
-                            EventOccurrenceOverride {
-                                geo:         None,
-                                properties:  None,
-                                categories:  Some(
-                                    HashSet::from([
-                                        String::from("CATEGORY_ONE"),
-                                        String::from("CATEGORY_TWO"),
-                                        String::from("CATEGORY_THREE"),
-                                        String::from("CATEGORY_FOUR"),
-                                    ])
-                                ),
-                                duration:    None,
-                                dtstart:     None,
-                                dtend:       None,
-                                related_to:  None
-                            }
-                        ),
+            overrides: BTreeMap::from(
+                [
+                    // Override 100 has all event categories plus CATEGORY_FOUR
+                    (
+                        100,
+                        EventOccurrenceOverride {
+                            geo:         None,
+                            properties:  None,
+                            categories:  Some(
+                                HashSet::from([
+                                    String::from("CATEGORY_ONE"),
+                                    String::from("CATEGORY_TWO"),
+                                    String::from("CATEGORY_THREE"),
+                                    String::from("CATEGORY_FOUR"),
+                                ])
+                            ),
+                            duration:    None,
+                            dtstart:     None,
+                            dtend:       None,
+                            related_to:  None
+                        }
+                    ),
 
-                        // Override 200 has only some event categories (missing CATEGORY_THREE)
-                        (
-                            200,
-                            EventOccurrenceOverride {
-                                geo:         None,
-                                properties:  None,
-                                categories:  Some(
-                                    HashSet::from([
-                                        String::from("CATEGORY_ONE"),
-                                        String::from("CATEGORY_TWO"),
-                                    ])
-                                ),
-                                duration:    None,
-                                dtstart:     None,
-                                dtend:       None,
-                                related_to:  None
-                            }
-                        ),
+                    // Override 200 has only some event categories (missing CATEGORY_THREE)
+                    (
+                        200,
+                        EventOccurrenceOverride {
+                            geo:         None,
+                            properties:  None,
+                            categories:  Some(
+                                HashSet::from([
+                                    String::from("CATEGORY_ONE"),
+                                    String::from("CATEGORY_TWO"),
+                                ])
+                            ),
+                            duration:    None,
+                            dtstart:     None,
+                            dtend:       None,
+                            related_to:  None
+                        }
+                    ),
 
-                        // Override 300 has no overridden categories
-                        (
-                            300,
-                            EventOccurrenceOverride {
-                                geo:         None,
-                                properties:  None,
-                                categories:  None,
-                                duration:    None,
-                                dtstart:     None,
-                                dtend:       None,
-                                related_to:  None
-                            }
-                        ),
+                    // Override 300 has no overridden categories
+                    (
+                        300,
+                        EventOccurrenceOverride {
+                            geo:         None,
+                            properties:  None,
+                            categories:  None,
+                            duration:    None,
+                            dtstart:     None,
+                            dtend:       None,
+                            related_to:  None
+                        }
+                    ),
 
-                        // Override 400 has removed all categories
-                        (
-                            400,
-                            EventOccurrenceOverride {
-                                geo:         None,
-                                properties:  None,
-                                categories:  Some(HashSet::new()),
-                                duration:    None,
-                                dtstart:     None,
-                                dtend:       None,
-                                related_to:  None
-                            }
-                        ),
+                    // Override 400 has removed all categories
+                    (
+                        400,
+                        EventOccurrenceOverride {
+                            geo:         None,
+                            properties:  None,
+                            categories:  Some(HashSet::new()),
+                            duration:    None,
+                            dtstart:     None,
+                            dtend:       None,
+                            related_to:  None
+                        }
+                    ),
 
-                        // Override 500 has no base event categories, but does have CATEGORY_FOUR
-                        (
-                            500,
-                            EventOccurrenceOverride {
-                                geo:         None,
-                                properties:  None,
-                                categories:  Some(
-                                    HashSet::from([
-                                        String::from("CATEGORY_FOUR"),
-                                    ])
-                                ),
-                                duration:    None,
-                                dtstart:     None,
-                                dtend:       None,
-                                related_to:  None
-                            }
-                        ),
-                    ]
-                ),
-            },
+                    // Override 500 has no base event categories, but does have CATEGORY_FOUR
+                    (
+                        500,
+                        EventOccurrenceOverride {
+                            geo:         None,
+                            properties:  None,
+                            categories:  Some(
+                                HashSet::from([
+                                    String::from("CATEGORY_FOUR"),
+                                ])
+                            ),
+                            duration:    None,
+                            dtstart:     None,
+                            dtend:       None,
+                            related_to:  None
+                        }
+                    ),
+                ]
+            ),
             indexed_categories: None,
             indexed_related_to: None,
             indexed_geo:        None,
@@ -929,7 +908,7 @@ mod test {
                                 ])
                 },
 
-                overrides:           EventOccurrenceOverrides::new(),
+                overrides:           BTreeMap::new(),
                 indexed_categories:  None,
                 indexed_related_to:  None,
                 indexed_geo:         None,
@@ -973,7 +952,7 @@ mod test {
 
                 passive_properties:  PassiveProperties::new(),
 
-                overrides:           EventOccurrenceOverrides::new(),
+                overrides:           BTreeMap::new(),
                 indexed_categories:  None,
                 indexed_related_to:  None,
                 indexed_geo:         None,
@@ -1011,7 +990,7 @@ mod test {
 
                 passive_properties:  PassiveProperties::new(),
 
-                overrides:           EventOccurrenceOverrides::new(),
+                overrides:           BTreeMap::new(),
                 indexed_categories:  None,
                 indexed_geo:         None,
                 indexed_related_to:  None,
@@ -1081,36 +1060,33 @@ mod test {
 
                     passive_properties:  PassiveProperties::new(),
 
-                    overrides:           EventOccurrenceOverrides {
-                        detached: BTreeMap::new(),
-                        current:  BTreeMap::from([
-                            (
-                                1610476200,
-                                EventOccurrenceOverride {
-                                    geo:         None,
-                                    properties:  Some(
-                                        BTreeSet::from([
-                                            KeyValuePair::new(
-                                                String::from("DESCRIPTION"),
-                                                String::from(";ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA")
-                                            )
-                                        ])
-                                    ),
-                                    categories:  Some(
-                                        HashSet::from([
-                                            String::from("CATEGORY_ONE"),
-                                            String::from("CATEGORY_TWO"),
-                                            String::from("CATEGORY_THREE")
-                                        ])
-                                    ),
-                                    duration:    None,
-                                    dtstart:     None,
-                                    dtend:       None,
-                                    related_to:  None
-                                }
-                            )
-                        ]),
-                    },
+                    overrides:           BTreeMap::from([
+                        (
+                            1610476200,
+                            EventOccurrenceOverride {
+                                geo:         None,
+                                properties:  Some(
+                                    BTreeSet::from([
+                                        KeyValuePair::new(
+                                            String::from("DESCRIPTION"),
+                                            String::from(";ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA")
+                                        )
+                                    ])
+                                ),
+                                categories:  Some(
+                                    HashSet::from([
+                                        String::from("CATEGORY_ONE"),
+                                        String::from("CATEGORY_TWO"),
+                                        String::from("CATEGORY_THREE")
+                                    ])
+                                ),
+                                duration:    None,
+                                dtstart:     None,
+                                dtend:       None,
+                                related_to:  None
+                            }
+                        )
+                    ]),
                     indexed_categories:  Some(
                         InvertedEventIndex {
                             terms: HashMap::from([
@@ -1174,10 +1150,7 @@ mod test {
 
                     passive_properties:  PassiveProperties::new(),
 
-                    overrides:           EventOccurrenceOverrides {
-                        detached: BTreeMap::new(),
-                        current:  BTreeMap::new(),
-                    },
+                    overrides:           BTreeMap::new(),
                     indexed_categories:  Some(
                         InvertedEventIndex {
                             terms: HashMap::new()
@@ -1258,7 +1231,7 @@ mod test {
 
                 passive_properties:  PassiveProperties::new(),
 
-                overrides:           EventOccurrenceOverrides::new(),
+                overrides:           BTreeMap::new(),
                 indexed_categories:  None,
                 indexed_related_to:  None,
                 indexed_geo:         None,
@@ -1269,22 +1242,20 @@ mod test {
     #[test]
     fn test_event_occurrence_overrides_rebase_overrides() {
 
-        let mut event_occurrence_overrides = EventOccurrenceOverrides {
-            detached: BTreeMap::from([
-                          (
-                              1610476300,
-                              EventOccurrenceOverride {
-                                  geo:         None,
-                                  properties:  None,
-                                  categories:  None,
-                                  duration:    None,
-                                  dtstart:     None,
-                                  dtend:       None,
-                                  related_to:  None,
-                              }
-                          )
-            ]),
-            current:  BTreeMap::from([
+        let mut event_occurrence_overrides =
+            BTreeMap::from([
+                (
+                    1610476300,
+                    EventOccurrenceOverride {
+                        geo:         None,
+                        properties:  None,
+                        categories:  None,
+                        duration:    None,
+                        dtstart:     None,
+                        dtend:       None,
+                        related_to:  None,
+                    }
+                ),
                 (
                     1610476200,
                     EventOccurrenceOverride {
@@ -1311,38 +1282,37 @@ mod test {
                                     String::from(":PROPERTY_VALUE_TWO"),
                                 ),
                             ])
-                                ),
-                                categories:  Some(
+                        ),
+                        categories:  Some(
+                            HashSet::from([
+                                String::from("CATEGORY_ONE"),
+                                String::from("CATEGORY_TWO"),
+                            ])
+                        ),
+                        duration:    None,
+                        dtstart:     None,
+                        dtend:       None,
+                        related_to:  Some(
+                            HashMap::from([
+                                (
+                                    String::from("PARENT"),
                                     HashSet::from([
-                                        String::from("CATEGORY_ONE"),
-                                        String::from("CATEGORY_TWO"),
+                                        String::from("PARENT_UUID_ONE"),
+                                        String::from("PARENT_UUID_TWO"),
                                     ])
                                 ),
-                                duration:    None,
-                                dtstart:     None,
-                                dtend:       None,
-                                related_to:  Some(
-                                    HashMap::from([
-                                        (
-                                            String::from("PARENT"),
-                                            HashSet::from([
-                                                String::from("PARENT_UUID_ONE"),
-                                                String::from("PARENT_UUID_TWO"),
-                                            ])
-                                        ),
-                                        (
-                                            String::from("CHILD"),
-                                            HashSet::from([
-                                                String::from("CHILD_UUID_ONE"),
-                                                String::from("CHILD_UUID_TWO"),
-                                            ])
-                                        )
+                                (
+                                    String::from("CHILD"),
+                                    HashSet::from([
+                                        String::from("CHILD_UUID_ONE"),
+                                        String::from("CHILD_UUID_TWO"),
                                     ])
                                 )
+                            ])
+                        )
                     }
                 )
-            ])
-        };
+            ]);
 
         let event_diff = EventDiff {
             indexed_categories:  Some(
@@ -1354,14 +1324,16 @@ mod test {
             ),
             indexed_related_to:  Some(
                 UpdatedSetMembers {
-                    removed:    HashSet::from([KeyValuePair::new(String::from("PARENT"), String::from("PARENT_UUID_ONE"))]),
+                    removed:    HashSet::from([
+                                    KeyValuePair::new(String::from("PARENT"), String::from("PARENT_UUID_ONE"))
+                    ]),
                     maintained: HashSet::from([
-                            KeyValuePair::new(String::from("PARENT"), String::from("PARENT_UUID_TWO")),
-                            KeyValuePair::new(String::from("CHILD"), String::from("CHILD_UUID_ONE")),
-                            KeyValuePair::new(String::from("CHILD"), String::from("CHILD_UUID_TWO")),
+                                    KeyValuePair::new(String::from("PARENT"), String::from("PARENT_UUID_TWO")),
+                                    KeyValuePair::new(String::from("CHILD"), String::from("CHILD_UUID_ONE")),
+                                    KeyValuePair::new(String::from("CHILD"), String::from("CHILD_UUID_TWO")),
                     ]),
                     added:      HashSet::from([
-                        KeyValuePair::new(String::from("X-IDX-CAL"), String::from("INDEXED_CALENDAR_UUID")),
+                                    KeyValuePair::new(String::from("X-IDX-CAL"), String::from("INDEXED_CALENDAR_UUID")),
                     ])
                 }
             ),
@@ -1404,110 +1376,108 @@ mod test {
         // * Missing overrides properties marked as removed in the event diff are silently ignored
         // * Existing overrides properties marked as added in the event diff are silently ignored
         // * It applies the diff to the event overrides.
+        assert!(
+            rebase_overrides(&mut event_occurrence_overrides, &event_diff).is_ok()
+        );
+
         assert_eq_sorted!(
-            event_occurrence_overrides.rebase_overrides(&event_diff),
-            Ok(
-                &EventOccurrenceOverrides {
-                    detached: BTreeMap::from([
-                        (
-                            1610476300,
-                            EventOccurrenceOverride {
-                                geo:        None,
-                                properties: Some(
-                                    BTreeSet::from([
-                                        KeyValuePair::new(
-                                            String::from("X-PROPERTY-THREE"),
-                                            String::from(":PROPERTY_VALUE_ONE"),
-                                        )
-                                    ])
-                                ),
-                                categories:  Some(
-                                    HashSet::from([
-                                        String::from("CATEGORY_FOUR"),
-                                    ])
-                                ),
-                                duration:    None,
-                                dtstart:     None,
-                                dtend:       None,
-                                related_to:  Some(
-                                    HashMap::from([
-                                        (
-                                            String::from("X-IDX-CAL"),
-                                            HashSet::from([
-                                                String::from("INDEXED_CALENDAR_UUID"),
-                                            ])
-                                        ),
-                                    ])
+            event_occurrence_overrides,
+            BTreeMap::from([
+                (
+                    1610476300,
+                    EventOccurrenceOverride {
+                        geo:        None,
+                        properties: Some(
+                            BTreeSet::from([
+                                KeyValuePair::new(
+                                    String::from("X-PROPERTY-THREE"),
+                                    String::from(":PROPERTY_VALUE_ONE"),
                                 )
-                            }
-                        )
-                    ]),
-                    current:  BTreeMap::from([
-                        (
-                            1610476200,
-                            EventOccurrenceOverride {
-                                geo:        None,
-                                properties: Some(
-                                    BTreeSet::from([
-                                        KeyValuePair::new(
-                                            String::from("X-PROPERTY-ONE"),
-                                            String::from(":PROPERTY_VALUE_ONE"),
-                                        ),
-
-                                        KeyValuePair::new(
-                                            String::from("X-PROPERTY-ONE"),
-                                            String::from(":PROPERTY_VALUE_TWO"),
-                                        ),
-
-                                        KeyValuePair::new(
-                                            String::from("X-PROPERTY-THREE"),
-                                            String::from(":PROPERTY_VALUE_ONE"),
-                                        ),
-
-                                        KeyValuePair::new(
-                                            String::from("X-PROPERTY-TWO"),
-                                            String::from(":PROPERTY_VALUE_ONE"),
-                                        ),
-                                    ])
-                                ),
-                                categories:  Some(
+                            ])
+                        ),
+                        categories:  Some(
+                            HashSet::from([
+                                String::from("CATEGORY_FOUR"),
+                            ])
+                        ),
+                        duration:    None,
+                        dtstart:     None,
+                        dtend:       None,
+                        related_to:  Some(
+                            HashMap::from([
+                                (
+                                    String::from("X-IDX-CAL"),
                                     HashSet::from([
-                                        String::from("CATEGORY_FOUR"),
-                                        String::from("CATEGORY_ONE"),
-                                        String::from("CATEGORY_TWO"),
+                                        String::from("INDEXED_CALENDAR_UUID"),
                                     ])
                                 ),
-                                duration:    None,
-                                dtstart:     None,
-                                dtend:       None,
-                                related_to:  Some(
-                                    HashMap::from([
-                                        (
-                                            String::from("PARENT"),
-                                            HashSet::from([
-                                                String::from("PARENT_UUID_TWO"),
-                                            ])
-                                        ),
-                                        (
-                                            String::from("CHILD"),
-                                            HashSet::from([
-                                                String::from("CHILD_UUID_ONE"),
-                                                String::from("CHILD_UUID_TWO"),
-                                            ])
-                                        ),
-                                        (
-                                            String::from("X-IDX-CAL"),
-                                            HashSet::from([
-                                                String::from("INDEXED_CALENDAR_UUID"),
-                                            ])
-                                        ),
-                                    ])
-                                )
-                            }
+                            ])
                         )
-                    ]),
-                }
-            )
+                    }
+                ),
+                (
+                    1610476200,
+                    EventOccurrenceOverride {
+                        geo:        None,
+                        properties: Some(
+                            BTreeSet::from([
+                                KeyValuePair::new(
+                                    String::from("X-PROPERTY-ONE"),
+                                    String::from(":PROPERTY_VALUE_ONE"),
+                                ),
+
+                                KeyValuePair::new(
+                                    String::from("X-PROPERTY-ONE"),
+                                    String::from(":PROPERTY_VALUE_TWO"),
+                                ),
+
+                                KeyValuePair::new(
+                                    String::from("X-PROPERTY-THREE"),
+                                    String::from(":PROPERTY_VALUE_ONE"),
+                                ),
+
+                                KeyValuePair::new(
+                                    String::from("X-PROPERTY-TWO"),
+                                    String::from(":PROPERTY_VALUE_ONE"),
+                                ),
+                            ])
+                        ),
+                        categories:  Some(
+                            HashSet::from([
+                                String::from("CATEGORY_FOUR"),
+                                String::from("CATEGORY_ONE"),
+                                String::from("CATEGORY_TWO"),
+                            ])
+                        ),
+                        duration:    None,
+                        dtstart:     None,
+                        dtend:       None,
+                        related_to:  Some(
+                            HashMap::from([
+                                (
+                                    String::from("PARENT"),
+                                    HashSet::from([
+                                        String::from("PARENT_UUID_TWO"),
+                                    ])
+                                ),
+                                (
+                                    String::from("CHILD"),
+                                    HashSet::from([
+                                        String::from("CHILD_UUID_ONE"),
+                                        String::from("CHILD_UUID_TWO"),
+                                    ])
+                                ),
+                                (
+                                    String::from("X-IDX-CAL"),
+                                    HashSet::from([
+                                        String::from("INDEXED_CALENDAR_UUID"),
+                                    ])
+                                ),
+                            ])
+                        )
+                    }
+                )
+            ])
         );
     }
 }
