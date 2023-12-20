@@ -1,70 +1,98 @@
+use crate::core::{
+    Calendar, EventInstance, EventInstanceIterator, GeoPoint, InvertedCalendarIndexTerm,
+    KeyValuePair, LowerBoundFilterCondition, UpperBoundFilterCondition,
+};
 use rrule::Tz;
-use crate::core::{KeyValuePair, InvertedCalendarIndexTerm, Calendar, EventInstance, EventInstanceIterator, LowerBoundFilterCondition, UpperBoundFilterCondition, GeoPoint};
 
+use crate::core::parsers::ical_query::parse_query_string;
+use crate::core::queries::indexed_property_filters::WhereConditional;
 use crate::core::queries::results::QueryResults;
 use crate::core::queries::results_ordering::OrderingCondition;
-use crate::core::queries::results_range_bounds::{LowerBoundRangeCondition, UpperBoundRangeCondition};
-use crate::core::queries::indexed_property_filters::WhereConditional;
-use crate::core::parsers::ical_query::parse_query_string;
+use crate::core::queries::results_range_bounds::{
+    LowerBoundRangeCondition, UpperBoundRangeCondition,
+};
 
 use crate::core::MergedIterator;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Query {
-    pub where_conditional:           Option<WhereConditional>,
-    pub ordering_condition:          OrderingCondition,
+    pub where_conditional: Option<WhereConditional>,
+    pub ordering_condition: OrderingCondition,
     pub lower_bound_range_condition: Option<LowerBoundRangeCondition>,
     pub upper_bound_range_condition: Option<UpperBoundRangeCondition>,
-    pub in_timezone:                 Tz,
-    pub limit:                       usize,
+    pub in_timezone: Tz,
+    pub limit: usize,
 }
 
 impl Query {
     pub fn execute(&mut self, calendar: &Calendar) -> Result<QueryResults, String> {
-        let where_conditional_result = 
-            if let Some(where_conditional) = &mut self.where_conditional {
-                Some(where_conditional.execute(calendar)?)
-            } else {
-                None
-            };
+        let where_conditional_result = if let Some(where_conditional) = &mut self.where_conditional
+        {
+            Some(where_conditional.execute(calendar)?)
+        } else {
+            None
+        };
 
         let mut query_results = QueryResults::new(self.ordering_condition.clone());
 
         match &self.ordering_condition {
             OrderingCondition::DtStart => {
-                self.execute_for_dtstart_ordering(calendar, &mut query_results, &where_conditional_result);
-            },
+                self.execute_for_dtstart_ordering(
+                    calendar,
+                    &mut query_results,
+                    &where_conditional_result,
+                );
+            }
 
             OrderingCondition::DtStartGeoDist(_geo_point) => {
-                self.execute_for_dtstart_geo_dist_ordering(calendar, &mut query_results, &where_conditional_result);
-            },
+                self.execute_for_dtstart_geo_dist_ordering(
+                    calendar,
+                    &mut query_results,
+                    &where_conditional_result,
+                );
+            }
 
             OrderingCondition::GeoDistDtStart(geo_point) => {
-                self.execute_for_geo_dist_dtstart_ordering(geo_point, calendar, &mut query_results, &where_conditional_result);
-            },
+                self.execute_for_geo_dist_dtstart_ordering(
+                    geo_point,
+                    calendar,
+                    &mut query_results,
+                    &where_conditional_result,
+                );
+            }
         }
-
 
         Ok(query_results)
     }
 
     fn get_lower_bound_filter_condition(&self) -> Option<LowerBoundFilterCondition> {
-        self.lower_bound_range_condition.clone().and_then(|lower_bound_range_condition| {
-            let lower_bound_filter_condition: LowerBoundFilterCondition = lower_bound_range_condition.into();
+        self.lower_bound_range_condition
+            .clone()
+            .and_then(|lower_bound_range_condition| {
+                let lower_bound_filter_condition: LowerBoundFilterCondition =
+                    lower_bound_range_condition.into();
 
-            Some(lower_bound_filter_condition)
-        })
+                Some(lower_bound_filter_condition)
+            })
     }
 
     fn get_upper_bound_filter_condition(&self) -> Option<UpperBoundFilterCondition> {
-        self.upper_bound_range_condition.clone().and_then(|upper_bound_range_condition| {
-            let upper_bound_filter_condition: UpperBoundFilterCondition = upper_bound_range_condition.into();
+        self.upper_bound_range_condition
+            .clone()
+            .and_then(|upper_bound_range_condition| {
+                let upper_bound_filter_condition: UpperBoundFilterCondition =
+                    upper_bound_range_condition.into();
 
-            Some(upper_bound_filter_condition)
-        })
+                Some(upper_bound_filter_condition)
+            })
     }
 
-    fn populate_merged_iterator_for_dtstart_ordering<'iter, 'cal: 'iter>(&self, calendar: &'cal Calendar, merged_iterator: &'iter mut MergedIterator<EventInstance, EventInstanceIterator<'cal>>, where_conditional_result: &Option<InvertedCalendarIndexTerm>) {
+    fn populate_merged_iterator_for_dtstart_ordering<'iter, 'cal: 'iter>(
+        &self,
+        calendar: &'cal Calendar,
+        merged_iterator: &'iter mut MergedIterator<EventInstance, EventInstanceIterator<'cal>>,
+        where_conditional_result: &Option<InvertedCalendarIndexTerm>,
+    ) {
         let lower_bound_filter_condition = self.get_lower_bound_filter_condition();
         let upper_bound_filter_condition = self.get_upper_bound_filter_condition();
 
@@ -77,40 +105,52 @@ impl Query {
                         continue;
                     };
 
-                    let event_instance_iterator =
-                        EventInstanceIterator::new(
-                            event,
-                            None,
-                            lower_bound_filter_condition.clone(),
-                            upper_bound_filter_condition.clone(),
-                            Some(indexed_conclusion.clone()),
-                        ).unwrap(); // TODO: handle this properly...
+                    let event_instance_iterator = EventInstanceIterator::new(
+                        event,
+                        None,
+                        lower_bound_filter_condition.clone(),
+                        upper_bound_filter_condition.clone(),
+                        Some(indexed_conclusion.clone()),
+                    )
+                    .unwrap(); // TODO: handle this properly...
 
-                    let _result = merged_iterator.add_iter(event_uuid.clone(), event_instance_iterator);
+                    let _result =
+                        merged_iterator.add_iter(event_uuid.clone(), event_instance_iterator);
                 }
-            },
+            }
 
             None => {
                 for (event_uuid, event) in &calendar.events {
-                    let event_instance_iterator =
-                        EventInstanceIterator::new(
-                            event,
-                            None,
-                            lower_bound_filter_condition.clone(),
-                            upper_bound_filter_condition.clone(),
-                            None,
-                        ).unwrap(); // TODO: handle this properly...
+                    let event_instance_iterator = EventInstanceIterator::new(
+                        event,
+                        None,
+                        lower_bound_filter_condition.clone(),
+                        upper_bound_filter_condition.clone(),
+                        None,
+                    )
+                    .unwrap(); // TODO: handle this properly...
 
-                    let _result = merged_iterator.add_iter(event_uuid.clone(), event_instance_iterator);
+                    let _result =
+                        merged_iterator.add_iter(event_uuid.clone(), event_instance_iterator);
                 }
-            },
+            }
         }
     }
 
-    fn execute_for_dtstart_ordering(&self, calendar: &Calendar, query_results: &mut QueryResults, where_conditional_result: &Option<InvertedCalendarIndexTerm>) {
-        let mut merged_iterator: MergedIterator<EventInstance, EventInstanceIterator> = MergedIterator::new();
+    fn execute_for_dtstart_ordering(
+        &self,
+        calendar: &Calendar,
+        query_results: &mut QueryResults,
+        where_conditional_result: &Option<InvertedCalendarIndexTerm>,
+    ) {
+        let mut merged_iterator: MergedIterator<EventInstance, EventInstanceIterator> =
+            MergedIterator::new();
 
-        self.populate_merged_iterator_for_dtstart_ordering(calendar, &mut merged_iterator, where_conditional_result);
+        self.populate_merged_iterator_for_dtstart_ordering(
+            calendar,
+            &mut merged_iterator,
+            where_conditional_result,
+        );
 
         for (_, event_instance) in merged_iterator {
             if query_results.len() >= self.limit {
@@ -121,10 +161,20 @@ impl Query {
         }
     }
 
-    fn execute_for_dtstart_geo_dist_ordering(&self, calendar: &Calendar, query_results: &mut QueryResults, where_conditional_result: &Option<InvertedCalendarIndexTerm>) {
-        let mut merged_iterator: MergedIterator<EventInstance, EventInstanceIterator> = MergedIterator::new();
+    fn execute_for_dtstart_geo_dist_ordering(
+        &self,
+        calendar: &Calendar,
+        query_results: &mut QueryResults,
+        where_conditional_result: &Option<InvertedCalendarIndexTerm>,
+    ) {
+        let mut merged_iterator: MergedIterator<EventInstance, EventInstanceIterator> =
+            MergedIterator::new();
 
-        self.populate_merged_iterator_for_dtstart_ordering(calendar, &mut merged_iterator, where_conditional_result);
+        self.populate_merged_iterator_for_dtstart_ordering(
+            calendar,
+            &mut merged_iterator,
+            where_conditional_result,
+        );
 
         // This is functionally similar to the DtStart ordering, except we need to include all the
         // EventInstances sharing the same dtstart_timestamp before truncating so that they can be
@@ -140,7 +190,9 @@ impl Query {
 
         for (_, event_instance) in merged_iterator {
             let is_unique_dtstart_timestamp =
-                previous_dtstart_timestamp.is_some_and(|dtstart_timestamp| dtstart_timestamp != event_instance.dtstart_timestamp);
+                previous_dtstart_timestamp.is_some_and(|dtstart_timestamp| {
+                    dtstart_timestamp != event_instance.dtstart_timestamp
+                });
 
             if is_unique_dtstart_timestamp && query_results.len() >= self.limit {
                 break;
@@ -154,24 +206,30 @@ impl Query {
         query_results.truncate(self.limit);
     }
 
-    fn execute_for_geo_dist_dtstart_ordering(&self, geo_point: &GeoPoint, calendar: &Calendar, query_results: &mut QueryResults, where_conditional_result: &Option<InvertedCalendarIndexTerm>) {
+    fn execute_for_geo_dist_dtstart_ordering(
+        &self,
+        geo_point: &GeoPoint,
+        calendar: &Calendar,
+        query_results: &mut QueryResults,
+        where_conditional_result: &Option<InvertedCalendarIndexTerm>,
+    ) {
         let lower_bound_filter_condition = self.get_lower_bound_filter_condition();
         let upper_bound_filter_condition = self.get_upper_bound_filter_condition();
 
-        for (point, _distance) in calendar.indexed_geo.coords.nearest_neighbor_iter_with_distance_2(&geo_point.to_point()) {
-            let mut merged_iterator: MergedIterator<EventInstance, EventInstanceIterator> = MergedIterator::new();
+        for (point, _distance) in calendar
+            .indexed_geo
+            .coords
+            .nearest_neighbor_iter_with_distance_2(&geo_point.to_point())
+        {
+            let mut merged_iterator: MergedIterator<EventInstance, EventInstanceIterator> =
+                MergedIterator::new();
 
             let current_inverted_index_calendar_term = match where_conditional_result {
                 Some(inverted_calendar_index_term) => {
-                    InvertedCalendarIndexTerm::merge_and(
-                        &point.data,
-                        inverted_calendar_index_term,
-                    )
-                },
+                    InvertedCalendarIndexTerm::merge_and(&point.data, inverted_calendar_index_term)
+                }
 
-                None => {
-                    point.data.to_owned()
-                },
+                None => point.data.to_owned(),
             };
 
             for (event_uuid, indexed_conclusion) in &current_inverted_index_calendar_term.events {
@@ -181,14 +239,14 @@ impl Query {
                     continue;
                 };
 
-                let event_instance_iterator =
-                    EventInstanceIterator::new(
-                        event,
-                        None,
-                        lower_bound_filter_condition.clone(),
-                        upper_bound_filter_condition.clone(),
-                        Some(indexed_conclusion.clone()),
-                    ).unwrap(); // TODO: handle this properly...
+                let event_instance_iterator = EventInstanceIterator::new(
+                    event,
+                    None,
+                    lower_bound_filter_condition.clone(),
+                    upper_bound_filter_condition.clone(),
+                    Some(indexed_conclusion.clone()),
+                )
+                .unwrap(); // TODO: handle this properly...
 
                 let _result = merged_iterator.add_iter(event_uuid.clone(), event_instance_iterator);
             }
@@ -215,46 +273,41 @@ impl TryFrom<&str> for Query {
                 if remaining.is_empty() {
                     Ok(parsed_query)
                 } else {
-                    Err(
-                        format!("Unexpected values: {remaining}")
-                    )
+                    Err(format!("Unexpected values: {remaining}"))
                 }
-            },
+            }
 
-            Err(error) => {
-                Err(
-                    error.to_string()
-                )
-            },
+            Err(error) => Err(error.to_string()),
         }
     }
-
 }
 
 impl Default for Query {
-
     fn default() -> Self {
         Query {
-            where_conditional:           None,
-            ordering_condition:          OrderingCondition::DtStart,
+            where_conditional: None,
+            ordering_condition: OrderingCondition::DtStart,
             lower_bound_range_condition: None,
             upper_bound_range_condition: None,
-            in_timezone:                 Tz::UTC,
-            limit:                       50,
+            in_timezone: Tz::UTC,
+            limit: 50,
         }
     }
-
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
 
+    use crate::core::queries::indexed_property_filters::{
+        WhereConditional, WhereConditionalProperty, WhereOperator,
+    };
+    use crate::core::queries::results_range_bounds::{
+        LowerBoundRangeCondition, RangeConditionProperty, UpperBoundRangeCondition,
+    };
+    use crate::core::{Calendar, Event, GeoPoint};
+    use crate::testing::utils::{build_event_and_overrides_from_ical, build_event_from_ical};
     use pretty_assertions_sorted::{assert_eq, assert_eq_sorted};
-    use crate::testing::utils::{build_event_from_ical, build_event_and_overrides_from_ical};
-    use crate::core::{Event, Calendar, GeoPoint};
-    use crate::core::queries::results_range_bounds::{LowerBoundRangeCondition, UpperBoundRangeCondition, RangeConditionProperty};
-    use crate::core::queries::indexed_property_filters::{WhereOperator, WhereConditional, WhereConditionalProperty};
 
     fn build_overridden_recurring_event() -> Event {
         build_event_and_overrides_from_ical(
@@ -291,7 +344,7 @@ mod test {
                         "CATEGORIES:OVERRIDDEN_CATEGORY_ONE,OVERRIDDEN_CATEGORY_TWO",
                         "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUUID",
                         "RELATED-TO;RELTYPE=CHILD:OVERRIDDEN_ChildUUID",
-                    ]
+                    ],
                 ),
             ],
         )
@@ -312,7 +365,7 @@ mod test {
                 "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Two",
                 "DESCRIPTION:Event description text.",
                 "LOCATION:Event address text.",
-            ]
+            ],
         )
     }
 
@@ -342,88 +395,57 @@ mod test {
             "X-TZID:Europe/Vilnius",
             "X-ORDER-BY;GEO=48.85299;2.36885:DTSTART-GEO-DIST",
             "   ",
-        ].join(" ");
+        ]
+        .join(" ");
 
         assert_eq!(
             Query::try_from(query_string.as_str()),
-            Ok(
-                Query {
-                    where_conditional: Some(
-                       WhereConditional::Operator(
-                            Box::new(
-                                WhereConditional::Group(
-                                    Box::new(
-                                        WhereConditional::Operator(
-                                            Box::new(
-                                                WhereConditional::Property(
-                                                    WhereConditionalProperty::Categories(
-                                                        String::from("CATEGORY_ONE"),
-                                                    ),
-                                                    None,
-                                                )
-                                            ),
-                                            Box::new(
-                                                WhereConditional::Property(
-                                                    WhereConditionalProperty::Categories(
-                                                        String::from("CATEGORY_TWO"),
-                                                    ),
-                                                    None,
-                                                )
-                                            ),
-                                            WhereOperator::Or,
-                                            None,
-                                        )
-                                    ),
-                                    None,
-                                )
-                            ),
-                            Box::new(
-                                WhereConditional::Property(
-                                    WhereConditionalProperty::RelatedTo(
-                                        KeyValuePair::new(
-                                            String::from("PARENT"),
-                                            String::from("PARENT_UUID"),
-                                        )
-                                    ),
-                                    None,
-                                )
-                            ),
-                            WhereOperator::And,
+            Ok(Query {
+                where_conditional: Some(WhereConditional::Operator(
+                    Box::new(WhereConditional::Group(
+                        Box::new(WhereConditional::Operator(
+                            Box::new(WhereConditional::Property(
+                                WhereConditionalProperty::Categories(String::from("CATEGORY_ONE"),),
+                                None,
+                            )),
+                            Box::new(WhereConditional::Property(
+                                WhereConditionalProperty::Categories(String::from("CATEGORY_TWO"),),
+                                None,
+                            )),
+                            WhereOperator::Or,
                             None,
-                        )
-                    ),
+                        )),
+                        None,
+                    )),
+                    Box::new(WhereConditional::Property(
+                        WhereConditionalProperty::RelatedTo(KeyValuePair::new(
+                            String::from("PARENT"),
+                            String::from("PARENT_UUID"),
+                        )),
+                        None,
+                    )),
+                    WhereOperator::And,
+                    None,
+                )),
 
-                    ordering_condition: OrderingCondition::DtStartGeoDist(
-                        GeoPoint {
-                            long: 2.36885,
-                            lat: 48.85299,
-                        },
-                    ),
+                ordering_condition: OrderingCondition::DtStartGeoDist(GeoPoint {
+                    long: 2.36885,
+                    lat: 48.85299,
+                },),
 
-                    lower_bound_range_condition: Some(
-                        LowerBoundRangeCondition::GreaterThan(
-                            RangeConditionProperty::DtStart(
-                                875779200,
-                            ),
-                            Some(
-                                String::from("Event_UUID"),
-                            ),
-                        ),
-                    ),
+                lower_bound_range_condition: Some(LowerBoundRangeCondition::GreaterThan(
+                    RangeConditionProperty::DtStart(875779200,),
+                    Some(String::from("Event_UUID"),),
+                ),),
 
-                    upper_bound_range_condition: Some(
-                        UpperBoundRangeCondition::LessEqualThan(
-                            RangeConditionProperty::DtStart(
-                                878461200,
-                            ),
-                        ),
-                    ),
+                upper_bound_range_condition: Some(UpperBoundRangeCondition::LessEqualThan(
+                    RangeConditionProperty::DtStart(878461200,),
+                ),),
 
-                    in_timezone: rrule::Tz::Europe__Vilnius,
+                in_timezone: rrule::Tz::Europe__Vilnius,
 
-                    limit: 50,
-                }
-            )
+                limit: 50,
+            })
         );
     }
 }

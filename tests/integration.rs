@@ -28,8 +28,7 @@ fn test_set() -> Result<()> {
 
     assert_eq!(res, vec!["value"]);
 
-    let res: Result<Vec<i32>, RedisError> =
-        redis::cmd("set").arg(&["key"]).query(&mut con);
+    let res: Result<Vec<i32>, RedisError> = redis::cmd("set").arg(&["key"]).query(&mut con);
     if res.is_ok() {
         return Err(anyhow::Error::msg("Should return an error"));
     }

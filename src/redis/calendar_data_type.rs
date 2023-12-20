@@ -9,33 +9,33 @@ use std::{
     ptr::null_mut,
 };
 
-pub const CALENDAR_DATA_TYPE_NAME:    &str = "RICAL_CAL";
-pub const CALENDAR_DATA_TYPE_VERSION: i32  = 1;
+pub const CALENDAR_DATA_TYPE_NAME: &str = "RICAL_CAL";
+pub const CALENDAR_DATA_TYPE_VERSION: i32 = 1;
 
 pub static CALENDAR_DATA_TYPE: RedisType = RedisType::new(
     CALENDAR_DATA_TYPE_NAME,
     CALENDAR_DATA_TYPE_VERSION,
     RedisModuleTypeMethods {
-        version:           redis_module::TYPE_METHOD_VERSION,
-        rdb_load:          Some(rdb_load),
-        rdb_save:          Some(rdb_save),
-        aof_rewrite:       Some(aof_rewrite),
-        mem_usage:         Some(mem_usage),
-        digest:            None,
-        free:              Some(free),
-        aux_load:          None,
-        aux_save:          None,
+        version: redis_module::TYPE_METHOD_VERSION,
+        rdb_load: Some(rdb_load),
+        rdb_save: Some(rdb_save),
+        aof_rewrite: Some(aof_rewrite),
+        mem_usage: Some(mem_usage),
+        digest: None,
+        free: Some(free),
+        aux_load: None,
+        aux_save: None,
         aux_save_triggers: 0,
-        free_effort:       None,
-        unlink:            None,
-        copy:              Some(copy),
-        defrag:            None,
+        free_effort: None,
+        unlink: None,
+        copy: Some(copy),
+        defrag: None,
 
-        copy2:             None,
-        free_effort2:      None,
-        mem_usage2:        None,
-        unlink2:           None,
-    }
+        copy2: None,
+        free_effort2: None,
+        mem_usage2: None,
+        unlink2: None,
+    },
 );
 
 pub extern "C" fn rdb_load(rdb: *mut raw::RedisModuleIO, _encver: c_int) -> *mut c_void {
@@ -88,8 +88,8 @@ unsafe extern "C" fn free(value: *mut c_void) {
 
 unsafe extern "C" fn copy(
     _fromkey: *mut RedisModuleString,
-    _tokey:   *mut RedisModuleString,
-    value:    *const c_void,
+    _tokey: *mut RedisModuleString,
+    value: *const c_void,
 ) -> *mut c_void {
     let calendar = unsafe { &*(value as *mut Calendar) };
 

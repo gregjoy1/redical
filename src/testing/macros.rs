@@ -7,7 +7,7 @@ macro_rules! assert_where_conditional_analysis {
         assert_eq!(details, &$details);
         assert_eq!(where_conditional_analysis.output_count, $output_count);
         assert_eq!(where_conditional_analysis.elapsed_duration.is_zero(), false);
-    }
+    };
 }
 
 pub use assert_where_conditional_analysis;

@@ -1,7 +1,7 @@
-use redis_module::{Context, NextArg, RedisValue, RedisResult, RedisString, RedisError};
+use redis_module::{Context, NextArg, RedisError, RedisResult, RedisString, RedisValue};
 
-use crate::redis::calendar_data_type::CALENDAR_DATA_TYPE;
 use crate::core::Calendar;
+use crate::redis::calendar_data_type::CALENDAR_DATA_TYPE;
 
 pub fn redical_event_get(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     if args.len() < 2 {
@@ -17,7 +17,9 @@ pub fn redical_event_get(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
 
     let calendar_key = ctx.open_key(&calendar_uuid);
 
-    ctx.log_debug(format!("rdcl.evi_list: calendar_uuid: {calendar_uuid} event_uuid: {event_uuid}").as_str());
+    ctx.log_debug(
+        format!("rdcl.evi_list: calendar_uuid: {calendar_uuid} event_uuid: {event_uuid}").as_str(),
+    );
 
     if let Some(calendar) = calendar_key.get_value::<Calendar>(&CALENDAR_DATA_TYPE)? {
         if let Some(event) = calendar.events.get(&String::from(event_uuid.clone())) {

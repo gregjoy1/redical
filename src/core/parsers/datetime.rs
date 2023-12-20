@@ -1,18 +1,15 @@
 lazy_static! {
-    static ref FLOATING_DATESTR_RE: Regex =
-        Regex::new(r"(?P<datetime>(?P<date>[0-9]{4}[0-9]{2}[0-9]{2})(?P<time>T[0-9]{2}[0-9]{2}[0-9]{2}Z?)?)")
-            .expect("FLOATING_DATESTR_RE regex failed");
+    static ref FLOATING_DATESTR_RE: Regex = Regex::new(
+        r"(?P<datetime>(?P<date>[0-9]{4}[0-9]{2}[0-9]{2})(?P<time>T[0-9]{2}[0-9]{2}[0-9]{2}Z?)?)"
+    )
+    .expect("FLOATING_DATESTR_RE regex failed");
 }
 
 pub fn extract_datetime_from_str(val: &str) -> Result<String, ParseError> {
     if let Some(captures) = FLOATING_DATESTR_RE.captures(val) {
-        Ok(
-            captures["datetime"].to_string()
-        )
+        Ok(captures["datetime"].to_string())
     } else {
-        Err(
-            ParseError::InvalidDateTimeFormat(val.into())
-        )
+        Err(ParseError::InvalidDateTimeFormat(val.into()))
     }
 }
 
@@ -56,9 +53,15 @@ use regex::{Captures, Regex};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ParseError {
     InvalidTimezone(String),
-    InvalidDateTime { value: String, property: String },
+    InvalidDateTime {
+        value: String,
+        property: String,
+    },
     InvalidDateTimeFormat(String),
-    InvalidDateTimeInLocalTimezone { value: String, property: String },
+    InvalidDateTimeInLocalTimezone {
+        value: String,
+        property: String,
+    },
     DateTimeInLocalTimezoneIsAmbiguous {
         value: String,
         property: String,
@@ -193,11 +196,12 @@ impl ParsedDateString {
         let dt = self.dt.as_str().clone();
 
         // Combine parts to create data time.
-        let date =
-            NaiveDate::from_ymd_opt(year, month, day).ok_or_else(|| ParseError::InvalidDateTime {
+        let date = NaiveDate::from_ymd_opt(year, month, day).ok_or_else(|| {
+            ParseError::InvalidDateTime {
                 value: dt.into(),
                 property: property.into(),
-            })?;
+            }
+        })?;
 
         // Spec defines this is a date-time OR date
         // So the time can will be set to 0:0:0 if only a date is given.
@@ -207,12 +211,12 @@ impl ParsedDateString {
         } else {
             (0, 0, 0)
         };
-        let datetime = date
-            .and_hms_opt(hour, min, sec)
-            .ok_or_else(|| ParseError::InvalidDateTime {
-                value: dt.into(),
-                property: property.into(),
-            })?;
+        let datetime =
+            date.and_hms_opt(hour, min, sec)
+                .ok_or_else(|| ParseError::InvalidDateTime {
+                    value: dt.into(),
+                    property: property.into(),
+                })?;
 
         // Apply timezone appended to the datetime before converting to UTC.
         // For more info https://icalendar.org/iCalendar-RFC-5545/3-3-5-date-time.html
@@ -295,11 +299,9 @@ pub(crate) fn datestring_to_date(
     property: &str,
 ) -> Result<DateTime, ParseError> {
     ParsedDateString::from_ical_datetime(dt)
-        .map_err(|_| {
-            ParseError::InvalidDateTime {
-                value: dt.into(),
-                property: property.into(),
-            }
+        .map_err(|_| ParseError::InvalidDateTime {
+            value: dt.into(),
+            property: property.into(),
         })?
         .to_date(tz, property)
 }
@@ -468,7 +470,9 @@ mod tests {
 
         assert_eq!(
             extract_datetime_from_str("DTEND:197001_"),
-            Err(ParseError::InvalidDateTimeFormat(String::from("DTEND:197001_")))
+            Err(ParseError::InvalidDateTimeFormat(String::from(
+                "DTEND:197001_"
+            )))
         );
     }
 

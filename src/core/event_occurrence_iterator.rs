@@ -1,4 +1,4 @@
-use crate::core::{ScheduleProperties, EventOccurrenceOverride, IndexedConclusion};
+use crate::core::{EventOccurrenceOverride, IndexedConclusion, ScheduleProperties};
 use std::collections::BTreeMap;
 
 #[derive(Debug, Clone)]
@@ -14,23 +14,21 @@ pub enum LowerBoundFilterCondition {
 }
 
 impl LowerBoundFilterCondition {
-
     pub fn is_dtstart_filter_property(&self) -> bool {
         matches!(
             self,
-            LowerBoundFilterCondition::GreaterThan(FilterProperty::DtStart(_)) |
-            LowerBoundFilterCondition::GreaterEqualThan(FilterProperty::DtStart(_))
+            LowerBoundFilterCondition::GreaterThan(FilterProperty::DtStart(_))
+                | LowerBoundFilterCondition::GreaterEqualThan(FilterProperty::DtStart(_))
         )
     }
 
     pub fn is_dtend_filter_property(&self) -> bool {
         matches!(
             self,
-            LowerBoundFilterCondition::GreaterThan(FilterProperty::DtEnd(_)) |
-            LowerBoundFilterCondition::GreaterEqualThan(FilterProperty::DtEnd(_))
+            LowerBoundFilterCondition::GreaterThan(FilterProperty::DtEnd(_))
+                | LowerBoundFilterCondition::GreaterEqualThan(FilterProperty::DtEnd(_))
         )
     }
-
 }
 
 #[derive(Debug, Clone)]
@@ -40,98 +38,98 @@ pub enum UpperBoundFilterCondition {
 }
 
 impl UpperBoundFilterCondition {
-
     pub fn is_dtstart_filter_property(&self) -> bool {
         matches!(
             self,
-            UpperBoundFilterCondition::LessThan(FilterProperty::DtStart(_)) |
-            UpperBoundFilterCondition::LessEqualThan(FilterProperty::DtStart(_))
+            UpperBoundFilterCondition::LessThan(FilterProperty::DtStart(_))
+                | UpperBoundFilterCondition::LessEqualThan(FilterProperty::DtStart(_))
         )
     }
 
     pub fn is_dtend_filter_property(&self) -> bool {
         matches!(
             self,
-            UpperBoundFilterCondition::LessThan(FilterProperty::DtEnd(_)) |
-            UpperBoundFilterCondition::LessEqualThan(FilterProperty::DtEnd(_))
+            UpperBoundFilterCondition::LessThan(FilterProperty::DtEnd(_))
+                | UpperBoundFilterCondition::LessEqualThan(FilterProperty::DtEnd(_))
         )
     }
-
 }
 
 #[derive(Debug)]
 pub struct EventOccurrenceIterator<'a> {
-    event_occurrence_overrides:   BTreeMap<i64, EventOccurrenceOverride>,
-    rrule_set_iter:               Option<rrule::RRuleSetIter<'a>>,
-    base_duration:                i64,
-    limit:                        Option<u16>,
-    count:                        u16,
-    is_ended:                     bool,
-    filter_from:                  Option<LowerBoundFilterCondition>,
-    filter_until:                 Option<UpperBoundFilterCondition>,
+    event_occurrence_overrides: BTreeMap<i64, EventOccurrenceOverride>,
+    rrule_set_iter: Option<rrule::RRuleSetIter<'a>>,
+    base_duration: i64,
+    limit: Option<u16>,
+    count: u16,
+    is_ended: bool,
+    filter_from: Option<LowerBoundFilterCondition>,
+    filter_until: Option<UpperBoundFilterCondition>,
     filtering_indexed_conclusion: Option<IndexedConclusion>,
 }
 
 impl<'a> EventOccurrenceIterator<'a> {
-
     pub fn new(
-        schedule_properties:          &'a ScheduleProperties,
-        event_occurrence_overrides:   &'a BTreeMap<i64, EventOccurrenceOverride>,
-        limit:                        Option<u16>,
-        filter_from:                  Option<LowerBoundFilterCondition>,
-        filter_until:                 Option<UpperBoundFilterCondition>,
+        schedule_properties: &'a ScheduleProperties,
+        event_occurrence_overrides: &'a BTreeMap<i64, EventOccurrenceOverride>,
+        limit: Option<u16>,
+        filter_from: Option<LowerBoundFilterCondition>,
+        filter_until: Option<UpperBoundFilterCondition>,
         filtering_indexed_conclusion: Option<IndexedConclusion>,
     ) -> Result<EventOccurrenceIterator<'a>, String> {
-        let rrule_set_iter = 
-            match &schedule_properties.parsed_rrule_set {
-                Some(parsed_rrule_set) => Some(parsed_rrule_set.into_iter()),
-                None => None,
-            };
+        let rrule_set_iter = match &schedule_properties.parsed_rrule_set {
+            Some(parsed_rrule_set) => Some(parsed_rrule_set.into_iter()),
+            None => None,
+        };
 
-        let base_duration =
-            schedule_properties.get_duration()
-                               .map_err(|error| error.to_string())?
-                               .unwrap_or(0);
+        let base_duration = schedule_properties
+            .get_duration()
+            .map_err(|error| error.to_string())?
+            .unwrap_or(0);
 
         let count = 0u16;
         let is_ended = false;
 
-        Ok(
-            EventOccurrenceIterator {
-                event_occurrence_overrides: event_occurrence_overrides.clone(),
-                rrule_set_iter,
-                base_duration,
-                limit,
-                count,
-                is_ended,
-                filter_from,
-                filter_until,
-                filtering_indexed_conclusion,
-            }
-        )
+        Ok(EventOccurrenceIterator {
+            event_occurrence_overrides: event_occurrence_overrides.clone(),
+            rrule_set_iter,
+            base_duration,
+            limit,
+            count,
+            is_ended,
+            filter_from,
+            filter_until,
+            filtering_indexed_conclusion,
+        })
     }
 
     fn is_within_limit(&self) -> bool {
         self.limit.is_none() || matches!(self.limit, Some(limit) if limit > self.count)
     }
 
-    fn is_greater_than_filtered_lower_bounds(&self, dtstart_timestamp: &i64, duration: &i64) -> bool {
+    fn is_greater_than_filtered_lower_bounds(
+        &self,
+        dtstart_timestamp: &i64,
+        duration: &i64,
+    ) -> bool {
         match self.filter_from {
             Some(LowerBoundFilterCondition::GreaterThan(FilterProperty::DtStart(comparison))) => {
                 dtstart_timestamp > &comparison
-            },
+            }
 
             Some(LowerBoundFilterCondition::GreaterThan(FilterProperty::DtEnd(comparison))) => {
                 (dtstart_timestamp > &comparison) || ((dtstart_timestamp + duration) > comparison)
-            },
+            }
 
-            Some(LowerBoundFilterCondition::GreaterEqualThan(FilterProperty::DtStart(comparison))) => {
-                dtstart_timestamp >= &comparison
-            },
+            Some(LowerBoundFilterCondition::GreaterEqualThan(FilterProperty::DtStart(
+                comparison,
+            ))) => dtstart_timestamp >= &comparison,
 
-            Some(LowerBoundFilterCondition::GreaterEqualThan(FilterProperty::DtEnd(comparison))) => {
+            Some(LowerBoundFilterCondition::GreaterEqualThan(FilterProperty::DtEnd(
+                comparison,
+            ))) => {
                 (dtstart_timestamp >= &comparison) || ((dtstart_timestamp + duration) >= comparison)
-            },
+            }
 
             _ => true,
         }
@@ -141,7 +139,7 @@ impl<'a> EventOccurrenceIterator<'a> {
         match self.filter_until {
             Some(UpperBoundFilterCondition::LessThan(FilterProperty::DtStart(comparison))) => {
                 dtstart_timestamp < &comparison
-            },
+            }
 
             Some(UpperBoundFilterCondition::LessThan(FilterProperty::DtEnd(comparison))) => {
                 if dtstart_timestamp > &comparison {
@@ -149,11 +147,11 @@ impl<'a> EventOccurrenceIterator<'a> {
                 } else {
                     (dtstart_timestamp + duration) < comparison
                 }
-            },
+            }
 
             Some(UpperBoundFilterCondition::LessEqualThan(FilterProperty::DtStart(comparison))) => {
                 dtstart_timestamp <= &comparison
-            },
+            }
 
             Some(UpperBoundFilterCondition::LessEqualThan(FilterProperty::DtEnd(comparison))) => {
                 if dtstart_timestamp > &comparison {
@@ -161,7 +159,7 @@ impl<'a> EventOccurrenceIterator<'a> {
                 } else {
                     (dtstart_timestamp + duration) <= comparison
                 }
-            },
+            }
 
             _ => true,
         }
@@ -173,29 +171,33 @@ impl<'a> EventOccurrenceIterator<'a> {
         match self.filter_until {
             Some(UpperBoundFilterCondition::LessThan(FilterProperty::DtStart(comparison))) => {
                 dtstart_timestamp > &comparison
-            },
+            }
 
             Some(UpperBoundFilterCondition::LessThan(FilterProperty::DtEnd(comparison))) => {
                 // If event starts after filtered DtEnd upper bound, we can assume that we have
                 // reached the end.
                 dtstart_timestamp > &comparison
-            },
+            }
 
             Some(UpperBoundFilterCondition::LessEqualThan(FilterProperty::DtStart(comparison))) => {
                 dtstart_timestamp >= &comparison
-            },
+            }
 
             Some(UpperBoundFilterCondition::LessEqualThan(FilterProperty::DtEnd(comparison))) => {
                 // If event starts after filtered DtEnd upper bound, we can assume that we have
                 // reached the end.
                 dtstart_timestamp > &comparison
-            },
+            }
 
             _ => false,
         }
     }
 
-    fn is_excluded_by_pre_override_enrichment_filters(&self, dtstart_timestamp: &i64, duration: &i64) -> bool {
+    fn is_excluded_by_pre_override_enrichment_filters(
+        &self,
+        dtstart_timestamp: &i64,
+        duration: &i64,
+    ) -> bool {
         if let Some(filtering_indexed_conclusion) = &self.filtering_indexed_conclusion {
             if filtering_indexed_conclusion.exclude_event_occurrence(dtstart_timestamp.clone()) {
                 return true;
@@ -203,13 +205,17 @@ impl<'a> EventOccurrenceIterator<'a> {
         }
 
         if let Some(filter_condition) = &self.filter_from {
-            if filter_condition.is_dtstart_filter_property() && !self.is_greater_than_filtered_lower_bounds(dtstart_timestamp, duration) {
+            if filter_condition.is_dtstart_filter_property()
+                && !self.is_greater_than_filtered_lower_bounds(dtstart_timestamp, duration)
+            {
                 return true;
             }
         }
 
         if let Some(filter_condition) = &self.filter_until {
-            if filter_condition.is_dtstart_filter_property() && !self.is_less_than_filtered_upper_bounds(dtstart_timestamp, duration) {
+            if filter_condition.is_dtstart_filter_property()
+                && !self.is_less_than_filtered_upper_bounds(dtstart_timestamp, duration)
+            {
                 return true;
             }
         }
@@ -217,15 +223,23 @@ impl<'a> EventOccurrenceIterator<'a> {
         false
     }
 
-    fn is_excluded_by_post_override_enrichment_filters(&self, dtstart_timestamp: &i64, duration: &i64) -> bool {
+    fn is_excluded_by_post_override_enrichment_filters(
+        &self,
+        dtstart_timestamp: &i64,
+        duration: &i64,
+    ) -> bool {
         if let Some(filter_condition) = &self.filter_from {
-            if filter_condition.is_dtend_filter_property() && !self.is_greater_than_filtered_lower_bounds(dtstart_timestamp, duration) {
+            if filter_condition.is_dtend_filter_property()
+                && !self.is_greater_than_filtered_lower_bounds(dtstart_timestamp, duration)
+            {
                 return true;
             }
         }
 
         if let Some(filter_condition) = &self.filter_until {
-            if filter_condition.is_dtend_filter_property() && !self.is_less_than_filtered_upper_bounds(dtstart_timestamp, duration) {
+            if filter_condition.is_dtend_filter_property()
+                && !self.is_less_than_filtered_upper_bounds(dtstart_timestamp, duration)
+            {
                 return true;
             }
         }
@@ -236,7 +250,7 @@ impl<'a> EventOccurrenceIterator<'a> {
     fn rrule_set_iter_next(&mut self) -> Option<chrono::DateTime<rrule::Tz>> {
         match &mut self.rrule_set_iter {
             Some(rrule_set_iter) => rrule_set_iter.next(),
-            None                 => None,
+            None => None,
         }
     }
 }
@@ -253,7 +267,9 @@ impl<'a> Iterator for EventOccurrenceIterator<'a> {
                 let dtstart_timestamp = dtstart.timestamp();
                 let mut duration = self.base_duration;
 
-                if self.is_excluded_by_pre_override_enrichment_filters(&dtstart_timestamp, &duration) {
+                if self
+                    .is_excluded_by_pre_override_enrichment_filters(&dtstart_timestamp, &duration)
+                {
                     if self.has_reached_the_end(&dtstart_timestamp) {
                         self.is_ended = true;
 
@@ -263,17 +279,19 @@ impl<'a> Iterator for EventOccurrenceIterator<'a> {
                     }
                 }
 
-                let event_occurrenece_override = self.event_occurrence_overrides.get(&dtstart_timestamp);
+                let event_occurrenece_override =
+                    self.event_occurrence_overrides.get(&dtstart_timestamp);
 
                 if let Some(event_occurrenece_override) = event_occurrenece_override {
-                    duration =
-                        match event_occurrenece_override.get_duration(&dtstart_timestamp) {
-                            Ok(Some(duration)) => duration,
-                            _ => self.base_duration,
-                        };
+                    duration = match event_occurrenece_override.get_duration(&dtstart_timestamp) {
+                        Ok(Some(duration)) => duration,
+                        _ => self.base_duration,
+                    };
                 }
 
-                if self.is_excluded_by_post_override_enrichment_filters(&dtstart_timestamp, &duration) {
+                if self
+                    .is_excluded_by_post_override_enrichment_filters(&dtstart_timestamp, &duration)
+                {
                     if self.has_reached_the_end(&dtstart_timestamp) {
                         self.is_ended = true;
 
@@ -283,13 +301,11 @@ impl<'a> Iterator for EventOccurrenceIterator<'a> {
                     }
                 }
 
-                return Some(
-                    (
-                        dtstart_timestamp,
-                        dtstart_timestamp + duration,
-                        event_occurrenece_override.cloned(),
-                    )
-                );
+                return Some((
+                    dtstart_timestamp,
+                    dtstart_timestamp + duration,
+                    event_occurrenece_override.cloned(),
+                ));
             } else {
                 self.is_ended = true;
 
@@ -307,34 +323,28 @@ mod test {
 
     use crate::core::KeyValuePair;
 
-    use std::collections::{HashSet, BTreeMap};
+    use std::collections::{BTreeMap, HashSet};
 
     use pretty_assertions_sorted::assert_eq;
 
     fn build_schedule_properties() -> ScheduleProperties {
         let mut schedule_properties = ScheduleProperties {
-            rrule:            Some(
-                KeyValuePair::new(
-                    String::from("RRULE"),
-                    String::from(":FREQ=SECONDLY;COUNT=10;INTERVAL=100"),
-                )
-            ),
-            exrule:           None,
-            rdate:            None,
-            exdate:           None,
-            duration:         None,
-            dtstart:          Some(
-                KeyValuePair::new(
-                    String::from("DTSTART"),
-                    String::from(":19700101T000000Z"),
-                )
-            ),
-            dtend:            Some(
-                KeyValuePair::new(
-                    String::from("DTEND"),
-                    String::from(":19700101T000005Z"),
-                )
-            ),
+            rrule: Some(KeyValuePair::new(
+                String::from("RRULE"),
+                String::from(":FREQ=SECONDLY;COUNT=10;INTERVAL=100"),
+            )),
+            exrule: None,
+            rdate: None,
+            exdate: None,
+            duration: None,
+            dtstart: Some(KeyValuePair::new(
+                String::from("DTSTART"),
+                String::from(":19700101T000000Z"),
+            )),
+            dtend: Some(KeyValuePair::new(
+                String::from("DTEND"),
+                String::from(":19700101T000005Z"),
+            )),
             parsed_rrule_set: None,
         };
 
@@ -345,59 +355,55 @@ mod test {
 
     fn build_event_occurrence_override_300() -> EventOccurrenceOverride {
         EventOccurrenceOverride {
-            geo:         None,
-            properties:  None,
-            categories:  None,
-            duration:    None,
-            dtstart:     None,
-            dtend:       None,
-            related_to:  None
+            geo: None,
+            properties: None,
+            categories: None,
+            duration: None,
+            dtstart: None,
+            dtend: None,
+            related_to: None,
         }
     }
 
     fn build_event_occurrence_override_500() -> EventOccurrenceOverride {
         EventOccurrenceOverride {
-            geo:         None,
-            properties:  None,
-            categories:  None,
-            duration:    None,
-            dtstart:     None,
-            dtend:       Some(
-                KeyValuePair::new(
-                    String::from("DTEND"),
-                    String::from(":19700101T000830Z"),
-                )
-            ),
-            related_to:  None
+            geo: None,
+            properties: None,
+            categories: None,
+            duration: None,
+            dtstart: None,
+            dtend: Some(KeyValuePair::new(
+                String::from("DTEND"),
+                String::from(":19700101T000830Z"),
+            )),
+            related_to: None,
         }
     }
 
     fn build_event_occurrence_override_700() -> EventOccurrenceOverride {
         EventOccurrenceOverride {
-            geo:         None,
-            properties:  None,
-            categories:  None,
-            duration:    None,
-            dtstart:     None,
-            dtend:       None,
-            related_to:  None
+            geo: None,
+            properties: None,
+            categories: None,
+            duration: None,
+            dtstart: None,
+            dtend: None,
+            related_to: None,
         }
     }
 
     fn build_event_occurrence_override_900() -> EventOccurrenceOverride {
         EventOccurrenceOverride {
-            geo:         None,
-            properties:  None,
-            categories:  None,
-            duration:    None,
-            dtstart:     None,
-            dtend:       Some(
-                KeyValuePair::new(
-                    String::from("DTEND"),
-                    String::from(":19700101T001515Z"),
-                )
-            ),
-            related_to:  None
+            geo: None,
+            properties: None,
+            categories: None,
+            duration: None,
+            dtstart: None,
+            dtend: Some(KeyValuePair::new(
+                String::from("DTEND"),
+                String::from(":19700101T001515Z"),
+            )),
+            related_to: None,
         }
     }
 
@@ -434,19 +440,32 @@ mod test {
             None,
             None,
             None,
-            None
-        ).unwrap();
+            None,
+        )
+        .unwrap();
 
-        assert_eq!(event_occurrence_iterator.next(), Some((0,    5,    None)));
-        assert_eq!(event_occurrence_iterator.next(), Some((100,  105,  None)));
-        assert_eq!(event_occurrence_iterator.next(), Some((200,  205,  None)));
-        assert_eq!(event_occurrence_iterator.next(), Some((300,  305,  Some(build_event_occurrence_override_300()))));
-        assert_eq!(event_occurrence_iterator.next(), Some((400,  405,  None)));
-        assert_eq!(event_occurrence_iterator.next(), Some((500,  510,  Some(build_event_occurrence_override_500()))));
-        assert_eq!(event_occurrence_iterator.next(), Some((600,  605,  None)));
-        assert_eq!(event_occurrence_iterator.next(), Some((700,  705,  Some(build_event_occurrence_override_700()))));
-        assert_eq!(event_occurrence_iterator.next(), Some((800,  805,  None)));
-        assert_eq!(event_occurrence_iterator.next(), Some((900,  915,  Some(build_event_occurrence_override_900()))));
+        assert_eq!(event_occurrence_iterator.next(), Some((0, 5, None)));
+        assert_eq!(event_occurrence_iterator.next(), Some((100, 105, None)));
+        assert_eq!(event_occurrence_iterator.next(), Some((200, 205, None)));
+        assert_eq!(
+            event_occurrence_iterator.next(),
+            Some((300, 305, Some(build_event_occurrence_override_300())))
+        );
+        assert_eq!(event_occurrence_iterator.next(), Some((400, 405, None)));
+        assert_eq!(
+            event_occurrence_iterator.next(),
+            Some((500, 510, Some(build_event_occurrence_override_500())))
+        );
+        assert_eq!(event_occurrence_iterator.next(), Some((600, 605, None)));
+        assert_eq!(
+            event_occurrence_iterator.next(),
+            Some((700, 705, Some(build_event_occurrence_override_700())))
+        );
+        assert_eq!(event_occurrence_iterator.next(), Some((800, 805, None)));
+        assert_eq!(
+            event_occurrence_iterator.next(),
+            Some((900, 915, Some(build_event_occurrence_override_900())))
+        );
         assert_eq!(event_occurrence_iterator.next(), None);
     }
 
@@ -460,13 +479,19 @@ mod test {
             &schedule_properties,
             &event_occurrence_overrides,
             None,
-            Some(LowerBoundFilterCondition::GreaterEqualThan(FilterProperty::DtStart(800))),
+            Some(LowerBoundFilterCondition::GreaterEqualThan(
+                FilterProperty::DtStart(800),
+            )),
             None,
-            None
-        ).unwrap();
+            None,
+        )
+        .unwrap();
 
         assert_eq!(event_occurrence_iterator.next(), Some((800, 805, None)));
-        assert_eq!(event_occurrence_iterator.next(), Some((900, 915, Some(build_event_occurrence_override_900()))));
+        assert_eq!(
+            event_occurrence_iterator.next(),
+            Some((900, 915, Some(build_event_occurrence_override_900())))
+        );
         assert_eq!(event_occurrence_iterator.next(), None);
     }
 
@@ -482,13 +507,16 @@ mod test {
             &event_occurrence_overrides,
             None,
             None,
-            Some(UpperBoundFilterCondition::LessEqualThan(FilterProperty::DtEnd(210))),
-            None
-        ).unwrap();
+            Some(UpperBoundFilterCondition::LessEqualThan(
+                FilterProperty::DtEnd(210),
+            )),
+            None,
+        )
+        .unwrap();
 
-        assert_eq!(event_occurrence_iterator.next(), Some((0,    5,    None)));
-        assert_eq!(event_occurrence_iterator.next(), Some((100,  105,  None)));
-        assert_eq!(event_occurrence_iterator.next(), Some((200,  205,  None)));
+        assert_eq!(event_occurrence_iterator.next(), Some((0, 5, None)));
+        assert_eq!(event_occurrence_iterator.next(), Some((100, 105, None)));
+        assert_eq!(event_occurrence_iterator.next(), Some((200, 205, None)));
         assert_eq!(event_occurrence_iterator.next(), None);
     }
 
@@ -503,13 +531,21 @@ mod test {
             &schedule_properties,
             &event_occurrence_overrides,
             None,
-            Some(LowerBoundFilterCondition::GreaterEqualThan(FilterProperty::DtEnd(302))),
-            Some(UpperBoundFilterCondition::LessThan(FilterProperty::DtStart(500))),
-            None
-        ).unwrap();
+            Some(LowerBoundFilterCondition::GreaterEqualThan(
+                FilterProperty::DtEnd(302),
+            )),
+            Some(UpperBoundFilterCondition::LessThan(
+                FilterProperty::DtStart(500),
+            )),
+            None,
+        )
+        .unwrap();
 
-        assert_eq!(event_occurrence_iterator.next(), Some((300,  305,  Some(build_event_occurrence_override_300()))));
-        assert_eq!(event_occurrence_iterator.next(), Some((400,  405,  None)));
+        assert_eq!(
+            event_occurrence_iterator.next(),
+            Some((300, 305, Some(build_event_occurrence_override_300())))
+        );
+        assert_eq!(event_occurrence_iterator.next(), Some((400, 405, None)));
         assert_eq!(event_occurrence_iterator.next(), None);
     }
 
@@ -527,18 +563,27 @@ mod test {
             &schedule_properties,
             &event_occurrence_overrides,
             None,
-            Some(LowerBoundFilterCondition::GreaterEqualThan(FilterProperty::DtEnd(302))),
-            Some(UpperBoundFilterCondition::LessThan(FilterProperty::DtStart(500))),
+            Some(LowerBoundFilterCondition::GreaterEqualThan(
+                FilterProperty::DtEnd(302),
+            )),
+            Some(UpperBoundFilterCondition::LessThan(
+                FilterProperty::DtStart(500),
+            )),
             Some(IndexedConclusion::Include(None)),
-        ).unwrap();
+        )
+        .unwrap();
 
-        assert_eq!(event_occurrence_iterator.next(), Some((300,  305,  Some(build_event_occurrence_override_300()))));
-        assert_eq!(event_occurrence_iterator.next(), Some((400,  405,  None)));
+        assert_eq!(
+            event_occurrence_iterator.next(),
+            Some((300, 305, Some(build_event_occurrence_override_300())))
+        );
+        assert_eq!(event_occurrence_iterator.next(), Some((400, 405, None)));
         assert_eq!(event_occurrence_iterator.next(), None);
     }
 
     #[test]
-    fn test_event_occurrence_iterator_filters_gte_dtstart_lt_dtend_indexed_conclusion_include_exceptions() {
+    fn test_event_occurrence_iterator_filters_gte_dtstart_lt_dtend_indexed_conclusion_include_exceptions(
+    ) {
         // Test filters
         //  -- greater equal than - DtEnd
         //  -- less than - DtStart
@@ -551,11 +596,16 @@ mod test {
             &schedule_properties,
             &event_occurrence_overrides,
             None,
-            Some(LowerBoundFilterCondition::GreaterEqualThan(FilterProperty::DtEnd(302))),
-            Some(UpperBoundFilterCondition::LessThan(FilterProperty::DtStart(500))),
+            Some(LowerBoundFilterCondition::GreaterEqualThan(
+                FilterProperty::DtEnd(302),
+            )),
+            Some(UpperBoundFilterCondition::LessThan(
+                FilterProperty::DtStart(500),
+            )),
             Some(IndexedConclusion::Include(Some(HashSet::from([300])))),
-        ).unwrap();
-        assert_eq!(event_occurrence_iterator.next(), Some((400,  405,  None)));
+        )
+        .unwrap();
+        assert_eq!(event_occurrence_iterator.next(), Some((400, 405, None)));
         assert_eq!(event_occurrence_iterator.next(), None);
     }
 
@@ -573,16 +623,22 @@ mod test {
             &schedule_properties,
             &event_occurrence_overrides,
             None,
-            Some(LowerBoundFilterCondition::GreaterEqualThan(FilterProperty::DtEnd(302))),
-            Some(UpperBoundFilterCondition::LessThan(FilterProperty::DtStart(500))),
+            Some(LowerBoundFilterCondition::GreaterEqualThan(
+                FilterProperty::DtEnd(302),
+            )),
+            Some(UpperBoundFilterCondition::LessThan(
+                FilterProperty::DtStart(500),
+            )),
             Some(IndexedConclusion::Exclude(None)),
-        ).unwrap();
+        )
+        .unwrap();
 
         assert_eq!(event_occurrence_iterator.next(), None);
     }
 
     #[test]
-    fn test_event_occurrence_iterator_filters_gte_dtstart_lt_dtend_indexed_conclusion_exclude_exceptions() {
+    fn test_event_occurrence_iterator_filters_gte_dtstart_lt_dtend_indexed_conclusion_exclude_exceptions(
+    ) {
         // Test filters
         //  -- greater equal than - DtEnd
         //  -- less than - DtStart
@@ -595,12 +651,20 @@ mod test {
             &schedule_properties,
             &event_occurrence_overrides,
             None,
-            Some(LowerBoundFilterCondition::GreaterEqualThan(FilterProperty::DtEnd(302))),
-            Some(UpperBoundFilterCondition::LessThan(FilterProperty::DtStart(500))),
+            Some(LowerBoundFilterCondition::GreaterEqualThan(
+                FilterProperty::DtEnd(302),
+            )),
+            Some(UpperBoundFilterCondition::LessThan(
+                FilterProperty::DtStart(500),
+            )),
             Some(IndexedConclusion::Exclude(Some(HashSet::from([300])))),
-        ).unwrap();
+        )
+        .unwrap();
 
-        assert_eq!(event_occurrence_iterator.next(), Some((300,  305,  Some(build_event_occurrence_override_300()))));
+        assert_eq!(
+            event_occurrence_iterator.next(),
+            Some((300, 305, Some(build_event_occurrence_override_300())))
+        );
         assert_eq!(event_occurrence_iterator.next(), None);
     }
 }

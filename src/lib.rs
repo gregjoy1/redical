@@ -1,7 +1,7 @@
 use redis_module::{redis_module, Context, NotifyEvent};
 
-mod redis;
 mod core;
+mod redis;
 
 #[cfg(test)]
 mod testing;
@@ -15,11 +15,12 @@ fn on_event(ctx: &Context, event_type: NotifyEvent, event: &str, key: &[u8]) {
             event_type,
             std::str::from_utf8(key).unwrap(),
             event
-        ).as_str()
+        )
+        .as_str(),
     );
 }
 
-pub const MODULE_NAME:    &str = "RediCal";
+pub const MODULE_NAME: &str = "RediCal";
 pub const MODULE_VERSION: u32 = 1;
 
 // Wrap the allocator used to that it can be replaced for testing.

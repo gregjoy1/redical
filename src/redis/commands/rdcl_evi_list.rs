@@ -1,9 +1,9 @@
-use redis_module::{Context, NextArg, RedisValue, RedisResult, RedisString, RedisError};
+use redis_module::{Context, NextArg, RedisError, RedisResult, RedisString, RedisValue};
 
 use crate::redis::calendar_data_type::CALENDAR_DATA_TYPE;
 
-use crate::core::{Calendar, EventInstanceIterator};
 use crate::core::serializers::ical_serializer::ICalSerializer;
+use crate::core::{Calendar, EventInstanceIterator};
 
 pub fn redical_event_instance_list(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     if args.len() < 2 {
@@ -19,7 +19,9 @@ pub fn redical_event_instance_list(ctx: &Context, args: Vec<RedisString>) -> Red
 
     let calendar_key = ctx.open_key(&calendar_uuid);
 
-    ctx.log_debug(format!("rdcl.evi_list: calendar_uuid: {calendar_uuid} event_uuid: {event_uuid}").as_str());
+    ctx.log_debug(
+        format!("rdcl.evi_list: calendar_uuid: {calendar_uuid} event_uuid: {event_uuid}").as_str(),
+    );
 
     let Some(calendar) = calendar_key.get_value::<Calendar>(&CALENDAR_DATA_TYPE)? else {
         return Ok(RedisValue::Null);
@@ -29,33 +31,25 @@ pub fn redical_event_instance_list(ctx: &Context, args: Vec<RedisString>) -> Red
         return Ok(RedisValue::Null);
     };
 
-    let event_instance_iterator =
-        EventInstanceIterator::new(
-            event,
-            None,
-            None,
-            None,
-            None,
-        );
+    let event_instance_iterator = EventInstanceIterator::new(event, None, None, None, None);
 
     match event_instance_iterator {
         Ok(event_instance_iterator) => {
-            let event_instances =
-                event_instance_iterator.map(|event_instance| {
+            let event_instances = event_instance_iterator
+                .map(|event_instance| {
                     RedisValue::Array(
-                        event_instance.serialize_to_ical(&rrule::Tz::UTC)
-                             .iter()
-                             .map(|ical_part| RedisValue::SimpleString(ical_part.to_owned()))
-                             .collect()
+                        event_instance
+                            .serialize_to_ical(&rrule::Tz::UTC)
+                            .iter()
+                            .map(|ical_part| RedisValue::SimpleString(ical_part.to_owned()))
+                            .collect(),
                     )
                 })
                 .collect();
 
             Ok(RedisValue::Array(event_instances))
-        },
+        }
 
-        Err(error) => {
-            Err(RedisError::String(error))
-        },
+        Err(error) => Err(RedisError::String(error)),
     }
 }

@@ -1,7 +1,7 @@
-use redis_module::{Context, NextArg, RedisResult, RedisString, RedisError, RedisValue};
+use redis_module::{Context, NextArg, RedisError, RedisResult, RedisString, RedisValue};
 
-use crate::redis::calendar_data_type::CALENDAR_DATA_TYPE;
 use crate::core::Calendar;
+use crate::redis::calendar_data_type::CALENDAR_DATA_TYPE;
 
 pub fn redical_calendar_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     if args.len() < 1 {
@@ -19,17 +19,20 @@ pub fn redical_calendar_set(ctx: &Context, args: Vec<RedisString>) -> RedisResul
     ctx.log_debug(format!("rdcl.cal_set: key: {key_name}").as_str());
 
     match key.get_value::<Calendar>(&CALENDAR_DATA_TYPE)? {
-        Some(calendar) => {
-            Ok(RedisValue::BulkString(format!("calendar already exists with UUID: {:?} - {:?}", calendar.uuid, calendar)))
-        },
+        Some(calendar) => Ok(RedisValue::BulkString(format!(
+            "calendar already exists with UUID: {:?} - {:?}",
+            calendar.uuid, calendar
+        ))),
 
         None => {
             let new_calendar = Calendar::new(String::from(key_name));
 
             key.set_value(&CALENDAR_DATA_TYPE, new_calendar.clone())?;
 
-            Ok(RedisValue::BulkString(format!("calendar added with UUID: {:?} - {:?}", new_calendar.uuid, new_calendar)))
+            Ok(RedisValue::BulkString(format!(
+                "calendar added with UUID: {:?} - {:?}",
+                new_calendar.uuid, new_calendar
+            )))
         }
     }
-
 }

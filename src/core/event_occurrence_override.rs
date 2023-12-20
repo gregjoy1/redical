@@ -1,11 +1,13 @@
-use std::collections::{HashMap, HashSet, BTreeSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
-use crate::core::parsers::ical_properties::{parse_properties, ParsedProperty};
 use crate::core::parsers::ical_common::ParsedValue;
+use crate::core::parsers::ical_properties::{parse_properties, ParsedProperty};
 
-use crate::core::parsers::datetime::{extract_datetime_from_str, extract_and_parse_timezone_from_str, datestring_to_date, ParseError};
+use crate::core::parsers::datetime::{
+    datestring_to_date, extract_and_parse_timezone_from_str, extract_datetime_from_str, ParseError,
+};
 use crate::core::parsers::duration::ParsedDuration;
 
 use crate::core::utils::KeyValuePair;
@@ -14,25 +16,25 @@ use crate::core::geo_index::GeoPoint;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct EventOccurrenceOverride {
-    pub categories:  Option<HashSet<String>>,
-    pub duration:    Option<ParsedDuration>,
-    pub geo:         Option<GeoPoint>,
-    pub dtstart:     Option<KeyValuePair>,
-    pub dtend:       Option<KeyValuePair>,
-    pub related_to:  Option<HashMap<String, HashSet<String>>>,
-    pub properties:  Option<BTreeSet<KeyValuePair>>,
+    pub categories: Option<HashSet<String>>,
+    pub duration: Option<ParsedDuration>,
+    pub geo: Option<GeoPoint>,
+    pub dtstart: Option<KeyValuePair>,
+    pub dtend: Option<KeyValuePair>,
+    pub related_to: Option<HashMap<String, HashSet<String>>>,
+    pub properties: Option<BTreeSet<KeyValuePair>>,
 }
 
 impl EventOccurrenceOverride {
     pub fn new() -> EventOccurrenceOverride {
         EventOccurrenceOverride {
-            properties:  None,
-            categories:  None,
-            duration:    None,
-            geo:         None,
-            dtstart:     None,
-            dtend:       None,
-            related_to:  None,
+            properties: None,
+            categories: None,
+            duration: None,
+            geo: None,
+            dtstart: None,
+            dtend: None,
+            related_to: None,
         }
     }
 
@@ -65,7 +67,8 @@ impl EventOccurrenceOverride {
     pub fn parse_ical(input: &str) -> Result<EventOccurrenceOverride, String> {
         match parse_properties(input) {
             Ok((_, parsed_properties)) => {
-                let new_override: &mut EventOccurrenceOverride = &mut EventOccurrenceOverride::new();
+                let new_override: &mut EventOccurrenceOverride =
+                    &mut EventOccurrenceOverride::new();
 
                 parsed_properties.into_iter()
                     .try_for_each(|parsed_property: ParsedProperty| {
@@ -201,13 +204,13 @@ impl EventOccurrenceOverride {
                     })?;
 
                 Ok(new_override.clone())
-            },
-            Err(err) => Err(err.to_string())
+            }
+            Err(err) => Err(err.to_string()),
         }
     }
 
     // TODO: pull into DRY util to turn hash into set
-    pub fn build_override_related_to_set(&self) -> Option<HashSet::<KeyValuePair>> {
+    pub fn build_override_related_to_set(&self) -> Option<HashSet<KeyValuePair>> {
         if self.related_to.is_none() {
             return None;
         }
@@ -217,7 +220,8 @@ impl EventOccurrenceOverride {
         if let Some(override_related_to_map) = &self.related_to {
             for (reltype, reltype_uuids) in override_related_to_map.iter() {
                 for reltype_uuid in reltype_uuids.iter() {
-                    override_related_to_set.insert(KeyValuePair::new(reltype.clone(), reltype_uuid.clone()));
+                    override_related_to_set
+                        .insert(KeyValuePair::new(reltype.clone(), reltype_uuid.clone()));
                 }
             }
         }
@@ -236,7 +240,9 @@ mod test {
 
         assert_eq!(
             EventOccurrenceOverride::parse_ical(ical_with_rrule),
-            Err(String::from("Event occurrence override does not expect an rrule property"))
+            Err(String::from(
+                "Event occurrence override does not expect an rrule property"
+            ))
         );
 
         let ical_without_rrule: &str = "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,\"CATEGORY THREE\"";
