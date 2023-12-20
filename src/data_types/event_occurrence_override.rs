@@ -6,6 +6,7 @@ use crate::parsers::ical_properties::{parse_properties, ParsedProperty};
 use crate::parsers::ical_common::ParsedValue;
 
 use crate::parsers::datetime::{extract_datetime_from_str, extract_and_parse_timezone_from_str, datestring_to_date, ParseError};
+use crate::parsers::duration::ParsedDuration;
 
 use crate::data_types::utils::KeyValuePair;
 
@@ -14,7 +15,7 @@ use crate::data_types::geo_index::GeoPoint;
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct EventOccurrenceOverride {
     pub categories:  Option<HashSet<String>>,
-    pub duration:    Option<KeyValuePair>,
+    pub duration:    Option<ParsedDuration>,
     pub geo:         Option<GeoPoint>,
     pub dtstart:     Option<KeyValuePair>,
     pub dtend:       Option<KeyValuePair>,
@@ -51,8 +52,7 @@ impl EventOccurrenceOverride {
 
     pub fn get_duration(&self, dtstart_timestamp: &i64) -> Result<Option<i64>, ParseError> {
         if let Some(duration) = self.duration.as_ref() {
-            // TODO: implement this
-            return Ok(Some(0));
+            return Ok(Some(duration.get_duration_in_seconds()));
         }
 
         if let Some(dtend_timestamp) = self.get_dtend_timestamp()? {
@@ -155,9 +155,17 @@ impl EventOccurrenceOverride {
                             ParsedProperty::ExRule(_) => { return Err(String::from("Event occurrence override does not expect an exrule property")); },
                             ParsedProperty::RDate(_)  => { return Err(String::from("Event occurrence override does not expect an rdate property")); },
                             ParsedProperty::ExDate(_) => { return Err(String::from("Event occurrence override does not expect an exdate property")); },
-                            ParsedProperty::Duration(content)    => { new_override.duration    = Some(content.content_line); },
-                            ParsedProperty::DtStart(content)     => { new_override.dtstart     = Some(content.content_line); },
-                            ParsedProperty::DtEnd(content)       => { new_override.dtend       = Some(content.content_line); },
+
+                            ParsedProperty::DtStart(content)  => { new_override.dtstart     = Some(content.content_line); },
+                            ParsedProperty::DtEnd(content)    => { new_override.dtend       = Some(content.content_line); },
+
+                            ParsedProperty::Duration(content) => {
+                                if let ParsedValue::Duration(parsed_duration) = content.value {
+                                    new_override.duration = Some(parsed_duration);
+                                } else {
+                                    return Err(String::from("Event occurrence override expected DURATION property to be valid."))
+                                }
+                            },
 
                             ParsedProperty::Geo(content) => {
                                 if let ParsedValue::LatLong(parsed_latitude, parsed_longitude) = content.value {
