@@ -356,6 +356,7 @@ mod test {
     fn build_event_occurrence_override_300() -> EventOccurrenceOverride {
         EventOccurrenceOverride {
             geo: None,
+            class: None,
             properties: None,
             categories: None,
             duration: None,
@@ -368,6 +369,7 @@ mod test {
     fn build_event_occurrence_override_500() -> EventOccurrenceOverride {
         EventOccurrenceOverride {
             geo: None,
+            class: None,
             properties: None,
             categories: None,
             duration: None,
@@ -383,6 +385,7 @@ mod test {
     fn build_event_occurrence_override_700() -> EventOccurrenceOverride {
         EventOccurrenceOverride {
             geo: None,
+            class: None,
             properties: None,
             categories: None,
             duration: None,
@@ -395,6 +398,7 @@ mod test {
     fn build_event_occurrence_override_900() -> EventOccurrenceOverride {
         EventOccurrenceOverride {
             geo: None,
+            class: None,
             properties: None,
             categories: None,
             duration: None,

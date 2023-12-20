@@ -7,7 +7,6 @@ use nom::{
     combinator::{cut, map, opt},
     error::context,
     multi::separated_list1,
-    number::complete::recognize_float,
     sequence::{preceded, separated_pair, terminated, tuple},
 };
 
@@ -41,6 +40,7 @@ fn value(input: &str) -> ParserResult<&str, &str> {
 #[derive(Debug, PartialEq, Clone)]
 pub enum ParsedProperty<'a> {
     Categories(ical_common::ParsedPropertyContent<'a>),
+    Class(ical_common::ParsedPropertyContent<'a>),
     RRule(ical_common::ParsedPropertyContent<'a>),
     ExRule(ical_common::ParsedPropertyContent<'a>),
     RDate(ical_common::ParsedPropertyContent<'a>),
@@ -538,7 +538,6 @@ fn parse_related_to_property_content(
     )
 }
 
-// TODO: use ParsedValue::parse_lat_long
 fn parse_geo_property_content(
     input: &str,
 ) -> ParserResult<&str, ical_common::ParsedPropertyContent> {
@@ -568,8 +567,38 @@ fn parse_geo_property_content(
     )
 }
 
+fn parse_class_property_content(
+    input: &str,
+) -> ParserResult<&str, ical_common::ParsedPropertyContent> {
+    preceded(
+        tag("CLASS"),
+        cut(context(
+            "CLASS",
+            tuple((
+                ical_common::colon_delimeter,
+                ical_common::ParsedValue::parse_single(alt((
+                    tag("PUBLIC"),
+                    tag("PRIVATE"),
+                    tag("CONFIDENTIAL"),
+                ))),
+            )),
+        )),
+    )(input)
+    .map(|(remaining, (_colon_delimeter, parsed_classification))| {
+        let parsed_content_line = ical_common::consumed_input_string(input, remaining, "CLASS");
+
+        let parsed_property = ical_common::ParsedPropertyContent {
+            name: Some("CLASS"),
+            params: None,
+            value: parsed_classification,
+            content_line: parsed_content_line,
+        };
+
+        (remaining, parsed_property)
+    })
+}
+
 fn parse_property(input: &str) -> ParserResult<&str, ParsedProperty> {
-    // println!("parse_property - input - {input}");
     alt((
         map(parse_rrule_property_content, ParsedProperty::RRule),
         map(parse_exrule_property_content, ParsedProperty::ExRule),
@@ -588,6 +617,7 @@ fn parse_property(input: &str) -> ParserResult<&str, ParsedProperty> {
         ),
         map(parse_related_to_property_content, ParsedProperty::RelatedTo),
         map(parse_geo_property_content, ParsedProperty::Geo),
+        map(parse_class_property_content, ParsedProperty::Class),
         map(ical_common::parse_property_content, ParsedProperty::Other),
     ))(input)
 }
@@ -782,6 +812,37 @@ mod test {
                     )
                 ]
             )
+        );
+    }
+
+    #[test]
+    fn test_parse_class_property_content() {
+        assert_eq!(
+            parse_class_property_content("CLASS:PRIVATE"),
+            Ok((
+                "",
+                ical_common::ParsedPropertyContent {
+                    name: Some("CLASS"),
+                    params: None,
+                    value: ical_common::ParsedValue::Single("PRIVATE"),
+                    content_line: KeyValuePair::new(
+                        String::from("CLASS"),
+                        String::from(":PRIVATE"),
+                    )
+                }
+            ))
+        );
+
+        assert_eq!(
+            parse_class_property_content("CLASS:INVALID"),
+            Err(nom::Err::Failure(VerboseError {
+                errors: vec![
+                    ("INVALID", VerboseErrorKind::Nom(ErrorKind::Tag),),
+                    ("INVALID", VerboseErrorKind::Nom(ErrorKind::Alt),),
+                    ("INVALID", VerboseErrorKind::Context("parsed single value"),),
+                    (":INVALID", VerboseErrorKind::Context("CLASS"),),
+                ]
+            }))
         );
     }
 

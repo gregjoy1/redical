@@ -281,6 +281,7 @@ pub struct IndexedProperties {
     pub geo: Option<GeoPoint>,
     pub related_to: Option<HashMap<String, HashSet<String>>>,
     pub categories: Option<HashSet<String>>,
+    pub class: Option<String>,
 }
 
 impl IndexedProperties {
@@ -289,11 +290,22 @@ impl IndexedProperties {
             geo: None,
             related_to: None,
             categories: None,
+            class: None,
         }
     }
 
     pub fn insert(&mut self, property: ParsedProperty) -> Result<&Self, String> {
         match property {
+            ParsedProperty::Class(content) => {
+                if let ParsedValue::Single(parsed_classification) = content.value {
+                    self.class = Some(String::from(parsed_classification));
+
+                    Ok(self)
+                } else {
+                    return Err(String::from("Expected classification to be single value"));
+                }
+            },
+
             ParsedProperty::Geo(content) => {
                 if let ParsedValue::LatLong(parsed_latitude, parsed_longitude) = content.value {
                     let geo_point = GeoPoint::from(
@@ -490,6 +502,7 @@ impl Event {
                         match parsed_property {
                             ParsedProperty::Geo(_)
                             | ParsedProperty::Categories(_)
+                            | ParsedProperty::Class(_)
                             | ParsedProperty::RelatedTo(_) => {
                                 if let Err(error) =
                                     new_event.indexed_properties.insert(parsed_property)
@@ -643,6 +656,7 @@ mod test {
 
             indexed_properties: IndexedProperties {
                 geo: None,
+                class: None,
                 related_to: None,
                 categories: Some(HashSet::from([
                     String::from("CATEGORY_ONE"),
@@ -661,6 +675,7 @@ mod test {
                     100,
                     EventOccurrenceOverride {
                         geo: None,
+                        class: None,
                         properties: None,
                         categories: Some(HashSet::from([
                             String::from("CATEGORY_ONE"),
@@ -679,6 +694,7 @@ mod test {
                     200,
                     EventOccurrenceOverride {
                         geo: None,
+                        class: None,
                         properties: None,
                         categories: Some(HashSet::from([
                             String::from("CATEGORY_ONE"),
@@ -695,6 +711,7 @@ mod test {
                     300,
                     EventOccurrenceOverride {
                         geo: None,
+                        class: None,
                         properties: None,
                         categories: None,
                         duration: None,
@@ -708,6 +725,7 @@ mod test {
                     400,
                     EventOccurrenceOverride {
                         geo: None,
+                        class: None,
                         properties: None,
                         categories: Some(HashSet::new()),
                         duration: None,
@@ -721,6 +739,7 @@ mod test {
                     500,
                     EventOccurrenceOverride {
                         geo: None,
+                        class: None,
                         properties: None,
                         categories: Some(HashSet::from([String::from("CATEGORY_FOUR")])),
                         duration: None,
@@ -889,6 +908,7 @@ mod test {
 
                 indexed_properties:  IndexedProperties {
                     geo:              None,
+                    class:            None,
                     categories:       Some(
                         HashSet::from([
                             String::from("CATEGORY_ONE"),
@@ -1009,6 +1029,7 @@ mod test {
 
         let event_occurrence_override = EventOccurrenceOverride {
             geo:              None,
+            class:            None,
             properties:       Some(
                 BTreeSet::from([
                     KeyValuePair::new(
@@ -1066,6 +1087,7 @@ mod test {
                             1610476200,
                             EventOccurrenceOverride {
                                 geo:         None,
+                                class:       None,
                                 properties:  Some(
                                     BTreeSet::from([
                                         KeyValuePair::new(
@@ -1188,6 +1210,7 @@ mod test {
 
                 indexed_properties: IndexedProperties {
                     geo: None,
+                    class: None,
                     related_to: Some(HashMap::from([
                         (
                             String::from("X-IDX-CAL"),
@@ -1229,6 +1252,7 @@ mod test {
                 1610476300,
                 EventOccurrenceOverride {
                     geo: None,
+                    class: None,
                     properties: None,
                     categories: None,
                     duration: None,
@@ -1241,6 +1265,7 @@ mod test {
                 1610476200,
                 EventOccurrenceOverride {
                     geo: None,
+                    class: None,
                     properties: Some(BTreeSet::from([
                         KeyValuePair::new(
                             String::from("X-PROPERTY-ONE"),
@@ -1355,17 +1380,18 @@ mod test {
                     1610476300,
                     EventOccurrenceOverride {
                         geo: None,
+                        class: None,
                         properties: Some(BTreeSet::from([KeyValuePair::new(
-                            String::from("X-PROPERTY-THREE"),
-                            String::from(":PROPERTY_VALUE_ONE"),
+                                    String::from("X-PROPERTY-THREE"),
+                                    String::from(":PROPERTY_VALUE_ONE"),
                         )])),
                         categories: Some(HashSet::from([String::from("CATEGORY_FOUR"),])),
                         duration: None,
                         dtstart: None,
                         dtend: None,
                         related_to: Some(HashMap::from([(
-                            String::from("X-IDX-CAL"),
-                            HashSet::from([String::from("INDEXED_CALENDAR_UUID"),])
+                                    String::from("X-IDX-CAL"),
+                                    HashSet::from([String::from("INDEXED_CALENDAR_UUID"),])
                         ),]))
                     }
                 ),
@@ -1373,6 +1399,7 @@ mod test {
                     1610476200,
                     EventOccurrenceOverride {
                         geo: None,
+                        class: None,
                         properties: Some(BTreeSet::from([
                             KeyValuePair::new(
                                 String::from("X-PROPERTY-ONE"),

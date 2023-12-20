@@ -19,6 +19,7 @@ pub struct EventOccurrenceOverride {
     pub categories: Option<HashSet<String>>,
     pub duration: Option<ParsedDuration>,
     pub geo: Option<GeoPoint>,
+    pub class: Option<String>,
     pub dtstart: Option<KeyValuePair>,
     pub dtend: Option<KeyValuePair>,
     pub related_to: Option<HashMap<String, HashSet<String>>>,
@@ -30,6 +31,7 @@ impl EventOccurrenceOverride {
         EventOccurrenceOverride {
             properties: None,
             categories: None,
+            class: None,
             duration: None,
             geo: None,
             dtstart: None,
@@ -73,7 +75,15 @@ impl EventOccurrenceOverride {
                 parsed_properties.into_iter()
                     .try_for_each(|parsed_property: ParsedProperty| {
                         match parsed_property {
-                            ParsedProperty::Categories(content)  => {
+                            ParsedProperty::Class(content) => {
+                                if let ParsedValue::Single(parsed_classification) = content.value {
+                                    new_override.class = Some(String::from(parsed_classification));
+                                } else {
+                                    return Err(String::from("Expected classification to be single value"));
+                                }
+                            },
+
+                            ParsedProperty::Categories(content) => {
                                 let mut categories: HashSet<String> = HashSet::new();
 
                                 if let ParsedValue::List(list) = content.value {
@@ -245,12 +255,13 @@ mod test {
             ))
         );
 
-        let ical_without_rrule: &str = "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,\"CATEGORY THREE\"";
+        let ical_without_rrule: &str = "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA CLASS:PRIVATE CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,\"CATEGORY THREE\"";
 
         assert_eq!(
             EventOccurrenceOverride::parse_ical(ical_without_rrule).unwrap(),
             EventOccurrenceOverride {
                 geo:              None,
+                class:            Some(String::from("PRIVATE")),
                 properties:       Some(
                     BTreeSet::from([
                         KeyValuePair::new(

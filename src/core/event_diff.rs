@@ -4,10 +4,6 @@ use crate::core::{
     UpdatedSetMembers,
 };
 
-use std::collections::HashSet;
-
-use std::hash::Hash;
-
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone)]
@@ -162,12 +158,9 @@ impl SchedulePropertiesDiff {
 mod test {
     use super::*;
 
-    use std::collections::{BTreeMap, BTreeSet, HashMap};
+    use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
-    use crate::core::{
-        EventOccurrenceOverride, IndexedProperties, KeyValuePair, PassiveProperties,
-        ScheduleProperties,
-    };
+    use crate::core::{IndexedProperties, KeyValuePair, PassiveProperties, ScheduleProperties};
 
     #[test]
     fn test_event_diff() {
@@ -239,6 +232,7 @@ mod test {
 
             indexed_properties: IndexedProperties {
                 geo: Some(GeoPoint::from((-0.1278f64, 51.5074f64))),
+                class: None,
                 related_to: None,
                 categories: Some(HashSet::from([
                     String::from("CATEGORY_ONE"),
@@ -329,6 +323,7 @@ mod test {
 
             indexed_properties: IndexedProperties {
                 geo: None,
+                class: None,
                 related_to: Some(HashMap::from([
                     (
                         String::from("X-IDX-CAL"),
