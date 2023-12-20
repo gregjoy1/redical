@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use crate::core::inverted_index::{IndexedConclusion, InvertedCalendarIndex};
 
-use crate::core::utils::{KeyValuePair, UpdatedAttribute, UpdatedHashMapMembers};
+use crate::core::utils::{KeyValuePair, UpdatedHashMapMembers};
 
 use crate::core::geo_index::{GeoPoint, GeoSpatialCalendarIndex};
 
@@ -17,6 +17,7 @@ pub struct Calendar {
     pub indexed_categories: InvertedCalendarIndex<String>,
     pub indexed_related_to: InvertedCalendarIndex<KeyValuePair>,
     pub indexed_geo: GeoSpatialCalendarIndex,
+    pub indexed_class: InvertedCalendarIndex<String>,
 }
 
 impl Calendar {
@@ -27,6 +28,7 @@ impl Calendar {
             indexed_categories: InvertedCalendarIndex::new(),
             indexed_related_to: InvertedCalendarIndex::new(),
             indexed_geo: GeoSpatialCalendarIndex::new(),
+            indexed_class: InvertedCalendarIndex::new(),
         }
     }
 }
@@ -135,6 +137,38 @@ impl<'a> CalendarIndexUpdater<'a> {
             indexed_geo.insert(
                 self.event_uuid.clone(),
                 added_long_lat_coord,
+                added_indexed_conclusion,
+            )?;
+        }
+
+        Ok(true)
+    }
+
+    pub fn update_indexed_class(
+        &mut self,
+        updated_event_class_diff: &UpdatedHashMapMembers<String, IndexedConclusion>,
+    ) -> Result<bool, String> {
+        let indexed_class = &mut self.calendar.indexed_class;
+
+        for (removed_class, _) in updated_event_class_diff.removed.iter() {
+            indexed_class.remove(self.event_uuid.clone(), removed_class.clone())?;
+        }
+
+        for (updated_class, updated_indexed_conclusion) in
+            updated_event_class_diff.updated.iter()
+        {
+            indexed_class.insert(
+                self.event_uuid.clone(),
+                updated_class.clone(),
+                updated_indexed_conclusion,
+            )?;
+        }
+
+        for (added_class, added_indexed_conclusion) in updated_event_class_diff.added.iter()
+        {
+            indexed_class.insert(
+                self.event_uuid.clone(),
+                added_class.clone(),
                 added_indexed_conclusion,
             )?;
         }

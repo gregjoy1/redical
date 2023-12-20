@@ -472,6 +472,7 @@ pub struct Event {
     pub indexed_categories: Option<InvertedEventIndex<String>>,
     pub indexed_related_to: Option<InvertedEventIndex<KeyValuePair>>,
     pub indexed_geo: Option<InvertedEventIndex<GeoPoint>>,
+    pub indexed_class: Option<InvertedEventIndex<String>>,
 }
 
 impl Event {
@@ -488,6 +489,7 @@ impl Event {
             indexed_categories: None,
             indexed_related_to: None,
             indexed_geo: None,
+            indexed_class: None,
         }
     }
 
@@ -567,6 +569,13 @@ impl Event {
         Ok(self)
     }
 
+    // TODO: Add tests...
+    pub fn rebuild_indexed_class(&mut self) -> Result<&mut Self, String> {
+        self.indexed_class = Some(InvertedEventIndex::<String>::new_from_event_class(self));
+
+        Ok(self)
+    }
+
     pub fn override_occurrence(
         &mut self,
         timestamp: i64,
@@ -599,6 +608,14 @@ impl Event {
             }
         } else {
             self.rebuild_indexed_geo()?;
+        }
+
+        if let Some(ref mut indexed_class) = self.indexed_class {
+            if let Some(overridden_class) = &event_occurrence_override.class {
+                indexed_class.insert_override(timestamp, &HashSet::from([overridden_class.clone()]));
+            }
+        } else {
+            self.rebuild_indexed_class()?;
         }
 
         Ok(self)
@@ -752,6 +769,7 @@ mod test {
             indexed_categories: None,
             indexed_related_to: None,
             indexed_geo: None,
+            indexed_class: None,
         };
 
         let mut indexed_categories =
@@ -932,6 +950,7 @@ mod test {
                 indexed_categories:  None,
                 indexed_related_to:  None,
                 indexed_geo:         None,
+                indexed_class:       None,
             }
         );
     }
@@ -972,6 +991,7 @@ mod test {
                 indexed_categories: None,
                 indexed_related_to: None,
                 indexed_geo: None,
+                indexed_class: None,
             }
         );
 
@@ -1011,6 +1031,7 @@ mod test {
                 indexed_categories: None,
                 indexed_geo: None,
                 indexed_related_to: None,
+                indexed_class: None,
             }
         );
 
@@ -1138,6 +1159,11 @@ mod test {
                             terms: HashMap::from([])
                         }
                     ),
+                    indexed_class:       Some(
+                        InvertedEventIndex {
+                            terms: HashMap::from([])
+                        }
+                    ),
                 }
             )
         );
@@ -1176,6 +1202,9 @@ mod test {
                     terms: HashMap::new()
                 }),
                 indexed_geo: Some(InvertedEventIndex {
+                    terms: HashMap::new()
+                }),
+                indexed_class: Some(InvertedEventIndex {
                     terms: HashMap::new()
                 }),
             })
@@ -1241,6 +1270,7 @@ mod test {
                 indexed_categories: None,
                 indexed_related_to: None,
                 indexed_geo: None,
+                indexed_class: None,
             }
         );
     }
@@ -1339,6 +1369,7 @@ mod test {
                 )]),
             }),
             indexed_geo: None,
+            indexed_class: None,
             passive_properties: Some(UpdatedSetMembers {
                 removed: HashSet::from([KeyValuePair {
                     key: String::from("X-PROPERTY-TWO"),

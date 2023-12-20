@@ -11,6 +11,7 @@ pub struct EventDiff {
     pub indexed_categories: Option<UpdatedSetMembers<String>>,
     pub indexed_related_to: Option<UpdatedSetMembers<KeyValuePair>>,
     pub indexed_geo: Option<UpdatedAttribute<GeoPoint>>,
+    pub indexed_class: Option<UpdatedAttribute<String>>,
 
     pub passive_properties: Option<UpdatedSetMembers<KeyValuePair>>,
     pub schedule_properties: Option<SchedulePropertiesDiff>,
@@ -22,6 +23,7 @@ impl EventDiff {
             indexed_categories: Self::diff_indexed_categories(original_event, updated_event),
             indexed_related_to: Self::diff_indexed_related_to(original_event, updated_event),
             indexed_geo: Self::diff_indexed_geo(original_event, updated_event),
+            indexed_class: Self::diff_indexed_class(original_event, updated_event),
 
             passive_properties: Self::diff_passive_properties(original_event, updated_event),
             schedule_properties: Self::diff_schedule_properties(original_event, updated_event),
@@ -64,6 +66,20 @@ impl EventDiff {
             None
         } else {
             Some(UpdatedAttribute::new(original_geo, updated_geo))
+        }
+    }
+
+    fn diff_indexed_class(
+        original_event: &Event,
+        updated_event: &Event,
+    ) -> Option<UpdatedAttribute<String>> {
+        let original_class = &original_event.indexed_properties.class;
+        let updated_class = &updated_event.indexed_properties.class;
+
+        if original_class.is_none() && updated_class.is_none() {
+            None
+        } else {
+            Some(UpdatedAttribute::new(original_class, updated_class))
         }
     }
 
@@ -182,6 +198,8 @@ mod test {
 
         let expected_indexed_geo = None;
 
+        let expected_indexed_class = None;
+
         let expected_passive_properties = Some(UpdatedSetMembers {
             removed: HashSet::new(),
             maintained: HashSet::new(),
@@ -204,6 +222,7 @@ mod test {
                 indexed_categories: expected_indexed_categories,
                 indexed_related_to: expected_indexed_related_to,
                 indexed_geo: expected_indexed_geo,
+                indexed_class: expected_indexed_class,
                 passive_properties: expected_passive_properties,
                 schedule_properties: expected_schedule_properties,
             }
@@ -232,7 +251,7 @@ mod test {
 
             indexed_properties: IndexedProperties {
                 geo: Some(GeoPoint::from((-0.1278f64, 51.5074f64))),
-                class: None,
+                class: Some(String::from("PRIVATE")),
                 related_to: None,
                 categories: Some(HashSet::from([
                     String::from("CATEGORY_ONE"),
@@ -252,6 +271,7 @@ mod test {
             indexed_categories: None,
             indexed_related_to: None,
             indexed_geo: None,
+            indexed_class: None,
         };
 
         assert_eq!(
@@ -274,6 +294,7 @@ mod test {
                 indexed_geo: Some(UpdatedAttribute::Added(GeoPoint::from((
                     -0.1278f64, 51.5074f64
                 )))),
+                indexed_class: Some(UpdatedAttribute::Added(String::from("PRIVATE"))),
                 passive_properties: Some(UpdatedSetMembers {
                     removed: HashSet::new(),
                     maintained: HashSet::new(),
@@ -351,6 +372,7 @@ mod test {
             indexed_categories: None,
             indexed_related_to: None,
             indexed_geo: None,
+            indexed_class: None,
         };
 
         assert_eq!(
@@ -381,6 +403,7 @@ mod test {
                 indexed_geo: Some(UpdatedAttribute::Added(GeoPoint::from((
                     -0.1278f64, 51.5074f64
                 )))),
+                indexed_class: Some(UpdatedAttribute::Added(String::from("PRIVATE"))),
                 passive_properties: Some(UpdatedSetMembers {
                     removed: HashSet::from([KeyValuePair {
                         key: String::from("DESCRIPTION"),
@@ -451,6 +474,7 @@ mod test {
                     added: HashSet::new()
                 }),
                 indexed_geo: None,
+                indexed_class: None,
                 passive_properties: Some(UpdatedSetMembers {
                     removed: HashSet::from([KeyValuePair {
                         key: String::from("DESCRIPTION"),

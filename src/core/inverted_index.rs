@@ -267,6 +267,26 @@ where
         indexed_geo
     }
 
+    // TODO: Add tests...
+    pub fn new_from_event_class(event: &Event) -> InvertedEventIndex<String> {
+        let mut indexed_class = InvertedEventIndex {
+            terms: HashMap::new(),
+        };
+
+        if let Some(ref class) = event.indexed_properties.class {
+            indexed_class.insert(class);
+        }
+
+        for (timestamp, event_override) in event.overrides.iter() {
+            if let Some(overridden_class) = &event_override.class {
+                indexed_class
+                    .insert_override(timestamp.clone(), &HashSet::from([overridden_class.clone()]));
+            }
+        }
+
+        indexed_class
+    }
+
     pub fn diff_indexed_terms(
         original: Option<&InvertedEventIndex<K>>,
         updated: Option<&InvertedEventIndex<K>>,
