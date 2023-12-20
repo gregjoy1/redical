@@ -1,10 +1,10 @@
-use crate::data_types::{Event, EventOccurrenceOverride};
-use crate::parsers::datetime::datestring_to_date;
+use crate::core::{Event, EventOccurrenceOverride};
+use crate::core::parsers::datetime::datestring_to_date;
 
 pub fn build_event_from_ical(
     event_uuid:       &str,
     event_ical_parts: Vec<&str>,
-) -> crate::data_types::Event {
+) -> crate::core::Event {
     build_event_and_overrides_from_ical(
         event_uuid,
         event_ical_parts,
@@ -16,7 +16,7 @@ pub fn build_event_and_overrides_from_ical(
     event_uuid:       &str,
     event_ical_parts: Vec<&str>,
     event_overrides:  Vec<(&str, Vec<&str>)>,
-) -> crate::data_types::Event {
+) -> crate::core::Event {
     let mut event = Event::parse_ical(
         event_uuid,
         event_ical_parts.join(" ").as_str()

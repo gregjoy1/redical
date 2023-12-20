@@ -1,15 +1,12 @@
 use redis_module::{redis_module, Context, NotifyEvent};
 
-mod commands;
-mod data_types;
-mod parsers;
-mod queries;
-mod serializers;
+mod redis;
+mod core;
 
 #[cfg(test)]
 mod testing;
 
-use data_types::CALENDAR_DATA_TYPE;
+use redis::calendar_data_type::CALENDAR_DATA_TYPE;
 
 fn on_event(ctx: &Context, event_type: NotifyEvent, event: &str, key: &[u8]) {
     ctx.log_notice(
@@ -61,13 +58,13 @@ redis_module! {
         CALENDAR_DATA_TYPE
     ],
     commands:   [
-        ["rdcl.evt_set",   commands::redical_event_set, "", 0, 0, 0],
-        ["rdcl.evt_get",   commands::redical_event_get, "", 0, 0, 0],
-        ["rdcl.evi_list",  commands::redical_event_instance_list, "", 0, 0, 0],
-        ["rdcl.evo_set",   commands::redical_event_override_set, "", 0, 0, 0],
-        ["rdcl.evo_del",   commands::redical_event_override_del, "", 0, 0, 0],
-        ["rdcl.cal_set",   commands::redical_calendar_set, "", 0, 0, 0],
-        ["rdcl.cal_query", commands::redical_calendar_query, "", 0, 0, 0],
+        ["rdcl.evt_set",   redis::commands::redical_event_set, "", 0, 0, 0],
+        ["rdcl.evt_get",   redis::commands::redical_event_get, "", 0, 0, 0],
+        ["rdcl.evi_list",  redis::commands::redical_event_instance_list, "", 0, 0, 0],
+        ["rdcl.evo_set",   redis::commands::redical_event_override_set, "", 0, 0, 0],
+        ["rdcl.evo_del",   redis::commands::redical_event_override_del, "", 0, 0, 0],
+        ["rdcl.cal_set",   redis::commands::redical_calendar_set, "", 0, 0, 0],
+        ["rdcl.cal_query", redis::commands::redical_calendar_query, "", 0, 0, 0],
     ],
     event_handlers: [
         [@STRING: on_event],
