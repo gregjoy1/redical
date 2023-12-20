@@ -1,3 +1,5 @@
+use serde::{Serialize, Deserialize};
+
 use nom::{
     error::{context, VerboseError},
     sequence::{preceded, terminated, tuple},
@@ -39,7 +41,7 @@ pub fn parse_duration_string_components(input: &str) -> ParserResult<&str, (Opti
     )(input)
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone)]
 pub struct ParsedDuration {
     pub weeks:   Option<i64>,
     pub days:    Option<i64>,

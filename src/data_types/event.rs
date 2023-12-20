@@ -8,6 +8,7 @@ use crate::parsers::ical_properties::{parse_properties, ParsedProperty};
 use crate::parsers::ical_common::ParsedValue;
 
 use crate::parsers::datetime::{datestring_to_date, ParseError};
+use crate::parsers::duration::ParsedDuration;
 
 use crate::data_types::event_occurrence_override::EventOccurrenceOverride;
 
@@ -18,13 +19,6 @@ use crate::data_types::geo_index::GeoPoint;
 use crate::data_types::event_diff::EventDiff;
 
 use crate::data_types::utils::KeyValuePair;
-
-fn property_option_set_or_insert<'a>(property_option: &mut Option<HashSet<KeyValuePair>>, content: KeyValuePair) {
-    match property_option {
-        Some(properties) => { properties.insert(content); },
-        None => { *property_option = Some(HashSet::from([content])); }
-    }
-}
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct EventOccurrenceOverrides {
@@ -141,13 +135,13 @@ impl EventOccurrenceOverrides {
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct ScheduleProperties {
-    pub rrule:            Option<HashSet<KeyValuePair>>,
-    pub exrule:           Option<HashSet<KeyValuePair>>,
-    pub rdate:            Option<HashSet<KeyValuePair>>,
-    pub exdate:           Option<HashSet<KeyValuePair>>,
-    pub duration:         Option<HashSet<KeyValuePair>>,
-    pub dtstart:          Option<HashSet<KeyValuePair>>,
-    pub dtend:            Option<HashSet<KeyValuePair>>,
+    pub rrule:            Option<KeyValuePair>,
+    pub exrule:           Option<KeyValuePair>,
+    pub rdate:            Option<KeyValuePair>,
+    pub exdate:           Option<KeyValuePair>,
+    pub duration:         Option<ParsedDuration>,
+    pub dtstart:          Option<KeyValuePair>,
+    pub dtend:            Option<KeyValuePair>,
     pub parsed_rrule_set: Option<rrule::RRuleSet>,
 }
 
@@ -167,13 +161,20 @@ impl ScheduleProperties {
 
     pub fn insert(&mut self, property: ParsedProperty) -> Result<&Self, String> {
         match property {
-            ParsedProperty::RRule(content)    => { property_option_set_or_insert(&mut self.rrule, content.content_line); },
-            ParsedProperty::ExRule(content)   => { property_option_set_or_insert(&mut self.exrule, content.content_line); },
-            ParsedProperty::RDate(content)    => { property_option_set_or_insert(&mut self.rdate, content.content_line); },
-            ParsedProperty::ExDate(content)   => { property_option_set_or_insert(&mut self.exdate, content.content_line); },
-            ParsedProperty::Duration(content) => { property_option_set_or_insert(&mut self.duration, content.content_line); },
-            ParsedProperty::DtStart(content)  => { property_option_set_or_insert(&mut self.dtstart, content.content_line); },
-            ParsedProperty::DtEnd(content)    => { property_option_set_or_insert(&mut self.dtend, content.content_line); },
+            ParsedProperty::RRule(content)    => { self.rrule   = Some(content.content_line); },
+            ParsedProperty::ExRule(content)   => { self.exrule  = Some(content.content_line); },
+            ParsedProperty::RDate(content)    => { self.rdate   = Some(content.content_line); },
+            ParsedProperty::ExDate(content)   => { self.exdate  = Some(content.content_line); },
+            ParsedProperty::DtStart(content)  => { self.dtstart = Some(content.content_line); },
+            ParsedProperty::DtEnd(content)    => { self.dtend   = Some(content.content_line); },
+
+            ParsedProperty::Duration(content) => {
+                if let ParsedValue::Duration(parsed_duration) = content.value {
+                    self.duration = Some(parsed_duration);
+                } else {
+                    return Err(String::from("Expected schedule property DURATION to be valid."))
+                }
+            },
 
             _ => {
                 return Err(format!("Expected schedule property (RRULE, EXRULE, RDATE, EXDATE, DURATION, DTSTART, DTEND), received: {:#?}", property))
@@ -187,95 +188,81 @@ impl ScheduleProperties {
         let mut is_missing_rules = true;
         let mut ical_parts = vec![];
 
-        if let Some(rrules_content_lines) = &self.rrule {
-            rrules_content_lines.iter().for_each(|rrule_content_line| {
-                is_missing_rules = false;
+        if let Some(rrule_content_line) = &self.rrule {
+            is_missing_rules = false;
 
-                ical_parts.push(rrule_content_line.to_string());
-            });
+            ical_parts.push(rrule_content_line.to_string());
         }
 
-        if let Some(exrules_content_lines) = &self.exrule {
-            exrules_content_lines.iter().for_each(|exrule_content_line| {
-                is_missing_rules = false;
+        if let Some(exrule_content_line) = &self.exrule {
+            is_missing_rules = false;
 
-                ical_parts.push(exrule_content_line.to_string());
-            });
+            ical_parts.push(exrule_content_line.to_string());
         }
 
-        if let Some(rdates_content_lines) = &self.rdate {
-            rdates_content_lines.iter().for_each(|rdate_content_line| {
-                is_missing_rules = false;
+        if let Some(rdate_content_line) = &self.rdate {
+            is_missing_rules = false;
+
+            ical_parts.push(rdate_content_line.to_string());
+        }
+
+        if let Some(exdate_content_line) = &self.exdate {
+            is_missing_rules = false;
+
+            ical_parts.push(exdate_content_line.to_string());
+        }
+
+        if let Some(dtstart_content_line) = &self.dtstart {
+            ical_parts.push(dtstart_content_line.to_string());
+
+            // If parsed ical does not contain any RRULE or RDATE properties, we need to
+            // artifically create them based on the specified DTSTART properties so that the
+            // rrule_set date extrapolation works, even for a single date.
+            if is_missing_rules {
+                let rdate_content_line = KeyValuePair::new(String::from("RDATE"), dtstart_content_line.value.clone());
 
                 ical_parts.push(rdate_content_line.to_string());
-            });
+            }
         }
-
-        if let Some(exdates_content_lines) = &self.exdate {
-            exdates_content_lines.iter().for_each(|exdate_content_line| {
-                is_missing_rules = false;
-
-                ical_parts.push(exdate_content_line.to_string());
-            });
-        }
-
-        if let Some(dtstart_content_lines) = &self.dtstart {
-            // TODO: There should not be more than one DTSTART properties, raise validation error.
-            dtstart_content_lines.iter().for_each(|dtstart_content_line| {
-                ical_parts.push(dtstart_content_line.to_string());
-
-                // If parsed ical does not contain any RRULE or RDATE properties, we need to
-                // artifically create them based on the specified DTSTART properties so that the
-                // rrule_set date extrapolation works, even for a single date.
-                if is_missing_rules {
-                    let rdate_content_line = KeyValuePair::new(String::from("RDATE"), dtstart_content_line.value.clone());
-
-                    ical_parts.push(rdate_content_line.to_string());
-                }
-            });
-        }
-
-        // TODO: Add COUNT
 
         ical_parts.join("\n").parse::<RRuleSet>()
     }
 
     pub fn get_dtstart_timestamp(&self) -> Result<Option<i64>, ParseError> {
-        if let Some(properties) = self.dtstart.as_ref() {
-            if let Some(datetime) = properties.iter().next() {
-                let parsed_datetime = datetime.to_string().replace(&String::from("DTSTART:"), &String::from(""));
+        if let Some(dtstart) = self.dtstart.as_ref() {
+            // TODO: properly parse this so TZID is catered to.
+            let parsed_datetime = dtstart.to_string().replace(&String::from("DTSTART:"), &String::from(""));
 
-                return match datestring_to_date(&parsed_datetime, None, "DTSTART") {
-                    Ok(datetime) => Ok(Some(datetime.timestamp())),
-                    Err(error) => Err(error),
-                };
-            }
+            return match datestring_to_date(&parsed_datetime, None, "DTSTART") {
+                Ok(datetime) => Ok(Some(datetime.timestamp())),
+                Err(error) => Err(error),
+            };
         }
 
         Ok(None)
     }
 
     pub fn get_dtend_timestamp(&self) -> Result<Option<i64>, ParseError> {
-        if let Some(properties) = self.dtend.as_ref() {
-            if let Some(datetime) = properties.iter().next() {
-                let parsed_datetime = datetime.to_string().replace(&String::from("DTEND:"), &String::from(""));
+        if let Some(dtend) = self.dtend.as_ref() {
+            // TODO: properly parse this so TZID is catered to.
+            let parsed_datetime = dtend.to_string().replace(&String::from("DTEND:"), &String::from(""));
 
-                return match datestring_to_date(&parsed_datetime, None, "DTEND") {
-                    Ok(datetime) => Ok(Some(datetime.timestamp())),
-                    Err(error) => Err(error),
-                };
-            }
+            return match datestring_to_date(&parsed_datetime, None, "DTEND") {
+                Ok(datetime) => Ok(Some(datetime.timestamp())),
+                Err(error) => Err(error),
+            };
         }
 
         Ok(None)
     }
 
     pub fn get_duration(&self) -> Result<Option<i64>, ParseError> {
-        if let Some(properties) = self.duration.as_ref() {
-            if let Some(_duration) = properties.iter().next() {
-                // TODO: implement this
-                return Ok(Some(0));
-            }
+        if let Some(parsed_duration) = self.duration.as_ref() {
+            return Ok(
+                Some(
+                    parsed_duration.get_duration_in_seconds()
+                )
+            );
         }
 
         match (self.get_dtstart_timestamp(), self.get_dtend_timestamp()) {
@@ -907,12 +894,10 @@ mod test {
 
                 schedule_properties: ScheduleProperties {
                     rrule:            Some(
-                        HashSet::from([
-                            KeyValuePair::new(
-                                String::from("RRULE"),
-                                String::from(":FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH"),
-                            )
-                        ])
+                        KeyValuePair::new(
+                            String::from("RRULE"),
+                            String::from(":FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH"),
+                        )
                     ),
                     exrule:           None,
                     rdate:            None,
@@ -965,24 +950,20 @@ mod test {
 
                 schedule_properties: ScheduleProperties {
                     rrule:            Some(
-                        HashSet::from([
-                            KeyValuePair::new(
-                                String::from("RRULE"),
-                                String::from(":FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH"),
-                            )
-                        ])
+                        KeyValuePair::new(
+                            String::from("RRULE"),
+                            String::from(":FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH"),
+                        )
                     ),
                     exrule:           None,
                     rdate:            None,
                     exdate:           None,
                     duration:         None,
                     dtstart:          Some(
-                        HashSet::from([
-                            KeyValuePair::new(
-                                String::from("DTSTART"),
-                                String::from(":16010101T020000"),
-                            )
-                        ])
+                        KeyValuePair::new(
+                            String::from("DTSTART"),
+                            String::from(":16010101T020000"),
+                        )
                     ),
                     dtend:            None,
                     parsed_rrule_set: None,
@@ -1012,12 +993,10 @@ mod test {
 
                 schedule_properties: ScheduleProperties {
                     rrule:            Some(
-                        HashSet::from([
-                            KeyValuePair::new(
-                                String::from("RRULE"),
-                                String::from(":FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH"),
-                            )
-                        ])
+                        KeyValuePair::new(
+                            String::from("RRULE"),
+                            String::from(":FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH"),
+                        )
                     ),
                     exrule:           None,
                     rdate:            None,
@@ -1079,24 +1058,20 @@ mod test {
 
                     schedule_properties: ScheduleProperties {
                         rrule:            Some(
-                            HashSet::from([
-                                KeyValuePair::new(
-                                    String::from("RRULE"),
-                                    String::from(":FREQ=WEEKLY;UNTIL=20210331T183000Z;INTERVAL=1;BYDAY=TU"),
-                                )
-                            ])
+                            KeyValuePair::new(
+                                String::from("RRULE"),
+                                String::from(":FREQ=WEEKLY;UNTIL=20210331T183000Z;INTERVAL=1;BYDAY=TU"),
+                            )
                         ),
                         exrule:           None,
                         rdate:            None,
                         exdate:           None,
                         duration:         None,
                         dtstart:          Some(
-                            HashSet::from([
-                                KeyValuePair::new(
-                                    String::from("DTSTART"),
-                                    String::from(":20201231T183000Z"),
-                                )
-                            ])
+                            KeyValuePair::new(
+                                String::from("DTSTART"),
+                                String::from(":20201231T183000Z"),
+                            )
                         ),
                         dtend:            None,
                         parsed_rrule_set: None,
@@ -1176,24 +1151,20 @@ mod test {
 
                     schedule_properties: ScheduleProperties {
                         rrule:            Some(
-                            HashSet::from([
-                                KeyValuePair::new(
-                                    String::from("RRULE"),
-                                    String::from(":FREQ=WEEKLY;UNTIL=20210331T183000Z;INTERVAL=1;BYDAY=TU"),
-                                )
-                            ])
+                            KeyValuePair::new(
+                                String::from("RRULE"),
+                                String::from(":FREQ=WEEKLY;UNTIL=20210331T183000Z;INTERVAL=1;BYDAY=TU"),
+                            )
                         ),
                         exrule:           None,
                         rdate:            None,
                         exdate:           None,
                         duration:         None,
                         dtstart:          Some(
-                            HashSet::from([
-                                KeyValuePair::new(
-                                    String::from("DTSTART"),
-                                    String::from(":20201231T183000Z"),
-                                )
-                            ])
+                            KeyValuePair::new(
+                                String::from("DTSTART"),
+                                String::from(":20201231T183000Z"),
+                            )
                         ),
                         dtend:            None,
                         parsed_rrule_set: None,
@@ -1369,8 +1340,8 @@ mod test {
                                     ])
                                 )
                     }
-            )
-                ])
+                )
+            ])
         };
 
         let event_diff = EventDiff {

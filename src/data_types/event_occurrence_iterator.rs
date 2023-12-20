@@ -313,32 +313,26 @@ mod test {
     fn build_schedule_properties() -> ScheduleProperties {
         let mut schedule_properties = ScheduleProperties {
             rrule:            Some(
-                HashSet::from([
-                    KeyValuePair::new(
-                        String::from("RRULE"),
-                        String::from(":FREQ=SECONDLY;COUNT=10;INTERVAL=100"),
-                    )
-                ])
+                KeyValuePair::new(
+                    String::from("RRULE"),
+                    String::from(":FREQ=SECONDLY;COUNT=10;INTERVAL=100"),
+                )
             ),
             exrule:           None,
             rdate:            None,
             exdate:           None,
             duration:         None,
             dtstart:          Some(
-                HashSet::from([
-                    KeyValuePair::new(
-                        String::from("DTSTART"),
-                        String::from(":19700101T000000Z"),
-                    )
-                ])
+                KeyValuePair::new(
+                    String::from("DTSTART"),
+                    String::from(":19700101T000000Z"),
+                )
             ),
             dtend:            Some(
-                HashSet::from([
-                    KeyValuePair::new(
-                        String::from("DTEND"),
-                        String::from(":19700101T000005Z"),
-                    )
-                ])
+                KeyValuePair::new(
+                    String::from("DTEND"),
+                    String::from(":19700101T000005Z"),
+                )
             ),
             parsed_rrule_set: None,
         };
