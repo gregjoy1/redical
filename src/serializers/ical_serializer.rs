@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet, BTreeSet};
 
 use crate::data_types::{KeyValuePair, GeoPoint};
+use crate::parsers::duration::ParsedDuration;
 
 use chrono::TimeZone;
 use rrule::Tz;
@@ -103,6 +104,19 @@ pub fn serialize_indexed_geo_to_ical(geo_point: &GeoPoint) -> KeyValuePair {
     )
 }
 
+pub fn serialize_duration_to_ical(duration: &ParsedDuration) -> Option<KeyValuePair> {
+    if let Some(duration_ical) = duration.to_ical() {
+        Some(
+            KeyValuePair::new(
+                String::from("DURATION"),
+                format!(":{}", duration_ical),
+            )
+        )
+    } else {
+        None
+    }
+}
+
 pub fn serialize_dtstart_timestamp_to_ical(dtstart_timestamp: &i64, timezone: &Tz) -> KeyValuePair {
     KeyValuePair::new(
         String::from("DTSTART"),
@@ -172,6 +186,68 @@ mod test {
         assert_eq!(
             serialize_timestamp_to_ical_utc_datetime(&1699833600), // 2023-11-13 00:00:00 +0000
             String::from("20231113T000000Z"),
+        );
+    }
+
+    #[test]
+    fn test_serialize_duration_to_ical() {
+        assert_eq!(
+            serialize_duration_to_ical(&ParsedDuration::default()),
+            None,
+        );
+
+        assert_eq!(
+            serialize_duration_to_ical(
+                &ParsedDuration {
+                    weeks:   None,
+                    days:    Some(15),
+                    hours:   Some(5),
+                    minutes: Some(0),
+                    seconds: Some(20),
+                }
+            ),
+            Some(
+                KeyValuePair::new(
+                    String::from("DURATION"),
+                    String::from(":P15DT5H0M20S"),
+                )
+            ),
+        );
+
+        assert_eq!(
+            serialize_duration_to_ical(
+                &ParsedDuration {
+                    weeks:   Some(7),
+                    days:    None,
+                    hours:   None,
+                    minutes: None,
+                    seconds: None,
+                }
+            ),
+            Some(
+                KeyValuePair::new(
+                    String::from("DURATION"),
+                    String::from(":P7W")
+                )
+            ),
+        );
+
+        assert_eq!(
+            serialize_duration_to_ical(
+                &ParsedDuration {
+                    weeks:   None,
+                    days:    None,
+                    hours:   None,
+                    minutes: None,
+                    seconds: Some(25),
+                }
+            ),
+            Some(
+                KeyValuePair::new(
+                    String::from("DURATION"),
+                    String::from(":PT25S"),
+                )
+            ),
         );
     }
 }

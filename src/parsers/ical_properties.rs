@@ -334,7 +334,7 @@ fn parse_duration_property_content(input: &str) -> ParserResult<&str, ical_commo
                     (
                         ical_common::parse_property_parameters,
                         ical_common::colon_delimeter,
-                        ical_common::ParsedValue::parse_single(ical_common::value),
+                        ical_common::ParsedValue::parse_duration,
                     )
                 )
             )

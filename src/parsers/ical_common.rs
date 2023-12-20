@@ -3,6 +3,7 @@ use std::str;
 
 use crate::data_types::{KeyValuePair, GeoDistance};
 use crate::parsers::datetime::{parse_timezone, ParsedDateString};
+use crate::parsers::duration::{ParsedDuration, parse_duration_string_components};
 
 use nom::{
     error::{context, ParseError, ContextError, ErrorKind, VerboseError},
@@ -11,7 +12,7 @@ use nom::{
     branch::alt,
     combinator::{cut, opt, recognize, map},
     bytes::complete::{take_while, take, take_while1, tag, tag_no_case, escaped},
-    character::complete::{char, alphanumeric1, one_of, space1},
+    character::complete::{char, alphanumeric1, one_of, space1, digit1},
     number::complete::double,
     IResult
 };
@@ -47,6 +48,7 @@ pub enum ParsedValue<'a> {
     Params(HashMap<&'a str, ParsedValue<'a>>),
     DateString(ParsedDateString),
     TimeZone(rrule::Tz),
+    Duration(ParsedDuration),
 }
 
 impl<'a> ParsedValue<'a> {
@@ -234,6 +236,40 @@ impl<'a> ParsedValue<'a> {
                             )
                         )
                     },
+                }
+            }
+        )
+    }
+
+    pub fn parse_duration(input: &'a str) -> ParserResult<&'a str, Self> {
+        context(
+            "parsed duration value",
+            recognize(
+                parse_duration_string_components,
+            ),
+        )(input).and_then(
+            |(remaining, parsed_duration_string_components)| {
+                match ParsedDuration::try_from(parsed_duration_string_components) {
+                    Ok(parsed_duration) => {
+                        Ok(
+                            (
+                                remaining,
+                                ParsedValue::Duration(parsed_duration),
+                            )
+                        )
+                    },
+
+                    Err(_error) => {
+                        Err(
+                            nom::Err::Error(
+                                nom::error::VerboseError::add_context(
+                                    parsed_duration_string_components,
+                                    "parsed duration value",
+                                    nom::error::VerboseError::from_error_kind(input, ErrorKind::Satisfy),
+                                )
+                            )
+                        )
+                    }
                 }
             }
         )
@@ -1059,6 +1095,60 @@ mod test {
                             ),
                         ]
                     }
+                )
+            )
+        );
+
+        assert_eq!(
+            ParsedValue::parse_duration("P15DT5H0M20S"),
+            Ok(
+                (
+                    "",
+                    ParsedValue::Duration(
+                        ParsedDuration {
+                            weeks:   None,
+                            days:    Some(15),
+                            hours:   Some(5),
+                            minutes: Some(0),
+                            seconds: Some(20),
+                        }
+                    )
+                )
+            )
+        );
+
+        assert_eq!(
+            ParsedValue::parse_duration("P7W"),
+            Ok(
+                (
+                    "",
+                    ParsedValue::Duration(
+                        ParsedDuration {
+                            weeks:   Some(7),
+                            days:    None,
+                            hours:   None,
+                            minutes: None,
+                            seconds: None,
+                        }
+                    )
+                )
+            )
+        );
+
+        assert_eq!(
+            ParsedValue::parse_duration("PT25S"),
+            Ok(
+                (
+                    "",
+                    ParsedValue::Duration(
+                        ParsedDuration {
+                            weeks:   None,
+                            days:    None,
+                            hours:   None,
+                            minutes: None,
+                            seconds: Some(25),
+                        }
+                    )
                 )
             )
         );
