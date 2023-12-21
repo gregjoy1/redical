@@ -5,9 +5,8 @@ use nom::{
     bytes::complete::tag,
     character::complete::{char, digit1},
     combinator::{cut, map, opt, recognize},
-    error::{context, ContextError, ErrorKind, ParseError, VerboseError},
-    multi::{many1, separated_list0, separated_list1},
-    number::complete::recognize_float,
+    error::{context, ContextError, ErrorKind, ParseError},
+    multi::{separated_list0, separated_list1},
     sequence::{delimited, preceded, separated_pair, terminated, tuple},
 };
 
@@ -76,6 +75,7 @@ pub enum ParsedQueryComponent {
     WhereCategories(Vec<String>, WhereOperator, WhereOperator),
     WhereRelatedTo(String, Vec<String>, WhereOperator, WhereOperator),
     WhereGeo(GeoDistance, GeoPoint, WhereOperator),
+    WhereClass(Vec<String>, WhereOperator, WhereOperator),
     WhereGroup(Vec<Self>, WhereOperator),
 }
 
@@ -614,6 +614,86 @@ fn parse_geo_distance_query_property_content(
     )?
 }
 
+// X-CLASS:PUBLIC,CONFIDENTIAL  => X-CLASS;OP=AND:PUBLIC,CONFIDENTIAL
+fn parse_class_query_property_content(
+    input: &str,
+) -> ParserResult<&str, ParsedQueryComponent> {
+    preceded(
+        tag("X-CLASS"),
+        cut(context(
+            "X-CLASS",
+            tuple((
+                opt(preceded(
+                    ical_common::semicolon_delimeter,
+                    build_property_params_value_parser!(
+                        "X-CLASS",
+                        (
+                            "OP",
+                            map(alt((tag("AND"), tag("OR"))), |value| {
+                                ical_common::ParsedValue::Single(value)
+                            })
+                        ),
+                    ),
+                )),
+                preceded(
+                    ical_common::colon_delimeter,
+                    ical_common::ParsedValue::parse_list(
+                        alt(
+                            (
+                                tag("PUBLIC"),
+                                tag("PRIVATE"),
+                                tag("CONFIDENTIAL"),
+                            )
+                        ),
+                    ),
+                ),
+            )),
+        )),
+    )(input)
+    .map(
+        |(remaining, (parsed_params, parsed_value)): (
+            &str,
+            (
+                Option<HashMap<&str, ical_common::ParsedValue>>,
+                ical_common::ParsedValue,
+            ),
+        )| {
+            // Defaults
+            let mut internal_where_operator = WhereOperator::And;
+
+            if let Some(parsed_params) = parsed_params {
+                internal_where_operator = match parsed_params.get(&"OP") {
+                    Some(ical_common::ParsedValue::Single("AND")) => WhereOperator::And,
+                    Some(ical_common::ParsedValue::Single("OR")) => WhereOperator::Or,
+
+                    _ => WhereOperator::And,
+                };
+            }
+
+            let ical_common::ParsedValue::List(parsed_classifications) = parsed_value else {
+                panic!(
+                    "Expected class to be a list of the following: PUBLIC, PRIVATE, and CONFIDENTIAL, received: {:#?}",
+                    parsed_value
+                );
+            };
+
+            let parsed_classification: Vec<String> = parsed_classifications
+                .into_iter()
+                .map(|class| String::from(class))
+                .collect();
+
+            (
+                remaining,
+                ParsedQueryComponent::WhereClass(
+                    parsed_classification,
+                    internal_where_operator,
+                    WhereOperator::And,
+                ),
+            )
+        },
+    )
+}
+
 // X-ORDER-BY:DTSTART
 // X-ORDER-BY;GEO=48.85299;2.36885:DTSTART-GEO-DIST
 // X-ORDER-BY;GEO=48.85299;2.36885:GEO-DIST-DTSTART
@@ -705,6 +785,7 @@ fn parse_operator_prefixed_where_query_property_content(
                 parse_categories_query_property_content,
                 parse_related_to_query_property_content,
                 parse_geo_distance_query_property_content,
+                parse_class_query_property_content,
                 parse_group_query_property_component,
             )),
         ),
@@ -773,6 +854,7 @@ fn parse_group_query_property_component(input: &str) -> ParserResult<&str, Parse
                         parse_categories_query_property_content,
                         parse_related_to_query_property_content,
                         parse_geo_distance_query_property_content,
+                        parse_class_query_property_content,
                         parse_group_query_property_component,
                     )),
                 ),
@@ -871,6 +953,7 @@ fn where_group_to_where_conditional(
 // parse_categories_query_property_content
 // parse_related_to_query_property_content
 // parse_geo_distance_query_property_content
+// parse_class_query_property_content
 // parse_order_to_query_property_content
 // parse_group_query_property_component
 
@@ -888,6 +971,7 @@ pub fn parse_query_string(input: &str) -> ParserResult<&str, Query> {
                 parse_categories_query_property_content,
                 parse_related_to_query_property_content,
                 parse_geo_distance_query_property_content,
+                parse_class_query_property_content,
                 parse_group_query_property_component,
             ))),
         ),
@@ -977,6 +1061,32 @@ pub fn parse_query_string(input: &str) -> ParserResult<&str, Query> {
                 ParsedQueryComponent::WhereGeo(distance, long_lat, _external_operator) => {
                     let Some(mut new_where_conditional) =
                         where_geo_distance_to_where_conditional(distance, long_lat)
+                    else {
+                        return query;
+                    };
+
+                    new_where_conditional =
+                        if let Some(current_where_conditional) = query.where_conditional {
+                            WhereConditional::Operator(
+                                Box::new(current_where_conditional),
+                                Box::new(new_where_conditional),
+                                WhereOperator::And,
+                                None,
+                            )
+                        } else {
+                            new_where_conditional
+                        };
+
+                    query.where_conditional = Some(new_where_conditional);
+                }
+
+                ParsedQueryComponent::WhereClass(
+                    classifications,
+                    internal_operator,
+                    _external_operator,
+                ) => {
+                    let Some(mut new_where_conditional) =
+                        where_class_to_where_conditional(classifications, internal_operator)
                     else {
                         return query;
                     };
@@ -1115,6 +1225,41 @@ fn where_geo_distance_to_where_conditional(
     ))
 }
 
+fn where_class_to_where_conditional(
+    classifications: &Vec<String>,
+    operator: &WhereOperator,
+) -> Option<WhereConditional> {
+    match classifications.len() {
+        0 => None,
+
+        1 => Some(WhereConditional::Property(
+            WhereConditionalProperty::Class(classifications[0].clone()),
+            None,
+        )),
+
+        _ => {
+            let mut current_property = WhereConditional::Property(
+                WhereConditionalProperty::Class(classifications[0].clone()),
+                None,
+            );
+
+            for class in classifications[1..].iter() {
+                current_property = WhereConditional::Operator(
+                    Box::new(current_property),
+                    Box::new(WhereConditional::Property(
+                        WhereConditionalProperty::Class(class.clone()),
+                        None,
+                    )),
+                    operator.clone(),
+                    None,
+                );
+            }
+
+            Some(WhereConditional::Group(Box::new(current_property), None))
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
 
@@ -1171,6 +1316,60 @@ mod test {
     }
 
     #[test]
+    fn test_where_class_to_where_conditional() {
+        assert_eq!(
+            where_class_to_where_conditional(&vec![], &WhereOperator::And,),
+            None,
+        );
+
+        assert_eq!(
+            where_class_to_where_conditional(
+                &vec![String::from("PRIVATE"),],
+                &WhereOperator::And,
+            ),
+            Some(WhereConditional::Property(
+                WhereConditionalProperty::Class(String::from("PRIVATE")),
+                None,
+            )),
+        );
+
+
+        assert_eq!(
+            where_class_to_where_conditional(
+                &vec![
+                    String::from("PUBLIC"),
+                    String::from("PRIVATE"),
+                    String::from("CONFIDENTIAL"),
+                ],
+                &WhereOperator::Or,
+            ),
+            Some(WhereConditional::Group(
+                Box::new(WhereConditional::Operator(
+                    Box::new(WhereConditional::Operator(
+                        Box::new(WhereConditional::Property(
+                            WhereConditionalProperty::Class(String::from("PUBLIC")),
+                            None,
+                        )),
+                        Box::new(WhereConditional::Property(
+                            WhereConditionalProperty::Class(String::from("PRIVATE")),
+                            None,
+                        )),
+                        WhereOperator::Or,
+                        None,
+                    )),
+                    Box::new(WhereConditional::Property(
+                        WhereConditionalProperty::Class(String::from("CONFIDENTIAL")),
+                        None,
+                    )),
+                    WhereOperator::Or,
+                    None,
+                )),
+                None,
+            )),
+        );
+    }
+
+    #[test]
     fn test_where_categories_to_where_conditional() {
         assert_eq!(
             where_categories_to_where_conditional(&vec![], &WhereOperator::And,),
@@ -1183,10 +1382,11 @@ mod test {
                 &WhereOperator::And,
             ),
             Some(WhereConditional::Property(
-                WhereConditionalProperty::Categories(String::from("CATEGORY_ONE"),),
+                WhereConditionalProperty::Categories(String::from("CATEGORY_ONE")),
                 None,
             )),
         );
+
 
         assert_eq!(
             where_categories_to_where_conditional(
@@ -1201,18 +1401,18 @@ mod test {
                 Box::new(WhereConditional::Operator(
                     Box::new(WhereConditional::Operator(
                         Box::new(WhereConditional::Property(
-                            WhereConditionalProperty::Categories(String::from("CATEGORY_ONE"),),
+                            WhereConditionalProperty::Categories(String::from("CATEGORY_ONE")),
                             None,
                         )),
                         Box::new(WhereConditional::Property(
-                            WhereConditionalProperty::Categories(String::from("CATEGORY_TWO"),),
+                            WhereConditionalProperty::Categories(String::from("CATEGORY_TWO")),
                             None,
                         )),
                         WhereOperator::Or,
                         None,
                     )),
                     Box::new(WhereConditional::Property(
-                        WhereConditionalProperty::Categories(String::from("CATEGORY_THREE"),),
+                        WhereConditionalProperty::Categories(String::from("CATEGORY_THREE")),
                         None,
                     )),
                     WhereOperator::Or,
@@ -1302,6 +1502,7 @@ mod test {
             "X-CATEGORIES;OP=OR:CATEGORY_ONE,CATEGORY_TWO",
             "X-RELATED-TO:PARENT_UUID",
             "X-GEO;DIST=1.5KM:48.85299;2.36885",
+            "X-CLASS:PRIVATE",
             "X-LIMIT:50",
             "X-TZID:Europe/Vilnius",
             "X-ORDER-BY;GEO=48.85299;2.36885:DTSTART-GEO-DIST",
@@ -1315,43 +1516,53 @@ mod test {
                 Query {
                     where_conditional: Some(WhereConditional::Operator(
                         Box::new(WhereConditional::Operator(
-                            Box::new(WhereConditional::Group(
-                                Box::new(WhereConditional::Operator(
-                                    Box::new(WhereConditional::Property(
-                                        WhereConditionalProperty::Categories(String::from(
-                                            "CATEGORY_ONE"
-                                        ),),
+                            Box::new(WhereConditional::Operator(
+                                Box::new(WhereConditional::Group(
+                                    Box::new(WhereConditional::Operator(
+                                        Box::new(WhereConditional::Property(
+                                            WhereConditionalProperty::Categories(String::from(
+                                                "CATEGORY_ONE"
+                                            )),
+                                            None,
+                                        )),
+                                        Box::new(WhereConditional::Property(
+                                            WhereConditionalProperty::Categories(String::from(
+                                                "CATEGORY_TWO"
+                                            )),
+                                            None,
+                                        )),
+                                        WhereOperator::Or,
                                         None,
                                     )),
-                                    Box::new(WhereConditional::Property(
-                                        WhereConditionalProperty::Categories(String::from(
-                                            "CATEGORY_TWO"
-                                        ),),
-                                        None,
-                                    )),
-                                    WhereOperator::Or,
                                     None,
                                 )),
+                                Box::new(WhereConditional::Property(
+                                    WhereConditionalProperty::RelatedTo(KeyValuePair::new(
+                                        String::from("PARENT"),
+                                        String::from("PARENT_UUID"),
+                                    )),
+                                    None,
+                                )),
+                                WhereOperator::And,
                                 None,
                             )),
                             Box::new(WhereConditional::Property(
-                                WhereConditionalProperty::RelatedTo(KeyValuePair::new(
-                                    String::from("PARENT"),
-                                    String::from("PARENT_UUID"),
-                                )),
+                                WhereConditionalProperty::Geo(
+                                    GeoDistance::new_from_kilometers_float(1.5),
+                                    GeoPoint {
+                                        long: 2.36885,
+                                        lat: 48.85299,
+                                    },
+                                ),
                                 None,
                             )),
                             WhereOperator::And,
                             None,
-                        ),),
+                        )),
                         Box::new(WhereConditional::Property(
-                            WhereConditionalProperty::Geo(
-                                GeoDistance::new_from_kilometers_float(1.5),
-                                GeoPoint {
-                                    long: 2.36885,
-                                    lat: 48.85299,
-                                },
-                            ),
+                            WhereConditionalProperty::Class(String::from(
+                                String::from("PRIVATE"),
+                            )),
                             None,
                         )),
                         WhereOperator::And,
@@ -1365,12 +1576,12 @@ mod test {
 
                     lower_bound_range_condition: Some(LowerBoundRangeCondition::GreaterThan(
                         RangeConditionProperty::DtStart(875779200,),
-                        Some(String::from("Event_UUID"),),
-                    ),),
+                        Some(String::from("Event_UUID")),
+                    )),
 
                     upper_bound_range_condition: Some(UpperBoundRangeCondition::LessEqualThan(
                         RangeConditionProperty::DtStart(878461200,),
-                    ),),
+                    )),
 
                     in_timezone: rrule::Tz::Europe__Vilnius,
 
@@ -1434,7 +1645,7 @@ mod test {
                                         )),
                                         WhereOperator::Or,
                                         None,
-                                    ),),
+                                    )),
                                     Box::new(WhereConditional::Property(
                                         WhereConditionalProperty::RelatedTo(KeyValuePair::new(
                                             String::from("PARENT"),
@@ -1480,12 +1691,12 @@ mod test {
 
                     lower_bound_range_condition: Some(LowerBoundRangeCondition::GreaterThan(
                         RangeConditionProperty::DtStart(875779200,),
-                        Some(String::from("Event_UUID"),),
-                    ),),
+                        Some(String::from("Event_UUID")),
+                    )),
 
                     upper_bound_range_condition: Some(UpperBoundRangeCondition::LessEqualThan(
                         RangeConditionProperty::DtStart(878461200,),
-                    ),),
+                    )),
 
                     in_timezone: rrule::Tz::Europe__Vilnius,
 

@@ -151,6 +151,7 @@ pub enum WhereConditionalProperty {
     Categories(String),
     RelatedTo(KeyValuePair),
     Geo(GeoDistance, GeoPoint),
+    Class(String),
 }
 
 impl WhereConditionalProperty {
@@ -169,6 +170,10 @@ impl WhereConditionalProperty {
 
             WhereConditionalProperty::Geo(distance, long_lat) => {
                 format!("GEO;DIST={}:{}", distance.to_string(), long_lat.to_string())
+            }
+
+            WhereConditionalProperty::Class(classification) => {
+                format!("CLASS:{}", classification)
             }
         }
     }
@@ -192,6 +197,13 @@ impl WhereConditionalProperty {
             WhereConditionalProperty::Geo(distance, long_lat) => Ok(calendar
                 .indexed_geo
                 .locate_within_distance(long_lat, distance)),
+
+            WhereConditionalProperty::Class(classification) => Ok(calendar
+                .indexed_class
+                .terms
+                .get(classification)
+                .unwrap_or(&InvertedCalendarIndexTerm::new())
+                .clone()),
         }
     }
 
@@ -238,7 +250,20 @@ impl WhereConditionalProperty {
                     inverted_index_term_a,
                     &inverted_index_term_b,
                 ))
-            }
+            },
+
+            WhereConditionalProperty::Class(classification) => {
+                let inverted_index_term_b = calendar
+                    .indexed_class
+                    .terms
+                    .get(classification)
+                    .unwrap_or(&empty_calendar_index_term);
+
+                Ok(InvertedCalendarIndexTerm::merge_and(
+                    inverted_index_term_a,
+                    inverted_index_term_b,
+                ))
+            },
         }
     }
 
@@ -285,7 +310,20 @@ impl WhereConditionalProperty {
                     inverted_index_term_a,
                     &inverted_index_term_b,
                 ))
-            }
+            },
+
+            WhereConditionalProperty::Class(classification) => {
+                let inverted_index_term_b = calendar
+                    .indexed_class
+                    .terms
+                    .get(classification)
+                    .unwrap_or(&empty_calendar_index_term);
+
+                Ok(InvertedCalendarIndexTerm::merge_or(
+                    inverted_index_term_a,
+                    inverted_index_term_b,
+                ))
+            },
         }
     }
 }
@@ -300,7 +338,7 @@ pub struct WhereConditionalAnalysis {
 mod test {
     use super::*;
 
-    use pretty_assertions_sorted::{assert_eq, assert_eq_sorted};
+    use pretty_assertions_sorted::assert_eq;
 
     use crate::core::IndexedConclusion;
     use std::collections::{HashMap, HashSet};
