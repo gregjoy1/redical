@@ -1,5 +1,16 @@
+// TODO: document this
+pub trait UnicodeSegmentation {
+    fn wrapped_grapheme_indices<'a>(&'a self, is_extended: bool) -> unicode_segmentation::GraphemeIndices<'a>;
+}
+
+impl UnicodeSegmentation for &str {
+    #[inline]
+    fn wrapped_grapheme_indices(&self, is_extended: bool) -> unicode_segmentation::GraphemeIndices {
+        unicode_segmentation::UnicodeSegmentation::grapheme_indices(*self, is_extended)
+    }
+}
+
 use std::collections::HashMap;
-use std::str;
 
 use crate::core::parsers::datetime::{parse_timezone, ParsedDateString};
 use crate::core::parsers::duration::{parse_duration_string_components, ParsedDuration};
@@ -570,6 +581,7 @@ pub fn parse_with_look_ahead_parser<I, O, E, F, F2>(
 ) -> impl FnMut(I) -> nom::IResult<I, I, E>
 where
     I: Clone
+        + UnicodeSegmentation
         + nom::InputLength
         + nom::Slice<std::ops::Range<usize>>
         + nom::Slice<std::ops::RangeFrom<usize>>
@@ -582,13 +594,17 @@ where
         let (remaining, output) = parser.parse(input.clone())?;
 
         let parser_max_index = input.input_len() - remaining.input_len();
-        let input_max_index = input.input_len() - 1;
+        let input_max_index = input.input_len();
 
         let max_index = std::cmp::max(input_max_index, parser_max_index);
 
         let mut look_ahead_max_index = max_index;
 
-        for index in 0..=parser_max_index {
+        for (index, _element) in input.wrapped_grapheme_indices(true) {
+            if index >= parser_max_index {
+                break;
+            }
+
             let sliced_input = input.slice(index..max_index);
 
             if look_ahead_parser.parse(sliced_input).is_ok() {
@@ -910,6 +926,29 @@ mod test {
             (
                 "",
                 "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA"
+            )
+        );
+    }
+
+    #[test]
+    fn test_parse_property_content_with_emoji() {
+        assert_eq!(
+            parse_property_content("SUMMARY:🎄 MERRY CHRISTMAS 🎄"),
+            Ok(
+                (
+                    "",
+                    ParsedPropertyContent {
+                        name: Some("SUMMARY"),
+                        params: None,
+                        value: ParsedValue::Single(
+                            "🎄 MERRY CHRISTMAS 🎄"
+                        ),
+                        content_line: KeyValuePair::new(
+                            String::from("SUMMARY"),
+                            String::from(":🎄 MERRY CHRISTMAS 🎄"),
+                        )
+                    }
+                )
             )
         );
     }

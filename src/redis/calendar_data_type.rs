@@ -69,7 +69,8 @@ unsafe extern "C" fn aof_rewrite(
 }
 
 unsafe extern "C" fn mem_usage(_value: *const c_void) -> usize {
-    todo!();
+    // todo!();
+    0
 }
 
 unsafe extern "C" fn free(value: *mut c_void) {
