@@ -129,8 +129,8 @@ fn rebase_override(
 pub struct ScheduleProperties {
     pub rrule: Option<KeyValuePair>,
     pub exrule: Option<KeyValuePair>,
-    pub rdate: Option<KeyValuePair>,
-    pub exdate: Option<KeyValuePair>,
+    pub rdate: Option<HashSet<KeyValuePair>>,
+    pub exdate: Option<HashSet<KeyValuePair>>,
     pub duration: Option<ParsedDuration>,
     pub dtstart: Option<KeyValuePair>,
     pub dtend: Option<KeyValuePair>,
@@ -155,10 +155,22 @@ impl ScheduleProperties {
         match property {
             ParsedProperty::RRule(content)    => { self.rrule   = Some(content.content_line); },
             ParsedProperty::ExRule(content)   => { self.exrule  = Some(content.content_line); },
-            ParsedProperty::RDate(content)    => { self.rdate   = Some(content.content_line); },
-            ParsedProperty::ExDate(content)   => { self.exdate  = Some(content.content_line); },
             ParsedProperty::DtStart(content)  => { self.dtstart = Some(content.content_line); },
             ParsedProperty::DtEnd(content)    => { self.dtend   = Some(content.content_line); },
+
+            ParsedProperty::RDate(content)    => {
+                match &mut self.rdate {
+                    Some(rdate) => { rdate.insert(content.content_line); },
+                    None => { self.rdate = Some(HashSet::from([content.content_line])); }
+                }
+            },
+
+            ParsedProperty::ExDate(content)   => {
+                match &mut self.exdate {
+                    Some(exdate) => { exdate.insert(content.content_line); },
+                    None => { self.exdate = Some(HashSet::from([content.content_line])); }
+                }
+            },
 
             ParsedProperty::Duration(content) => {
                 if let ParsedValue::Duration(parsed_duration) = content.value {
@@ -192,16 +204,20 @@ impl ScheduleProperties {
             ical_parts.push(exrule_content_line.to_string());
         }
 
-        if let Some(rdate_content_line) = &self.rdate {
-            is_missing_rules = false;
+        if let Some(rdates_content_lines) = &self.rdate {
+            rdates_content_lines.iter().for_each(|rdate_content_line| {
+                is_missing_rules = false;
 
-            ical_parts.push(rdate_content_line.to_string());
+                ical_parts.push(rdate_content_line.to_string());
+            });
         }
 
-        if let Some(exdate_content_line) = &self.exdate {
-            is_missing_rules = false;
+        if let Some(exdates_content_lines) = &self.exdate {
+            exdates_content_lines.iter().for_each(|exdate_content_line| {
+                is_missing_rules = false;
 
-            ical_parts.push(exdate_content_line.to_string());
+                ical_parts.push(exdate_content_line.to_string());
+            });
         }
 
         if let Some(dtstart_content_line) = &self.dtstart {

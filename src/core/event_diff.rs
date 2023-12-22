@@ -1,3 +1,6 @@
+use std::collections::HashSet;
+use std::hash::Hash;
+
 use crate::core::parsers::duration::ParsedDuration;
 use crate::core::{
     btree_hashset_to_hashset, hashmap_to_hashset, Event, GeoPoint, KeyValuePair, UpdatedAttribute,
@@ -111,8 +114,8 @@ impl EventDiff {
 pub struct SchedulePropertiesDiff {
     rrule: Option<UpdatedAttribute<KeyValuePair>>,
     exrule: Option<UpdatedAttribute<KeyValuePair>>,
-    rdate: Option<UpdatedAttribute<KeyValuePair>>,
-    exdate: Option<UpdatedAttribute<KeyValuePair>>,
+    rdate: Option<UpdatedSetMembers<KeyValuePair>>,
+    exdate: Option<UpdatedSetMembers<KeyValuePair>>,
     duration: Option<UpdatedAttribute<ParsedDuration>>,
     dtstart: Option<UpdatedAttribute<KeyValuePair>>,
     dtend: Option<UpdatedAttribute<KeyValuePair>>,
@@ -132,13 +135,13 @@ impl SchedulePropertiesDiff {
                 &original_event_schedule_properties.exrule,
                 &updated_event_schedule_properties.exrule,
             ),
-            rdate: Self::build_updated_attribute(
-                &original_event_schedule_properties.rdate,
-                &updated_event_schedule_properties.rdate,
+            rdate: Self::build_updated_set_members(
+                original_event_schedule_properties.rdate.as_ref(),
+                updated_event_schedule_properties.rdate.as_ref(),
             ),
-            exdate: Self::build_updated_attribute(
-                &original_event_schedule_properties.exdate,
-                &updated_event_schedule_properties.exdate,
+            exdate: Self::build_updated_set_members(
+                original_event_schedule_properties.exdate.as_ref(),
+                updated_event_schedule_properties.exdate.as_ref(),
             ),
             duration: Self::build_updated_attribute(
                 &original_event_schedule_properties.duration,
@@ -152,6 +155,17 @@ impl SchedulePropertiesDiff {
                 &original_event_schedule_properties.dtend,
                 &updated_event_schedule_properties.dtend,
             ),
+        }
+    }
+
+    fn build_updated_set_members<T>(original_set: Option<&HashSet<T>>, updated_set: Option<&HashSet<T>>) -> Option<UpdatedSetMembers<T>>
+    where
+        T: Eq + PartialEq + Hash + Clone
+    {
+        match (original_set, updated_set) {
+            (None, None) => None,
+
+            _ => Some(UpdatedSetMembers::new(original_set, updated_set))
         }
     }
 
