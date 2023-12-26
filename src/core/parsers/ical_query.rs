@@ -615,9 +615,7 @@ fn parse_geo_distance_query_property_content(
 }
 
 // X-CLASS:PUBLIC,CONFIDENTIAL  => X-CLASS;OP=AND:PUBLIC,CONFIDENTIAL
-fn parse_class_query_property_content(
-    input: &str,
-) -> ParserResult<&str, ParsedQueryComponent> {
+fn parse_class_query_property_content(input: &str) -> ParserResult<&str, ParsedQueryComponent> {
     preceded(
         tag("X-CLASS"),
         cut(context(
@@ -1323,16 +1321,12 @@ mod test {
         );
 
         assert_eq!(
-            where_class_to_where_conditional(
-                &vec![String::from("PRIVATE"),],
-                &WhereOperator::And,
-            ),
+            where_class_to_where_conditional(&vec![String::from("PRIVATE"),], &WhereOperator::And,),
             Some(WhereConditional::Property(
                 WhereConditionalProperty::Class(String::from("PRIVATE")),
                 None,
             )),
         );
-
 
         assert_eq!(
             where_class_to_where_conditional(
@@ -1386,7 +1380,6 @@ mod test {
                 None,
             )),
         );
-
 
         assert_eq!(
             where_categories_to_where_conditional(
@@ -1560,9 +1553,7 @@ mod test {
                             None,
                         )),
                         Box::new(WhereConditional::Property(
-                            WhereConditionalProperty::Class(String::from(
-                                String::from("PRIVATE"),
-                            )),
+                            WhereConditionalProperty::Class(String::from(String::from("PRIVATE"),)),
                             None,
                         )),
                         WhereOperator::And,

@@ -154,9 +154,7 @@ impl<'a> CalendarIndexUpdater<'a> {
             indexed_class.remove(self.event_uuid.clone(), removed_class.clone())?;
         }
 
-        for (updated_class, updated_indexed_conclusion) in
-            updated_event_class_diff.updated.iter()
-        {
+        for (updated_class, updated_indexed_conclusion) in updated_event_class_diff.updated.iter() {
             indexed_class.insert(
                 self.event_uuid.clone(),
                 updated_class.clone(),
@@ -164,8 +162,7 @@ impl<'a> CalendarIndexUpdater<'a> {
             )?;
         }
 
-        for (added_class, added_indexed_conclusion) in updated_event_class_diff.added.iter()
-        {
+        for (added_class, added_indexed_conclusion) in updated_event_class_diff.added.iter() {
             indexed_class.insert(
                 self.event_uuid.clone(),
                 added_class.clone(),

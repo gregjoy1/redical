@@ -1,6 +1,9 @@
 // TODO: document this
 pub trait UnicodeSegmentation {
-    fn wrapped_grapheme_indices<'a>(&'a self, is_extended: bool) -> unicode_segmentation::GraphemeIndices<'a>;
+    fn wrapped_grapheme_indices<'a>(
+        &'a self,
+        is_extended: bool,
+    ) -> unicode_segmentation::GraphemeIndices<'a>;
 }
 
 impl UnicodeSegmentation for &str {
@@ -934,22 +937,18 @@ mod test {
     fn test_parse_property_content_with_emoji() {
         assert_eq!(
             parse_property_content("SUMMARY:🎄 MERRY CHRISTMAS 🎄"),
-            Ok(
-                (
-                    "",
-                    ParsedPropertyContent {
-                        name: Some("SUMMARY"),
-                        params: None,
-                        value: ParsedValue::Single(
-                            "🎄 MERRY CHRISTMAS 🎄"
-                        ),
-                        content_line: KeyValuePair::new(
-                            String::from("SUMMARY"),
-                            String::from(":🎄 MERRY CHRISTMAS 🎄"),
-                        )
-                    }
-                )
-            )
+            Ok((
+                "",
+                ParsedPropertyContent {
+                    name: Some("SUMMARY"),
+                    params: None,
+                    value: ParsedValue::Single("🎄 MERRY CHRISTMAS 🎄"),
+                    content_line: KeyValuePair::new(
+                        String::from("SUMMARY"),
+                        String::from(":🎄 MERRY CHRISTMAS 🎄"),
+                    )
+                }
+            ))
         );
     }
 

@@ -250,7 +250,7 @@ impl WhereConditionalProperty {
                     inverted_index_term_a,
                     &inverted_index_term_b,
                 ))
-            },
+            }
 
             WhereConditionalProperty::Class(classification) => {
                 let inverted_index_term_b = calendar
@@ -263,7 +263,7 @@ impl WhereConditionalProperty {
                     inverted_index_term_a,
                     inverted_index_term_b,
                 ))
-            },
+            }
         }
     }
 
@@ -310,7 +310,7 @@ impl WhereConditionalProperty {
                     inverted_index_term_a,
                     &inverted_index_term_b,
                 ))
-            },
+            }
 
             WhereConditionalProperty::Class(classification) => {
                 let inverted_index_term_b = calendar
@@ -323,7 +323,7 @@ impl WhereConditionalProperty {
                     inverted_index_term_a,
                     inverted_index_term_b,
                 ))
-            },
+            }
         }
     }
 }

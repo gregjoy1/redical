@@ -66,6 +66,7 @@ pub struct EventOccurrenceIterator<'a> {
     filter_from: Option<LowerBoundFilterCondition>,
     filter_until: Option<UpperBoundFilterCondition>,
     filtering_indexed_conclusion: Option<IndexedConclusion>,
+    internal_min_max_bounds: Option<(i64, i64)>,
 }
 
 impl<'a> EventOccurrenceIterator<'a> {
@@ -90,6 +91,14 @@ impl<'a> EventOccurrenceIterator<'a> {
         let count = 0u16;
         let is_ended = false;
 
+        let internal_min_max_bounds = filtering_indexed_conclusion.as_ref().and_then(|indexed_conclusion| {
+            if matches!(indexed_conclusion, IndexedConclusion::Exclude(_)) {
+                indexed_conclusion.min_max_exceptions()
+            } else {
+                None
+            }
+        });
+
         Ok(EventOccurrenceIterator {
             event_occurrence_overrides: event_occurrence_overrides.clone(),
             rrule_set_iter,
@@ -100,6 +109,7 @@ impl<'a> EventOccurrenceIterator<'a> {
             filter_from,
             filter_until,
             filtering_indexed_conclusion,
+            internal_min_max_bounds,
         })
     }
 
@@ -112,6 +122,12 @@ impl<'a> EventOccurrenceIterator<'a> {
         dtstart_timestamp: &i64,
         duration: &i64,
     ) -> bool {
+        // If filtering_indexed_conclusion is IndexedConclusion::Exclude with exceptions, we work
+        // out the min/max bounds and only iterate from the min bounds value.
+        if self.internal_min_max_bounds.is_some_and(|(min, _max)| *dtstart_timestamp < min) {
+            return false;
+        }
+
         match self.filter_from {
             Some(LowerBoundFilterCondition::GreaterThan(FilterProperty::DtStart(comparison))) => {
                 dtstart_timestamp > &comparison
@@ -136,6 +152,12 @@ impl<'a> EventOccurrenceIterator<'a> {
     }
 
     fn is_less_than_filtered_upper_bounds(&self, dtstart_timestamp: &i64, duration: &i64) -> bool {
+        // If filtering_indexed_conclusion is IndexedConclusion::Exclude with exceptions, we work
+        // out the min/max bounds and only iterate until the max bounds value.
+        if self.internal_min_max_bounds.is_some_and(|(_min, max)| *dtstart_timestamp > max) {
+            return false;
+        }
+
         match self.filter_until {
             Some(UpperBoundFilterCondition::LessThan(FilterProperty::DtStart(comparison))) => {
                 dtstart_timestamp < &comparison
@@ -168,6 +190,13 @@ impl<'a> EventOccurrenceIterator<'a> {
     // We rely purely on dtstart_timestamp for this method, to avoid the expense of ascertaining an
     // EventOccurrenceOverride to determine a duration.
     fn has_reached_the_end(&self, dtstart_timestamp: &i64) -> bool {
+        // If filtering_indexed_conclusion is IndexedConclusion::Exclude with exceptions, we work
+        // out the min/max bounds and only iterate as far as the max value. This prevents this
+        // process from iterating infinite recurrences.
+        if self.internal_min_max_bounds.is_some_and(|(_min, max)| *dtstart_timestamp >= max) {
+            return true;
+        }
+
         match self.filter_until {
             Some(UpperBoundFilterCondition::LessThan(FilterProperty::DtStart(comparison))) => {
                 dtstart_timestamp > &comparison
@@ -670,5 +699,69 @@ mod test {
             Some((300, 305, Some(build_event_occurrence_override_300())))
         );
         assert_eq!(event_occurrence_iterator.next(), None);
+    }
+
+    #[test]
+    fn test_event_occurrence_iterator_handle_expensive_runaway_indexed_conclusion_exclude_exceptions(
+    ) {
+        let mut schedule_properties = ScheduleProperties {
+            rrule: Some(KeyValuePair::new(
+                String::from("RRULE"),
+                String::from(":FREQ=SECONDLY;INTERVAL=100"),
+            )),
+            exrule: None,
+            rdate: None,
+            exdate: None,
+            duration: None,
+            dtstart: Some(KeyValuePair::new(
+                String::from("DTSTART"),
+                String::from(":19700101T000000Z"),
+            )),
+            dtend: Some(KeyValuePair::new(
+                String::from("DTEND"),
+                String::from(":19700101T000005Z"),
+            )),
+            parsed_rrule_set: None,
+        };
+
+        assert!(schedule_properties.build_parsed_rrule_set().is_ok());
+
+        let event_occurrence_overrides = BTreeMap::new();
+
+        let (done_tx, done_rx) = ::std::sync::mpsc::channel();
+
+        let handle = ::std::thread::Builder::new()
+            .spawn(move || {
+                let mut event_occurrence_iterator = EventOccurrenceIterator::new(
+                    &schedule_properties,
+                    &event_occurrence_overrides,
+                    None,
+                    None,
+                    None,
+                    Some(IndexedConclusion::Exclude(Some(HashSet::from([300])))),
+                )
+                .unwrap();
+
+                assert_eq!(event_occurrence_iterator.next(), Some((300, 305, None)));
+
+                assert_eq!(event_occurrence_iterator.next(), None);
+
+                let _ = done_tx.send(());
+            })
+            .unwrap();
+
+        match done_rx.recv_timeout({
+            std::time::Duration::from_secs(1)
+        }) {
+            Err(::std::sync::mpsc::RecvTimeoutError::Timeout) => {
+                panic!("Test took too long");
+            }
+
+            _ => {
+                if let Err(err) = handle.join() {
+                    ::std::panic::resume_unwind(err);
+                }
+            }
+        }
     }
 }

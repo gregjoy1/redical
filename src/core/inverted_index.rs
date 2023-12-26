@@ -279,8 +279,10 @@ where
 
         for (timestamp, event_override) in event.overrides.iter() {
             if let Some(overridden_class) = &event_override.class {
-                indexed_class
-                    .insert_override(timestamp.clone(), &HashSet::from([overridden_class.clone()]));
+                indexed_class.insert_override(
+                    timestamp.clone(),
+                    &HashSet::from([overridden_class.clone()]),
+                );
             }
         }
 
@@ -708,6 +710,40 @@ impl IndexedConclusion {
                 exceptions_to_exclude,
             )),
         }
+    }
+
+    pub fn min_max_exceptions(&self) -> Option<(i64, i64)> {
+        let exceptions =
+            match self {
+                IndexedConclusion::Include(exceptions) => exceptions,
+                IndexedConclusion::Exclude(exceptions) => exceptions,
+            };
+
+        let Some(exceptions) = exceptions else {
+            return None;
+        };
+
+        if exceptions.is_empty() {
+            return None;
+        }
+
+        let mut min_max: Option<(i64, i64)> = None;
+
+        for exception in exceptions {
+            if let Some((min, max)) = min_max {
+                if *exception > max {
+                    min_max = Some((min, *exception));
+                }
+
+                if *exception < min {
+                    min_max = Some((*exception, max));
+                }
+            } else {
+                min_max = Some((*exception, *exception));
+            }
+        }
+
+        min_max
     }
 
     pub fn is_empty_exclude(&self) -> bool {
@@ -1149,6 +1185,11 @@ mod test {
         let mut included_event = IndexedConclusion::Include(None);
         let mut excluded_event = IndexedConclusion::Exclude(None);
 
+        // Testing min/max
+
+        assert_eq!(included_event.min_max_exceptions(), None);
+        assert_eq!(excluded_event.min_max_exceptions(), None);
+
         // Testing exception inserts into both Include and Exclude
 
         assert_eq!(included_event.insert_exception(100), true);
@@ -1158,10 +1199,16 @@ mod test {
             included_event,
             IndexedConclusion::Include(Some(HashSet::from([100])))
         );
+
         assert_eq!(
             excluded_event,
             IndexedConclusion::Exclude(Some(HashSet::from([100])))
         );
+
+        // Testing min/max
+
+        assert_eq!(included_event.min_max_exceptions(), Some((100, 100)));
+        assert_eq!(excluded_event.min_max_exceptions(), Some((100, 100)));
 
         // Testing multiple exception inserts into both Include and Exclude
 
@@ -1172,6 +1219,7 @@ mod test {
             included_event,
             IndexedConclusion::Include(Some(HashSet::from([100, 200])))
         );
+
         assert_eq!(
             excluded_event,
             IndexedConclusion::Exclude(Some(HashSet::from([100, 200])))
@@ -1186,6 +1234,7 @@ mod test {
             included_event,
             IndexedConclusion::Include(Some(HashSet::from([100, 200])))
         );
+
         assert_eq!(
             excluded_event,
             IndexedConclusion::Exclude(Some(HashSet::from([100, 200])))
@@ -1200,6 +1249,11 @@ mod test {
         assert_eq!(excluded_event.contains_exception(100), true);
         assert_eq!(excluded_event.contains_exception(200), true);
         assert_eq!(excluded_event.contains_exception(300), false);
+
+        // Testing min/max
+
+        assert_eq!(included_event.min_max_exceptions(), Some((100, 200)));
+        assert_eq!(excluded_event.min_max_exceptions(), Some((100, 200)));
 
         // Testing querying inclusion of event occurrence from populated Include and Exclude
 
@@ -1231,6 +1285,7 @@ mod test {
             included_event,
             IndexedConclusion::Include(Some(HashSet::from([100])))
         );
+
         assert_eq!(
             excluded_event,
             IndexedConclusion::Exclude(Some(HashSet::from([100])))

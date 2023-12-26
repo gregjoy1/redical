@@ -158,14 +158,17 @@ impl SchedulePropertiesDiff {
         }
     }
 
-    fn build_updated_set_members<T>(original_set: Option<&HashSet<T>>, updated_set: Option<&HashSet<T>>) -> Option<UpdatedSetMembers<T>>
+    fn build_updated_set_members<T>(
+        original_set: Option<&HashSet<T>>,
+        updated_set: Option<&HashSet<T>>,
+    ) -> Option<UpdatedSetMembers<T>>
     where
-        T: Eq + PartialEq + Hash + Clone
+        T: Eq + PartialEq + Hash + Clone,
     {
         match (original_set, updated_set) {
             (None, None) => None,
 
-            _ => Some(UpdatedSetMembers::new(original_set, updated_set))
+            _ => Some(UpdatedSetMembers::new(original_set, updated_set)),
         }
     }
 

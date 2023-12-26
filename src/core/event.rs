@@ -213,11 +213,13 @@ impl ScheduleProperties {
         }
 
         if let Some(exdates_content_lines) = &self.exdate {
-            exdates_content_lines.iter().for_each(|exdate_content_line| {
-                is_missing_rules = false;
+            exdates_content_lines
+                .iter()
+                .for_each(|exdate_content_line| {
+                    is_missing_rules = false;
 
-                ical_parts.push(exdate_content_line.to_string());
-            });
+                    ical_parts.push(exdate_content_line.to_string());
+                });
         }
 
         if let Some(dtstart_content_line) = &self.dtstart {
@@ -628,7 +630,8 @@ impl Event {
 
         if let Some(ref mut indexed_class) = self.indexed_class {
             if let Some(overridden_class) = &event_occurrence_override.class {
-                indexed_class.insert_override(timestamp, &HashSet::from([overridden_class.clone()]));
+                indexed_class
+                    .insert_override(timestamp, &HashSet::from([overridden_class.clone()]));
             }
         } else {
             self.rebuild_indexed_class()?;
@@ -1429,16 +1432,16 @@ mod test {
                         geo: None,
                         class: None,
                         properties: Some(BTreeSet::from([KeyValuePair::new(
-                                    String::from("X-PROPERTY-THREE"),
-                                    String::from(":PROPERTY_VALUE_ONE"),
+                            String::from("X-PROPERTY-THREE"),
+                            String::from(":PROPERTY_VALUE_ONE"),
                         )])),
                         categories: Some(HashSet::from([String::from("CATEGORY_FOUR"),])),
                         duration: None,
                         dtstart: None,
                         dtend: None,
                         related_to: Some(HashMap::from([(
-                                    String::from("X-IDX-CAL"),
-                                    HashSet::from([String::from("INDEXED_CALENDAR_UUID"),])
+                            String::from("X-IDX-CAL"),
+                            HashSet::from([String::from("INDEXED_CALENDAR_UUID"),])
                         ),]))
                     }
                 ),
