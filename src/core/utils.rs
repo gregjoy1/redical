@@ -441,7 +441,7 @@ mod test {
         );
 
         assert_eq!(
-            UpdatedSetMembers::<String>::new(None, Some(&HashSet::from([String::from("ADDED")])),),
+            UpdatedSetMembers::<String>::new(None, Some(&HashSet::from([String::from("ADDED")]))),
             UpdatedSetMembers {
                 removed: HashSet::from([]),
                 maintained: HashSet::from([]),

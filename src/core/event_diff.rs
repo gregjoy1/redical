@@ -504,7 +504,7 @@ mod test {
                     rrule: Some(UpdatedAttribute::Removed(KeyValuePair::new(
                         String::from("RRULE"),
                         String::from(":FREQ=DAILY;UNTIL=20230231T183000Z;INTERVAL=1"),
-                    )),),
+                    ))),
                     exrule: None,
                     rdate: None,
                     exdate: None,

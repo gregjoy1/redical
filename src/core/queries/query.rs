@@ -407,11 +407,11 @@ mod test {
                     Box::new(WhereConditional::Group(
                         Box::new(WhereConditional::Operator(
                             Box::new(WhereConditional::Property(
-                                WhereConditionalProperty::Categories(String::from("CATEGORY_ONE"),),
+                                WhereConditionalProperty::Categories(String::from("CATEGORY_ONE")),
                                 None,
                             )),
                             Box::new(WhereConditional::Property(
-                                WhereConditionalProperty::Categories(String::from("CATEGORY_TWO"),),
+                                WhereConditionalProperty::Categories(String::from("CATEGORY_TWO")),
                                 None,
                             )),
                             WhereOperator::Or,
@@ -437,12 +437,12 @@ mod test {
 
                 lower_bound_range_condition: Some(LowerBoundRangeCondition::GreaterThan(
                     RangeConditionProperty::DtStart(875779200,),
-                    Some(String::from("Event_UUID"),),
-                ),),
+                    Some(String::from("Event_UUID")),
+                )),
 
                 upper_bound_range_condition: Some(UpperBoundRangeCondition::LessEqualThan(
                     RangeConditionProperty::DtStart(878461200,),
-                ),),
+                )),
 
                 in_timezone: rrule::Tz::Europe__Vilnius,
 

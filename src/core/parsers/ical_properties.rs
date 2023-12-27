@@ -837,10 +837,10 @@ mod test {
             parse_class_property_content("CLASS:INVALID"),
             Err(nom::Err::Failure(VerboseError {
                 errors: vec![
-                    ("INVALID", VerboseErrorKind::Nom(ErrorKind::Tag),),
-                    ("INVALID", VerboseErrorKind::Nom(ErrorKind::Alt),),
-                    ("INVALID", VerboseErrorKind::Context("parsed single value"),),
-                    (":INVALID", VerboseErrorKind::Context("CLASS"),),
+                    ("INVALID", VerboseErrorKind::Nom(ErrorKind::Tag)),
+                    ("INVALID", VerboseErrorKind::Nom(ErrorKind::Alt)),
+                    ("INVALID", VerboseErrorKind::Context("parsed single value")),
+                    (":INVALID", VerboseErrorKind::Context("CLASS")),
                 ]
             }))
         );
