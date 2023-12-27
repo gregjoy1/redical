@@ -228,11 +228,23 @@ impl ScheduleProperties {
             // If parsed ical does not contain any RRULE or RDATE properties, we need to
             // artifically create them based on the specified DTSTART properties so that the
             // rrule_set date extrapolation works, even for a single date.
+            //
+            // NOTE: This has to be a single recurring RRULE instead of RDATE because the rrule
+            // crate does not serialize the rdates -
+            // https://github.com/fmeringdal/rust-rrule/blob/main/rrule/src/core/rruleset.rs#L264
+            //
+            // This means that when the Calendar struct is persisted to disk as a string, it panics
+            // when rehydrated with the following error:
+            //
+            // "RRule parsing error: Missing date generation property. There needs to be at least
+            // one `RRULE` or `RDATE` to generate occurrences."
             if is_missing_rules {
-                let rdate_content_line =
-                    KeyValuePair::new(String::from("RDATE"), dtstart_content_line.value.clone());
+                let rrule_content_line = KeyValuePair::new(
+                    String::from("RRULE"),
+                    String::from(":FREQ=MINUTELY;COUNT=1"),
+                );
 
-                ical_parts.push(rdate_content_line.to_string());
+                ical_parts.push(rrule_content_line.to_string());
             }
         }
 
