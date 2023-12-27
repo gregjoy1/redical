@@ -21,6 +21,7 @@ pub struct Query {
     pub lower_bound_range_condition: Option<LowerBoundRangeCondition>,
     pub upper_bound_range_condition: Option<UpperBoundRangeCondition>,
     pub in_timezone: Tz,
+    pub offset: usize,
     pub limit: usize,
 }
 
@@ -33,7 +34,7 @@ impl Query {
             None
         };
 
-        let mut query_results = QueryResults::new(self.ordering_condition.clone());
+        let mut query_results = QueryResults::new(self.ordering_condition.clone(), self.offset);
 
         match &self.ordering_condition {
             OrderingCondition::DtStart => {
@@ -290,6 +291,7 @@ impl Default for Query {
             lower_bound_range_condition: None,
             upper_bound_range_condition: None,
             in_timezone: Tz::UTC,
+            offset: 0,
             limit: 50,
         }
     }
@@ -305,9 +307,9 @@ mod test {
     use crate::core::queries::results_range_bounds::{
         LowerBoundRangeCondition, RangeConditionProperty, UpperBoundRangeCondition,
     };
-    use crate::core::{Calendar, Event, GeoPoint};
+    use crate::core::{Event, GeoPoint};
     use crate::testing::utils::{build_event_and_overrides_from_ical, build_event_from_ical};
-    use pretty_assertions_sorted::{assert_eq, assert_eq_sorted};
+    use pretty_assertions_sorted::assert_eq;
 
     fn build_overridden_recurring_event() -> Event {
         build_event_and_overrides_from_ical(
@@ -444,6 +446,7 @@ mod test {
 
                 in_timezone: rrule::Tz::Europe__Vilnius,
 
+                offset: 0,
                 limit: 50,
             })
         );

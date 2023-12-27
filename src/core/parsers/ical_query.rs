@@ -67,6 +67,7 @@ fn value(input: &str) -> ParserResult<&str, &str> {
 
 #[derive(Debug)]
 pub enum ParsedQueryComponent {
+    Offset(usize),
     Limit(usize),
     FromDateTime(LowerBoundRangeCondition),
     UntilDateTime(UpperBoundRangeCondition),
@@ -182,6 +183,7 @@ fn parse_timezone_query_property_content(input: &str) -> ParserResult<&str, Pars
     })
 }
 
+// X-LIMIT:50
 fn parse_limit_query_property_content(input: &str) -> ParserResult<&str, ParsedQueryComponent> {
     preceded(
         tag("X-LIMIT"),
@@ -200,6 +202,28 @@ fn parse_limit_query_property_content(input: &str) -> ParserResult<&str, ParsedQ
         };
 
         Ok((remaining, ParsedQueryComponent::Limit(limit)))
+    })?
+}
+
+// X-OFFSET:50
+fn parse_offset_query_property_content(input: &str) -> ParserResult<&str, ParsedQueryComponent> {
+    preceded(
+        tag("X-OFFSET"),
+        cut(context(
+            "X-OFFSET",
+            tuple((ical_common::colon_delimeter, digit1)),
+        )),
+    )(input)
+    .map(|(remaining, (_colon_delimeter, parsed_value))| {
+        let Ok(offset) = str::parse(parsed_value) else {
+            return Err(nom::Err::Error(nom::error::VerboseError::add_context(
+                parsed_value,
+                "parsed offset digit value",
+                nom::error::VerboseError::from_error_kind(input, ErrorKind::Digit),
+            )));
+        };
+
+        Ok((remaining, ParsedQueryComponent::Offset(offset)))
     })?
 }
 
@@ -945,6 +969,7 @@ fn where_group_to_where_conditional(
 }
 
 // parse_timezone_query_property_content
+// parse_offset_query_property_content
 // parse_limit_query_property_content
 // parse_from_query_property_content
 // parse_until_query_property_content
@@ -962,6 +987,7 @@ pub fn parse_query_string(input: &str) -> ParserResult<&str, Query> {
             ical_common::white_space1,
             cut(alt((
                 parse_timezone_query_property_content,
+                parse_offset_query_property_content,
                 parse_limit_query_property_content,
                 parse_from_query_property_content,
                 parse_until_query_property_content,
@@ -979,6 +1005,10 @@ pub fn parse_query_string(input: &str) -> ParserResult<&str, Query> {
         .iter()
         .fold(Query::default(), |mut query, query_property| {
             match query_property {
+                ParsedQueryComponent::Offset(offset) => {
+                    query.offset = offset.clone();
+                }
+
                 ParsedQueryComponent::Limit(limit) => {
                     query.limit = limit.clone();
                 }
@@ -1563,7 +1593,7 @@ mod test {
                     ordering_condition: OrderingCondition::DtStartGeoDist(GeoPoint {
                         long: 2.36885,
                         lat: 48.85299,
-                    },),
+                    }),
 
                     lower_bound_range_condition: Some(LowerBoundRangeCondition::GreaterThan(
                         RangeConditionProperty::DtStart(875779200,),
@@ -1576,6 +1606,7 @@ mod test {
 
                     in_timezone: rrule::Tz::Europe__Vilnius,
 
+                    offset: 0,
                     limit: 50,
                 }
             ))
@@ -1603,6 +1634,7 @@ mod test {
             ")",
             ")",
             "X-LIMIT:50",
+            "X-OFFSET:10",
             "X-TZID:Europe/Vilnius",
             "X-ORDER-BY;GEO=48.85299;2.36885:DTSTART-GEO-DIST",
         ]
@@ -1678,7 +1710,7 @@ mod test {
                     ordering_condition: OrderingCondition::DtStartGeoDist(GeoPoint {
                         long: 2.36885,
                         lat: 48.85299,
-                    },),
+                    }),
 
                     lower_bound_range_condition: Some(LowerBoundRangeCondition::GreaterThan(
                         RangeConditionProperty::DtStart(875779200,),
@@ -1691,6 +1723,7 @@ mod test {
 
                     in_timezone: rrule::Tz::Europe__Vilnius,
 
+                    offset: 10,
                     limit: 50,
                 }
             ))

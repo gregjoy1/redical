@@ -91,13 +91,16 @@ impl<'a> EventOccurrenceIterator<'a> {
         let count = 0u16;
         let is_ended = false;
 
-        let internal_min_max_bounds = filtering_indexed_conclusion.as_ref().and_then(|indexed_conclusion| {
-            if matches!(indexed_conclusion, IndexedConclusion::Exclude(_)) {
-                indexed_conclusion.min_max_exceptions()
-            } else {
-                None
-            }
-        });
+        let internal_min_max_bounds =
+            filtering_indexed_conclusion
+                .as_ref()
+                .and_then(|indexed_conclusion| {
+                    if matches!(indexed_conclusion, IndexedConclusion::Exclude(_)) {
+                        indexed_conclusion.min_max_exceptions()
+                    } else {
+                        None
+                    }
+                });
 
         Ok(EventOccurrenceIterator {
             event_occurrence_overrides: event_occurrence_overrides.clone(),
@@ -124,7 +127,10 @@ impl<'a> EventOccurrenceIterator<'a> {
     ) -> bool {
         // If filtering_indexed_conclusion is IndexedConclusion::Exclude with exceptions, we work
         // out the min/max bounds and only iterate from the min bounds value.
-        if self.internal_min_max_bounds.is_some_and(|(min, _max)| *dtstart_timestamp < min) {
+        if self
+            .internal_min_max_bounds
+            .is_some_and(|(min, _max)| *dtstart_timestamp < min)
+        {
             return false;
         }
 
@@ -154,7 +160,10 @@ impl<'a> EventOccurrenceIterator<'a> {
     fn is_less_than_filtered_upper_bounds(&self, dtstart_timestamp: &i64, duration: &i64) -> bool {
         // If filtering_indexed_conclusion is IndexedConclusion::Exclude with exceptions, we work
         // out the min/max bounds and only iterate until the max bounds value.
-        if self.internal_min_max_bounds.is_some_and(|(_min, max)| *dtstart_timestamp > max) {
+        if self
+            .internal_min_max_bounds
+            .is_some_and(|(_min, max)| *dtstart_timestamp > max)
+        {
             return false;
         }
 
@@ -193,7 +202,10 @@ impl<'a> EventOccurrenceIterator<'a> {
         // If filtering_indexed_conclusion is IndexedConclusion::Exclude with exceptions, we work
         // out the min/max bounds and only iterate as far as the max value. This prevents this
         // process from iterating infinite recurrences.
-        if self.internal_min_max_bounds.is_some_and(|(_min, max)| *dtstart_timestamp >= max) {
+        if self
+            .internal_min_max_bounds
+            .is_some_and(|(_min, max)| *dtstart_timestamp >= max)
+        {
             return true;
         }
 
@@ -750,9 +762,7 @@ mod test {
             })
             .unwrap();
 
-        match done_rx.recv_timeout({
-            std::time::Duration::from_secs(1)
-        }) {
+        match done_rx.recv_timeout({ std::time::Duration::from_secs(1) }) {
             Err(::std::sync::mpsc::RecvTimeoutError::Timeout) => {
                 panic!("Test took too long");
             }

@@ -9,12 +9,16 @@ use super::results_ordering::{OrderingCondition, QueryResultOrdering};
 pub struct QueryResults {
     pub ordering_condition: OrderingCondition,
     pub results: BTreeSet<QueryResult>,
+    pub count: usize,
+    pub offset: usize,
 }
 
 impl QueryResults {
-    pub fn new(ordering_condition: OrderingCondition) -> QueryResults {
+    pub fn new(ordering_condition: OrderingCondition, offset: usize) -> QueryResults {
         QueryResults {
             ordering_condition,
+            offset,
+            count: 1,
             results: BTreeSet::new(),
         }
     }
@@ -30,16 +34,20 @@ impl QueryResults {
     }
 
     pub fn push(&mut self, event_instance: EventInstance) {
-        let result_ordering = self
-            .ordering_condition
-            .build_result_ordering_for_event_instance(&event_instance);
+        if self.count > self.offset {
+            let result_ordering = self
+                .ordering_condition
+                .build_result_ordering_for_event_instance(&event_instance);
 
-        let result = QueryResult {
-            result_ordering,
-            event_instance,
-        };
+            let result = QueryResult {
+                result_ordering,
+                event_instance,
+            };
 
-        self.results.insert(result);
+            self.results.insert(result);
+        }
+
+        self.count += 1;
     }
 }
 
@@ -142,8 +150,110 @@ mod test {
     }
 
     #[test]
+    fn test_query_results_offset() {
+        let all_expected_query_results = vec![
+            QueryResult {
+                result_ordering: QueryResultOrdering::DtStart(100),
+                event_instance: build_event_instance_one(),
+            },
+            QueryResult {
+                result_ordering: QueryResultOrdering::DtStart(200),
+                event_instance: build_event_instance_two(),
+            },
+            QueryResult {
+                result_ordering: QueryResultOrdering::DtStart(300),
+                event_instance: build_event_instance_three(),
+            },
+            QueryResult {
+                result_ordering: QueryResultOrdering::DtStart(400),
+                event_instance: build_event_instance_four(),
+            },
+        ];
+
+        let mut query_results: QueryResults = QueryResults::new(OrderingCondition::DtStart, 0);
+
+        assert!(query_results.results.is_empty());
+
+        query_results.push(build_event_instance_one());
+        query_results.push(build_event_instance_two());
+        query_results.push(build_event_instance_three());
+        query_results.push(build_event_instance_four());
+
+        assert_eq!(
+            query_results
+                .results
+                .clone()
+                .into_iter()
+                .collect::<Vec<QueryResult>>(),
+            vec![
+                QueryResult {
+                    result_ordering: QueryResultOrdering::DtStart(100),
+                    event_instance: build_event_instance_one(),
+                },
+                QueryResult {
+                    result_ordering: QueryResultOrdering::DtStart(200),
+                    event_instance: build_event_instance_two(),
+                },
+                QueryResult {
+                    result_ordering: QueryResultOrdering::DtStart(300),
+                    event_instance: build_event_instance_three(),
+                },
+                QueryResult {
+                    result_ordering: QueryResultOrdering::DtStart(400),
+                    event_instance: build_event_instance_four(),
+                },
+            ],
+        );
+
+        let mut query_results: QueryResults = QueryResults::new(OrderingCondition::DtStart, 2);
+
+        assert!(query_results.results.is_empty());
+
+        query_results.push(build_event_instance_one());
+        query_results.push(build_event_instance_two());
+        query_results.push(build_event_instance_three());
+        query_results.push(build_event_instance_four());
+
+        assert_eq!(
+            query_results
+                .results
+                .clone()
+                .into_iter()
+                .collect::<Vec<QueryResult>>(),
+            vec![
+                QueryResult {
+                    result_ordering: QueryResultOrdering::DtStart(300),
+                    event_instance: build_event_instance_three(),
+                },
+                QueryResult {
+                    result_ordering: QueryResultOrdering::DtStart(400),
+                    event_instance: build_event_instance_four(),
+                },
+            ],
+        );
+
+        let mut query_results: QueryResults = QueryResults::new(OrderingCondition::DtStart, 4);
+
+        assert!(query_results.results.is_empty());
+
+        query_results.push(build_event_instance_one());
+        query_results.push(build_event_instance_two());
+        query_results.push(build_event_instance_three());
+        query_results.push(build_event_instance_four());
+
+        assert_eq!(
+            query_results
+                .results
+                .clone()
+                .into_iter()
+                .collect::<Vec<QueryResult>>(),
+            vec![],
+        );
+    }
+
+    #[test]
     fn test_query_results_truncate() {
-        let mut query_results: QueryResults = QueryResults::new(OrderingCondition::DtStart);
+        let mut query_results: QueryResults = QueryResults::new(OrderingCondition::DtStart, 0);
 
         assert!(query_results.results.is_empty());
 
@@ -238,7 +348,7 @@ mod test {
 
     #[test]
     fn test_query_results_dtstart_ordering() {
-        let mut query_results: QueryResults = QueryResults::new(OrderingCondition::DtStart);
+        let mut query_results: QueryResults = QueryResults::new(OrderingCondition::DtStart, 0);
 
         assert!(query_results.results.is_empty());
 
@@ -308,9 +418,12 @@ mod test {
 
     #[test]
     fn test_query_results_dtstart_geo_dist_ordering() {
-        let mut query_results: QueryResults = QueryResults::new(OrderingCondition::DtStartGeoDist(
-            GeoPoint::new(-0.0758252, 51.5055296), // London
-        ));
+        let mut query_results: QueryResults = QueryResults::new(
+            OrderingCondition::DtStartGeoDist(
+                GeoPoint::new(-0.0758252, 51.5055296), // London
+            ),
+            0,
+        );
 
         assert!(query_results.results.is_empty());
 
@@ -395,9 +508,12 @@ mod test {
 
     #[test]
     fn test_query_results_geo_dist_dtstart_ordering() {
-        let mut query_results: QueryResults = QueryResults::new(OrderingCondition::GeoDistDtStart(
-            GeoPoint::new(-0.0758252, 51.5055296), // London
-        ));
+        let mut query_results: QueryResults = QueryResults::new(
+            OrderingCondition::GeoDistDtStart(
+                GeoPoint::new(-0.0758252, 51.5055296), // London
+            ),
+            0,
+        );
 
         assert!(query_results.results.is_empty());
 

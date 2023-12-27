@@ -713,11 +713,10 @@ impl IndexedConclusion {
     }
 
     pub fn min_max_exceptions(&self) -> Option<(i64, i64)> {
-        let exceptions =
-            match self {
-                IndexedConclusion::Include(exceptions) => exceptions,
-                IndexedConclusion::Exclude(exceptions) => exceptions,
-            };
+        let exceptions = match self {
+            IndexedConclusion::Include(exceptions) => exceptions,
+            IndexedConclusion::Exclude(exceptions) => exceptions,
+        };
 
         let Some(exceptions) = exceptions else {
             return None;
