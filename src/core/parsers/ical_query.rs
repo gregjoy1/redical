@@ -69,6 +69,7 @@ fn value(input: &str) -> ParserResult<&str, &str> {
 pub enum ParsedQueryComponent {
     Offset(usize),
     Limit(usize),
+    DistinctUUID,
     FromDateTime(LowerBoundRangeCondition),
     UntilDateTime(UpperBoundRangeCondition),
     InTimezone(rrule::Tz),
@@ -224,6 +225,22 @@ fn parse_offset_query_property_content(input: &str) -> ParserResult<&str, Parsed
         };
 
         Ok((remaining, ParsedQueryComponent::Offset(offset)))
+    })?
+}
+
+// X-DISTINCT:UUID
+fn parse_distinct_uuid_query_property_content(
+    input: &str,
+) -> ParserResult<&str, ParsedQueryComponent> {
+    preceded(
+        tag("X-DISTINCT"),
+        cut(context(
+            "X-DISTINCT",
+            tuple((ical_common::colon_delimeter, tag("UUID"))),
+        )),
+    )(input)
+    .map(|(remaining, (_colon_delimeter, _parsed_value))| {
+        Ok((remaining, ParsedQueryComponent::DistinctUUID))
     })?
 }
 
@@ -971,6 +988,7 @@ fn where_group_to_where_conditional(
 // parse_timezone_query_property_content
 // parse_offset_query_property_content
 // parse_limit_query_property_content
+// parse_distinct_uuid_query_property_content
 // parse_from_query_property_content
 // parse_until_query_property_content
 // parse_categories_query_property_content
@@ -989,6 +1007,7 @@ pub fn parse_query_string(input: &str) -> ParserResult<&str, Query> {
                 parse_timezone_query_property_content,
                 parse_offset_query_property_content,
                 parse_limit_query_property_content,
+                parse_distinct_uuid_query_property_content,
                 parse_from_query_property_content,
                 parse_until_query_property_content,
                 parse_order_to_query_property_content,
@@ -1011,6 +1030,10 @@ pub fn parse_query_string(input: &str) -> ParserResult<&str, Query> {
 
                 ParsedQueryComponent::Limit(limit) => {
                     query.limit = limit.clone();
+                }
+
+                ParsedQueryComponent::DistinctUUID => {
+                    query.distinct_uuids = true;
                 }
 
                 ParsedQueryComponent::FromDateTime(lower_bound_range_condition) => {
@@ -1606,6 +1629,8 @@ mod test {
 
                     in_timezone: rrule::Tz::Europe__Vilnius,
 
+                    distinct_uuids: false,
+
                     offset: 0,
                     limit: 50,
                 }
@@ -1635,6 +1660,7 @@ mod test {
             ")",
             "X-LIMIT:50",
             "X-OFFSET:10",
+            "X-DISTINCT:UUID",
             "X-TZID:Europe/Vilnius",
             "X-ORDER-BY;GEO=48.85299;2.36885:DTSTART-GEO-DIST",
         ]
@@ -1722,6 +1748,8 @@ mod test {
                     )),
 
                     in_timezone: rrule::Tz::Europe__Vilnius,
+
+                    distinct_uuids: true,
 
                     offset: 10,
                     limit: 50,

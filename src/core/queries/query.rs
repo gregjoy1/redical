@@ -1,6 +1,6 @@
 use crate::core::{
-    Calendar, EventInstance, EventInstanceIterator, GeoPoint, InvertedCalendarIndexTerm,
-    KeyValuePair, LowerBoundFilterCondition, UpperBoundFilterCondition,
+    Calendar, Event, EventInstance, EventInstanceIterator, GeoPoint, IndexedConclusion,
+    InvertedCalendarIndexTerm, LowerBoundFilterCondition, UpperBoundFilterCondition,
 };
 use rrule::Tz;
 
@@ -21,6 +21,7 @@ pub struct Query {
     pub lower_bound_range_condition: Option<LowerBoundRangeCondition>,
     pub upper_bound_range_condition: Option<UpperBoundRangeCondition>,
     pub in_timezone: Tz,
+    pub distinct_uuids: bool,
     pub offset: usize,
     pub limit: usize,
 }
@@ -34,7 +35,11 @@ impl Query {
             None
         };
 
-        let mut query_results = QueryResults::new(self.ordering_condition.clone(), self.offset);
+        let mut query_results = QueryResults::new(
+            self.ordering_condition.clone(),
+            self.offset,
+            self.distinct_uuids,
+        );
 
         match &self.ordering_condition {
             OrderingCondition::DtStart => {
@@ -93,7 +98,7 @@ impl Query {
         calendar: &'cal Calendar,
         merged_iterator: &'iter mut MergedIterator<EventInstance, EventInstanceIterator<'cal>>,
         where_conditional_result: &Option<InvertedCalendarIndexTerm>,
-    ) {
+    ) -> Result<(), String> {
         let lower_bound_filter_condition = self.get_lower_bound_filter_condition();
         let upper_bound_filter_condition = self.get_upper_bound_filter_condition();
 
@@ -106,36 +111,30 @@ impl Query {
                         continue;
                     };
 
-                    let event_instance_iterator = EventInstanceIterator::new(
+                    self.add_event_to_merged_iterator(
                         event,
-                        None,
-                        lower_bound_filter_condition.clone(),
-                        upper_bound_filter_condition.clone(),
-                        Some(indexed_conclusion.clone()),
-                    )
-                    .unwrap(); // TODO: handle this properly...
-
-                    let _result =
-                        merged_iterator.add_iter(event_uuid.clone(), event_instance_iterator);
+                        merged_iterator,
+                        &lower_bound_filter_condition,
+                        &upper_bound_filter_condition,
+                        &Some(indexed_conclusion.clone()),
+                    )?;
                 }
             }
 
             None => {
-                for (event_uuid, event) in &calendar.events {
-                    let event_instance_iterator = EventInstanceIterator::new(
+                for (_event_uuid, event) in &calendar.events {
+                    self.add_event_to_merged_iterator(
                         event,
-                        None,
-                        lower_bound_filter_condition.clone(),
-                        upper_bound_filter_condition.clone(),
-                        None,
-                    )
-                    .unwrap(); // TODO: handle this properly...
-
-                    let _result =
-                        merged_iterator.add_iter(event_uuid.clone(), event_instance_iterator);
+                        merged_iterator,
+                        &lower_bound_filter_condition,
+                        &upper_bound_filter_condition,
+                        &None,
+                    )?;
                 }
             }
         }
+
+        Ok(())
     }
 
     fn execute_for_dtstart_ordering(
@@ -143,7 +142,7 @@ impl Query {
         calendar: &Calendar,
         query_results: &mut QueryResults,
         where_conditional_result: &Option<InvertedCalendarIndexTerm>,
-    ) {
+    ) -> Result<(), String> {
         let mut merged_iterator: MergedIterator<EventInstance, EventInstanceIterator> =
             MergedIterator::new();
 
@@ -151,7 +150,7 @@ impl Query {
             calendar,
             &mut merged_iterator,
             where_conditional_result,
-        );
+        )?;
 
         for (_, event_instance) in merged_iterator {
             if query_results.len() >= self.limit {
@@ -160,6 +159,8 @@ impl Query {
 
             query_results.push(event_instance);
         }
+
+        Ok(())
     }
 
     fn execute_for_dtstart_geo_dist_ordering(
@@ -167,7 +168,7 @@ impl Query {
         calendar: &Calendar,
         query_results: &mut QueryResults,
         where_conditional_result: &Option<InvertedCalendarIndexTerm>,
-    ) {
+    ) -> Result<(), String> {
         let mut merged_iterator: MergedIterator<EventInstance, EventInstanceIterator> =
             MergedIterator::new();
 
@@ -175,7 +176,7 @@ impl Query {
             calendar,
             &mut merged_iterator,
             where_conditional_result,
-        );
+        )?;
 
         // This is functionally similar to the DtStart ordering, except we need to include all the
         // EventInstances sharing the same dtstart_timestamp before truncating so that they can be
@@ -205,6 +206,8 @@ impl Query {
         }
 
         query_results.truncate(self.limit);
+
+        Ok(())
     }
 
     fn execute_for_geo_dist_dtstart_ordering(
@@ -213,7 +216,7 @@ impl Query {
         calendar: &Calendar,
         query_results: &mut QueryResults,
         where_conditional_result: &Option<InvertedCalendarIndexTerm>,
-    ) {
+    ) -> Result<(), String> {
         let lower_bound_filter_condition = self.get_lower_bound_filter_condition();
         let upper_bound_filter_condition = self.get_upper_bound_filter_condition();
 
@@ -240,16 +243,13 @@ impl Query {
                     continue;
                 };
 
-                let event_instance_iterator = EventInstanceIterator::new(
+                self.add_event_to_merged_iterator(
                     event,
-                    None,
-                    lower_bound_filter_condition.clone(),
-                    upper_bound_filter_condition.clone(),
-                    Some(indexed_conclusion.clone()),
-                )
-                .unwrap(); // TODO: handle this properly...
-
-                let _result = merged_iterator.add_iter(event_uuid.clone(), event_instance_iterator);
+                    &mut merged_iterator,
+                    &lower_bound_filter_condition,
+                    &upper_bound_filter_condition,
+                    &Some(indexed_conclusion.clone()),
+                )?;
             }
 
             for (_, event_instance) in merged_iterator {
@@ -261,6 +261,35 @@ impl Query {
                 //       wastefully re-calculating it.
                 query_results.push(event_instance);
             }
+        }
+
+        Ok(())
+    }
+
+    fn add_event_to_merged_iterator<'iter, 'evt: 'iter>(
+        &self,
+        event: &'evt Event,
+        merged_iterator: &'iter mut MergedIterator<EventInstance, EventInstanceIterator<'evt>>,
+        lower_bound_filter_condition: &Option<LowerBoundFilterCondition>,
+        upper_bound_filter_condition: &Option<UpperBoundFilterCondition>,
+        filtering_indexed_conclusion: &Option<IndexedConclusion>,
+    ) -> Result<(), String> {
+        let limit = if self.distinct_uuids { Some(1) } else { None };
+
+        let event_uuid = event.uuid.clone();
+
+        let event_instance_iterator = EventInstanceIterator::new(
+            event,
+            limit,
+            lower_bound_filter_condition.clone(),
+            upper_bound_filter_condition.clone(),
+            filtering_indexed_conclusion.clone(),
+        )?;
+
+        if let Err(error) = merged_iterator.add_iter(event_uuid, event_instance_iterator) {
+            Err(error)
+        } else {
+            Ok(())
         }
     }
 }
@@ -291,6 +320,7 @@ impl Default for Query {
             lower_bound_range_condition: None,
             upper_bound_range_condition: None,
             in_timezone: Tz::UTC,
+            distinct_uuids: false,
             offset: 0,
             limit: 50,
         }
@@ -304,10 +334,12 @@ mod test {
     use crate::core::queries::indexed_property_filters::{
         WhereConditional, WhereConditionalProperty, WhereOperator,
     };
+
     use crate::core::queries::results_range_bounds::{
         LowerBoundRangeCondition, RangeConditionProperty, UpperBoundRangeCondition,
     };
-    use crate::core::{Event, GeoPoint};
+
+    use crate::core::{Event, GeoPoint, KeyValuePair};
     use crate::testing::utils::{build_event_and_overrides_from_ical, build_event_from_ical};
     use pretty_assertions_sorted::assert_eq;
 
@@ -445,6 +477,8 @@ mod test {
                 )),
 
                 in_timezone: rrule::Tz::Europe__Vilnius,
+
+                distinct_uuids: false,
 
                 offset: 0,
                 limit: 50,

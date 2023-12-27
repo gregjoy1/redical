@@ -1,5 +1,5 @@
 use std::cmp::Ordering;
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashSet};
 
 use crate::core::EventInstance;
 
@@ -9,15 +9,27 @@ use super::results_ordering::{OrderingCondition, QueryResultOrdering};
 pub struct QueryResults {
     pub ordering_condition: OrderingCondition,
     pub results: BTreeSet<QueryResult>,
+    pub distinct_uuid_lookup: Option<HashSet<String>>,
     pub count: usize,
     pub offset: usize,
 }
 
 impl QueryResults {
-    pub fn new(ordering_condition: OrderingCondition, offset: usize) -> QueryResults {
+    pub fn new(
+        ordering_condition: OrderingCondition,
+        offset: usize,
+        distinct_uuids: bool,
+    ) -> QueryResults {
+        let distinct_uuid_lookup = if distinct_uuids {
+            Some(HashSet::new())
+        } else {
+            None
+        };
+
         QueryResults {
             ordering_condition,
             offset,
+            distinct_uuid_lookup,
             count: 1,
             results: BTreeSet::new(),
         }
@@ -34,7 +46,9 @@ impl QueryResults {
     }
 
     pub fn push(&mut self, event_instance: EventInstance) {
-        if self.count > self.offset {
+        let event_instance_uuid = event_instance.uuid.clone();
+
+        if self.is_event_instance_included(&event_instance) {
             let result_ordering = self
                 .ordering_condition
                 .build_result_ordering_for_event_instance(&event_instance);
@@ -47,7 +61,34 @@ impl QueryResults {
             self.results.insert(result);
         }
 
+        // If only distinct UUIDs are to be returned, we add the UUID of the current
+        // EventInstance to the lookup set so that any future EventInstances sharing the same
+        // UUID are excluded.
+        if let Some(distinct_uuid_lookup) = &mut self.distinct_uuid_lookup {
+            distinct_uuid_lookup.insert(event_instance_uuid);
+        }
+
         self.count += 1;
+    }
+
+    fn is_event_instance_included(&self, event_instance: &EventInstance) -> bool {
+        // This ensures that only EventInstances within the offset window are included. Those
+        // before the window are counted by excluded.
+        if self.count <= self.offset {
+            return false;
+        }
+
+        // If only distinct UUIDs are to be returned, we check the lookup set for the presence of
+        // the UUID of the proposed EventInstance, and if its present, we exclude it.
+        if self
+            .distinct_uuid_lookup
+            .as_ref()
+            .is_some_and(|distinct_uuid_lookup| distinct_uuid_lookup.contains(&event_instance.uuid))
+        {
+            return false;
+        }
+
+        true
     }
 }
 
@@ -93,7 +134,7 @@ mod test {
 
     use crate::core::{GeoDistance, GeoPoint};
 
-    use pretty_assertions_sorted::{assert_eq, assert_eq_sorted};
+    use pretty_assertions_sorted::assert_eq;
 
     use std::collections::BTreeSet;
 
@@ -170,7 +211,8 @@ mod test {
             },
         ];
 
-        let mut query_results: QueryResults = QueryResults::new(OrderingCondition::DtStart, 0);
+        let mut query_results: QueryResults =
+            QueryResults::new(OrderingCondition::DtStart, 0, false);
 
         assert!(query_results.results.is_empty());
 
@@ -205,7 +247,8 @@ mod test {
             ],
         );
 
-        let mut query_results: QueryResults = QueryResults::new(OrderingCondition::DtStart, 2);
+        let mut query_results: QueryResults =
+            QueryResults::new(OrderingCondition::DtStart, 2, false);
 
         assert!(query_results.results.is_empty());
 
@@ -232,7 +275,8 @@ mod test {
             ],
         );
 
-        let mut query_results: QueryResults = QueryResults::new(OrderingCondition::DtStart, 4);
+        let mut query_results: QueryResults =
+            QueryResults::new(OrderingCondition::DtStart, 4, false);
 
         assert!(query_results.results.is_empty());
 
@@ -253,7 +297,8 @@ mod test {
 
     #[test]
     fn test_query_results_truncate() {
-        let mut query_results: QueryResults = QueryResults::new(OrderingCondition::DtStart, 0);
+        let mut query_results: QueryResults =
+            QueryResults::new(OrderingCondition::DtStart, 0, false);
 
         assert!(query_results.results.is_empty());
 
@@ -348,7 +393,8 @@ mod test {
 
     #[test]
     fn test_query_results_dtstart_ordering() {
-        let mut query_results: QueryResults = QueryResults::new(OrderingCondition::DtStart, 0);
+        let mut query_results: QueryResults =
+            QueryResults::new(OrderingCondition::DtStart, 0, false);
 
         assert!(query_results.results.is_empty());
 
@@ -423,6 +469,7 @@ mod test {
                 GeoPoint::new(-0.0758252, 51.5055296), // London
             ),
             0,
+            false,
         );
 
         assert!(query_results.results.is_empty());
@@ -513,6 +560,7 @@ mod test {
                 GeoPoint::new(-0.0758252, 51.5055296), // London
             ),
             0,
+            false,
         );
 
         assert!(query_results.results.is_empty());
