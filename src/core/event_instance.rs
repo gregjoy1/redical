@@ -224,7 +224,7 @@ pub struct EventInstanceIterator<'a> {
 impl<'a> EventInstanceIterator<'a> {
     pub fn new(
         event: &'a Event,
-        limit: Option<u16>,
+        limit: Option<usize>,
         filter_from: Option<LowerBoundFilterCondition>,
         filter_until: Option<UpperBoundFilterCondition>,
         filtering_indexed_conclusion: Option<IndexedConclusion>,

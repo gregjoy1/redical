@@ -60,8 +60,8 @@ pub struct EventOccurrenceIterator<'a> {
     event_occurrence_overrides: BTreeMap<i64, EventOccurrenceOverride>,
     rrule_set_iter: Option<rrule::RRuleSetIter<'a>>,
     base_duration: i64,
-    limit: Option<u16>,
-    count: u16,
+    limit: Option<usize>,
+    count: usize,
     is_ended: bool,
     filter_from: Option<LowerBoundFilterCondition>,
     filter_until: Option<UpperBoundFilterCondition>,
@@ -73,7 +73,7 @@ impl<'a> EventOccurrenceIterator<'a> {
     pub fn new(
         schedule_properties: &'a ScheduleProperties,
         event_occurrence_overrides: &'a BTreeMap<i64, EventOccurrenceOverride>,
-        limit: Option<u16>,
+        limit: Option<usize>,
         filter_from: Option<LowerBoundFilterCondition>,
         filter_until: Option<UpperBoundFilterCondition>,
         filtering_indexed_conclusion: Option<IndexedConclusion>,
@@ -88,7 +88,7 @@ impl<'a> EventOccurrenceIterator<'a> {
             .map_err(|error| error.to_string())?
             .unwrap_or(0);
 
-        let count = 0u16;
+        let count = 0usize;
         let is_ended = false;
 
         let internal_min_max_bounds =
@@ -342,6 +342,8 @@ impl<'a> Iterator for EventOccurrenceIterator<'a> {
                     }
                 }
 
+                self.count += 1;
+
                 return Some((
                     dtstart_timestamp,
                     dtstart_timestamp + duration,
@@ -511,6 +513,39 @@ mod test {
             event_occurrence_iterator.next(),
             Some((900, 915, Some(build_event_occurrence_override_900())))
         );
+        assert_eq!(event_occurrence_iterator.next(), None);
+    }
+
+    #[test]
+    fn test_event_occurrence_iterator_limit() {
+        let schedule_properties = build_schedule_properties();
+        let event_occurrence_overrides = build_event_occurrence_overrides();
+
+        let mut event_occurrence_iterator = EventOccurrenceIterator::new(
+            &schedule_properties,
+            &event_occurrence_overrides,
+            Some(3),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        assert_eq!(event_occurrence_iterator.next(), Some((0, 5, None)));
+        assert_eq!(event_occurrence_iterator.next(), Some((100, 105, None)));
+        assert_eq!(event_occurrence_iterator.next(), Some((200, 205, None)));
+        assert_eq!(event_occurrence_iterator.next(), None);
+
+        let mut event_occurrence_iterator = EventOccurrenceIterator::new(
+            &schedule_properties,
+            &event_occurrence_overrides,
+            Some(0),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
         assert_eq!(event_occurrence_iterator.next(), None);
     }
 
@@ -762,7 +797,7 @@ mod test {
             })
             .unwrap();
 
-        match done_rx.recv_timeout({ std::time::Duration::from_secs(1) }) {
+        match done_rx.recv_timeout(std::time::Duration::from_secs(1)) {
             Err(::std::sync::mpsc::RecvTimeoutError::Timeout) => {
                 panic!("Test took too long");
             }
