@@ -19,14 +19,14 @@ use crate::core::ical::serializer::{
 };
 
 #[derive(Debug, PartialEq)]
-pub struct SummaryProperty {
+pub struct DescriptionProperty {
     altrep: Option<String>,
     language: Option<String>,
-    summary: String,
+    description: String,
     x_params: Option<HashMap<String, Vec<String>>>,
 }
 
-impl SerializableICalProperty for SummaryProperty {
+impl SerializableICalProperty for DescriptionProperty {
     fn serialize_to_split_ical(&self) -> (String, Option<Vec<(String, String)>>, SerializedValue) {
         let mut param_key_value_pairs: Vec<(String, String)> = Vec::new();
 
@@ -61,23 +61,23 @@ impl SerializableICalProperty for SummaryProperty {
             Some(param_key_value_pairs)
         };
 
-        let value = SerializedValue::Single(self.summary.clone());
+        let value = SerializedValue::Single(self.description.clone());
 
-        (String::from(SummaryProperty::NAME), params, value)
+        (String::from(DescriptionProperty::NAME), params, value)
     }
 }
 
-impl SummaryProperty {
-    const NAME: &'static str = "SUMMARY";
+impl DescriptionProperty {
+    const NAME: &'static str = "DESCRIPTION";
 
-    pub fn parse_ical(input: &str) -> ParserResult<&str, SummaryProperty> {
+    pub fn parse_ical(input: &str) -> ParserResult<&str, DescriptionProperty> {
         preceded(
-            tag("SUMMARY"),
+            tag("DESCRIPTION"),
             cut(context(
-                "SUMMARY",
+                "DESCRIPTION",
                 tuple((
                     build_property_params_parser!(
-                        "SUMMARY",
+                        "DESCRIPTION",
                         (
                             "ALTREP",
                             common::ParsedValue::parse_single(common::double_quoted_uri)
@@ -129,12 +129,12 @@ impl SummaryProperty {
                     }
                 }
 
-                let mut summary = String::from(parsed_value.trim());
+                let mut description = String::from(parsed_value.trim());
 
-                let parsed_property = SummaryProperty {
+                let parsed_property = DescriptionProperty {
                     altrep,
                     language,
-                    summary,
+                    description,
                     x_params,
                 };
 
@@ -153,14 +153,14 @@ mod test {
     #[test]
     fn test_parse_ical_empty() {
         assert_eq!(
-            SummaryProperty::parse_ical("SUMMARY:"),
+            DescriptionProperty::parse_ical("DESCRIPTION:"),
             Ok((
                 "",
-                SummaryProperty {
+                DescriptionProperty {
                     altrep: None,
                     language: None,
                     x_params: None,
-                    summary: String::from(""),
+                    description: String::from(""),
                 },
             ))
         );
@@ -169,14 +169,14 @@ mod test {
     #[test]
     fn test_parse_ical_minimal() {
         assert_eq!(
-            SummaryProperty::parse_ical("SUMMARY:Summary text."),
+            DescriptionProperty::parse_ical("DESCRIPTION:Description text."),
             Ok((
                 "",
-                SummaryProperty {
+                DescriptionProperty {
                     altrep: None,
                     language: None,
                     x_params: None,
-                    summary: String::from("Summary text."),
+                    description: String::from("Description text."),
                 },
             ))
         );
@@ -185,12 +185,12 @@ mod test {
     #[test]
     fn test_parse_ical_full() {
         assert_eq!(
-            SummaryProperty::parse_ical(
-                r#"SUMMARY;ALTREP="http://xyzcorp.com/conf-rooms/f123.vcf";X-TEST-KEY-ONE=VALUE_ONE,"VALUE_TWO";LANGUAGE=ENGLISH;X-TEST-KEY-TWO="KEY -🎄- TWO":Summary text."#,
+            DescriptionProperty::parse_ical(
+                r#"DESCRIPTION;ALTREP="http://xyzcorp.com/conf-rooms/f123.vcf";X-TEST-KEY-ONE=VALUE_ONE,"VALUE_TWO";LANGUAGE=ENGLISH;X-TEST-KEY-TWO="KEY -🎄- TWO":Description text."#,
             ),
             Ok((
                 "",
-                SummaryProperty {
+                DescriptionProperty {
                     altrep: Some(String::from("\"http://xyzcorp.com/conf-rooms/f123.vcf\"")),
                     language: Some(String::from("ENGLISH")),
                     x_params: Some(HashMap::from([
@@ -203,7 +203,7 @@ mod test {
                             vec![String::from("VALUE_ONE"), String::from("VALUE_TWO")]
                         ),
                     ])),
-                    summary: String::from("Summary text."),
+                    description: String::from("Description text."),
                 },
             ))
         );
@@ -212,12 +212,12 @@ mod test {
     #[test]
     fn test_parse_ical_full_with_lookahead() {
         assert_eq!(
-            SummaryProperty::parse_ical(
-                r#"SUMMARY;ALTREP="http://xyzcorp.com/conf-rooms/f123.vcf";X-TEST-KEY-ONE=VALUE_ONE,"VALUE_TWO";LANGUAGE=ENGLISH;X-TEST-KEY-TWO="KEY -🎄- TWO":Summary text. SUMMARY:Summary text"#,
+            DescriptionProperty::parse_ical(
+                r#"DESCRIPTION;ALTREP="http://xyzcorp.com/conf-rooms/f123.vcf";X-TEST-KEY-ONE=VALUE_ONE,"VALUE_TWO";LANGUAGE=ENGLISH;X-TEST-KEY-TWO="KEY -🎄- TWO":Description text. DESCRIPTION:Description text"#,
             ),
             Ok((
-                " SUMMARY:Summary text",
-                SummaryProperty {
+                " DESCRIPTION:Description text",
+                DescriptionProperty {
                     altrep: Some(String::from("\"http://xyzcorp.com/conf-rooms/f123.vcf\"")),
                     language: Some(String::from("ENGLISH")),
                     x_params: Some(HashMap::from([
@@ -230,7 +230,7 @@ mod test {
                             vec![String::from("VALUE_ONE"), String::from("VALUE_TWO")]
                         ),
                     ])),
-                    summary: String::from("Summary text."),
+                    description: String::from("Description text."),
                 },
             ))
         );
@@ -238,13 +238,13 @@ mod test {
 
     #[test]
     fn test_serialize_to_ical() {
-        let parsed_categories_property = SummaryProperty::parse_ical(
-            r#"SUMMARY;ALTREP="http://xyzcorp.com/conf-rooms/f123.vcf";LANGUAGE=ENGLISH;X-TEST-KEY-ONE=VALUE_ONE,"VALUE_TWO";X-TEST-KEY-TWO="KEY -🎄- TWO":Summary text."#,
+        let parsed_categories_property = DescriptionProperty::parse_ical(
+            r#"DESCRIPTION;ALTREP="http://xyzcorp.com/conf-rooms/f123.vcf";LANGUAGE=ENGLISH;X-TEST-KEY-ONE=VALUE_ONE,"VALUE_TWO";X-TEST-KEY-TWO="KEY -🎄- TWO":Description text."#,
         ).unwrap().1;
 
         assert_eq!(
             parsed_categories_property,
-            SummaryProperty {
+            DescriptionProperty {
                 altrep: Some(String::from("\"http://xyzcorp.com/conf-rooms/f123.vcf\"")),
                 language: Some(String::from("ENGLISH")),
                 x_params: Some(HashMap::from([
@@ -257,14 +257,14 @@ mod test {
                         vec![String::from("VALUE_ONE"), String::from("VALUE_TWO")]
                     ),
                 ])),
-                summary: String::from("Summary text."),
+                description: String::from("Description text."),
             },
         );
 
         let serialized_ical = parsed_categories_property.serialize_to_ical();
 
         assert_eq!(
-            SummaryProperty::parse_ical(serialized_ical.as_str())
+            DescriptionProperty::parse_ical(serialized_ical.as_str())
                 .unwrap()
                 .1,
             parsed_categories_property
@@ -273,7 +273,7 @@ mod test {
         assert_eq!(
             serialized_ical,
             String::from(
-                r#"SUMMARY;ALTREP="http://xyzcorp.com/conf-rooms/f123.vcf";LANGUAGE=ENGLISH;X-TEST-KEY-ONE=VALUE_ONE,VALUE_TWO;X-TEST-KEY-TWO=KEY -🎄- TWO:Summary text."#
+                r#"DESCRIPTION;ALTREP="http://xyzcorp.com/conf-rooms/f123.vcf";LANGUAGE=ENGLISH;X-TEST-KEY-ONE=VALUE_ONE,VALUE_TWO;X-TEST-KEY-TWO=KEY -🎄- TWO:Description text."#
             ),
         );
     }

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use nom::{
     branch::alt,
@@ -6,7 +6,7 @@ use nom::{
     character::complete::char,
     combinator::{cut, map, opt},
     error::context,
-    multi::separated_list1,
+    multi::{separated_list0, separated_list1},
     sequence::{preceded, separated_pair, tuple},
 };
 
@@ -19,14 +19,14 @@ use crate::core::ical::serializer::{
 };
 
 #[derive(Debug, PartialEq)]
-pub struct SummaryProperty {
+pub struct ResourcesProperty {
     altrep: Option<String>,
     language: Option<String>,
-    summary: String,
+    resources: HashSet<String>,
     x_params: Option<HashMap<String, Vec<String>>>,
 }
 
-impl SerializableICalProperty for SummaryProperty {
+impl SerializableICalProperty for ResourcesProperty {
     fn serialize_to_split_ical(&self) -> (String, Option<Vec<(String, String)>>, SerializedValue) {
         let mut param_key_value_pairs: Vec<(String, String)> = Vec::new();
 
@@ -61,23 +61,31 @@ impl SerializableICalProperty for SummaryProperty {
             Some(param_key_value_pairs)
         };
 
-        let value = SerializedValue::Single(self.summary.clone());
+        let mut values = Vec::new();
 
-        (String::from(SummaryProperty::NAME), params, value)
+        for resource in &self.resources {
+            values.push(quote_string_if_needed(resource, properties::value_text));
+        }
+
+        values.sort();
+
+        let value = SerializedValue::List(values);
+
+        (String::from(ResourcesProperty::NAME), params, value)
     }
 }
 
-impl SummaryProperty {
-    const NAME: &'static str = "SUMMARY";
+impl ResourcesProperty {
+    const NAME: &'static str = "RESOURCES";
 
-    pub fn parse_ical(input: &str) -> ParserResult<&str, SummaryProperty> {
+    pub fn parse_ical(input: &str) -> ParserResult<&str, ResourcesProperty> {
         preceded(
-            tag("SUMMARY"),
+            tag("RESOURCES"),
             cut(context(
-                "SUMMARY",
+                "RESOURCES",
                 tuple((
                     build_property_params_parser!(
-                        "SUMMARY",
+                        "RESOURCES",
                         (
                             "ALTREP",
                             common::ParsedValue::parse_single(common::double_quoted_uri)
@@ -88,14 +96,17 @@ impl SummaryProperty {
                         ),
                     ),
                     common::colon_delimeter,
-                    alt((common::quoted_string, properties::value_text)),
+                    separated_list0(
+                        char(','),
+                        alt((common::quoted_string, properties::value_text)),
+                    ),
                 )),
             )),
         )(input)
         .map(
-            |(remaining, (parsed_params, _colon_delimeter, parsed_value)): (
+            |(remaining, (parsed_params, _colon_delimeter, parsed_value_list)): (
                 &str,
-                (Option<HashMap<&str, common::ParsedValue>>, &str, &str),
+                (Option<HashMap<&str, common::ParsedValue>>, &str, Vec<&str>),
             )| {
                 let mut altrep: Option<String> = None;
                 let mut language: Option<String> = None;
@@ -129,12 +140,17 @@ impl SummaryProperty {
                     }
                 }
 
-                let mut summary = String::from(parsed_value.trim());
+                let mut resources: HashSet<String> = parsed_value_list
+                    .into_iter()
+                    .map(|resource| String::from(resource.trim()))
+                    .collect();
 
-                let parsed_property = SummaryProperty {
+                resources.retain(|resource| !resource.is_empty());
+
+                let parsed_property = ResourcesProperty {
                     altrep,
                     language,
-                    summary,
+                    resources,
                     x_params,
                 };
 
@@ -153,14 +169,14 @@ mod test {
     #[test]
     fn test_parse_ical_empty() {
         assert_eq!(
-            SummaryProperty::parse_ical("SUMMARY:"),
+            ResourcesProperty::parse_ical("RESOURCES:"),
             Ok((
                 "",
-                SummaryProperty {
+                ResourcesProperty {
                     altrep: None,
                     language: None,
                     x_params: None,
-                    summary: String::from(""),
+                    resources: HashSet::from([]),
                 },
             ))
         );
@@ -169,14 +185,14 @@ mod test {
     #[test]
     fn test_parse_ical_minimal() {
         assert_eq!(
-            SummaryProperty::parse_ical("SUMMARY:Summary text."),
+            ResourcesProperty::parse_ical("RESOURCES:APPOINTMENT"),
             Ok((
                 "",
-                SummaryProperty {
+                ResourcesProperty {
                     altrep: None,
                     language: None,
                     x_params: None,
-                    summary: String::from("Summary text."),
+                    resources: HashSet::from([String::from("APPOINTMENT"),]),
                 },
             ))
         );
@@ -185,12 +201,12 @@ mod test {
     #[test]
     fn test_parse_ical_full() {
         assert_eq!(
-            SummaryProperty::parse_ical(
-                r#"SUMMARY;ALTREP="http://xyzcorp.com/conf-rooms/f123.vcf";X-TEST-KEY-ONE=VALUE_ONE,"VALUE_TWO";LANGUAGE=ENGLISH;X-TEST-KEY-TWO="KEY -🎄- TWO":Summary text."#,
+            ResourcesProperty::parse_ical(
+                r#"RESOURCES;ALTREP="http://xyzcorp.com/conf-rooms/f123.vcf";X-TEST-KEY-ONE=VALUE_ONE,"VALUE_TWO";LANGUAGE=ENGLISH;X-TEST-KEY-TWO="KEY -🎄- TWO":  APPOINTMENT ,EDUCATION,"QUOTED, + 🎄 STRING", TESTING\nESCAPED\,CHARS:OK"#,
             ),
             Ok((
                 "",
-                SummaryProperty {
+                ResourcesProperty {
                     altrep: Some(String::from("\"http://xyzcorp.com/conf-rooms/f123.vcf\"")),
                     language: Some(String::from("ENGLISH")),
                     x_params: Some(HashMap::from([
@@ -203,7 +219,12 @@ mod test {
                             vec![String::from("VALUE_ONE"), String::from("VALUE_TWO")]
                         ),
                     ])),
-                    summary: String::from("Summary text."),
+                    resources: HashSet::from([
+                        String::from("APPOINTMENT"),
+                        String::from("EDUCATION"),
+                        String::from("TESTING\\nESCAPED\\,CHARS:OK"),
+                        String::from("QUOTED, + 🎄 STRING"),
+                    ]),
                 },
             ))
         );
@@ -212,12 +233,12 @@ mod test {
     #[test]
     fn test_parse_ical_full_with_lookahead() {
         assert_eq!(
-            SummaryProperty::parse_ical(
-                r#"SUMMARY;ALTREP="http://xyzcorp.com/conf-rooms/f123.vcf";X-TEST-KEY-ONE=VALUE_ONE,"VALUE_TWO";LANGUAGE=ENGLISH;X-TEST-KEY-TWO="KEY -🎄- TWO":Summary text. SUMMARY:Summary text"#,
+            ResourcesProperty::parse_ical(
+                r#"RESOURCES;ALTREP="http://xyzcorp.com/conf-rooms/f123.vcf";X-TEST-KEY-ONE=VALUE_ONE,"VALUE_TWO";LANGUAGE=ENGLISH;X-TEST-KEY-TWO="KEY -🎄- TWO":  APPOINTMENT ,EDUCATION,"QUOTED, + 🎄 STRING", TESTING\nESCAPED\,CHARS:OK RESOURCES:Resources text"#,
             ),
             Ok((
-                " SUMMARY:Summary text",
-                SummaryProperty {
+                " RESOURCES:Resources text",
+                ResourcesProperty {
                     altrep: Some(String::from("\"http://xyzcorp.com/conf-rooms/f123.vcf\"")),
                     language: Some(String::from("ENGLISH")),
                     x_params: Some(HashMap::from([
@@ -230,7 +251,12 @@ mod test {
                             vec![String::from("VALUE_ONE"), String::from("VALUE_TWO")]
                         ),
                     ])),
-                    summary: String::from("Summary text."),
+                    resources: HashSet::from([
+                        String::from("APPOINTMENT"),
+                        String::from("EDUCATION"),
+                        String::from("TESTING\\nESCAPED\\,CHARS:OK"),
+                        String::from("QUOTED, + 🎄 STRING"),
+                    ]),
                 },
             ))
         );
@@ -238,13 +264,13 @@ mod test {
 
     #[test]
     fn test_serialize_to_ical() {
-        let parsed_categories_property = SummaryProperty::parse_ical(
-            r#"SUMMARY;ALTREP="http://xyzcorp.com/conf-rooms/f123.vcf";LANGUAGE=ENGLISH;X-TEST-KEY-ONE=VALUE_ONE,"VALUE_TWO";X-TEST-KEY-TWO="KEY -🎄- TWO":Summary text."#,
+        let parsed_resources_property = ResourcesProperty::parse_ical(
+            r#"RESOURCES;ALTREP="http://xyzcorp.com/conf-rooms/f123.vcf";LANGUAGE=ENGLISH;X-TEST-KEY-ONE=VALUE_ONE,"VALUE_TWO";X-TEST-KEY-TWO="KEY -🎄- TWO":  APPOINTMENT ,EDUCATION,"QUOTED, + 🎄 STRING", TESTING\nESCAPED\,CHARS:OK"#,
         ).unwrap().1;
 
         assert_eq!(
-            parsed_categories_property,
-            SummaryProperty {
+            parsed_resources_property,
+            ResourcesProperty {
                 altrep: Some(String::from("\"http://xyzcorp.com/conf-rooms/f123.vcf\"")),
                 language: Some(String::from("ENGLISH")),
                 x_params: Some(HashMap::from([
@@ -257,23 +283,28 @@ mod test {
                         vec![String::from("VALUE_ONE"), String::from("VALUE_TWO")]
                     ),
                 ])),
-                summary: String::from("Summary text."),
+                resources: HashSet::from([
+                    String::from("APPOINTMENT"),
+                    String::from("EDUCATION"),
+                    String::from("TESTING\\nESCAPED\\,CHARS:OK"),
+                    String::from("QUOTED, + 🎄 STRING"),
+                ]),
             },
         );
 
-        let serialized_ical = parsed_categories_property.serialize_to_ical();
+        let serialized_ical = parsed_resources_property.serialize_to_ical();
 
         assert_eq!(
-            SummaryProperty::parse_ical(serialized_ical.as_str())
+            ResourcesProperty::parse_ical(serialized_ical.as_str())
                 .unwrap()
                 .1,
-            parsed_categories_property
+            parsed_resources_property
         );
 
         assert_eq!(
             serialized_ical,
             String::from(
-                r#"SUMMARY;ALTREP="http://xyzcorp.com/conf-rooms/f123.vcf";LANGUAGE=ENGLISH;X-TEST-KEY-ONE=VALUE_ONE,VALUE_TWO;X-TEST-KEY-TWO=KEY -🎄- TWO:Summary text."#
+                r#"RESOURCES;ALTREP="http://xyzcorp.com/conf-rooms/f123.vcf";LANGUAGE=ENGLISH;X-TEST-KEY-ONE=VALUE_ONE,VALUE_TWO;X-TEST-KEY-TWO=KEY -🎄- TWO:"QUOTED, + 🎄 STRING",APPOINTMENT,EDUCATION,TESTING\nESCAPED\,CHARS:OK"#
             ),
         );
     }
