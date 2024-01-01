@@ -19,15 +19,20 @@ use crate::core::ical::serializer::{
 };
 
 #[derive(Debug, PartialEq)]
-pub struct CategoriesProperty {
+pub struct SummaryProperty {
+    altrep: Option<String>,
     language: Option<String>,
-    categories: HashSet<String>,
+    summary: String,
     x_params: Option<HashMap<String, Vec<String>>>,
 }
 
-impl SerializableICalProperty for CategoriesProperty {
+impl SerializableICalProperty for SummaryProperty {
     fn serialize_to_split_ical(&self) -> (String, Option<Vec<(String, String)>>, SerializedValue) {
         let mut param_key_value_pairs: Vec<(String, String)> = Vec::new();
+
+        if let Some(altrep) = &self.altrep {
+            param_key_value_pairs.push((String::from("ALTREP"), altrep.clone()));
+        }
 
         if let Some(language) = &self.language {
             param_key_value_pairs.push((
@@ -56,55 +61,54 @@ impl SerializableICalProperty for CategoriesProperty {
             Some(param_key_value_pairs)
         };
 
-        let mut values = Vec::new();
+        let value = SerializedValue::Single(self.summary.clone());
 
-        for category in &self.categories {
-            values.push(quote_string_if_needed(category, properties::value_text));
-        }
-
-        values.sort();
-
-        let value = SerializedValue::List(values);
-
-        (String::from(CategoriesProperty::NAME), params, value)
+        (String::from(SummaryProperty::NAME), params, value)
     }
 }
 
-impl CategoriesProperty {
-    const NAME: &'static str = "CATEGORIES";
+impl SummaryProperty {
+    const NAME: &'static str = "SUMMARY";
 
-    pub fn parse_ical(input: &str) -> ParserResult<&str, CategoriesProperty> {
+    pub fn parse_ical(input: &str) -> ParserResult<&str, SummaryProperty> {
         preceded(
-            tag("CATEGORIES"),
+            tag("SUMMARY"),
             cut(context(
-                "CATEGORIES",
+                "SUMMARY",
                 tuple((
                     build_property_params_parser!(
-                        "CATEGORIES",
+                        "SUMMARY",
+                        (
+                            "ALTREP",
+                            common::ParsedValue::parse_single(common::double_quoted_uri)
+                        ),
                         (
                             "LANGUAGE",
                             common::ParsedValue::parse_single(common::language)
                         ),
                     ),
                     common::colon_delimeter,
-                    separated_list0(
-                        char(','),
-                        alt((common::quoted_string, properties::value_text)),
-                    ),
+                    alt((common::quoted_string, properties::value_text)),
                 )),
             )),
         )(input)
         .map(
-            |(remaining, (parsed_params, _colon_delimeter, parsed_value_list)): (
+            |(remaining, (parsed_params, _colon_delimeter, parsed_value)): (
                 &str,
-                (Option<HashMap<&str, common::ParsedValue>>, &str, Vec<&str>),
+                (Option<HashMap<&str, common::ParsedValue>>, &str, &str),
             )| {
+                let mut altrep: Option<String> = None;
                 let mut language: Option<String> = None;
                 let mut x_params: Option<HashMap<String, Vec<String>>> = None;
 
                 if let Some(parsed_params) = parsed_params.clone() {
                     for (key, value) in parsed_params {
                         match key {
+                            "ALTREP" => {
+                                let parsed_altrep = value.expect_single();
+                                let _ = altrep.insert(String::from(parsed_altrep));
+                            }
+
                             "LANGUAGE" => {
                                 let parsed_language = value.expect_single();
                                 let _ = language.insert(String::from(parsed_language));
@@ -125,16 +129,12 @@ impl CategoriesProperty {
                     }
                 }
 
-                let mut categories: HashSet<String> = parsed_value_list
-                    .into_iter()
-                    .map(|category| String::from(category.trim()))
-                    .collect();
+                let mut summary = String::from(parsed_value.trim());
 
-                categories.retain(|category| !category.is_empty());
-
-                let parsed_property = CategoriesProperty {
+                let parsed_property = SummaryProperty {
+                    altrep,
                     language,
-                    categories,
+                    summary,
                     x_params,
                 };
 
@@ -153,13 +153,14 @@ mod test {
     #[test]
     fn test_parse_ical_empty() {
         assert_eq!(
-            CategoriesProperty::parse_ical("CATEGORIES:"),
+            SummaryProperty::parse_ical("SUMMARY:"),
             Ok((
                 "",
-                CategoriesProperty {
+                SummaryProperty {
+                    altrep: None,
                     language: None,
                     x_params: None,
-                    categories: HashSet::from([]),
+                    summary: String::from(""),
                 },
             ))
         );
@@ -168,13 +169,14 @@ mod test {
     #[test]
     fn test_parse_ical_minimal() {
         assert_eq!(
-            CategoriesProperty::parse_ical("CATEGORIES:APPOINTMENT"),
+            SummaryProperty::parse_ical("SUMMARY:Summary text."),
             Ok((
                 "",
-                CategoriesProperty {
+                SummaryProperty {
+                    altrep: None,
                     language: None,
                     x_params: None,
-                    categories: HashSet::from([String::from("APPOINTMENT"),]),
+                    summary: String::from("Summary text."),
                 },
             ))
         );
@@ -183,12 +185,13 @@ mod test {
     #[test]
     fn test_parse_ical_full() {
         assert_eq!(
-            CategoriesProperty::parse_ical(
-                r#"CATEGORIES;X-TEST-KEY-ONE=VALUE_ONE,"VALUE_TWO";LANGUAGE=ENGLISH;X-TEST-KEY-TWO="KEY -🎄- TWO":  APPOINTMENT ,EDUCATION,"QUOTED, + 🎄 STRING", TESTING\nESCAPED\,CHARS:OK"#,
+            SummaryProperty::parse_ical(
+                r#"SUMMARY;ALTREP="http://xyzcorp.com/conf-rooms/f123.vcf";X-TEST-KEY-ONE=VALUE_ONE,"VALUE_TWO";LANGUAGE=ENGLISH;X-TEST-KEY-TWO="KEY -🎄- TWO":Summary text."#,
             ),
             Ok((
                 "",
-                CategoriesProperty {
+                SummaryProperty {
+                    altrep: Some(String::from("\"http://xyzcorp.com/conf-rooms/f123.vcf\"")),
                     language: Some(String::from("ENGLISH")),
                     x_params: Some(HashMap::from([
                         (
@@ -200,12 +203,7 @@ mod test {
                             vec![String::from("VALUE_ONE"), String::from("VALUE_TWO")]
                         ),
                     ])),
-                    categories: HashSet::from([
-                        String::from("APPOINTMENT"),
-                        String::from("EDUCATION"),
-                        String::from("TESTING\\nESCAPED\\,CHARS:OK"),
-                        String::from("QUOTED, + 🎄 STRING"),
-                    ]),
+                    summary: String::from("Summary text."),
                 },
             ))
         );
@@ -214,12 +212,13 @@ mod test {
     #[test]
     fn test_parse_ical_full_with_lookahead() {
         assert_eq!(
-            CategoriesProperty::parse_ical(
-                r#"CATEGORIES;X-TEST-KEY-ONE=VALUE_ONE,"VALUE_TWO";LANGUAGE=ENGLISH;X-TEST-KEY-TWO="KEY -🎄- TWO":  APPOINTMENT ,EDUCATION,"QUOTED, + 🎄 STRING", TESTING\nESCAPED\,CHARS:OK SUMMARY:Summary text"#,
+            SummaryProperty::parse_ical(
+                r#"SUMMARY;ALTREP="http://xyzcorp.com/conf-rooms/f123.vcf";X-TEST-KEY-ONE=VALUE_ONE,"VALUE_TWO";LANGUAGE=ENGLISH;X-TEST-KEY-TWO="KEY -🎄- TWO":Summary text. SUMMARY:Summary text"#,
             ),
             Ok((
                 " SUMMARY:Summary text",
-                CategoriesProperty {
+                SummaryProperty {
+                    altrep: Some(String::from("\"http://xyzcorp.com/conf-rooms/f123.vcf\"")),
                     language: Some(String::from("ENGLISH")),
                     x_params: Some(HashMap::from([
                         (
@@ -231,12 +230,7 @@ mod test {
                             vec![String::from("VALUE_ONE"), String::from("VALUE_TWO")]
                         ),
                     ])),
-                    categories: HashSet::from([
-                        String::from("APPOINTMENT"),
-                        String::from("EDUCATION"),
-                        String::from("TESTING\\nESCAPED\\,CHARS:OK"),
-                        String::from("QUOTED, + 🎄 STRING"),
-                    ]),
+                    summary: String::from("Summary text."),
                 },
             ))
         );
@@ -244,13 +238,14 @@ mod test {
 
     #[test]
     fn test_serialize_to_ical() {
-        let parsed_categories_property = CategoriesProperty::parse_ical(
-            r#"CATEGORIES;LANGUAGE=ENGLISH;X-TEST-KEY-ONE=VALUE_ONE,"VALUE_TWO";X-TEST-KEY-TWO="KEY -🎄- TWO":  APPOINTMENT ,EDUCATION,"QUOTED, + 🎄 STRING", TESTING\nESCAPED\,CHARS:OK"#,
+        let parsed_categories_property = SummaryProperty::parse_ical(
+            r#"SUMMARY;ALTREP="http://xyzcorp.com/conf-rooms/f123.vcf";LANGUAGE=ENGLISH;X-TEST-KEY-ONE=VALUE_ONE,"VALUE_TWO";X-TEST-KEY-TWO="KEY -🎄- TWO":Summary text."#,
         ).unwrap().1;
 
         assert_eq!(
             parsed_categories_property,
-            CategoriesProperty {
+            SummaryProperty {
+                altrep: Some(String::from("\"http://xyzcorp.com/conf-rooms/f123.vcf\"")),
                 language: Some(String::from("ENGLISH")),
                 x_params: Some(HashMap::from([
                     (
@@ -262,19 +257,14 @@ mod test {
                         vec![String::from("VALUE_ONE"), String::from("VALUE_TWO")]
                     ),
                 ])),
-                categories: HashSet::from([
-                    String::from("APPOINTMENT"),
-                    String::from("EDUCATION"),
-                    String::from("TESTING\\nESCAPED\\,CHARS:OK"),
-                    String::from("QUOTED, + 🎄 STRING"),
-                ]),
+                summary: String::from("Summary text."),
             },
         );
 
         let serialized_ical = parsed_categories_property.serialize_to_ical();
 
         assert_eq!(
-            CategoriesProperty::parse_ical(serialized_ical.as_str())
+            SummaryProperty::parse_ical(serialized_ical.as_str())
                 .unwrap()
                 .1,
             parsed_categories_property
@@ -283,7 +273,7 @@ mod test {
         assert_eq!(
             serialized_ical,
             String::from(
-                r#"CATEGORIES;LANGUAGE=ENGLISH;X-TEST-KEY-ONE=VALUE_ONE,VALUE_TWO;X-TEST-KEY-TWO=KEY -🎄- TWO:"QUOTED, + 🎄 STRING",APPOINTMENT,EDUCATION,TESTING\nESCAPED\,CHARS:OK"#
+                r#"SUMMARY;ALTREP="http://xyzcorp.com/conf-rooms/f123.vcf";LANGUAGE=ENGLISH;X-TEST-KEY-ONE=VALUE_ONE,VALUE_TWO;X-TEST-KEY-TWO=KEY -🎄- TWO:Summary text."#
             ),
         );
     }

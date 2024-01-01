@@ -21,9 +21,9 @@ use crate::core::{GeoDistance, KeyValuePair};
 
 use nom::{
     branch::alt,
-    bytes::complete::{escaped, tag, tag_no_case, take, take_while, take_while1},
-    character::is_alphanumeric,
+    bytes::complete::{escaped, tag, tag_no_case, take, take_until, take_while, take_while1},
     character::complete::{alphanumeric1, char, digit1, one_of, space1},
+    character::is_alphanumeric,
     combinator::{cut, map, opt, recognize},
     error::{context, ContextError, ErrorKind, ParseError, VerboseError},
     multi::{separated_list0, separated_list1},
@@ -477,21 +477,22 @@ pub fn param_text(input: &str) -> ParserResult<&str, &str> {
 pub fn value_text(input: &str) -> ParserResult<&str, &str> {
     context(
         "value text",
-        escaped(
-            take_while1(is_value_text_char),
-            '\\',
-            one_of(r#"\;,Nn"#),
-        ),
+        escaped(take_while1(is_value_text_char), '\\', one_of(r#"\;,Nn"#)),
+    )(input)
+}
+
+// uri        = <As defined by any IETF RFC>
+pub fn double_quoted_uri(input: &str) -> ParserResult<&str, &str> {
+    context(
+        "uri",
+        recognize(delimited(tag("\""), take_until("\""), tag("\""))),
     )(input)
 }
 
 // language = Language-Tag
 //            ; As defined in [RFC5646].
 pub fn language(input: &str) -> ParserResult<&str, &str> {
-    context(
-        "language",
-        take_while1(is_language_char),
-    )(input)
+    context("language", take_while1(is_language_char))(input)
 }
 
 pub fn is_language_char(chr: char) -> bool {
