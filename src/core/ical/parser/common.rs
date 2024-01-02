@@ -123,7 +123,10 @@ impl<'a> ParsedValue<'a> {
 
                 _ => {
                     return Err(nom::Err::Error(VerboseError {
-                        errors: vec![(input, VerboseErrorKind::Context("invalid parsed geo distance value"))],
+                        errors: vec![(
+                            input,
+                            VerboseErrorKind::Context("invalid parsed geo distance value"),
+                        )],
                     }));
                 }
             };
@@ -139,10 +142,13 @@ impl<'a> ParsedValue<'a> {
             ) {
                 Ok(parsed_datetime_value) => {
                     Ok((remaining, Self::DateString(parsed_datetime_value)))
-                },
+                }
 
                 Err(_error) => Err(nom::Err::Error(VerboseError {
-                    errors: vec![(parsed_datetime_string, VerboseErrorKind::Context("invalid parsed datetime value"))],
+                    errors: vec![(
+                        parsed_datetime_string,
+                        VerboseErrorKind::Context("invalid parsed datetime value"),
+                    )],
                 })),
             },
         )
@@ -154,7 +160,10 @@ impl<'a> ParsedValue<'a> {
                 Ok(parsed_timezone_value) => Ok((remaining, Self::TimeZone(parsed_timezone_value))),
 
                 Err(_error) => Err(nom::Err::Error(VerboseError {
-                    errors: vec![(input, VerboseErrorKind::Context("invalid parsed timezone value"))],
+                    errors: vec![(
+                        input,
+                        VerboseErrorKind::Context("invalid parsed timezone value"),
+                    )],
                 })),
             },
         )
@@ -170,7 +179,10 @@ impl<'a> ParsedValue<'a> {
                 Ok(parsed_duration) => Ok((remaining, ParsedValue::Duration(parsed_duration))),
 
                 Err(_error) => Err(nom::Err::Error(VerboseError {
-                    errors: vec![(input, VerboseErrorKind::Context("invalid parsed duration value"))],
+                    errors: vec![(
+                        input,
+                        VerboseErrorKind::Context("invalid parsed duration value"),
+                    )],
                 })),
             }
         })
@@ -730,12 +742,10 @@ mod test {
         assert_eq!(
             ParsedValue::parse_date_string("MO,TU,TH"),
             Err(nom::Err::Error(nom::error::VerboseError {
-                errors: vec![
-                    (
-                        "MO",
-                        nom::error::VerboseErrorKind::Context("invalid parsed datetime value"),
-                    )
-                ]
+                errors: vec![(
+                    "MO",
+                    nom::error::VerboseErrorKind::Context("invalid parsed datetime value"),
+                )]
             }))
         );
 
@@ -800,12 +810,10 @@ mod test {
         assert_eq!(
             ParsedValue::parse_timezone("MO,TU,TH"),
             Err(nom::Err::Error(nom::error::VerboseError {
-                errors: vec![
-                    (
-                        "MO,TU,TH",
-                        nom::error::VerboseErrorKind::Context("invalid parsed timezone value"),
-                    )
-                ]
+                errors: vec![(
+                    "MO,TU,TH",
+                    nom::error::VerboseErrorKind::Context("invalid parsed timezone value"),
+                )]
             }))
         );
 

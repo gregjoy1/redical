@@ -53,14 +53,14 @@ impl ToString for ValueType {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct DTStartProperty {
+pub struct RDateProperty {
     timezone: Option<Tz>,
     value_type: Option<ValueType>,
     utc_timestamp: i64,
     x_params: Option<HashMap<String, Vec<String>>>,
 }
 
-impl SerializableICalProperty for DTStartProperty {
+impl SerializableICalProperty for RDateProperty {
     fn serialize_to_split_ical(&self) -> (String, Option<Vec<(String, String)>>, SerializedValue) {
         let mut param_key_value_pairs: Vec<(String, String)> = Vec::new();
         let mut property_timezone = &Tz::UTC;
@@ -99,21 +99,21 @@ impl SerializableICalProperty for DTStartProperty {
             property_timezone,
         ));
 
-        (String::from(DTStartProperty::NAME), params, value)
+        (String::from(RDateProperty::NAME), params, value)
     }
 }
 
-impl DTStartProperty {
-    const NAME: &'static str = "DTSTART";
+impl RDateProperty {
+    const NAME: &'static str = "RDATE";
 
-    pub fn parse_ical(input: &str) -> ParserResult<&str, DTStartProperty> {
+    pub fn parse_ical(input: &str) -> ParserResult<&str, RDateProperty> {
         preceded(
-            tag("DTSTART"),
+            tag("RDATE"),
             cut(context(
-                "DTSTART",
+                "RDATE",
                 tuple((
                     build_property_params_parser!(
-                        "DTSTART",
+                        "RDATE",
                         (
                             "VALUE",
                             common::ParsedValue::parse_single(alt((tag("DATE-TIME"), tag("DATE"))))
@@ -208,7 +208,7 @@ impl DTStartProperty {
                     _ => {}
                 };
 
-                let parsed_property = DTStartProperty {
+                let parsed_property = RDateProperty {
                     value_type,
                     timezone,
                     utc_timestamp,
@@ -229,8 +229,8 @@ mod test {
 
     #[test]
     fn test_parse_ical_with_invalid_date_value_type() {
-        let input = "DTSTART;VALUE=DATE:20201231T183000Z";
-        let parsed_property = DTStartProperty::parse_ical(input);
+        let input = "RDATE;VALUE=DATE:20201231T183000Z";
+        let parsed_property = RDateProperty::parse_ical(input);
 
         assert!(parsed_property.is_err());
 
@@ -240,14 +240,14 @@ mod test {
 
         assert_eq!(
             nom::error::convert_error(input, error),
-            String::from("0: at line 1, in expected parsed DATE value, received DATE-TIME:\nDTSTART;VALUE=DATE:20201231T183000Z\n^\n\n"),
+            String::from("0: at line 1, in expected parsed DATE value, received DATE-TIME:\nRDATE;VALUE=DATE:20201231T183000Z\n^\n\n"),
         );
     }
 
     #[test]
     fn test_parse_ical_with_invalid_date_time_value_type() {
-        let input = "DTSTART;VALUE=DATE-TIME:20201231";
-        let parsed_property = DTStartProperty::parse_ical(input);
+        let input = "RDATE;VALUE=DATE-TIME:20201231";
+        let parsed_property = RDateProperty::parse_ical(input);
 
         assert!(parsed_property.is_err());
 
@@ -257,14 +257,14 @@ mod test {
 
         assert_eq!(
             nom::error::convert_error(input, error),
-            String::from("0: at line 1, in expected parsed DATE-TIME value, received DATE:\nDTSTART;VALUE=DATE-TIME:20201231\n^\n\n"),
+            String::from("0: at line 1, in expected parsed DATE-TIME value, received DATE:\nRDATE;VALUE=DATE-TIME:20201231\n^\n\n"),
         );
     }
 
     #[test]
     fn test_parse_ical_with_invalid_date_string() {
-        let input = "DTSTART:20201231ZZZZ";
-        let parsed_property = DTStartProperty::parse_ical(input);
+        let input = "RDATE:20201231ZZZZ";
+        let parsed_property = RDateProperty::parse_ical(input);
 
         dbg!(&parsed_property);
         assert!(parsed_property.is_err());
@@ -275,17 +275,17 @@ mod test {
 
         assert_eq!(
             nom::error::convert_error(input, error),
-            String::from("0: at line 1, in invalid parsed datetime value:\nDTSTART:20201231ZZZZ\n        ^\n\n1: at line 1, in DTSTART:\nDTSTART:20201231ZZZZ\n       ^\n\n"),
+            String::from("0: at line 1, in invalid parsed datetime value:\nRDATE:20201231ZZZZ\n      ^\n\n1: at line 1, in RDATE:\nRDATE:20201231ZZZZ\n     ^\n\n"),
         );
     }
 
     #[test]
     fn test_parse_ical_minimal() {
         assert_eq!(
-            DTStartProperty::parse_ical("DTSTART:20201231T183000Z"),
+            RDateProperty::parse_ical("RDATE:20201231T183000Z"),
             Ok((
                 "",
-                DTStartProperty {
+                RDateProperty {
                     value_type: None,
                     timezone: None,
                     utc_timestamp: 1609439400,
@@ -298,12 +298,12 @@ mod test {
     #[test]
     fn test_parse_ical_full() {
         assert_eq!(
-            DTStartProperty::parse_ical(
-                r#"DTSTART;TZID=Europe/London;X-TEST-KEY-ONE=VALUE_ONE,"VALUE_TWO";VALUE=DATE-TIME;X-TEST-KEY-TWO="KEY -🎄- TWO":20201231T183000"#
+            RDateProperty::parse_ical(
+                r#"RDATE;TZID=Europe/London;X-TEST-KEY-ONE=VALUE_ONE,"VALUE_TWO";VALUE=DATE-TIME;X-TEST-KEY-TWO="KEY -🎄- TWO":20201231T183000"#
             ),
             Ok((
                 "",
-                DTStartProperty {
+                RDateProperty {
                     value_type: Some(ValueType::DateTime),
                     timezone: Some(Tz::Europe__London),
                     utc_timestamp: 1609439400,
@@ -325,12 +325,12 @@ mod test {
     #[test]
     fn test_parse_ical_full_with_lookahead() {
         assert_eq!(
-            DTStartProperty::parse_ical(
-                r#"DTSTART;TZID=Europe/London;X-TEST-KEY-ONE=VALUE_ONE,"VALUE_TWO";VALUE=DATE-TIME;X-TEST-KEY-TWO="KEY -🎄- TWO":20201231T183000 SUMMARY:Summary text."#
+            RDateProperty::parse_ical(
+                r#"RDATE;TZID=Europe/London;X-TEST-KEY-ONE=VALUE_ONE,"VALUE_TWO";VALUE=DATE-TIME;X-TEST-KEY-TWO="KEY -🎄- TWO":20201231T183000 SUMMARY:Summary text."#
             ),
             Ok((
                 " SUMMARY:Summary text.",
-                DTStartProperty {
+                RDateProperty {
                     value_type: Some(ValueType::DateTime),
                     timezone: Some(Tz::Europe__London),
                     utc_timestamp: 1609439400,
@@ -351,13 +351,13 @@ mod test {
 
     #[test]
     fn test_serialize_to_ical_with_timezone() {
-        let parsed_property = DTStartProperty::parse_ical(
-            r#"DTSTART;TZID=Europe/London;X-TEST-KEY-ONE=VALUE_ONE,"VALUE_TWO";VALUE=DATE-TIME;X-TEST-KEY-TWO="KEY -🎄- TWO":20201231T183000"#,
+        let parsed_property = RDateProperty::parse_ical(
+            r#"RDATE;TZID=Europe/London;X-TEST-KEY-ONE=VALUE_ONE,"VALUE_TWO";VALUE=DATE-TIME;X-TEST-KEY-TWO="KEY -🎄- TWO":20201231T183000"#,
         ).unwrap().1;
 
         assert_eq!(
             parsed_property,
-            DTStartProperty {
+            RDateProperty {
                 value_type: Some(ValueType::DateTime),
                 timezone: Some(Tz::Europe__London),
                 utc_timestamp: 1609439400,
@@ -377,7 +377,7 @@ mod test {
         let serialized_ical = parsed_property.serialize_to_ical();
 
         assert_eq!(
-            DTStartProperty::parse_ical(serialized_ical.as_str())
+            RDateProperty::parse_ical(serialized_ical.as_str())
                 .unwrap()
                 .1,
             parsed_property
@@ -386,20 +386,20 @@ mod test {
         assert_eq!(
             serialized_ical,
             String::from(
-                r#"DTSTART;TZID=Europe/London;VALUE=DATE-TIME;X-TEST-KEY-ONE=VALUE_ONE,VALUE_TWO;X-TEST-KEY-TWO=KEY -🎄- TWO:20201231T183000"#,
+                r#"RDATE;TZID=Europe/London;VALUE=DATE-TIME;X-TEST-KEY-ONE=VALUE_ONE,VALUE_TWO;X-TEST-KEY-TWO=KEY -🎄- TWO:20201231T183000"#,
             ),
         );
     }
 
     #[test]
     fn test_serialize_to_ical_with_no_timezone() {
-        let parsed_property = DTStartProperty::parse_ical(
-            r#"DTSTART;X-TEST-KEY-ONE=VALUE_ONE,"VALUE_TWO";VALUE=DATE-TIME;X-TEST-KEY-TWO="KEY -🎄- TWO":20201231T183000Z"#,
+        let parsed_property = RDateProperty::parse_ical(
+            r#"RDATE;X-TEST-KEY-ONE=VALUE_ONE,"VALUE_TWO";VALUE=DATE-TIME;X-TEST-KEY-TWO="KEY -🎄- TWO":20201231T183000Z"#,
         ).unwrap().1;
 
         assert_eq!(
             parsed_property,
-            DTStartProperty {
+            RDateProperty {
                 value_type: Some(ValueType::DateTime),
                 timezone: None,
                 utc_timestamp: 1609439400,
@@ -419,7 +419,7 @@ mod test {
         let serialized_ical = parsed_property.serialize_to_ical();
 
         assert_eq!(
-            DTStartProperty::parse_ical(serialized_ical.as_str())
+            RDateProperty::parse_ical(serialized_ical.as_str())
                 .unwrap()
                 .1,
             parsed_property
@@ -428,7 +428,7 @@ mod test {
         assert_eq!(
             serialized_ical,
             String::from(
-                r#"DTSTART;VALUE=DATE-TIME;X-TEST-KEY-ONE=VALUE_ONE,VALUE_TWO;X-TEST-KEY-TWO=KEY -🎄- TWO:20201231T183000Z"#,
+                r#"RDATE;VALUE=DATE-TIME;X-TEST-KEY-ONE=VALUE_ONE,VALUE_TWO;X-TEST-KEY-TWO=KEY -🎄- TWO:20201231T183000Z"#,
             ),
         );
     }
