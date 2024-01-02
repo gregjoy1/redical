@@ -1,16 +1,3 @@
-use nom::{
-    branch::alt,
-    bytes::complete::tag,
-    character::complete::char,
-    combinator::{cut, map, opt},
-    error::context,
-    multi::separated_list1,
-    sequence::{preceded, separated_pair, terminated, tuple},
-};
-
-use crate::core::ical::parser::common;
-use crate::core::ical::parser::common::ParserResult;
-
 #[macro_export]
 macro_rules! build_property_params_value_parser {
     ($property_name:tt) => {

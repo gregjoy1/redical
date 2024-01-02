@@ -15,8 +15,8 @@ impl UnicodeSegmentation for &str {
 
 use std::collections::HashMap;
 
-use crate::core::parsers::datetime::{parse_timezone, ParsedDateString};
-use crate::core::parsers::duration::{parse_duration_string_components, ParsedDuration};
+use crate::core::ical::parser::datetime::{parse_timezone, ParsedDateString};
+use crate::core::ical::parser::duration::{parse_duration_string_components, ParsedDuration};
 use crate::core::{GeoDistance, KeyValuePair};
 
 use nom::{
@@ -25,7 +25,7 @@ use nom::{
     character::complete::{alphanumeric1, char, digit1, one_of, space1},
     character::is_alphanumeric,
     combinator::{cut, map, opt, recognize},
-    error::{context, ContextError, ErrorKind, ParseError, VerboseError},
+    error::{context, ContextError, ErrorKind, ParseError, VerboseError, VerboseErrorKind},
     multi::{separated_list0, separated_list1},
     number::complete::double,
     sequence::{delimited, preceded, separated_pair, terminated, tuple},
@@ -122,11 +122,9 @@ impl<'a> ParsedValue<'a> {
                 "MI" => GeoDistance::new_from_miles_float(distance),
 
                 _ => {
-                    return Err(nom::Err::Error(nom::error::VerboseError::add_context(
-                        input,
-                        "parsed geo distance value",
-                        nom::error::VerboseError::from_error_kind(input, ErrorKind::Satisfy),
-                    )))
+                    return Err(nom::Err::Error(VerboseError {
+                        errors: vec![(input, VerboseErrorKind::Context("invalid parsed geo distance value"))],
+                    }));
                 }
             };
 
@@ -141,13 +139,11 @@ impl<'a> ParsedValue<'a> {
             ) {
                 Ok(parsed_datetime_value) => {
                     Ok((remaining, Self::DateString(parsed_datetime_value)))
-                }
+                },
 
-                Err(_error) => Err(nom::Err::Error(nom::error::VerboseError::add_context(
-                    parsed_datetime_string,
-                    "parsed datetime value",
-                    nom::error::VerboseError::from_error_kind(input, ErrorKind::Satisfy),
-                ))),
+                Err(_error) => Err(nom::Err::Error(VerboseError {
+                    errors: vec![(parsed_datetime_string, VerboseErrorKind::Context("invalid parsed datetime value"))],
+                })),
             },
         )
     }
@@ -157,11 +153,9 @@ impl<'a> ParsedValue<'a> {
             |(remaining, parsed_timezone_string)| match parse_timezone(parsed_timezone_string) {
                 Ok(parsed_timezone_value) => Ok((remaining, Self::TimeZone(parsed_timezone_value))),
 
-                Err(_error) => Err(nom::Err::Error(nom::error::VerboseError::add_context(
-                    parsed_timezone_string,
-                    "parsed timezone value",
-                    nom::error::VerboseError::from_error_kind(input, ErrorKind::Satisfy),
-                ))),
+                Err(_error) => Err(nom::Err::Error(VerboseError {
+                    errors: vec![(input, VerboseErrorKind::Context("invalid parsed timezone value"))],
+                })),
             },
         )
     }
@@ -175,11 +169,9 @@ impl<'a> ParsedValue<'a> {
             match ParsedDuration::try_from(parsed_duration_string_components) {
                 Ok(parsed_duration) => Ok((remaining, ParsedValue::Duration(parsed_duration))),
 
-                Err(_error) => Err(nom::Err::Error(nom::error::VerboseError::add_context(
-                    parsed_duration_string_components,
-                    "parsed duration value",
-                    nom::error::VerboseError::from_error_kind(input, ErrorKind::Satisfy),
-                ))),
+                Err(_error) => Err(nom::Err::Error(VerboseError {
+                    errors: vec![(input, VerboseErrorKind::Context("invalid parsed duration value"))],
+                })),
             }
         })
     }
@@ -670,7 +662,7 @@ mod test {
 
     use chrono::prelude::*;
 
-    use crate::core::parsers::datetime::{ParsedDateStringFlags, ParsedDateStringTime};
+    use crate::core::ical::parser::datetime::{ParsedDateStringFlags, ParsedDateStringTime};
 
     use nom::bytes::complete::take_while1;
     use nom::combinator::recognize;
@@ -740,12 +732,8 @@ mod test {
             Err(nom::Err::Error(nom::error::VerboseError {
                 errors: vec![
                     (
-                        "MO,TU,TH",
-                        nom::error::VerboseErrorKind::Nom(nom::error::ErrorKind::Satisfy)
-                    ),
-                    (
                         "MO",
-                        nom::error::VerboseErrorKind::Context("parsed datetime value"),
+                        nom::error::VerboseErrorKind::Context("invalid parsed datetime value"),
                     )
                 ]
             }))
@@ -815,11 +803,7 @@ mod test {
                 errors: vec![
                     (
                         "MO,TU,TH",
-                        nom::error::VerboseErrorKind::Nom(nom::error::ErrorKind::Satisfy)
-                    ),
-                    (
-                        "MO",
-                        nom::error::VerboseErrorKind::Context("parsed timezone value"),
+                        nom::error::VerboseErrorKind::Context("invalid parsed timezone value"),
                     )
                 ]
             }))
