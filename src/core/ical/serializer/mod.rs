@@ -1,8 +1,28 @@
+use chrono::TimeZone;
+use rrule::Tz;
+
 use crate::core::ical::parser::common::ParserResult;
 
 mod serialized_value;
 
 pub use serialized_value::SerializedValue;
+
+/// Generates an iCalendar date-time string format with the prefix symbols.
+/// Like: `:19970714T173000Z` or `19970714T133000`
+/// ref: <https://tools.ietf.org/html/rfc5545#section-3.3.5>
+pub fn serialize_timestamp_to_ical_datetime(utc_timestamp: &i64, timezone: &Tz) -> String {
+    let mut timezone_postfix = String::new();
+
+    let local_datetime = timezone.timestamp_opt(utc_timestamp.clone(), 0).unwrap();
+
+    if matches!(timezone, Tz::Tz(chrono_tz::UTC)) {
+        timezone_postfix = "Z".to_string();
+    }
+
+    let serialized_datetime = local_datetime.format("%Y%m%dT%H%M%S");
+
+    format!("{}{}", serialized_datetime, timezone_postfix)
+}
 
 pub fn quote_string_if_needed<'a, F>(value: &'a String, mut no_quote_parser: F) -> String
 where

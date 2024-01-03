@@ -9,3 +9,5 @@ pub mod dtend_property;
 pub mod dtstart_property;
 pub mod exdate_property;
 pub mod rdate_property;
+
+pub mod rrule_property;

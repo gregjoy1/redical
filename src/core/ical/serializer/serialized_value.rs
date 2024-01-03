@@ -1,3 +1,4 @@
+#[derive(Debug, PartialEq, Eq, Ord, PartialOrd)]
 pub enum SerializedValue {
     Single(String),
     List(Vec<String>),
