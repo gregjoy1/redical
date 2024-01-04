@@ -1,8 +1,8 @@
 #[macro_export]
 macro_rules! build_property_params_value_parser {
-    ($property_name:tt) => {
+    ($property_name:expr) => {
         context(
-            "$property_name params",
+            concat!($property_name, " params"),
             map(
                 separated_list1(
                     common::semicolon_delimeter,
@@ -27,7 +27,7 @@ macro_rules! build_property_params_value_parser {
         )
     };
 
-    ($property_name:tt, $(($param_name:expr, $param_parser:expr)),+ $(,)*) => {
+    ($property_name:expr, $(($param_name:expr, $param_parser:expr)),+ $(,)*) => {
         context(
             concat!($property_name, " params"),
             map(
@@ -68,7 +68,7 @@ macro_rules! build_property_params_value_parser {
 
 #[macro_export]
 macro_rules! build_property_params_parser {
-    ($property_name:tt) => {
+    ($property_name:expr) => {
         opt(
             preceded(
                 common::semicolon_delimeter,
@@ -77,7 +77,7 @@ macro_rules! build_property_params_parser {
         )
     };
 
-    ($property_name:tt, $(($param_name:expr, $param_parser:expr)),+ $(,)*) => {
+    ($property_name:expr, $(($param_name:expr, $param_parser:expr)),+ $(,)*) => {
         opt(
             preceded(
                 common::semicolon_delimeter,

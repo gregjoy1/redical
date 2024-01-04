@@ -1,3 +1,6 @@
+#[macro_use]
+pub mod macros;
+
 pub mod categories_property;
 pub mod description_property;
 pub mod location_property;
@@ -11,3 +14,4 @@ pub mod exdate_property;
 pub mod rdate_property;
 
 pub mod rrule_property;
+pub mod exrule_property;
