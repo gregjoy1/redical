@@ -442,7 +442,7 @@ impl RRuleProperty {
                                     let parsed_value = value
                                         .expect_list()
                                         .into_iter()
-                                        .map(|value| String::from(value))
+                                        .map(String::from)
                                         .collect();
 
                                     (String::from(key), parsed_value)
@@ -518,7 +518,7 @@ impl RRuleProperty {
                                 value
                                     .expect_list()
                                     .into_iter()
-                                    .map(|value| String::from(value))
+                                    .map(String::from)
                                     .collect(),
                             );
                         }
@@ -528,7 +528,7 @@ impl RRuleProperty {
                                 value
                                     .expect_list()
                                     .into_iter()
-                                    .map(|value| String::from(value))
+                                    .map(String::from)
                                     .collect(),
                             );
                         }
@@ -538,7 +538,7 @@ impl RRuleProperty {
                                 value
                                     .expect_list()
                                     .into_iter()
-                                    .map(|value| String::from(value))
+                                    .map(String::from)
                                     .collect(),
                             );
                         }
@@ -548,7 +548,7 @@ impl RRuleProperty {
                                 value
                                     .expect_list()
                                     .into_iter()
-                                    .map(|value| String::from(value))
+                                    .map(String::from)
                                     .collect(),
                             );
                         }
@@ -558,7 +558,7 @@ impl RRuleProperty {
                                 value
                                     .expect_list()
                                     .into_iter()
-                                    .map(|value| String::from(value))
+                                    .map(String::from)
                                     .collect(),
                             );
                         }
@@ -568,7 +568,7 @@ impl RRuleProperty {
                                 value
                                     .expect_list()
                                     .into_iter()
-                                    .map(|value| String::from(value))
+                                    .map(String::from)
                                     .collect(),
                             );
                         }
@@ -577,7 +577,7 @@ impl RRuleProperty {
                             let parsed_by_month_day = value
                                 .expect_list()
                                 .into_iter()
-                                .map(|value| String::from(value))
+                                .map(String::from)
                                 .collect();
                             let _ = by_month_day.insert(parsed_by_month_day);
                         }
@@ -587,7 +587,7 @@ impl RRuleProperty {
                                 value
                                     .expect_list()
                                     .into_iter()
-                                    .map(|value| String::from(value))
+                                    .map(String::from)
                                     .collect(),
                             );
                         }
@@ -597,7 +597,7 @@ impl RRuleProperty {
                                 value
                                     .expect_list()
                                     .into_iter()
-                                    .map(|value| String::from(value))
+                                    .map(String::from)
                                     .collect(),
                             );
                         }
@@ -607,7 +607,7 @@ impl RRuleProperty {
                                 value
                                     .expect_list()
                                     .into_iter()
-                                    .map(|value| String::from(value))
+                                    .map(String::from)
                                     .collect(),
                             );
                         }

@@ -113,8 +113,8 @@ impl CategoriesProperty {
                             _ => {
                                 let parsed_x_param_value = value
                                     .expect_list()
-                                    .iter()
-                                    .map(|value| String::from(*value))
+                                    .into_iter()
+                                    .map(String::from)
                                     .collect();
 
                                 x_params

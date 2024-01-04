@@ -488,7 +488,7 @@ fn parse_categories_query_property_content(
 
             let parsed_categories: Vec<String> = parsed_categories
                 .into_iter()
-                .map(|category| String::from(category))
+                .map(String::from)
                 .collect();
 
             (
@@ -571,7 +571,7 @@ fn parse_related_to_query_property_content(
 
             let parsed_related_to_uuids: Vec<String> = parsed_related_to_uuids
                 .into_iter()
-                .map(|related_to_uuid| String::from(related_to_uuid))
+                .map(String::from)
                 .collect();
 
             (
@@ -718,7 +718,7 @@ fn parse_class_query_property_content(input: &str) -> ParserResult<&str, ParsedQ
 
             let parsed_classification: Vec<String> = parsed_classifications
                 .into_iter()
-                .map(|class| String::from(class))
+                .map(String::from)
                 .collect();
 
             (
