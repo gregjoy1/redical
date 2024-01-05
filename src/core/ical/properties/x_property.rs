@@ -19,20 +19,15 @@ use crate::core::ical::serializer::{
 };
 
 #[derive(Debug, PartialEq)]
-pub struct LocationProperty {
-    altrep: Option<String>,
+pub struct XProperty {
     language: Option<String>,
-    location: String,
+    value: String,
     x_params: Option<HashMap<String, Vec<String>>>,
 }
 
-impl SerializableICalProperty for LocationProperty {
+impl SerializableICalProperty for XProperty {
     fn serialize_to_split_ical(&self) -> (String, Option<Vec<(String, String)>>, SerializedValue) {
         let mut param_key_value_pairs: Vec<(String, String)> = Vec::new();
-
-        if let Some(altrep) = &self.altrep {
-            param_key_value_pairs.push((String::from("ALTREP"), altrep.clone()));
-        }
 
         if let Some(language) = &self.language {
             param_key_value_pairs.push((
@@ -61,27 +56,23 @@ impl SerializableICalProperty for LocationProperty {
             Some(param_key_value_pairs)
         };
 
-        let value = SerializedValue::Single(self.location.clone());
+        let value = SerializedValue::Single(self.value.clone());
 
-        (String::from(LocationProperty::NAME), params, value)
+        (String::from(XProperty::NAME), params, value)
     }
 }
 
-impl LocationProperty {
-    const NAME: &'static str = "LOCATION";
+impl XProperty {
+    const NAME: &'static str = "X-PROPERTY";
 
-    pub fn parse_ical(input: &str) -> ParserResult<&str, LocationProperty> {
+    pub fn parse_ical(input: &str) -> ParserResult<&str, XProperty> {
         preceded(
-            tag("LOCATION"),
+            common::x_name,
             cut(context(
-                "LOCATION",
+                "X-PROPERTY",
                 tuple((
                     build_property_params_parser!(
-                        "LOCATION",
-                        (
-                            "ALTREP",
-                            common::ParsedValue::parse_single(common::double_quoted_uri)
-                        ),
+                        "X-PROPERTY",
                         (
                             "LANGUAGE",
                             common::ParsedValue::parse_single(common::language)
@@ -97,18 +88,12 @@ impl LocationProperty {
                 &str,
                 (Option<HashMap<&str, common::ParsedValue>>, &str, &str),
             )| {
-                let mut altrep: Option<String> = None;
                 let mut language: Option<String> = None;
                 let mut x_params: Option<HashMap<String, Vec<String>>> = None;
 
                 if let Some(parsed_params) = parsed_params.clone() {
                     for (key, value) in parsed_params {
                         match key {
-                            "ALTREP" => {
-                                let parsed_altrep = value.expect_single();
-                                let _ = altrep.insert(String::from(parsed_altrep));
-                            }
-
                             "LANGUAGE" => {
                                 let parsed_language = value.expect_single();
                                 let _ = language.insert(String::from(parsed_language));
@@ -126,12 +111,11 @@ impl LocationProperty {
                     }
                 }
 
-                let location = String::from(parsed_value.trim());
+                let value = String::from(parsed_value.trim());
 
-                let parsed_property = LocationProperty {
-                    altrep,
+                let parsed_property = XProperty {
                     language,
-                    location,
+                    value,
                     x_params,
                 };
 
@@ -150,14 +134,13 @@ mod test {
     #[test]
     fn test_parse_ical_empty() {
         assert_eq!(
-            LocationProperty::parse_ical("LOCATION:"),
+            XProperty::parse_ical("X-PROPERTY:"),
             Ok((
                 "",
-                LocationProperty {
-                    altrep: None,
+                XProperty {
                     language: None,
                     x_params: None,
-                    location: String::from(""),
+                    value: String::from(""),
                 },
             ))
         );
@@ -166,14 +149,13 @@ mod test {
     #[test]
     fn test_parse_ical_minimal() {
         assert_eq!(
-            LocationProperty::parse_ical("LOCATION:Location text."),
+            XProperty::parse_ical("X-PROPERTY:Experimental property text."),
             Ok((
                 "",
-                LocationProperty {
-                    altrep: None,
+                XProperty {
                     language: None,
                     x_params: None,
-                    location: String::from("Location text."),
+                    value: String::from("Experimental property text."),
                 },
             ))
         );
@@ -182,13 +164,12 @@ mod test {
     #[test]
     fn test_parse_ical_full() {
         assert_eq!(
-            LocationProperty::parse_ical(
-                r#"LOCATION;ALTREP="http://xyzcorp.com/conf-rooms/f123.vcf";X-TEST-KEY-ONE=VALUE_ONE,"VALUE_TWO";LANGUAGE=ENGLISH;X-TEST-KEY-TWO="KEY -🎄- TWO":Location text."#,
+            XProperty::parse_ical(
+                r#"X-PROPERTY;X-TEST-KEY-ONE=VALUE_ONE,"VALUE_TWO";LANGUAGE=ENGLISH;X-TEST-KEY-TWO="KEY -🎄- TWO":Experimental property text."#,
             ),
             Ok((
                 "",
-                LocationProperty {
-                    altrep: Some(String::from("\"http://xyzcorp.com/conf-rooms/f123.vcf\"")),
+                XProperty {
                     language: Some(String::from("ENGLISH")),
                     x_params: Some(HashMap::from([
                         (
@@ -200,7 +181,7 @@ mod test {
                             vec![String::from("VALUE_ONE"), String::from("VALUE_TWO")]
                         ),
                     ])),
-                    location: String::from("Location text."),
+                    value: String::from("Experimental property text."),
                 },
             ))
         );
@@ -209,13 +190,12 @@ mod test {
     #[test]
     fn test_parse_ical_full_with_lookahead() {
         assert_eq!(
-            LocationProperty::parse_ical(
-                r#"LOCATION;ALTREP="http://xyzcorp.com/conf-rooms/f123.vcf";X-TEST-KEY-ONE=VALUE_ONE,"VALUE_TWO";LANGUAGE=ENGLISH;X-TEST-KEY-TWO="KEY -🎄- TWO":Location text. LOCATION:Location text"#,
+            XProperty::parse_ical(
+                r#"X-PROPERTY;X-TEST-KEY-ONE=VALUE_ONE,"VALUE_TWO";LANGUAGE=ENGLISH;X-TEST-KEY-TWO="KEY -🎄- TWO":Experimental property text. LOCATION:Location text"#,
             ),
             Ok((
                 " LOCATION:Location text",
-                LocationProperty {
-                    altrep: Some(String::from("\"http://xyzcorp.com/conf-rooms/f123.vcf\"")),
+                XProperty {
                     language: Some(String::from("ENGLISH")),
                     x_params: Some(HashMap::from([
                         (
@@ -227,7 +207,7 @@ mod test {
                             vec![String::from("VALUE_ONE"), String::from("VALUE_TWO")]
                         ),
                     ])),
-                    location: String::from("Location text."),
+                    value: String::from("Experimental property text."),
                 },
             ))
         );
@@ -235,14 +215,13 @@ mod test {
 
     #[test]
     fn test_serialize_to_ical() {
-        let parsed_categories_property = LocationProperty::parse_ical(
-            r#"LOCATION;ALTREP="http://xyzcorp.com/conf-rooms/f123.vcf";LANGUAGE=ENGLISH;X-TEST-KEY-ONE=VALUE_ONE,"VALUE_TWO";X-TEST-KEY-TWO="KEY -🎄- TWO":Location text."#,
+        let parsed_categories_property = XProperty::parse_ical(
+            r#"X-PROPERTY;LANGUAGE=ENGLISH;X-TEST-KEY-ONE=VALUE_ONE,"VALUE_TWO";X-TEST-KEY-TWO="KEY -🎄- TWO":Experimental property text."#,
         ).unwrap().1;
 
         assert_eq!(
             parsed_categories_property,
-            LocationProperty {
-                altrep: Some(String::from("\"http://xyzcorp.com/conf-rooms/f123.vcf\"")),
+            XProperty {
                 language: Some(String::from("ENGLISH")),
                 x_params: Some(HashMap::from([
                     (
@@ -254,14 +233,14 @@ mod test {
                         vec![String::from("VALUE_ONE"), String::from("VALUE_TWO")]
                     ),
                 ])),
-                location: String::from("Location text."),
+                value: String::from("Experimental property text."),
             },
         );
 
         let serialized_ical = parsed_categories_property.serialize_to_ical();
 
         assert_eq!(
-            LocationProperty::parse_ical(serialized_ical.as_str())
+            XProperty::parse_ical(serialized_ical.as_str())
                 .unwrap()
                 .1,
             parsed_categories_property
@@ -270,7 +249,7 @@ mod test {
         assert_eq!(
             serialized_ical,
             String::from(
-                r#"LOCATION;ALTREP="http://xyzcorp.com/conf-rooms/f123.vcf";LANGUAGE=ENGLISH;X-TEST-KEY-ONE=VALUE_ONE,VALUE_TWO;X-TEST-KEY-TWO=KEY -🎄- TWO:Location text."#
+                r#"X-PROPERTY;LANGUAGE=ENGLISH;X-TEST-KEY-ONE=VALUE_ONE,VALUE_TWO;X-TEST-KEY-TWO=KEY -🎄- TWO:Experimental property text."#
             ),
         );
     }

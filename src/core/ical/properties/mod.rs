@@ -2,6 +2,7 @@
 pub mod macros;
 
 pub mod uid_property;
+pub mod x_property;
 
 pub mod categories_property;
 pub mod description_property;
