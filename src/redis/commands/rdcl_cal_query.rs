@@ -14,17 +14,17 @@ pub fn redical_calendar_query(ctx: &Context, args: Vec<RedisString>) -> RedisRes
 
     let mut args = args.into_iter().skip(1);
 
-    let calendar_uuid = args.next_arg()?;
+    let calendar_uid = args.next_arg()?;
 
-    let calendar_key = ctx.open_key(&calendar_uuid);
+    let calendar_key = ctx.open_key(&calendar_uid);
 
     let Some(calendar) = calendar_key.get_value::<Calendar>(&CALENDAR_DATA_TYPE)? else {
         return Err(RedisError::String(format!(
-            "rdcl.cal_query: No Calendar found on key: {calendar_uuid}"
+            "rdcl.cal_query: No Calendar found on key: {calendar_uid}"
         )));
     };
 
-    ctx.log_debug(format!("rdcl.cal_query: calendar_uuid: {calendar_uuid}").as_str());
+    ctx.log_debug(format!("rdcl.cal_query: calendar_uid: {calendar_uid}").as_str());
 
     let query_string: String = args
         .map(|arg| arg.try_as_str().unwrap_or(""))
@@ -38,7 +38,7 @@ pub fn redical_calendar_query(ctx: &Context, args: Vec<RedisString>) -> RedisRes
 
     ctx.log_debug(
         format!(
-            "rdcl.cal_query: calendar_uuid: {calendar_uuid} parsed query: {:#?}",
+            "rdcl.cal_query: calendar_uid: {calendar_uid} parsed query: {:#?}",
             parsed_query
         )
         .as_str(),

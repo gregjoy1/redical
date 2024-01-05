@@ -1,19 +1,19 @@
 use crate::core::parsers::datetime::datestring_to_date;
 use crate::core::{Event, EventOccurrenceOverride};
 
-pub fn build_event_from_ical(event_uuid: &str, event_ical_parts: Vec<&str>) -> crate::core::Event {
-    build_event_and_overrides_from_ical(event_uuid, event_ical_parts, vec![])
+pub fn build_event_from_ical(event_uid: &str, event_ical_parts: Vec<&str>) -> crate::core::Event {
+    build_event_and_overrides_from_ical(event_uid, event_ical_parts, vec![])
 }
 
 pub fn build_event_and_overrides_from_ical(
-    event_uuid: &str,
+    event_uid: &str,
     event_ical_parts: Vec<&str>,
     event_overrides: Vec<(&str, Vec<&str>)>,
 ) -> crate::core::Event {
-    let mut event = Event::parse_ical(event_uuid, event_ical_parts.join(" ").as_str()).unwrap();
+    let mut event = Event::parse_ical(event_uid, event_ical_parts.join(" ").as_str()).unwrap();
 
     if let Err(error) = event.schedule_properties.build_parsed_rrule_set() {
-        panic!("Build Event '{event_uuid}' from ical failed -- build_parsed_rrule_set returned error: {:#?}", error);
+        panic!("Build Event '{event_uid}' from ical failed -- build_parsed_rrule_set returned error: {:#?}", error);
     }
 
     for (override_dtstart, override_ical_parts) in event_overrides {

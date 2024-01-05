@@ -14,7 +14,7 @@ use crate::core::serializers::ical_serializer::ICalSerializer;
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct EventInstance {
-    pub uuid: String,
+    pub uid: String,
     pub dtstart_timestamp: i64,
     pub dtend_timestamp: i64,
     pub duration: i64,
@@ -31,7 +31,7 @@ impl EventInstance {
         event_occurrence_override: Option<&EventOccurrenceOverride>,
     ) -> Self {
         EventInstance {
-            uuid: event.uuid.to_owned(),
+            uid: event.uid.to_owned(),
             dtstart_timestamp: dtstart_timestamp.to_owned(),
             dtend_timestamp: Self::get_dtend_timestamp(
                 dtstart_timestamp,
@@ -154,7 +154,7 @@ impl ICalSerializer for EventInstance {
     fn serialize_to_ical_set(&self, timezone: &Tz) -> BTreeSet<KeyValuePair> {
         let mut serialized_ical_set = self.passive_properties.clone();
 
-        serialized_ical_set.insert(ical_serializer::serialize_uuid_to_ical(&self.uuid));
+        serialized_ical_set.insert(ical_serializer::serialize_uid_to_ical(&self.uid));
 
         serialized_ical_set.insert(ical_serializer::serialize_dtstart_timestamp_to_ical(
             &self.dtstart_timestamp,
@@ -275,14 +275,14 @@ mod test {
     #[test]
     fn test_event_instance_without_override() {
         let event = build_event_from_ical(
-            "event_UUID",
+            "event_UID",
             vec![
                 "DTSTART:20201231T183000Z",
                 "DTEND:20201231T183100Z",
                 "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,CATEGORY THREE",
-                "RELATED-TO;RELTYPE=CHILD:ChildUUID",
-                "RELATED-TO;RELTYPE=PARENT:ParentUUID_One",
-                "RELATED-TO;RELTYPE=PARENT:ParentUUID_Two",
+                "RELATED-TO;RELTYPE=CHILD:ChildUID",
+                "RELATED-TO;RELTYPE=PARENT:ParentUID_One",
+                "RELATED-TO;RELTYPE=PARENT:ParentUID_Two",
                 "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_One",
                 "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Three",
                 "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Two",
@@ -297,7 +297,7 @@ mod test {
         assert_eq_sorted!(
             event_instance,
             EventInstance {
-                uuid: String::from("event_UUID"),
+                uid: String::from("event_UID"),
                 dtstart_timestamp: 100,
                 dtend_timestamp: 160,
                 duration: 60,
@@ -319,13 +319,13 @@ mod test {
                     (
                         String::from("PARENT"),
                         HashSet::from([
-                            String::from("ParentUUID_One"),
-                            String::from("ParentUUID_Two"),
+                            String::from("ParentUID_One"),
+                            String::from("ParentUID_Two"),
                         ])
                     ),
                     (
                         String::from("CHILD"),
-                        HashSet::from([String::from("ChildUUID"),])
+                        HashSet::from([String::from("ChildUID"),])
                     )
                 ])),
                 passive_properties: BTreeSet::from([
@@ -351,13 +351,13 @@ mod test {
                 String::from("GEO:48.85299;2.36885"),
                 String::from("LOCATION:Event address text."),
                 String::from("RECURRENCE-ID;VALUE=DATE-TIME:19700101T000140Z"),
-                String::from("RELATED-TO;RELTYPE=CHILD:ChildUUID"),
-                String::from("RELATED-TO;RELTYPE=PARENT:ParentUUID_One"),
-                String::from("RELATED-TO;RELTYPE=PARENT:ParentUUID_Two"),
+                String::from("RELATED-TO;RELTYPE=CHILD:ChildUID"),
+                String::from("RELATED-TO;RELTYPE=PARENT:ParentUID_One"),
+                String::from("RELATED-TO;RELTYPE=PARENT:ParentUID_Two"),
                 String::from("RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_One"),
                 String::from("RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Three"),
                 String::from("RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Two"),
-                String::from("UUID:event_UUID"),
+                String::from("UID:event_UID"),
             ]
         );
     }
@@ -365,14 +365,14 @@ mod test {
     #[test]
     fn test_event_instance_with_override() {
         let event = build_event_and_overrides_from_ical(
-            "event_UUID",
+            "event_UID",
             vec![
                 "DTSTART:20201231T183000Z",
                 "DTEND:20201231T183100Z", // Ends 60 seconds after it starts.
                 "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,CATEGORY THREE",
-                "RELATED-TO;RELTYPE=CHILD:ChildUUID",
-                "RELATED-TO;RELTYPE=PARENT:ParentUUID_One",
-                "RELATED-TO;RELTYPE=PARENT:ParentUUID_Two",
+                "RELATED-TO;RELTYPE=CHILD:ChildUID",
+                "RELATED-TO;RELTYPE=PARENT:ParentUID_One",
+                "RELATED-TO;RELTYPE=PARENT:ParentUID_Two",
                 "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_One",
                 "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Three",
                 "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Two",
@@ -384,8 +384,8 @@ mod test {
                 vec![
                     "LOCATION:Overridden Event address text.",
                     "CATEGORIES:CATEGORY_ONE,CATEGORY_FOUR",
-                    "RELATED-TO;RELTYPE=CHILD:ChildUUID",
-                    "RELATED-TO;RELTYPE=PARENT:ParentUUID_Three",
+                    "RELATED-TO;RELTYPE=CHILD:ChildUID",
+                    "RELATED-TO;RELTYPE=PARENT:ParentUID_Three",
                     "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_One",
                     "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Four",
                 ],
@@ -402,7 +402,7 @@ mod test {
         assert_eq!(
             event_instance,
             EventInstance {
-                uuid: String::from("event_UUID"),
+                uid: String::from("event_UID"),
                 dtstart_timestamp: 1609439400,
                 dtend_timestamp: 1609439460,
                 duration: 60,
@@ -421,11 +421,11 @@ mod test {
                     ),
                     (
                         String::from("PARENT"),
-                        HashSet::from([String::from("ParentUUID_Three"),])
+                        HashSet::from([String::from("ParentUID_Three"),])
                     ),
                     (
                         String::from("CHILD"),
-                        HashSet::from([String::from("ChildUUID"),])
+                        HashSet::from([String::from("ChildUID"),])
                     )
                 ])),
                 passive_properties: BTreeSet::from([
@@ -450,11 +450,11 @@ mod test {
                 String::from("DTSTART:20201231T183000Z"),
                 String::from("LOCATION:Overridden Event address text."),
                 String::from("RECURRENCE-ID;VALUE=DATE-TIME:20201231T183000Z"),
-                String::from("RELATED-TO;RELTYPE=CHILD:ChildUUID"),
-                String::from("RELATED-TO;RELTYPE=PARENT:ParentUUID_Three"),
+                String::from("RELATED-TO;RELTYPE=CHILD:ChildUID"),
+                String::from("RELATED-TO;RELTYPE=PARENT:ParentUID_Three"),
                 String::from("RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Four"),
                 String::from("RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_One"),
-                String::from("UUID:event_UUID"),
+                String::from("UID:event_UID"),
             ]
         );
     }
@@ -462,15 +462,15 @@ mod test {
     #[test]
     fn test_event_instance_iterator() {
         let event = build_event_and_overrides_from_ical(
-            "event_UUID",
+            "event_UID",
             vec![
                 "DESCRIPTION:BASE description text.",
                 "DTSTART:20210105T183000Z",
                 "DTEND:20210105T190000Z",
                 "RRULE:FREQ=WEEKLY;UNTIL=20210202T183000Z;INTERVAL=1",
                 "CATEGORIES:BASE_CATEGORY_ONE,BASE_CATEGORY_TWO",
-                "RELATED-TO;RELTYPE=PARENT:BASE_ParentdUUID",
-                "RELATED-TO;RELTYPE=CHILD:BASE_ChildUUID",
+                "RELATED-TO;RELTYPE=PARENT:BASE_ParentdUID",
+                "RELATED-TO;RELTYPE=CHILD:BASE_ChildUID",
             ],
             vec![
                 (
@@ -478,14 +478,14 @@ mod test {
                     vec![
                         "DESCRIPTION:OVERRIDDEN description text.",
                         "CATEGORIES:BASE_CATEGORY_ONE,OVERRIDDEN_CATEGORY_ONE",
-                        "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUUID",
+                        "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUID",
                     ],
                 ),
                 (
                     "20210112T183000Z",
                     vec![
-                        "RELATED-TO;RELTYPE=CHILD:BASE_ChildUUID",
-                        "RELATED-TO;RELTYPE=CHILD:OVERRIDDEN_ChildUUID",
+                        "RELATED-TO;RELTYPE=CHILD:BASE_ChildUID",
+                        "RELATED-TO;RELTYPE=CHILD:OVERRIDDEN_ChildUID",
                     ],
                 ),
                 (
@@ -493,8 +493,8 @@ mod test {
                     vec![
                         "DESCRIPTION:OVERRIDDEN description text.",
                         "CATEGORIES:OVERRIDDEN_CATEGORY_ONE,OVERRIDDEN_CATEGORY_TWO",
-                        "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUUID",
-                        "RELATED-TO;RELTYPE=CHILD:OVERRIDDEN_ChildUUID",
+                        "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUID",
+                        "RELATED-TO;RELTYPE=CHILD:OVERRIDDEN_ChildUID",
                     ],
                 ),
             ],
@@ -509,8 +509,8 @@ mod test {
                     String::from("DTEND:20210105T190000Z"),
                     String::from("DTSTART:20210105T183000Z"),
                     String::from("RECURRENCE-ID;VALUE=DATE-TIME:20210105T183000Z"),
-                    String::from("RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUUID"),
-                    String::from("UUID:event_UUID"),
+                    String::from("RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUID"),
+                    String::from("UID:event_UID"),
                 ],
             ),
             (
@@ -521,9 +521,9 @@ mod test {
                     String::from("DTEND:20210112T190000Z"),
                     String::from("DTSTART:20210112T183000Z"),
                     String::from("RECURRENCE-ID;VALUE=DATE-TIME:20210112T183000Z"),
-                    String::from("RELATED-TO;RELTYPE=CHILD:BASE_ChildUUID"),
-                    String::from("RELATED-TO;RELTYPE=CHILD:OVERRIDDEN_ChildUUID"),
-                    String::from("UUID:event_UUID"),
+                    String::from("RELATED-TO;RELTYPE=CHILD:BASE_ChildUID"),
+                    String::from("RELATED-TO;RELTYPE=CHILD:OVERRIDDEN_ChildUID"),
+                    String::from("UID:event_UID"),
                 ],
             ),
             (
@@ -534,9 +534,9 @@ mod test {
                     String::from("DTEND:20210119T190000Z"),
                     String::from("DTSTART:20210119T183000Z"),
                     String::from("RECURRENCE-ID;VALUE=DATE-TIME:20210119T183000Z"),
-                    String::from("RELATED-TO;RELTYPE=CHILD:BASE_ChildUUID"),
-                    String::from("RELATED-TO;RELTYPE=PARENT:BASE_ParentdUUID"),
-                    String::from("UUID:event_UUID"),
+                    String::from("RELATED-TO;RELTYPE=CHILD:BASE_ChildUID"),
+                    String::from("RELATED-TO;RELTYPE=PARENT:BASE_ParentdUID"),
+                    String::from("UID:event_UID"),
                 ],
             ),
             (
@@ -547,9 +547,9 @@ mod test {
                     String::from("DTEND:20210126T190000Z"),
                     String::from("DTSTART:20210126T183000Z"),
                     String::from("RECURRENCE-ID;VALUE=DATE-TIME:20210126T183000Z"),
-                    String::from("RELATED-TO;RELTYPE=CHILD:OVERRIDDEN_ChildUUID"),
-                    String::from("RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUUID"),
-                    String::from("UUID:event_UUID"),
+                    String::from("RELATED-TO;RELTYPE=CHILD:OVERRIDDEN_ChildUID"),
+                    String::from("RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUID"),
+                    String::from("UID:event_UID"),
                 ],
             ),
             (
@@ -560,9 +560,9 @@ mod test {
                     String::from("DTEND:20210202T190000Z"),
                     String::from("DTSTART:20210202T183000Z"),
                     String::from("RECURRENCE-ID;VALUE=DATE-TIME:20210202T183000Z"),
-                    String::from("RELATED-TO;RELTYPE=CHILD:BASE_ChildUUID"),
-                    String::from("RELATED-TO;RELTYPE=PARENT:BASE_ParentdUUID"),
-                    String::from("UUID:event_UUID"),
+                    String::from("RELATED-TO;RELTYPE=CHILD:BASE_ChildUID"),
+                    String::from("RELATED-TO;RELTYPE=PARENT:BASE_ParentdUID"),
+                    String::from("UID:event_UID"),
                 ],
             ),
         ]);

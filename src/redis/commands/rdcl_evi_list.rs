@@ -14,20 +14,20 @@ pub fn redical_event_instance_list(ctx: &Context, args: Vec<RedisString>) -> Red
 
     let mut args = args.into_iter().skip(1);
 
-    let calendar_uuid = args.next_arg()?;
-    let event_uuid = args.next_arg()?;
+    let calendar_uid = args.next_arg()?;
+    let event_uid = args.next_arg()?;
 
-    let calendar_key = ctx.open_key(&calendar_uuid);
+    let calendar_key = ctx.open_key(&calendar_uid);
 
     ctx.log_debug(
-        format!("rdcl.evi_list: calendar_uuid: {calendar_uuid} event_uuid: {event_uuid}").as_str(),
+        format!("rdcl.evi_list: calendar_uid: {calendar_uid} event_uid: {event_uid}").as_str(),
     );
 
     let Some(calendar) = calendar_key.get_value::<Calendar>(&CALENDAR_DATA_TYPE)? else {
         return Ok(RedisValue::Null);
     };
 
-    let Some(event) = calendar.events.get(&String::from(event_uuid.clone())) else {
+    let Some(event) = calendar.events.get(&String::from(event_uid.clone())) else {
         return Ok(RedisValue::Null);
     };
 

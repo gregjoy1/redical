@@ -14,33 +14,33 @@ pub fn redical_event_override_del(ctx: &Context, args: Vec<RedisString>) -> Redi
 
     let mut args = args.into_iter().skip(1);
 
-    let calendar_uuid = args.next_arg()?;
-    let event_uuid = args.next_arg()?;
+    let calendar_uid = args.next_arg()?;
+    let event_uid = args.next_arg()?;
 
     let timestamp = match datestring_to_date(args.next_arg()?.try_as_str()?, None, "") {
         Ok(datetime) => datetime.timestamp(),
         Err(error) => return Err(RedisError::String(format!("{:#?}", error))),
     };
 
-    let calendar_key = ctx.open_key_writable(&calendar_uuid);
+    let calendar_key = ctx.open_key_writable(&calendar_uid);
 
-    ctx.log_debug(format!("rdcl.evo_del: key: {calendar_uuid} event uuid: {event_uuid}").as_str());
+    ctx.log_debug(format!("rdcl.evo_del: key: {calendar_uid} event uid: {event_uid}").as_str());
 
     let calendar = calendar_key.get_value::<Calendar>(&CALENDAR_DATA_TYPE)?;
 
     if calendar.is_none() {
         return Err(RedisError::String(format!(
-            "No Calendar found on key: {calendar_uuid}"
+            "No Calendar found on key: {calendar_uid}"
         )));
     }
 
     let mut calendar = calendar.unwrap();
 
-    let event = calendar.events.get_mut(&String::from(event_uuid.clone()));
+    let event = calendar.events.get_mut(&String::from(event_uid.clone()));
 
     if event.is_none() {
         return Err(RedisError::String(
-            "No event with UUID: '{event_uuid}' found".to_string(),
+            "No event with UID: '{event_uid}' found".to_string(),
         ));
     }
 
@@ -53,7 +53,7 @@ pub fn redical_event_override_del(ctx: &Context, args: Vec<RedisString>) -> Redi
 
     let existing_event = calendar
         .events
-        .insert(String::from(event_uuid.clone()), event.to_owned());
+        .insert(String::from(event_uid.clone()), event.to_owned());
 
     let updated_event_categories_diff = InvertedEventIndex::diff_indexed_terms(
         existing_event
@@ -87,7 +87,7 @@ pub fn redical_event_override_del(ctx: &Context, args: Vec<RedisString>) -> Redi
         event.indexed_class.as_ref(),
     );
 
-    let mut calendar_index_updater = CalendarIndexUpdater::new(event.uuid.clone(), &mut calendar);
+    let mut calendar_index_updater = CalendarIndexUpdater::new(event.uid.clone(), &mut calendar);
 
     calendar_index_updater
         .update_indexed_categories(&updated_event_categories_diff)
@@ -107,7 +107,7 @@ pub fn redical_event_override_del(ctx: &Context, args: Vec<RedisString>) -> Redi
 
     calendar_key.set_value(&CALENDAR_DATA_TYPE, calendar.clone())?;
 
-    if ctx.notify_keyspace_event(NotifyEvent::GENERIC, "event.override_set", &calendar_uuid)
+    if ctx.notify_keyspace_event(NotifyEvent::GENERIC, "event.override_set", &calendar_uid)
         == Status::Err
     {
         return Err(RedisError::Str("Generic error"));

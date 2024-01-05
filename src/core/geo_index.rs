@@ -308,7 +308,7 @@ impl GeoSpatialCalendarIndex {
 
     pub fn insert(
         &mut self,
-        event_uuid: String,
+        event_uid: String,
         long_lat: &GeoPoint,
         indexed_conclusion: &IndexedConclusion,
     ) -> Result<&mut Self, String> {
@@ -317,10 +317,10 @@ impl GeoSpatialCalendarIndex {
                 match indexed_conclusion {
                     IndexedConclusion::Include(exceptions) => existing_result
                         .data
-                        .insert_included_event(event_uuid.clone(), exceptions.clone()),
+                        .insert_included_event(event_uid.clone(), exceptions.clone()),
                     IndexedConclusion::Exclude(exceptions) => existing_result
                         .data
-                        .insert_excluded_event(event_uuid.clone(), exceptions.clone()),
+                        .insert_excluded_event(event_uid.clone(), exceptions.clone()),
                 };
             }
 
@@ -328,7 +328,7 @@ impl GeoSpatialCalendarIndex {
                 self.coords.insert(GeomWithData::new(
                     long_lat.clone(),
                     InvertedCalendarIndexTerm::new_with_event(
-                        event_uuid.clone(),
+                        event_uid.clone(),
                         indexed_conclusion.clone(),
                     ),
                 ));
@@ -338,11 +338,11 @@ impl GeoSpatialCalendarIndex {
         Ok(self)
     }
 
-    pub fn remove(&mut self, event_uuid: String, long_lat: &GeoPoint) -> Result<&mut Self, String> {
+    pub fn remove(&mut self, event_uid: String, long_lat: &GeoPoint) -> Result<&mut Self, String> {
         if let Some(existing_result) = self.coords.locate_at_point_mut(&long_lat.to_point()) {
             if existing_result
                 .data
-                .remove_event(event_uuid)
+                .remove_event(event_uid)
                 .is_ok_and(|inverted_calendar_index_term| inverted_calendar_index_term.is_empty())
             {
                 self.coords.remove_at_point(&long_lat.to_point());
@@ -377,7 +377,7 @@ mod test {
 
         assert!(geo_spatial_calendar_index
             .insert(
-                String::from("london_event_uuid_one"),
+                String::from("london_event_uid_one"),
                 &london,
                 &IndexedConclusion::Include(None)
             )
@@ -390,7 +390,7 @@ mod test {
                     london.clone(),
                     InvertedCalendarIndexTerm {
                         events: HashMap::from([(
-                            String::from("london_event_uuid_one"),
+                            String::from("london_event_uid_one"),
                             IndexedConclusion::Include(None)
                         )])
                     }
@@ -400,7 +400,7 @@ mod test {
 
         assert!(geo_spatial_calendar_index
             .insert(
-                String::from("london_event_uuid_two"),
+                String::from("london_event_uid_two"),
                 &london,
                 &IndexedConclusion::Exclude(Some(HashSet::from([100])))
             )
@@ -414,11 +414,11 @@ mod test {
                     InvertedCalendarIndexTerm {
                         events: HashMap::from([
                             (
-                                String::from("london_event_uuid_one"),
+                                String::from("london_event_uid_one"),
                                 IndexedConclusion::Include(None)
                             ),
                             (
-                                String::from("london_event_uuid_two"),
+                                String::from("london_event_uid_two"),
                                 IndexedConclusion::Exclude(Some(HashSet::from([100])))
                             ),
                         ])
@@ -429,7 +429,7 @@ mod test {
 
         assert!(geo_spatial_calendar_index
             .insert(
-                String::from("oxford_event_uuid"),
+                String::from("oxford_event_uid"),
                 &oxford,
                 &IndexedConclusion::Include(Some(HashSet::from([100])))
             )
@@ -444,11 +444,11 @@ mod test {
                         InvertedCalendarIndexTerm {
                             events: HashMap::from([
                                 (
-                                    String::from("london_event_uuid_one"),
+                                    String::from("london_event_uid_one"),
                                     IndexedConclusion::Include(None)
                                 ),
                                 (
-                                    String::from("london_event_uuid_two"),
+                                    String::from("london_event_uid_two"),
                                     IndexedConclusion::Exclude(Some(HashSet::from([100])))
                                 ),
                             ])
@@ -458,7 +458,7 @@ mod test {
                         oxford.clone(),
                         InvertedCalendarIndexTerm {
                             events: HashMap::from([(
-                                String::from("oxford_event_uuid"),
+                                String::from("oxford_event_uid"),
                                 IndexedConclusion::Include(Some(HashSet::from([100])))
                             ),])
                         }
@@ -468,7 +468,7 @@ mod test {
         );
 
         assert!(geo_spatial_calendar_index
-            .remove(String::from("oxford_event_uuid"), &oxford)
+            .remove(String::from("oxford_event_uid"), &oxford)
             .is_ok());
 
         assert_eq!(
@@ -479,11 +479,11 @@ mod test {
                     InvertedCalendarIndexTerm {
                         events: HashMap::from([
                             (
-                                String::from("london_event_uuid_one"),
+                                String::from("london_event_uid_one"),
                                 IndexedConclusion::Include(None)
                             ),
                             (
-                                String::from("london_event_uuid_two"),
+                                String::from("london_event_uid_two"),
                                 IndexedConclusion::Exclude(Some(HashSet::from([100])))
                             ),
                         ])
@@ -493,7 +493,7 @@ mod test {
         );
 
         assert!(geo_spatial_calendar_index
-            .remove(String::from("london_event_uuid_one"), &london)
+            .remove(String::from("london_event_uid_one"), &london)
             .is_ok());
 
         assert_eq!(
@@ -503,7 +503,7 @@ mod test {
                     london.clone(),
                     InvertedCalendarIndexTerm {
                         events: HashMap::from([(
-                            String::from("london_event_uuid_two"),
+                            String::from("london_event_uid_two"),
                             IndexedConclusion::Exclude(Some(HashSet::from([100])))
                         ),])
                     }
@@ -512,7 +512,7 @@ mod test {
         );
 
         assert!(geo_spatial_calendar_index
-            .remove(String::from("london_event_uuid_one"), &london)
+            .remove(String::from("london_event_uid_one"), &london)
             .is_ok());
 
         assert_eq!(
@@ -522,7 +522,7 @@ mod test {
                     london.clone(),
                     InvertedCalendarIndexTerm {
                         events: HashMap::from([(
-                            String::from("london_event_uuid_two"),
+                            String::from("london_event_uid_two"),
                             IndexedConclusion::Exclude(Some(HashSet::from([100])))
                         ),])
                     }
@@ -531,7 +531,7 @@ mod test {
         );
 
         assert!(geo_spatial_calendar_index
-            .remove(String::from("london_event_uuid_two"), &london)
+            .remove(String::from("london_event_uid_two"), &london)
             .is_ok());
 
         assert_eq!(
@@ -555,7 +555,7 @@ mod test {
 
         assert!(geo_spatial_calendar_index
             .insert(
-                String::from("random_event_uuid"),
+                String::from("random_event_uid"),
                 &random,
                 &IndexedConclusion::Include(None),
             )
@@ -563,7 +563,7 @@ mod test {
 
         assert!(geo_spatial_calendar_index
             .insert(
-                String::from("random_and_churchdown_event_uuid"),
+                String::from("random_and_churchdown_event_uid"),
                 &random,
                 &IndexedConclusion::Include(Some(HashSet::from([100, 200]))),
             )
@@ -571,7 +571,7 @@ mod test {
 
         assert!(geo_spatial_calendar_index
             .insert(
-                String::from("random_plus_offset_event_uuid"),
+                String::from("random_plus_offset_event_uid"),
                 &random_plus_offset,
                 &IndexedConclusion::Include(None),
             )
@@ -579,7 +579,7 @@ mod test {
 
         assert!(geo_spatial_calendar_index
             .insert(
-                String::from("random_plus_offset_and_london_event_uuid"),
+                String::from("random_plus_offset_and_london_event_uid"),
                 &random_plus_offset,
                 &IndexedConclusion::Exclude(Some(HashSet::from([100]))),
             )
@@ -587,7 +587,7 @@ mod test {
 
         assert!(geo_spatial_calendar_index
             .insert(
-                String::from("churchdown_event_uuid"),
+                String::from("churchdown_event_uid"),
                 &churchdown,
                 &IndexedConclusion::Include(None),
             )
@@ -595,7 +595,7 @@ mod test {
 
         assert!(geo_spatial_calendar_index
             .insert(
-                String::from("random_and_churchdown_event_uuid"),
+                String::from("random_and_churchdown_event_uid"),
                 &churchdown,
                 &IndexedConclusion::Exclude(Some(HashSet::from([200, 300]))),
             )
@@ -603,7 +603,7 @@ mod test {
 
         assert!(geo_spatial_calendar_index
             .insert(
-                String::from("oxford_event_one_uuid"),
+                String::from("oxford_event_one_uid"),
                 &oxford,
                 &IndexedConclusion::Include(None),
             )
@@ -611,7 +611,7 @@ mod test {
 
         assert!(geo_spatial_calendar_index
             .insert(
-                String::from("oxford_event_two_uuid"),
+                String::from("oxford_event_two_uid"),
                 &oxford,
                 &IndexedConclusion::Include(Some(HashSet::from([100, 200]))),
             )
@@ -619,7 +619,7 @@ mod test {
 
         assert!(geo_spatial_calendar_index
             .insert(
-                String::from("london_event_uuid"),
+                String::from("london_event_uid"),
                 &london,
                 &IndexedConclusion::Include(None),
             )
@@ -627,7 +627,7 @@ mod test {
 
         assert!(geo_spatial_calendar_index
             .insert(
-                String::from("random_plus_offset_and_london_event_uuid"),
+                String::from("random_plus_offset_and_london_event_uid"),
                 &random_plus_offset,
                 &IndexedConclusion::Include(Some(HashSet::from([100]))),
             )
@@ -635,7 +635,7 @@ mod test {
 
         assert!(geo_spatial_calendar_index
             .insert(
-                String::from("new_york_city_event_uuid"),
+                String::from("new_york_city_event_uid"),
                 &new_york_city,
                 &IndexedConclusion::Include(None),
             )
@@ -647,11 +647,11 @@ mod test {
             InvertedCalendarIndexTerm {
                 events: HashMap::from([
                     (
-                        String::from("oxford_event_one_uuid"),
+                        String::from("oxford_event_one_uid"),
                         IndexedConclusion::Include(None)
                     ),
                     (
-                        String::from("oxford_event_two_uuid"),
+                        String::from("oxford_event_two_uid"),
                         IndexedConclusion::Include(Some(HashSet::from([100, 200])))
                     ),
                 ])
@@ -664,31 +664,31 @@ mod test {
             InvertedCalendarIndexTerm {
                 events: HashMap::from([
                     (
-                        String::from("churchdown_event_uuid"),
+                        String::from("churchdown_event_uid"),
                         IndexedConclusion::Include(None)
                     ),
                     (
-                        String::from("oxford_event_one_uuid"),
+                        String::from("oxford_event_one_uid"),
                         IndexedConclusion::Include(None)
                     ),
                     (
-                        String::from("oxford_event_two_uuid"),
+                        String::from("oxford_event_two_uid"),
                         IndexedConclusion::Include(Some(HashSet::from([100, 200])))
                     ),
                     (
-                        String::from("random_and_churchdown_event_uuid"),
+                        String::from("random_and_churchdown_event_uid"),
                         IndexedConclusion::Include(Some(HashSet::from([100])))
                     ),
                     (
-                        String::from("random_event_uuid"),
+                        String::from("random_event_uid"),
                         IndexedConclusion::Include(None)
                     ),
                     (
-                        String::from("random_plus_offset_and_london_event_uuid"),
+                        String::from("random_plus_offset_and_london_event_uid"),
                         IndexedConclusion::Include(Some(HashSet::from([100])))
                     ),
                     (
-                        String::from("random_plus_offset_event_uuid"),
+                        String::from("random_plus_offset_event_uid"),
                         IndexedConclusion::Include(None)
                     ),
                 ])
@@ -701,35 +701,35 @@ mod test {
             InvertedCalendarIndexTerm {
                 events: HashMap::from([
                     (
-                        String::from("churchdown_event_uuid"),
+                        String::from("churchdown_event_uid"),
                         IndexedConclusion::Include(None)
                     ),
                     (
-                        String::from("oxford_event_one_uuid"),
+                        String::from("oxford_event_one_uid"),
                         IndexedConclusion::Include(None)
                     ),
                     (
-                        String::from("oxford_event_two_uuid"),
+                        String::from("oxford_event_two_uid"),
                         IndexedConclusion::Include(Some(HashSet::from([100, 200])))
                     ),
                     (
-                        String::from("random_and_churchdown_event_uuid"),
+                        String::from("random_and_churchdown_event_uid"),
                         IndexedConclusion::Include(Some(HashSet::from([100])))
                     ),
                     (
-                        String::from("random_event_uuid"),
+                        String::from("random_event_uid"),
                         IndexedConclusion::Include(None)
                     ),
                     (
-                        String::from("random_plus_offset_and_london_event_uuid"),
+                        String::from("random_plus_offset_and_london_event_uid"),
                         IndexedConclusion::Include(Some(HashSet::from([100])))
                     ),
                     (
-                        String::from("random_plus_offset_event_uuid"),
+                        String::from("random_plus_offset_event_uid"),
                         IndexedConclusion::Include(None)
                     ),
                     (
-                        String::from("london_event_uuid"),
+                        String::from("london_event_uid"),
                         IndexedConclusion::Include(None)
                     ),
                 ])

@@ -132,12 +132,12 @@ impl EventOccurrenceOverride {
 
                                 match content.value {
                                     ParsedValue::List(list) => {
-                                        list.iter().for_each(|related_to_uuid| {
+                                        list.iter().for_each(|related_to_uid| {
                                             match &mut new_override.related_to {
                                                 Some(related_to_map) => {
                                                     related_to_map.entry(reltype.clone())
-                                                                  .and_modify(|reltype_uuids| { reltype_uuids.insert(String::from(*related_to_uuid)); })
-                                                                  .or_insert(HashSet::from([String::from(*related_to_uuid)]));
+                                                                  .and_modify(|reltype_uids| { reltype_uids.insert(String::from(*related_to_uid)); })
+                                                                  .or_insert(HashSet::from([String::from(*related_to_uid)]));
                                                 },
 
                                                 None => {
@@ -147,7 +147,7 @@ impl EventOccurrenceOverride {
                                                                 (
                                                                     reltype.clone(),
                                                                     HashSet::from([
-                                                                        String::from(*related_to_uuid)
+                                                                        String::from(*related_to_uid)
                                                                     ])
                                                                 )
                                                             ]
@@ -228,10 +228,10 @@ impl EventOccurrenceOverride {
         let mut override_related_to_set = HashSet::<KeyValuePair>::new();
 
         if let Some(override_related_to_map) = &self.related_to {
-            for (reltype, reltype_uuids) in override_related_to_map.iter() {
-                for reltype_uuid in reltype_uuids.iter() {
+            for (reltype, reltype_uids) in override_related_to_map.iter() {
+                for reltype_uid in reltype_uids.iter() {
                     override_related_to_set
-                        .insert(KeyValuePair::new(reltype.clone(), reltype_uuid.clone()));
+                        .insert(KeyValuePair::new(reltype.clone(), reltype_uid.clone()));
                 }
             }
         }

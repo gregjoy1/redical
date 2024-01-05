@@ -16,10 +16,10 @@ pub fn redical_event_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
 
     let mut args = args.into_iter().skip(1);
 
-    let calendar_uuid = args.next_arg()?;
-    let event_uuid = args.next_arg()?;
+    let calendar_uid = args.next_arg()?;
+    let event_uid = args.next_arg()?;
 
-    let calendar_key = ctx.open_key_writable(&calendar_uuid);
+    let calendar_key = ctx.open_key_writable(&calendar_uid);
 
     let other: String = args
         .map(|arg| arg.try_as_str().unwrap_or(""))
@@ -29,18 +29,18 @@ pub fn redical_event_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
         .to_owned();
 
     ctx.log_debug(
-        format!("rdcl.evt_set: key: {calendar_uuid} event uuid: {event_uuid}, other: {other}")
+        format!("rdcl.evt_set: key: {calendar_uid} event uid: {event_uid}, other: {other}")
             .as_str(),
     );
 
     let mut event =
-        Event::parse_ical(event_uuid.try_as_str()?, other.as_str()).map_err(RedisError::String)?;
+        Event::parse_ical(event_uid.try_as_str()?, other.as_str()).map_err(RedisError::String)?;
 
     let calendar = calendar_key.get_value::<Calendar>(&CALENDAR_DATA_TYPE)?;
 
     if calendar.is_none() {
         return Err(RedisError::String(format!(
-            "No Calendar found on key: {calendar_uuid}"
+            "No Calendar found on key: {calendar_uid}"
         )));
     }
 
@@ -48,13 +48,13 @@ pub fn redical_event_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
 
     let existing_event = calendar
         .events
-        .get(&String::from(event_uuid.clone()))
+        .get(&String::from(event_uid.clone()))
         .and_then(|event| Some(event.clone()));
 
     let event_diff = if existing_event.is_some() {
         EventDiff::new(&existing_event.as_ref().unwrap(), &event)
     } else {
-        EventDiff::new(&Event::new(event.uuid.clone()), &event)
+        EventDiff::new(&Event::new(event.uid.clone()), &event)
     };
 
     if existing_event.is_some() {
@@ -115,7 +115,7 @@ pub fn redical_event_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
         event.indexed_class.as_ref(),
     );
 
-    let mut calendar_index_updater = CalendarIndexUpdater::new(event.uuid.clone(), &mut calendar);
+    let mut calendar_index_updater = CalendarIndexUpdater::new(event.uid.clone(), &mut calendar);
 
     calendar_index_updater
         .update_indexed_categories(&updated_event_categories_diff)
@@ -133,7 +133,7 @@ pub fn redical_event_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
         .update_indexed_class(&updated_event_class_diff)
         .map_err(|error| RedisError::String(error.to_string()))?;
 
-    calendar.events.insert(String::from(event_uuid), event);
+    calendar.events.insert(String::from(event_uid), event);
 
     calendar_key.set_value(&CALENDAR_DATA_TYPE, calendar.clone())?;
 

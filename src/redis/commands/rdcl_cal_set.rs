@@ -20,8 +20,8 @@ pub fn redical_calendar_set(ctx: &Context, args: Vec<RedisString>) -> RedisResul
 
     match key.get_value::<Calendar>(&CALENDAR_DATA_TYPE)? {
         Some(calendar) => Ok(RedisValue::BulkString(format!(
-            "calendar already exists with UUID: {:?} - {:?}",
-            calendar.uuid, calendar
+            "calendar already exists with UID: {:?} - {:?}",
+            calendar.uid, calendar
         ))),
 
         None => {
@@ -30,8 +30,8 @@ pub fn redical_calendar_set(ctx: &Context, args: Vec<RedisString>) -> RedisResul
             key.set_value(&CALENDAR_DATA_TYPE, new_calendar.clone())?;
 
             Ok(RedisValue::BulkString(format!(
-                "calendar added with UUID: {:?} - {:?}",
-                new_calendar.uuid, new_calendar
+                "calendar added with UID: {:?} - {:?}",
+                new_calendar.uid, new_calendar
             )))
         }
     }

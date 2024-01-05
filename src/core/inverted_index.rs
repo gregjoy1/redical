@@ -19,15 +19,15 @@ impl InvertedCalendarIndexTerm {
         }
     }
 
-    pub fn new_with_event(event_uuid: String, indexed_conclusion: IndexedConclusion) -> Self {
+    pub fn new_with_event(event_uid: String, indexed_conclusion: IndexedConclusion) -> Self {
         let mut inverted_calendar_index_term = Self::new();
 
         match indexed_conclusion {
             IndexedConclusion::Include(exceptions) => {
-                inverted_calendar_index_term.insert_included_event(event_uuid, exceptions)
+                inverted_calendar_index_term.insert_included_event(event_uid, exceptions)
             }
             IndexedConclusion::Exclude(exceptions) => {
-                inverted_calendar_index_term.insert_excluded_event(event_uuid, exceptions)
+                inverted_calendar_index_term.insert_excluded_event(event_uid, exceptions)
             }
         };
 
@@ -47,10 +47,10 @@ impl InvertedCalendarIndexTerm {
         //   * Iterate on the smallest events HashMap for efficiency
         //   * clone()/borrowing etc
 
-        for (event_uuid, indexed_conclusion_a) in events_a.iter() {
-            if let Some(indexed_conclusion_b) = events_b.get(event_uuid) {
+        for (event_uid, indexed_conclusion_a) in events_a.iter() {
+            if let Some(indexed_conclusion_b) = events_b.get(event_uid) {
                 compound_events.insert(
-                    event_uuid.clone(),
+                    event_uid.clone(),
                     IndexedConclusion::merge_and(indexed_conclusion_a, indexed_conclusion_b),
                 );
             }
@@ -74,41 +74,41 @@ impl InvertedCalendarIndexTerm {
         //   * clone()/borrowing etc
         //   * refine this logic to be more concise/readable...
 
-        let events_a_uuids = HashSet::<String>::from_iter(events_a.keys().into_iter().cloned());
-        let events_b_uuids = HashSet::<String>::from_iter(events_b.keys().into_iter().cloned());
+        let events_a_uids = HashSet::<String>::from_iter(events_a.keys().into_iter().cloned());
+        let events_b_uids = HashSet::<String>::from_iter(events_b.keys().into_iter().cloned());
 
-        let uuid_key_diff = UpdatedSetMembers::new(Some(&events_a_uuids), Some(&events_b_uuids));
+        let uid_key_diff = UpdatedSetMembers::new(Some(&events_a_uids), Some(&events_b_uids));
 
-        for events_a_exclusive_uuid in uuid_key_diff.removed.iter() {
-            if let Some(indexed_conclusion) = events_a.get(events_a_exclusive_uuid) {
+        for events_a_exclusive_uid in uid_key_diff.removed.iter() {
+            if let Some(indexed_conclusion) = events_a.get(events_a_exclusive_uid) {
                 if indexed_conclusion.is_empty_exclude() {
                     continue;
                 }
 
-                compound_events.insert(events_a_exclusive_uuid.clone(), indexed_conclusion.clone());
+                compound_events.insert(events_a_exclusive_uid.clone(), indexed_conclusion.clone());
             }
         }
 
-        for events_b_exclusive_uuid in uuid_key_diff.added.iter() {
-            if let Some(indexed_conclusion) = events_b.get(events_b_exclusive_uuid) {
+        for events_b_exclusive_uid in uid_key_diff.added.iter() {
+            if let Some(indexed_conclusion) = events_b.get(events_b_exclusive_uid) {
                 if indexed_conclusion.is_empty_exclude() {
                     continue;
                 }
 
-                compound_events.insert(events_b_exclusive_uuid.clone(), indexed_conclusion.clone());
+                compound_events.insert(events_b_exclusive_uid.clone(), indexed_conclusion.clone());
             }
         }
 
-        for event_uuid in uuid_key_diff.maintained.iter() {
+        for event_uid in uid_key_diff.maintained.iter() {
             let indexed_conclusion_a = events_a
-                .get(event_uuid)
+                .get(event_uid)
                 .expect("Expected events a to contain a present IndexedConclusion.");
             let indexed_conclusion_b = events_b
-                .get(event_uuid)
+                .get(event_uid)
                 .expect("Expected events b to contain a present IndexedConclusion.");
 
             compound_events.insert(
-                event_uuid.clone(),
+                event_uid.clone(),
                 IndexedConclusion::merge_or(indexed_conclusion_a, indexed_conclusion_b),
             );
         }
@@ -118,8 +118,8 @@ impl InvertedCalendarIndexTerm {
         }
     }
 
-    pub fn include_event_occurrence(&self, event_uuid: String, occurrence: i64) -> bool {
-        match self.events.get(&event_uuid) {
+    pub fn include_event_occurrence(&self, event_uid: String, occurrence: i64) -> bool {
+        match self.events.get(&event_uid) {
             Some(indexed_conclusion) => indexed_conclusion.include_event_occurrence(occurrence),
             None => false,
         }
@@ -127,24 +127,24 @@ impl InvertedCalendarIndexTerm {
 
     pub fn insert_included_event(
         &mut self,
-        event_uuid: String,
+        event_uid: String,
         exceptions: Option<HashSet<i64>>,
     ) -> Option<IndexedConclusion> {
         self.events
-            .insert(event_uuid, IndexedConclusion::Include(exceptions))
+            .insert(event_uid, IndexedConclusion::Include(exceptions))
     }
 
     pub fn insert_excluded_event(
         &mut self,
-        event_uuid: String,
+        event_uid: String,
         exceptions: Option<HashSet<i64>>,
     ) -> Option<IndexedConclusion> {
         self.events
-            .insert(event_uuid, IndexedConclusion::Exclude(exceptions))
+            .insert(event_uid, IndexedConclusion::Exclude(exceptions))
     }
 
-    pub fn remove_event(&mut self, event_uuid: String) -> Result<&mut Self, String> {
-        self.events.remove_entry(&event_uuid);
+    pub fn remove_event(&mut self, event_uid: String) -> Result<&mut Self, String> {
+        self.events.remove_entry(&event_uid);
 
         Ok(self)
     }
@@ -155,34 +155,34 @@ impl InvertedCalendarIndexTerm {
 
     pub fn insert_exception(
         &mut self,
-        event_uuid: String,
+        event_uid: String,
         exception: i64,
     ) -> Result<&mut IndexedConclusion, String> {
-        match self.events.get_mut(&event_uuid) {
+        match self.events.get_mut(&event_uid) {
             Some(indexed_conclusion) => {
                 indexed_conclusion.insert_exception(exception);
 
                 Ok(indexed_conclusion)
             }
             None => Err(format!(
-                "Could not insert exception for non-existent event with UUID: {event_uuid}"
+                "Could not insert exception for non-existent event with UID: {event_uid}"
             )),
         }
     }
 
     pub fn remove_exception(
         &mut self,
-        event_uuid: String,
+        event_uid: String,
         exception: i64,
     ) -> Result<&mut IndexedConclusion, String> {
-        match self.events.get_mut(&event_uuid) {
+        match self.events.get_mut(&event_uid) {
             Some(indexed_conclusion) => {
                 indexed_conclusion.remove_exception(exception);
 
                 Ok(indexed_conclusion)
             }
             None => Err(format!(
-                "Could not remove exception for non-existent event with UUID: {event_uuid}"
+                "Could not remove exception for non-existent event with UID: {event_uid}"
             )),
         }
     }
@@ -228,12 +228,12 @@ where
         };
 
         if let Some(ref related_to_map) = event.indexed_properties.related_to {
-            for (reltype, reltype_uuids) in related_to_map.iter() {
-                for reltype_uuid in reltype_uuids.iter() {
-                    let reltype_uuid_pair =
-                        KeyValuePair::new(reltype.clone(), reltype_uuid.clone());
+            for (reltype, reltype_uids) in related_to_map.iter() {
+                for reltype_uid in reltype_uids.iter() {
+                    let reltype_uid_pair =
+                        KeyValuePair::new(reltype.clone(), reltype_uid.clone());
 
-                    indexed_related_to.insert(&reltype_uuid_pair);
+                    indexed_related_to.insert(&reltype_uid_pair);
                 }
             }
         }
@@ -400,7 +400,7 @@ where
 
     pub fn insert(
         &mut self,
-        event_uuid: String,
+        event_uid: String,
         term: K,
         indexed_conclusion: &IndexedConclusion,
     ) -> Result<&mut Self, String> {
@@ -409,26 +409,26 @@ where
             .and_modify(|term_events| {
                 match indexed_conclusion {
                     IndexedConclusion::Include(exceptions) => {
-                        term_events.insert_included_event(event_uuid.clone(), exceptions.clone())
+                        term_events.insert_included_event(event_uid.clone(), exceptions.clone())
                     }
                     IndexedConclusion::Exclude(exceptions) => {
-                        term_events.insert_excluded_event(event_uuid.clone(), exceptions.clone())
+                        term_events.insert_excluded_event(event_uid.clone(), exceptions.clone())
                     }
                 };
             })
             .or_insert(InvertedCalendarIndexTerm::new_with_event(
-                event_uuid.clone(),
+                event_uid.clone(),
                 indexed_conclusion.clone(),
             ));
 
         Ok(self)
     }
 
-    pub fn remove(&mut self, event_uuid: String, term: K) -> Result<&mut Self, String> {
+    pub fn remove(&mut self, event_uid: String, term: K) -> Result<&mut Self, String> {
         self.terms
             .entry(term)
             .and_modify(|inverted_calendar_index_term| {
-                inverted_calendar_index_term.remove_event(event_uuid);
+                inverted_calendar_index_term.remove_event(event_uid);
             });
 
         Ok(self)
@@ -444,10 +444,10 @@ where
     //     for (category, indexed_conclusion) in indexed_categories.categories.iter() {
     //         move || {
     //             self.terms.entry(*category).and_modify(|inverted_index_term| {
-    //                 inverted_index_term.events.insert(event.uuid, *indexed_conclusion);
+    //                 inverted_index_term.events.insert(event.uid, *indexed_conclusion);
     //             }).or_insert(
     //                          InvertedCalendarIndexTerm {
-    //                     events: HashMap::from([ (event.uuid, *indexed_conclusion) ])
+    //                     events: HashMap::from([ (event.uid, *indexed_conclusion) ])
     //                 }
     //             );
     //         };

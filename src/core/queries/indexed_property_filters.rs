@@ -161,10 +161,10 @@ impl WhereConditionalProperty {
                 format!("CATEGORIES:{category}")
             }
 
-            WhereConditionalProperty::RelatedTo(reltype_uuids) => {
+            WhereConditionalProperty::RelatedTo(reltype_uids) => {
                 format!(
                     "RELATED-TO;RELTYPE={}:{}",
-                    reltype_uuids.key, reltype_uuids.value
+                    reltype_uids.key, reltype_uids.value
                 )
             }
 
@@ -187,10 +187,10 @@ impl WhereConditionalProperty {
                 .unwrap_or(&InvertedCalendarIndexTerm::new())
                 .clone()),
 
-            WhereConditionalProperty::RelatedTo(reltype_uuids) => Ok(calendar
+            WhereConditionalProperty::RelatedTo(reltype_uids) => Ok(calendar
                 .indexed_related_to
                 .terms
-                .get(reltype_uuids)
+                .get(reltype_uids)
                 .unwrap_or(&InvertedCalendarIndexTerm::new())
                 .clone()),
 
@@ -228,11 +228,11 @@ impl WhereConditionalProperty {
                 ))
             }
 
-            WhereConditionalProperty::RelatedTo(reltype_uuids) => {
+            WhereConditionalProperty::RelatedTo(reltype_uids) => {
                 let inverted_index_term_b = calendar
                     .indexed_related_to
                     .terms
-                    .get(reltype_uuids)
+                    .get(reltype_uids)
                     .unwrap_or(&empty_calendar_index_term);
 
                 Ok(InvertedCalendarIndexTerm::merge_and(
@@ -288,11 +288,11 @@ impl WhereConditionalProperty {
                 ))
             }
 
-            WhereConditionalProperty::RelatedTo(reltype_uuids) => {
+            WhereConditionalProperty::RelatedTo(reltype_uids) => {
                 let inverted_index_term_b = calendar
                     .indexed_related_to
                     .terms
-                    .get(reltype_uuids)
+                    .get(reltype_uids)
                     .unwrap_or(&empty_calendar_index_term);
 
                 Ok(InvertedCalendarIndexTerm::merge_or(
@@ -345,7 +345,7 @@ mod test {
 
     #[test]
     fn test_query_where_conditional() {
-        let mut calendar = Calendar::new(String::from("Calendar_UUID"));
+        let mut calendar = Calendar::new(String::from("Calendar_UID"));
 
         calendar.indexed_categories.terms.insert(
             String::from("CATEGORY_ONE"),
@@ -412,7 +412,7 @@ mod test {
         );
 
         calendar.indexed_related_to.terms.insert(
-            KeyValuePair::new(String::from("PARENT"), String::from("PARENT_UUID")),
+            KeyValuePair::new(String::from("PARENT"), String::from("PARENT_UID")),
             InvertedCalendarIndexTerm {
                 events: HashMap::from([
                     (
@@ -444,7 +444,7 @@ mod test {
         );
 
         calendar.indexed_related_to.terms.insert(
-            KeyValuePair::new(String::from("CHILD"), String::from("CHILD_UUID")),
+            KeyValuePair::new(String::from("CHILD"), String::from("CHILD_UID")),
             InvertedCalendarIndexTerm {
                 events: HashMap::from([
                     (
@@ -478,9 +478,9 @@ mod test {
         // TODO: Test GEO where params...
 
         // (
-        //      ( CATEGORIES:CATEGORY_ONE OR RELATED-TO;RELTYPE=PARENT:PARENT_UUID )
+        //      ( CATEGORIES:CATEGORY_ONE OR RELATED-TO;RELTYPE=PARENT:PARENT_UID )
         //      AND
-        //      ( CATEGORIES:CATEGORY_TWO OR RELATED-TO;RELTYPE=CHILD:CHILD_UUID )
+        //      ( CATEGORIES:CATEGORY_TWO OR RELATED-TO;RELTYPE=CHILD:CHILD_UID )
         // )
         let mut query_where_conditional = WhereConditional::Group(
             Box::new(WhereConditional::Operator(
@@ -493,7 +493,7 @@ mod test {
                         Box::new(WhereConditional::Property(
                             WhereConditionalProperty::RelatedTo(KeyValuePair::new(
                                 String::from("PARENT"),
-                                String::from("PARENT_UUID"),
+                                String::from("PARENT_UID"),
                             )),
                             None,
                         )),
@@ -511,7 +511,7 @@ mod test {
                         Box::new(WhereConditional::Property(
                             WhereConditionalProperty::RelatedTo(KeyValuePair::new(
                                 String::from("CHILD"),
-                                String::from("CHILD_UUID"),
+                                String::from("CHILD_UID"),
                             )),
                             None,
                         )),
@@ -611,7 +611,7 @@ mod test {
             5,
             4,
             6usize,
-            String::from("Property: \"RELATED-TO;RELTYPE=PARENT:PARENT_UUID\"")
+            String::from("Property: \"RELATED-TO;RELTYPE=PARENT:PARENT_UID\"")
         );
         assert_where_conditional_analysis!(
             where_conditional_analyses,
@@ -639,7 +639,7 @@ mod test {
             9,
             4,
             6usize,
-            String::from("Property: \"RELATED-TO;RELTYPE=CHILD:CHILD_UUID\"")
+            String::from("Property: \"RELATED-TO;RELTYPE=CHILD:CHILD_UID\"")
         );
     }
 }

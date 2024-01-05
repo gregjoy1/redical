@@ -41,11 +41,11 @@ pub enum LowerBoundRangeCondition {
 impl Into<LowerBoundFilterCondition> for LowerBoundRangeCondition {
     fn into(self) -> LowerBoundFilterCondition {
         match self {
-            LowerBoundRangeCondition::GreaterThan(range_condition_property, _event_uuid) => {
+            LowerBoundRangeCondition::GreaterThan(range_condition_property, _event_uid) => {
                 LowerBoundFilterCondition::GreaterThan(range_condition_property.into())
             }
 
-            LowerBoundRangeCondition::GreaterEqualThan(range_condition_property, _event_uuid) => {
+            LowerBoundRangeCondition::GreaterEqualThan(range_condition_property, _event_uid) => {
                 LowerBoundFilterCondition::GreaterEqualThan(range_condition_property.into())
             }
         }
@@ -55,14 +55,14 @@ impl Into<LowerBoundFilterCondition> for LowerBoundRangeCondition {
 impl LowerBoundRangeCondition {
     pub fn is_filtered(
         &self,
-        _event_uuid: String,
+        _event_uid: String,
         dtstart_timestamp: &i64,
         duration: &i64,
     ) -> bool {
         match self {
             LowerBoundRangeCondition::GreaterThan(
                 range_condition_property,
-                _range_condition_event_uuid,
+                _range_condition_event_uid,
             ) => {
                 let (value, comparison) =
                     range_condition_property.get_property_value(dtstart_timestamp, duration);
@@ -72,7 +72,7 @@ impl LowerBoundRangeCondition {
 
             LowerBoundRangeCondition::GreaterEqualThan(
                 range_condition_property,
-                _range_condition_event_uuid,
+                _range_condition_event_uid,
             ) => {
                 let (value, comparison) =
                     range_condition_property.get_property_value(dtstart_timestamp, duration);
@@ -106,7 +106,7 @@ impl Into<UpperBoundFilterCondition> for UpperBoundRangeCondition {
 impl UpperBoundRangeCondition {
     pub fn is_filtered(
         &self,
-        _event_uuid: String,
+        _event_uid: String,
         dtstart_timestamp: &i64,
         duration: &i64,
     ) -> bool {

@@ -198,8 +198,8 @@ mod test {
     #[test]
     fn test_event_diff() {
         // Test when no changes between both original and updated Events
-        let original_event = Event::new(String::from("event_UUID"));
-        let updated_event = Event::new(String::from("event_UUID"));
+        let original_event = Event::new(String::from("event_UID"));
+        let updated_event = Event::new(String::from("event_UID"));
 
         let expected_indexed_categories = Some(UpdatedSetMembers {
             removed: HashSet::new(),
@@ -247,7 +247,7 @@ mod test {
 
         // Test changes between blank original Event and populated updated Event
         let updated_event = Event {
-            uuid: String::from("event_UUID"),
+            uid: String::from("event_UID"),
 
             schedule_properties: ScheduleProperties {
                 rrule: Some(KeyValuePair::new(
@@ -340,7 +340,7 @@ mod test {
 
         // Test changes between populated original and updated Events (with removals).
         let original_event = Event {
-            uuid: String::from("event_UUID"),
+            uid: String::from("event_UID"),
 
             schedule_properties: ScheduleProperties {
                 rrule: Some(KeyValuePair::new(
@@ -365,11 +365,11 @@ mod test {
                 related_to: Some(HashMap::from([
                     (
                         String::from("X-IDX-CAL"),
-                        HashSet::from([String::from("indexed_calendar_UUID")]),
+                        HashSet::from([String::from("indexed_calendar_UID")]),
                     ),
                     (
                         String::from("PARENT"),
-                        HashSet::from([String::from("another_event_UUID")]),
+                        HashSet::from([String::from("another_event_UID")]),
                     ),
                 ])),
                 categories: Some(HashSet::from([
@@ -407,11 +407,11 @@ mod test {
                     removed: HashSet::from([
                         KeyValuePair::new(
                             String::from("X-IDX-CAL"),
-                            String::from("indexed_calendar_UUID")
+                            String::from("indexed_calendar_UID")
                         ),
                         KeyValuePair::new(
                             String::from("PARENT"),
-                            String::from("another_event_UUID")
+                            String::from("another_event_UID")
                         ),
                     ]),
                     maintained: HashSet::new(),
@@ -463,7 +463,7 @@ mod test {
         );
 
         // Test changes between populated original Event and blank updated Event (pure removals).
-        let updated_event = Event::new(String::from("event_UUID"));
+        let updated_event = Event::new(String::from("event_UID"));
 
         assert_eq!(
             EventDiff::new(&original_event, &updated_event),
@@ -480,11 +480,11 @@ mod test {
                     removed: HashSet::from([
                         KeyValuePair::new(
                             String::from("X-IDX-CAL"),
-                            String::from("indexed_calendar_UUID")
+                            String::from("indexed_calendar_UID")
                         ),
                         KeyValuePair::new(
                             String::from("PARENT"),
-                            String::from("another_event_UUID")
+                            String::from("another_event_UID")
                         ),
                     ]),
                     maintained: HashSet::new(),

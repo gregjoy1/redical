@@ -69,7 +69,7 @@ fn value(input: &str) -> ParserResult<&str, &str> {
 pub enum ParsedQueryComponent {
     Offset(usize),
     Limit(usize),
-    DistinctUUID,
+    DistinctUID,
     FromDateTime(LowerBoundRangeCondition),
     UntilDateTime(UpperBoundRangeCondition),
     InTimezone(rrule::Tz),
@@ -228,24 +228,24 @@ fn parse_offset_query_property_content(input: &str) -> ParserResult<&str, Parsed
     })?
 }
 
-// X-DISTINCT:UUID
-fn parse_distinct_uuid_query_property_content(
+// X-DISTINCT:UID
+fn parse_distinct_uid_query_property_content(
     input: &str,
 ) -> ParserResult<&str, ParsedQueryComponent> {
     preceded(
         tag("X-DISTINCT"),
         cut(context(
             "X-DISTINCT",
-            tuple((ical_common::colon_delimeter, tag("UUID"))),
+            tuple((ical_common::colon_delimeter, tag("UID"))),
         )),
     )(input)
     .map(|(remaining, (_colon_delimeter, _parsed_value))| {
-        Ok((remaining, ParsedQueryComponent::DistinctUUID))
+        Ok((remaining, ParsedQueryComponent::DistinctUID))
     })?
 }
 
-// X-FROM;PROP=DTSTART;OP=GT;TZID=Europe/London;UUID=Event_UUID:19971002T090000
-// X-FROM;PROP=DTSTART;OP=GTE;TZID=Europe/London;UUID=Event_UUID:19971002T090000
+// X-FROM;PROP=DTSTART;OP=GT;TZID=Europe/London;UID=Event_UID:19971002T090000
+// X-FROM;PROP=DTSTART;OP=GTE;TZID=Europe/London;UID=Event_UID:19971002T090000
 fn parse_from_query_property_content(input: &str) -> ParserResult<&str, ParsedQueryComponent> {
     preceded(
         tag("X-FROM"),
@@ -269,7 +269,7 @@ fn parse_from_query_property_content(input: &str) -> ParserResult<&str, ParsedQu
                     ),
                     ("TZID", ical_common::ParsedValue::parse_timezone),
                     (
-                        "UUID",
+                        "UID",
                         ical_common::ParsedValue::parse_single(parse_single_value)
                     ),
                 ),
@@ -318,20 +318,20 @@ fn parse_from_query_property_content(input: &str) -> ParserResult<&str, ParsedQu
                 _ => RangeConditionProperty::DtStart(datetime_timestamp),
             };
 
-            let event_uuid = match parsed_params.get(&"UUID") {
-                Some(ical_common::ParsedValue::Single(uuid)) => Some(String::from(*uuid)),
+            let event_uid = match parsed_params.get(&"UID") {
+                Some(ical_common::ParsedValue::Single(uid)) => Some(String::from(*uid)),
                 _ => None,
             };
 
             let lower_bound_range_condition = match parsed_params.get(&"OP") {
                 Some(ical_common::ParsedValue::Single("GT")) => {
-                    LowerBoundRangeCondition::GreaterThan(range_condition_property, event_uuid)
+                    LowerBoundRangeCondition::GreaterThan(range_condition_property, event_uid)
                 }
                 Some(ical_common::ParsedValue::Single("GTE")) => {
-                    LowerBoundRangeCondition::GreaterEqualThan(range_condition_property, event_uuid)
+                    LowerBoundRangeCondition::GreaterEqualThan(range_condition_property, event_uid)
                 }
 
-                _ => LowerBoundRangeCondition::GreaterThan(range_condition_property, event_uuid),
+                _ => LowerBoundRangeCondition::GreaterThan(range_condition_property, event_uid),
             };
 
             (
@@ -501,7 +501,7 @@ fn parse_categories_query_property_content(
     )
 }
 
-// X-RELATED-TO;RELTYPE=PARENT:PARENT_UUID => X-RELATED-TO;OP=AND;RELTYPE=PARENT:PARENT_UUID
+// X-RELATED-TO;RELTYPE=PARENT:PARENT_UID => X-RELATED-TO;OP=AND;RELTYPE=PARENT:PARENT_UID
 fn parse_related_to_query_property_content(
     input: &str,
 ) -> ParserResult<&str, ParsedQueryComponent> {
@@ -560,14 +560,14 @@ fn parse_related_to_query_property_content(
                 };
             };
 
-            let ical_common::ParsedValue::List(parsed_related_to_uuids) = parsed_value else {
+            let ical_common::ParsedValue::List(parsed_related_to_uids) = parsed_value else {
                 panic!(
-                    "Expected related-to UUIDS to be a list of Strings, received: {:#?}",
+                    "Expected related-to UIDS to be a list of Strings, received: {:#?}",
                     parsed_value
                 );
             };
 
-            let parsed_related_to_uuids: Vec<String> = parsed_related_to_uuids
+            let parsed_related_to_uids: Vec<String> = parsed_related_to_uids
                 .into_iter()
                 .map(String::from)
                 .collect();
@@ -576,7 +576,7 @@ fn parse_related_to_query_property_content(
                 remaining,
                 ParsedQueryComponent::WhereRelatedTo(
                     parsed_reltype,
-                    parsed_related_to_uuids,
+                    parsed_related_to_uids,
                     internal_where_operator,
                     WhereOperator::And,
                 ),
@@ -851,12 +851,12 @@ fn parse_operator_prefixed_where_query_property_content(
 
             ParsedQueryComponent::WhereRelatedTo(
                 reltype,
-                related_to_uuids,
+                related_to_uids,
                 internal_operator,
                 _external_operator,
             ) => ParsedQueryComponent::WhereRelatedTo(
                 reltype,
-                related_to_uuids,
+                related_to_uids,
                 internal_operator,
                 parsed_external_where_operator,
             ),
@@ -939,13 +939,13 @@ fn where_group_to_where_conditional(
 
             ParsedQueryComponent::WhereRelatedTo(
                 reltype,
-                related_to_uuids,
+                related_to_uids,
                 internal_operator,
                 external_operator,
             ) => (
-                where_related_to_uuids_to_where_conditional(
+                where_related_to_uids_to_where_conditional(
                     reltype,
-                    related_to_uuids,
+                    related_to_uids,
                     internal_operator,
                 ),
                 external_operator,
@@ -986,7 +986,7 @@ fn where_group_to_where_conditional(
 // parse_timezone_query_property_content
 // parse_offset_query_property_content
 // parse_limit_query_property_content
-// parse_distinct_uuid_query_property_content
+// parse_distinct_uid_query_property_content
 // parse_from_query_property_content
 // parse_until_query_property_content
 // parse_categories_query_property_content
@@ -1005,7 +1005,7 @@ pub fn parse_query_string(input: &str) -> ParserResult<&str, Query> {
                 parse_timezone_query_property_content,
                 parse_offset_query_property_content,
                 parse_limit_query_property_content,
-                parse_distinct_uuid_query_property_content,
+                parse_distinct_uid_query_property_content,
                 parse_from_query_property_content,
                 parse_until_query_property_content,
                 parse_order_to_query_property_content,
@@ -1030,8 +1030,8 @@ pub fn parse_query_string(input: &str) -> ParserResult<&str, Query> {
                     query.limit = limit.clone();
                 }
 
-                ParsedQueryComponent::DistinctUUID => {
-                    query.distinct_uuids = true;
+                ParsedQueryComponent::DistinctUID => {
+                    query.distinct_uids = true;
                 }
 
                 ParsedQueryComponent::FromDateTime(lower_bound_range_condition) => {
@@ -1078,14 +1078,14 @@ pub fn parse_query_string(input: &str) -> ParserResult<&str, Query> {
 
                 ParsedQueryComponent::WhereRelatedTo(
                     reltype,
-                    related_to_uuids,
+                    related_to_uids,
                     internal_operator,
                     _external_operator,
                 ) => {
                     let Some(mut new_where_conditional) =
-                        where_related_to_uuids_to_where_conditional(
+                        where_related_to_uids_to_where_conditional(
                             reltype,
-                            related_to_uuids,
+                            related_to_uids,
                             internal_operator,
                         )
                     else {
@@ -1219,18 +1219,18 @@ fn where_categories_to_where_conditional(
     }
 }
 
-fn where_related_to_uuids_to_where_conditional(
+fn where_related_to_uids_to_where_conditional(
     reltype: &String,
-    related_to_uuids: &Vec<String>,
+    related_to_uids: &Vec<String>,
     operator: &WhereOperator,
 ) -> Option<WhereConditional> {
-    match related_to_uuids.len() {
+    match related_to_uids.len() {
         0 => None,
 
         1 => Some(WhereConditional::Property(
             WhereConditionalProperty::RelatedTo(KeyValuePair::new(
                 reltype.clone(),
-                related_to_uuids[0].clone(),
+                related_to_uids[0].clone(),
             )),
             None,
         )),
@@ -1239,18 +1239,18 @@ fn where_related_to_uuids_to_where_conditional(
             let mut current_property = WhereConditional::Property(
                 WhereConditionalProperty::RelatedTo(KeyValuePair::new(
                     reltype.clone(),
-                    related_to_uuids[0].clone(),
+                    related_to_uids[0].clone(),
                 )),
                 None,
             );
 
-            for related_to_uuid in related_to_uuids[1..].iter() {
+            for related_to_uid in related_to_uids[1..].iter() {
                 current_property = WhereConditional::Operator(
                     Box::new(current_property),
                     Box::new(WhereConditional::Property(
                         WhereConditionalProperty::RelatedTo(KeyValuePair::new(
                             reltype.clone(),
-                            related_to_uuid.clone(),
+                            related_to_uid.clone(),
                         )),
                         None,
                     )),
@@ -1468,9 +1468,9 @@ mod test {
     }
 
     #[test]
-    fn test_where_related_to_uuids_to_where_conditional() {
+    fn test_where_related_to_uids_to_where_conditional() {
         assert_eq!(
-            where_related_to_uuids_to_where_conditional(
+            where_related_to_uids_to_where_conditional(
                 &String::from("PARENT"),
                 &vec![],
                 &WhereOperator::And,
@@ -1479,27 +1479,27 @@ mod test {
         );
 
         assert_eq!(
-            where_related_to_uuids_to_where_conditional(
+            where_related_to_uids_to_where_conditional(
                 &String::from("PARENT"),
-                &vec![String::from("PARENT_UUID_ONE"),],
+                &vec![String::from("PARENT_UID_ONE"),],
                 &WhereOperator::And,
             ),
             Some(WhereConditional::Property(
                 WhereConditionalProperty::RelatedTo(KeyValuePair::new(
                     String::from("PARENT"),
-                    String::from("PARENT_UUID_ONE"),
+                    String::from("PARENT_UID_ONE"),
                 )),
                 None,
             )),
         );
 
         assert_eq!(
-            where_related_to_uuids_to_where_conditional(
+            where_related_to_uids_to_where_conditional(
                 &String::from("PARENT"),
                 &vec![
-                    String::from("PARENT_UUID_ONE"),
-                    String::from("PARENT_UUID_TWO"),
-                    String::from("PARENT_UUID_THREE"),
+                    String::from("PARENT_UID_ONE"),
+                    String::from("PARENT_UID_TWO"),
+                    String::from("PARENT_UID_THREE"),
                 ],
                 &WhereOperator::Or,
             ),
@@ -1509,14 +1509,14 @@ mod test {
                         Box::new(WhereConditional::Property(
                             WhereConditionalProperty::RelatedTo(KeyValuePair::new(
                                 String::from("PARENT"),
-                                String::from("PARENT_UUID_ONE"),
+                                String::from("PARENT_UID_ONE"),
                             )),
                             None,
                         )),
                         Box::new(WhereConditional::Property(
                             WhereConditionalProperty::RelatedTo(KeyValuePair::new(
                                 String::from("PARENT"),
-                                String::from("PARENT_UUID_TWO"),
+                                String::from("PARENT_UID_TWO"),
                             )),
                             None,
                         )),
@@ -1526,7 +1526,7 @@ mod test {
                     Box::new(WhereConditional::Property(
                         WhereConditionalProperty::RelatedTo(KeyValuePair::new(
                             String::from("PARENT"),
-                            String::from("PARENT_UUID_THREE"),
+                            String::from("PARENT_UID_THREE"),
                         )),
                         None,
                     )),
@@ -1541,10 +1541,10 @@ mod test {
     #[test]
     fn test_parse_query_string() {
         let query_string = [
-            "X-FROM;PROP=DTSTART;OP=GT;TZID=Europe/London;UUID=Event_UUID:19971002T090000",
+            "X-FROM;PROP=DTSTART;OP=GT;TZID=Europe/London;UID=Event_UID:19971002T090000",
             "X-UNTIL;PROP=DTSTART;OP=LTE;TZID=UTC:19971102T090000",
             "X-CATEGORIES;OP=OR:CATEGORY_ONE,CATEGORY_TWO",
-            "X-RELATED-TO:PARENT_UUID",
+            "X-RELATED-TO:PARENT_UID",
             "X-GEO;DIST=1.5KM:48.85299;2.36885",
             "X-CLASS:PRIVATE",
             "X-LIMIT:50",
@@ -1583,7 +1583,7 @@ mod test {
                                 Box::new(WhereConditional::Property(
                                     WhereConditionalProperty::RelatedTo(KeyValuePair::new(
                                         String::from("PARENT"),
-                                        String::from("PARENT_UUID"),
+                                        String::from("PARENT_UID"),
                                     )),
                                     None,
                                 )),
@@ -1618,7 +1618,7 @@ mod test {
 
                     lower_bound_range_condition: Some(LowerBoundRangeCondition::GreaterThan(
                         RangeConditionProperty::DtStart(875779200,),
-                        Some(String::from("Event_UUID")),
+                        Some(String::from("Event_UID")),
                     )),
 
                     upper_bound_range_condition: Some(UpperBoundRangeCondition::LessEqualThan(
@@ -1627,7 +1627,7 @@ mod test {
 
                     in_timezone: rrule::Tz::Europe__Vilnius,
 
-                    distinct_uuids: false,
+                    distinct_uids: false,
 
                     offset: 0,
                     limit: 50,
@@ -1639,7 +1639,7 @@ mod test {
     #[test]
     fn test_parse_query_string_with_grouped_conditionals() {
         let query_string = [
-            "X-FROM;PROP=DTSTART;OP=GT;TZID=Europe/London;UUID=Event_UUID:19971002T090000",
+            "X-FROM;PROP=DTSTART;OP=GT;TZID=Europe/London;UID=Event_UID:19971002T090000",
             "X-UNTIL;PROP=DTSTART;OP=LTE;TZID=UTC:19971102T090000",
             "(",
             "(",
@@ -1647,18 +1647,18 @@ mod test {
             "OR",
             "X-CATEGORIES:CATEGORY_ONE",
             "OR",
-            "X-RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+            "X-RELATED-TO;RELTYPE=PARENT:PARENT_UID",
             ")",
             "AND",
             "(",
             "X-CATEGORIES:CATEGORY_TWO",
             "OR",
-            "X-RELATED-TO;RELTYPE=CHILD:CHILD_UUID",
+            "X-RELATED-TO;RELTYPE=CHILD:CHILD_UID",
             ")",
             ")",
             "X-LIMIT:50",
             "X-OFFSET:10",
-            "X-DISTINCT:UUID",
+            "X-DISTINCT:UID",
             "X-TZID:Europe/Vilnius",
             "X-ORDER-BY;GEO=48.85299;2.36885:DTSTART-GEO-DIST",
         ]
@@ -1696,7 +1696,7 @@ mod test {
                                     Box::new(WhereConditional::Property(
                                         WhereConditionalProperty::RelatedTo(KeyValuePair::new(
                                             String::from("PARENT"),
-                                            String::from("PARENT_UUID"),
+                                            String::from("PARENT_UID"),
                                         )),
                                         None
                                     )),
@@ -1716,7 +1716,7 @@ mod test {
                                     Box::new(WhereConditional::Property(
                                         WhereConditionalProperty::RelatedTo(KeyValuePair::new(
                                             String::from("CHILD"),
-                                            String::from("CHILD_UUID"),
+                                            String::from("CHILD_UID"),
                                         )),
                                         None,
                                     )),
@@ -1738,7 +1738,7 @@ mod test {
 
                     lower_bound_range_condition: Some(LowerBoundRangeCondition::GreaterThan(
                         RangeConditionProperty::DtStart(875779200,),
-                        Some(String::from("Event_UUID")),
+                        Some(String::from("Event_UID")),
                     )),
 
                     upper_bound_range_condition: Some(UpperBoundRangeCondition::LessEqualThan(
@@ -1747,7 +1747,7 @@ mod test {
 
                     in_timezone: rrule::Tz::Europe__Vilnius,
 
-                    distinct_uuids: true,
+                    distinct_uids: true,
 
                     offset: 10,
                     limit: 50,

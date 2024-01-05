@@ -21,7 +21,7 @@ pub struct Query {
     pub lower_bound_range_condition: Option<LowerBoundRangeCondition>,
     pub upper_bound_range_condition: Option<UpperBoundRangeCondition>,
     pub in_timezone: Tz,
-    pub distinct_uuids: bool,
+    pub distinct_uids: bool,
     pub offset: usize,
     pub limit: usize,
 }
@@ -38,7 +38,7 @@ impl Query {
         let mut query_results = QueryResults::new(
             self.ordering_condition.clone(),
             self.offset,
-            self.distinct_uuids,
+            self.distinct_uids,
         );
 
         match &self.ordering_condition {
@@ -104,8 +104,8 @@ impl Query {
 
         match where_conditional_result {
             Some(inverted_calendar_index_term) => {
-                for (event_uuid, indexed_conclusion) in &inverted_calendar_index_term.events {
-                    let Some(event) = calendar.events.get(event_uuid) else {
+                for (event_uid, indexed_conclusion) in &inverted_calendar_index_term.events {
+                    let Some(event) = calendar.events.get(event_uid) else {
                         // TODO: handle missing indexed event...
 
                         continue;
@@ -122,7 +122,7 @@ impl Query {
             }
 
             None => {
-                for (_event_uuid, event) in &calendar.events {
+                for (_event_uid, event) in &calendar.events {
                     self.add_event_to_merged_iterator(
                         event,
                         merged_iterator,
@@ -236,8 +236,8 @@ impl Query {
                 None => point.data.to_owned(),
             };
 
-            for (event_uuid, indexed_conclusion) in &current_inverted_index_calendar_term.events {
-                let Some(event) = calendar.events.get(event_uuid) else {
+            for (event_uid, indexed_conclusion) in &current_inverted_index_calendar_term.events {
+                let Some(event) = calendar.events.get(event_uid) else {
                     // TODO: handle missing indexed event...
 
                     continue;
@@ -274,9 +274,9 @@ impl Query {
         upper_bound_filter_condition: &Option<UpperBoundFilterCondition>,
         filtering_indexed_conclusion: &Option<IndexedConclusion>,
     ) -> Result<(), String> {
-        let limit = if self.distinct_uuids { Some(1) } else { None };
+        let limit = if self.distinct_uids { Some(1) } else { None };
 
-        let event_uuid = event.uuid.clone();
+        let event_uid = event.uid.clone();
 
         let event_instance_iterator = EventInstanceIterator::new(
             event,
@@ -286,7 +286,7 @@ impl Query {
             filtering_indexed_conclusion.clone(),
         )?;
 
-        if let Err(error) = merged_iterator.add_iter(event_uuid, event_instance_iterator) {
+        if let Err(error) = merged_iterator.add_iter(event_uid, event_instance_iterator) {
             Err(error)
         } else {
             Ok(())
@@ -320,7 +320,7 @@ impl Default for Query {
             lower_bound_range_condition: None,
             upper_bound_range_condition: None,
             in_timezone: Tz::UTC,
-            distinct_uuids: false,
+            distinct_uids: false,
             offset: 0,
             limit: 50,
         }
@@ -345,15 +345,15 @@ mod test {
 
     fn build_overridden_recurring_event() -> Event {
         build_event_and_overrides_from_ical(
-            "overridden_recurring_event_UUID",
+            "overridden_recurring_event_UID",
             vec![
                 "DESCRIPTION:BASE description text.",
                 "DTSTART:20210105T183000Z",
                 "DTEND:20210105T190000Z",
                 "RRULE:FREQ=WEEKLY;UNTIL=20210202T183000Z;INTERVAL=1",
                 "CATEGORIES:BASE_CATEGORY_ONE,BASE_CATEGORY_TWO",
-                "RELATED-TO;RELTYPE=PARENT:BASE_ParentdUUID",
-                "RELATED-TO;RELTYPE=CHILD:BASE_ChildUUID",
+                "RELATED-TO;RELTYPE=PARENT:BASE_ParentdUID",
+                "RELATED-TO;RELTYPE=CHILD:BASE_ChildUID",
             ],
             vec![
                 (
@@ -361,14 +361,14 @@ mod test {
                     vec![
                         "DESCRIPTION:OVERRIDDEN description text.",
                         "CATEGORIES:BASE_CATEGORY_ONE,OVERRIDDEN_CATEGORY_ONE",
-                        "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUUID",
+                        "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUID",
                     ],
                 ),
                 (
                     "20210112T183000Z",
                     vec![
-                        "RELATED-TO;RELTYPE=CHILD:BASE_ChildUUID",
-                        "RELATED-TO;RELTYPE=CHILD:OVERRIDDEN_ChildUUID",
+                        "RELATED-TO;RELTYPE=CHILD:BASE_ChildUID",
+                        "RELATED-TO;RELTYPE=CHILD:OVERRIDDEN_ChildUID",
                     ],
                 ),
                 (
@@ -376,8 +376,8 @@ mod test {
                     vec![
                         "DESCRIPTION:OVERRIDDEN description text.",
                         "CATEGORIES:OVERRIDDEN_CATEGORY_ONE,OVERRIDDEN_CATEGORY_TWO",
-                        "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUUID",
-                        "RELATED-TO;RELTYPE=CHILD:OVERRIDDEN_ChildUUID",
+                        "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUID",
+                        "RELATED-TO;RELTYPE=CHILD:OVERRIDDEN_ChildUID",
                     ],
                 ),
             ],
@@ -386,14 +386,14 @@ mod test {
 
     fn build_one_off_event() -> Event {
         build_event_from_ical(
-            "one_off_event_UUID",
+            "one_off_event_UID",
             vec![
                 "DTSTART:20201231T183000Z",
                 "DTEND:20201231T183100Z",
                 "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,CATEGORY THREE",
-                "RELATED-TO;RELTYPE=CHILD:ChildUUID",
-                "RELATED-TO;RELTYPE=PARENT:ParentUUID_One",
-                "RELATED-TO;RELTYPE=PARENT:ParentUUID_Two",
+                "RELATED-TO;RELTYPE=CHILD:ChildUID",
+                "RELATED-TO;RELTYPE=PARENT:ParentUID_One",
+                "RELATED-TO;RELTYPE=PARENT:ParentUID_Two",
                 "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_One",
                 "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Three",
                 "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Two",
@@ -421,10 +421,10 @@ mod test {
 
         let query_string = [
             " ",
-            "X-FROM;PROP=DTSTART;OP=GT;TZID=Europe/London;UUID=Event_UUID:19971002T090000",
+            "X-FROM;PROP=DTSTART;OP=GT;TZID=Europe/London;UID=Event_UID:19971002T090000",
             "X-UNTIL;PROP=DTSTART;OP=LTE;TZID=UTC:19971102T090000",
             "X-CATEGORIES;OP=OR:CATEGORY_ONE,CATEGORY_TWO",
-            "X-RELATED-TO:PARENT_UUID",
+            "X-RELATED-TO:PARENT_UID",
             "X-LIMIT:50",
             "X-TZID:Europe/Vilnius",
             "X-ORDER-BY;GEO=48.85299;2.36885:DTSTART-GEO-DIST",
@@ -454,7 +454,7 @@ mod test {
                     Box::new(WhereConditional::Property(
                         WhereConditionalProperty::RelatedTo(KeyValuePair::new(
                             String::from("PARENT"),
-                            String::from("PARENT_UUID"),
+                            String::from("PARENT_UID"),
                         )),
                         None,
                     )),
@@ -469,7 +469,7 @@ mod test {
 
                 lower_bound_range_condition: Some(LowerBoundRangeCondition::GreaterThan(
                     RangeConditionProperty::DtStart(875779200,),
-                    Some(String::from("Event_UUID")),
+                    Some(String::from("Event_UID")),
                 )),
 
                 upper_bound_range_condition: Some(UpperBoundRangeCondition::LessEqualThan(
@@ -478,7 +478,7 @@ mod test {
 
                 in_timezone: rrule::Tz::Europe__Vilnius,
 
-                distinct_uuids: false,
+                distinct_uids: false,
 
                 offset: 0,
                 limit: 50,

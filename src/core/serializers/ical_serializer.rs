@@ -76,20 +76,20 @@ pub fn serialize_indexed_related_to_ical_set(
         return related_to_ical_set;
     };
 
-    for (reltype, reltype_uuids) in related_to {
-        if reltype_uuids.is_empty() {
+    for (reltype, reltype_uids) in related_to {
+        if reltype_uids.is_empty() {
             continue;
         }
 
-        let mut reltype_uuids: Vec<String> =
-            Vec::from_iter(reltype_uuids.iter().map(|element| element.to_owned()));
+        let mut reltype_uids: Vec<String> =
+            Vec::from_iter(reltype_uids.iter().map(|element| element.to_owned()));
 
-        reltype_uuids.sort();
+        reltype_uids.sort();
 
-        reltype_uuids.iter().for_each(|reltype_uuid| {
+        reltype_uids.iter().for_each(|reltype_uid| {
             related_to_ical_set.insert(KeyValuePair::new(
                 String::from("RELATED-TO"),
-                format!(";RELTYPE={}:{}", reltype, reltype_uuid),
+                format!(";RELTYPE={}:{}", reltype, reltype_uid),
             ));
         });
     }
@@ -129,8 +129,8 @@ pub fn serialize_dtend_timestamp_to_ical(dtend_timestamp: &i64, timezone: &Tz) -
     )
 }
 
-pub fn serialize_uuid_to_ical(uuid: &String) -> KeyValuePair {
-    KeyValuePair::new(String::from("UUID"), format!(":{}", uuid))
+pub fn serialize_uid_to_ical(uid: &String) -> KeyValuePair {
+    KeyValuePair::new(String::from("UID"), format!(":{}", uid))
 }
 
 pub trait ICalSerializer {

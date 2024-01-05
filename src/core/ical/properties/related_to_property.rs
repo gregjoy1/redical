@@ -21,7 +21,7 @@ use crate::core::ical::serializer::{
 #[derive(Debug, PartialEq)]
 pub struct RelatedToProperty {
     reltype: Option<String>,
-    uuid: String,
+    uid: String,
     x_params: Option<HashMap<String, Vec<String>>>,
 }
 
@@ -57,7 +57,7 @@ impl SerializableICalProperty for RelatedToProperty {
         };
 
         let value =
-            SerializedValue::Single(quote_string_if_needed(&self.uuid, properties::value_text));
+            SerializedValue::Single(quote_string_if_needed(&self.uid, properties::value_text));
 
         (String::from(RelatedToProperty::NAME), params, value)
     }
@@ -134,11 +134,11 @@ impl RelatedToProperty {
                     }
                 }
 
-                let uuid = String::from(parsed_value.trim());
+                let uid = String::from(parsed_value.trim());
 
                 let parsed_property = RelatedToProperty {
                     reltype,
-                    uuid,
+                    uid,
                     x_params,
                 };
 
@@ -163,7 +163,7 @@ mod test {
                 RelatedToProperty {
                     reltype: None,
                     x_params: None,
-                    uuid: String::from(""),
+                    uid: String::from(""),
                 },
             ))
         );
@@ -172,13 +172,13 @@ mod test {
     #[test]
     fn test_parse_ical_minimal() {
         assert_eq!(
-            RelatedToProperty::parse_ical("RELATED-TO:UUID"),
+            RelatedToProperty::parse_ical("RELATED-TO:UID"),
             Ok((
                 "",
                 RelatedToProperty {
                     reltype: None,
                     x_params: None,
-                    uuid: String::from("UUID"),
+                    uid: String::from("UID"),
                 },
             ))
         );
@@ -188,7 +188,7 @@ mod test {
     fn test_parse_ical_full() {
         assert_eq!(
             RelatedToProperty::parse_ical(
-                r#"RELATED-TO;X-TEST-KEY-ONE=VALUE_ONE,"VALUE_TWO";RELTYPE=X-CUSTOM-RELTYPE;X-TEST-KEY-TWO="KEY -🎄- TWO":  UUID "#,
+                r#"RELATED-TO;X-TEST-KEY-ONE=VALUE_ONE,"VALUE_TWO";RELTYPE=X-CUSTOM-RELTYPE;X-TEST-KEY-TWO="KEY -🎄- TWO":  UID "#,
             ),
             Ok((
                 "",
@@ -204,7 +204,7 @@ mod test {
                             vec![String::from("VALUE_ONE"), String::from("VALUE_TWO")]
                         ),
                     ])),
-                    uuid: String::from("UUID"),
+                    uid: String::from("UID"),
                 },
             ))
         );
@@ -214,7 +214,7 @@ mod test {
     fn test_parse_ical_full_with_lookahead() {
         assert_eq!(
             RelatedToProperty::parse_ical(
-                r#"RELATED-TO;X-TEST-KEY-ONE=VALUE_ONE,"VALUE_TWO";RELTYPE=X-CUSTOM-RELTYPE;X-TEST-KEY-TWO="KEY -🎄- TWO":  UUID  SUMMARY:Summary text"#,
+                r#"RELATED-TO;X-TEST-KEY-ONE=VALUE_ONE,"VALUE_TWO";RELTYPE=X-CUSTOM-RELTYPE;X-TEST-KEY-TWO="KEY -🎄- TWO":  UID  SUMMARY:Summary text"#,
             ),
             Ok((
                 "  SUMMARY:Summary text",
@@ -230,7 +230,7 @@ mod test {
                             vec![String::from("VALUE_ONE"), String::from("VALUE_TWO")]
                         ),
                     ])),
-                    uuid: String::from("UUID"),
+                    uid: String::from("UID"),
                 },
             ))
         );
@@ -239,7 +239,7 @@ mod test {
     #[test]
     fn test_serialize_to_ical() {
         let parsed_categories_property = RelatedToProperty::parse_ical(
-            r#"RELATED-TO;RELTYPE=X-CUSTOM-RELTYPE;X-TEST-KEY-ONE=VALUE_ONE,"VALUE_TWO";X-TEST-KEY-TWO="KEY -🎄- TWO":  UUID "#,
+            r#"RELATED-TO;RELTYPE=X-CUSTOM-RELTYPE;X-TEST-KEY-ONE=VALUE_ONE,"VALUE_TWO";X-TEST-KEY-TWO="KEY -🎄- TWO":  UID "#,
         ).unwrap().1;
 
         assert_eq!(
@@ -256,7 +256,7 @@ mod test {
                         vec![String::from("VALUE_ONE"), String::from("VALUE_TWO")]
                     ),
                 ])),
-                uuid: String::from("UUID"),
+                uid: String::from("UID"),
             },
         );
 
@@ -272,7 +272,7 @@ mod test {
         assert_eq!(
             serialized_ical,
             String::from(
-                r#"RELATED-TO;RELTYPE=X-CUSTOM-RELTYPE;X-TEST-KEY-ONE=VALUE_ONE,VALUE_TWO;X-TEST-KEY-TWO=KEY -🎄- TWO:UUID"#
+                r#"RELATED-TO;RELTYPE=X-CUSTOM-RELTYPE;X-TEST-KEY-ONE=VALUE_ONE,VALUE_TWO;X-TEST-KEY-TWO=KEY -🎄- TWO:UID"#
             ),
         );
     }

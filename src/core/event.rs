@@ -66,34 +66,34 @@ fn rebase_override(
     if let Some(indexed_related_to) = &event_diff.indexed_related_to {
         match event_occurrence_override.related_to.as_mut() {
             Some(overridden_related_to) => {
-                for removed_reltype_uuid_pair in indexed_related_to.removed.iter() {
-                    if let Some(reltype_uuids) =
-                        overridden_related_to.get_mut(&removed_reltype_uuid_pair.key)
+                for removed_reltype_uid_pair in indexed_related_to.removed.iter() {
+                    if let Some(reltype_uids) =
+                        overridden_related_to.get_mut(&removed_reltype_uid_pair.key)
                     {
-                        reltype_uuids.remove(&removed_reltype_uuid_pair.value);
+                        reltype_uids.remove(&removed_reltype_uid_pair.value);
                     }
                 }
 
-                for added_reltype_uuid_pair in indexed_related_to.added.iter() {
+                for added_reltype_uid_pair in indexed_related_to.added.iter() {
                     overridden_related_to
-                        .entry(added_reltype_uuid_pair.key.clone())
-                        .and_modify(|reltype_uuids| {
-                            reltype_uuids.insert(added_reltype_uuid_pair.value.clone());
+                        .entry(added_reltype_uid_pair.key.clone())
+                        .and_modify(|reltype_uids| {
+                            reltype_uids.insert(added_reltype_uid_pair.value.clone());
                         })
-                        .or_insert(HashSet::from([added_reltype_uuid_pair.value.clone()]));
+                        .or_insert(HashSet::from([added_reltype_uid_pair.value.clone()]));
                 }
             }
 
             None => {
                 let mut overridden_related_to = HashMap::new();
 
-                for added_reltype_uuid_pair in indexed_related_to.added.iter() {
+                for added_reltype_uid_pair in indexed_related_to.added.iter() {
                     overridden_related_to
-                        .entry(added_reltype_uuid_pair.key.clone())
-                        .and_modify(|reltype_uuids: &mut HashSet<String>| {
-                            reltype_uuids.insert(added_reltype_uuid_pair.value.clone());
+                        .entry(added_reltype_uid_pair.key.clone())
+                        .and_modify(|reltype_uids: &mut HashSet<String>| {
+                            reltype_uids.insert(added_reltype_uid_pair.value.clone());
                         })
-                        .or_insert(HashSet::from([added_reltype_uuid_pair.value.clone()]));
+                        .or_insert(HashSet::from([added_reltype_uid_pair.value.clone()]));
                 }
 
                 event_occurrence_override.related_to = Some(overridden_related_to);
@@ -422,12 +422,12 @@ impl IndexedProperties {
 
                 match content.value {
                     ParsedValue::List(list) => {
-                        list.iter().for_each(|related_to_uuid| {
+                        list.iter().for_each(|related_to_uid| {
                             match &mut self.related_to {
                                 Some(related_to_map) => {
                                     related_to_map.entry(reltype.clone())
-                                                  .and_modify(|reltype_uuids| { reltype_uuids.insert(String::from(*related_to_uuid)); })
-                                                  .or_insert(HashSet::from([String::from(*related_to_uuid)]));
+                                                  .and_modify(|reltype_uids| { reltype_uids.insert(String::from(*related_to_uid)); })
+                                                  .or_insert(HashSet::from([String::from(*related_to_uid)]));
                                 },
 
                                 None => {
@@ -437,7 +437,7 @@ impl IndexedProperties {
                                                 (
                                                     reltype.clone(),
                                                     HashSet::from([
-                                                        String::from(*related_to_uuid)
+                                                        String::from(*related_to_uid)
                                                     ])
                                                 )
                                             ]
@@ -491,7 +491,7 @@ impl PassiveProperties {
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Event {
-    pub uuid: String,
+    pub uid: String,
 
     pub schedule_properties: ScheduleProperties,
     pub indexed_properties: IndexedProperties,
@@ -506,9 +506,9 @@ pub struct Event {
 }
 
 impl Event {
-    pub fn new(uuid: String) -> Event {
+    pub fn new(uid: String) -> Event {
         Event {
-            uuid,
+            uid,
 
             schedule_properties: ScheduleProperties::new(),
             indexed_properties: IndexedProperties::new(),
@@ -523,10 +523,10 @@ impl Event {
         }
     }
 
-    pub fn parse_ical(uuid: &str, input: &str) -> Result<Event, String> {
+    pub fn parse_ical(uid: &str, input: &str) -> Result<Event, String> {
         match parse_properties(input) {
             Ok((_, parsed_properties)) => {
-                let new_event: &mut Event = &mut Event::new(String::from(uuid));
+                let new_event: &mut Event = &mut Event::new(String::from(uid));
 
                 parsed_properties
                     .into_iter()
@@ -689,7 +689,7 @@ mod test {
     #[test]
     fn test_indexed_categories() {
         let event = Event {
-            uuid: String::from("event_UUID"),
+            uid: String::from("event_UID"),
 
             schedule_properties: ScheduleProperties {
                 rrule: None,
@@ -935,9 +935,9 @@ mod test {
         let ical: &str = "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,\"CATEGORY THREE\"";
 
         assert_eq!(
-            Event::parse_ical("event_UUID", ical).unwrap(),
+            Event::parse_ical("event_UID", ical).unwrap(),
             Event {
-                uuid: String::from("event_UUID"),
+                uid: String::from("event_UID"),
 
                 schedule_properties: ScheduleProperties {
                     rrule:            Some(
@@ -990,12 +990,12 @@ mod test {
     fn test_build_parsed_rrule_set() {
         let ical: &str = "RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH DTSTART:16010101T020000";
 
-        let mut parsed_event = Event::parse_ical("event_UUID", ical).unwrap();
+        let mut parsed_event = Event::parse_ical("event_UID", ical).unwrap();
 
         assert_eq!(
             parsed_event,
             Event {
-                uuid: String::from("event_UUID"),
+                uid: String::from("event_UID"),
 
                 schedule_properties: ScheduleProperties {
                     rrule: Some(KeyValuePair::new(
@@ -1033,12 +1033,12 @@ mod test {
 
         let ical: &str = "RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH";
 
-        let mut parsed_event = Event::parse_ical("event_UUID", ical).unwrap();
+        let mut parsed_event = Event::parse_ical("event_UID", ical).unwrap();
 
         assert_eq!(
             parsed_event,
             Event {
-                uuid: String::from("event_UUID"),
+                uid: String::from("event_UID"),
 
                 schedule_properties: ScheduleProperties {
                     rrule: Some(KeyValuePair::new(
@@ -1077,7 +1077,7 @@ mod test {
         let ical: &str =
             "RRULE:FREQ=WEEKLY;UNTIL=20210331T183000Z;INTERVAL=1;BYDAY=TU DTSTART:20201231T183000Z";
 
-        let mut parsed_event = Event::parse_ical("event_UUID", ical).unwrap();
+        let mut parsed_event = Event::parse_ical("event_UID", ical).unwrap();
 
         let event_occurrence_override = EventOccurrenceOverride {
             geo:              None,
@@ -1107,7 +1107,7 @@ mod test {
             parsed_event.override_occurrence(1610476200, &event_occurrence_override),
             Ok(
                 &Event {
-                    uuid:                String::from("event_UUID"),
+                    uid:                String::from("event_UID"),
 
                     schedule_properties: ScheduleProperties {
                         rrule:            Some(
@@ -1202,7 +1202,7 @@ mod test {
         assert_eq!(
             parsed_event.remove_occurrence_override(1610476200),
             Ok(&Event {
-                uuid: String::from("event_UUID"),
+                uid: String::from("event_UID"),
 
                 schedule_properties: ScheduleProperties {
                     rrule: Some(KeyValuePair::new(
@@ -1244,18 +1244,18 @@ mod test {
 
     #[test]
     fn test_related_to() {
-        let ical: &str = "RELATED-TO:ParentUUID_One RELATED-TO;RELTYPE=PARENT:ParentUUID_Two RELATED-TO;RELTYPE=CHILD:ChildUUID";
+        let ical: &str = "RELATED-TO:ParentUID_One RELATED-TO;RELTYPE=PARENT:ParentUID_Two RELATED-TO;RELTYPE=CHILD:ChildUID";
 
-        assert!(Event::parse_ical("event_UUID", ical).is_ok());
+        assert!(Event::parse_ical("event_UID", ical).is_ok());
 
-        let ical: &str = "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_One,redical//IndexedCalendar_Two RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Three,redical//IndexedCalendar_Two RELATED-TO:ParentUUID_One RELATED-TO;RELTYPE=PARENT:ParentUUID_Two RELATED-TO;RELTYPE=CHILD:ChildUUID";
+        let ical: &str = "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_One,redical//IndexedCalendar_Two RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Three,redical//IndexedCalendar_Two RELATED-TO:ParentUID_One RELATED-TO;RELTYPE=PARENT:ParentUID_Two RELATED-TO;RELTYPE=CHILD:ChildUID";
 
-        let parsed_event = Event::parse_ical("event_UUID", ical).unwrap();
+        let parsed_event = Event::parse_ical("event_UID", ical).unwrap();
 
         assert_eq!(
             parsed_event,
             Event {
-                uuid: String::from("event_UUID"),
+                uid: String::from("event_UID"),
 
                 schedule_properties: ScheduleProperties {
                     rrule: None,
@@ -1283,13 +1283,13 @@ mod test {
                         (
                             String::from("PARENT"),
                             HashSet::from([
-                                String::from("ParentUUID_One"),
-                                String::from("ParentUUID_Two"),
+                                String::from("ParentUID_One"),
+                                String::from("ParentUID_Two"),
                             ])
                         ),
                         (
                             String::from("CHILD"),
-                            HashSet::from([String::from("ChildUUID"),])
+                            HashSet::from([String::from("ChildUID"),])
                         )
                     ])),
                     categories: None
@@ -1356,15 +1356,15 @@ mod test {
                         (
                             String::from("PARENT"),
                             HashSet::from([
-                                String::from("PARENT_UUID_ONE"),
-                                String::from("PARENT_UUID_TWO"),
+                                String::from("PARENT_UID_ONE"),
+                                String::from("PARENT_UID_TWO"),
                             ]),
                         ),
                         (
                             String::from("CHILD"),
                             HashSet::from([
-                                String::from("CHILD_UUID_ONE"),
-                                String::from("CHILD_UUID_TWO"),
+                                String::from("CHILD_UID_ONE"),
+                                String::from("CHILD_UID_TWO"),
                             ]),
                         ),
                     ])),
@@ -1387,16 +1387,16 @@ mod test {
             indexed_related_to: Some(UpdatedSetMembers {
                 removed: HashSet::from([KeyValuePair::new(
                     String::from("PARENT"),
-                    String::from("PARENT_UUID_ONE"),
+                    String::from("PARENT_UID_ONE"),
                 )]),
                 maintained: HashSet::from([
-                    KeyValuePair::new(String::from("PARENT"), String::from("PARENT_UUID_TWO")),
-                    KeyValuePair::new(String::from("CHILD"), String::from("CHILD_UUID_ONE")),
-                    KeyValuePair::new(String::from("CHILD"), String::from("CHILD_UUID_TWO")),
+                    KeyValuePair::new(String::from("PARENT"), String::from("PARENT_UID_TWO")),
+                    KeyValuePair::new(String::from("CHILD"), String::from("CHILD_UID_ONE")),
+                    KeyValuePair::new(String::from("CHILD"), String::from("CHILD_UID_TWO")),
                 ]),
                 added: HashSet::from([KeyValuePair::new(
                     String::from("X-IDX-CAL"),
-                    String::from("INDEXED_CALENDAR_UUID"),
+                    String::from("INDEXED_CALENDAR_UID"),
                 )]),
             }),
             indexed_geo: None,
@@ -1453,7 +1453,7 @@ mod test {
                         dtend: None,
                         related_to: Some(HashMap::from([(
                             String::from("X-IDX-CAL"),
-                            HashSet::from([String::from("INDEXED_CALENDAR_UUID"),])
+                            HashSet::from([String::from("INDEXED_CALENDAR_UID"),])
                         ),]))
                     }
                 ),
@@ -1491,18 +1491,18 @@ mod test {
                         related_to: Some(HashMap::from([
                             (
                                 String::from("PARENT"),
-                                HashSet::from([String::from("PARENT_UUID_TWO"),])
+                                HashSet::from([String::from("PARENT_UID_TWO"),])
                             ),
                             (
                                 String::from("CHILD"),
                                 HashSet::from([
-                                    String::from("CHILD_UUID_ONE"),
-                                    String::from("CHILD_UUID_TWO"),
+                                    String::from("CHILD_UID_ONE"),
+                                    String::from("CHILD_UID_TWO"),
                                 ])
                             ),
                             (
                                 String::from("X-IDX-CAL"),
-                                HashSet::from([String::from("INDEXED_CALENDAR_UUID"),])
+                                HashSet::from([String::from("INDEXED_CALENDAR_UID"),])
                             ),
                         ]))
                     }
