@@ -115,11 +115,8 @@ impl LocationProperty {
                             }
 
                             _ => {
-                                let parsed_x_param_value = value
-                                    .expect_list()
-                                    .into_iter()
-                                    .map(String::from)
-                                    .collect();
+                                let parsed_x_param_value =
+                                    value.expect_list().into_iter().map(String::from).collect();
 
                                 x_params
                                     .get_or_insert(HashMap::new())

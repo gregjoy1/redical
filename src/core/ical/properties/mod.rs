@@ -13,5 +13,7 @@ pub mod dtstart_property;
 pub mod exdate_property;
 pub mod rdate_property;
 
-pub mod rrule_property;
 pub mod exrule_property;
+pub mod rrule_property;
+
+pub mod duration_property;

@@ -486,10 +486,8 @@ fn parse_categories_query_property_content(
                 );
             };
 
-            let parsed_categories: Vec<String> = parsed_categories
-                .into_iter()
-                .map(String::from)
-                .collect();
+            let parsed_categories: Vec<String> =
+                parsed_categories.into_iter().map(String::from).collect();
 
             (
                 remaining,
