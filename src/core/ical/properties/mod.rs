@@ -1,6 +1,8 @@
 #[macro_use]
 pub mod macros;
 
+pub mod uid_property;
+
 pub mod categories_property;
 pub mod description_property;
 pub mod location_property;
