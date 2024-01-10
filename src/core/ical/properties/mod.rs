@@ -1,107 +1,56 @@
 #[macro_use]
 pub mod macros;
 
-pub mod uid_property;
-pub mod x_property;
+mod uid_property;
+pub use uid_property::UIDProperty;
 
-pub mod categories_property;
-pub mod description_property;
-pub mod location_property;
-pub mod related_to_property;
-pub mod resources_property;
-pub mod summary_property;
-pub mod class_property;
+mod x_property;
+pub use x_property::XProperty;
 
-pub mod dtend_property;
-pub mod dtstart_property;
-pub mod exdate_property;
-pub mod rdate_property;
+mod categories_property;
+pub use categories_property::CategoriesProperty;
 
-pub mod exrule_property;
-pub mod rrule_property;
+mod class_property;
+pub use class_property::ClassProperty;
 
-pub mod duration_property;
+mod description_property;
+pub use description_property::DescriptionProperty;
 
-pub enum Properties {
-    // TODO: Implement all these...
-    //
-    //  "CALSCALE"
-    //  "METHOD"
-    //  "PRODID"
-    //  "VERSION"
-    //  "ATTACH"
-    //  "COMMENT"
-    //  "PERCENT-COMPLETE"
-    //  "PRIORITY"
-    //  "RESOURCES"
-    //  "STATUS"
-    //  "COMPLETED"
-    //  "DUE"
-    //  "FREEBUSY"
-    //  "TRANSP"
-    //  "TZID"
-    //  "TZNAME"
-    //  "TZOFFSETFROM"
-    //  "TZOFFSETTO"
-    //  "TZURL"
-    //  "ATTENDEE"
-    //  "CONTACT"
-    //  "ORGANIZER"
-    //  "RECURRENCE-ID"
-    //  "URL"
-    //  "ACTION"
-    //  "REPEAT"
-    //  "TRIGGER"
-    //  "CREATED"
-    //  "DTSTAMP"
-    //  "LAST-MODIFIED"
-    //  "SEQUENCE"
-    //  "REQUEST-STATUS"
-    //  "XML"
-    //  "TZUNTIL"
-    //  "TZID-ALIAS-OF"
-    //  "BUSYTYPE"
-    //  "NAME"
-    //  "REFRESH-INTERVAL"
-    //  "SOURCE"
-    //  "COLOR"
-    //  "IMAGE"
-    //  "CONFERENCE"
-    //  "CALENDAR-ADDRESS"
-    //  "LOCATION-TYPE"
-    //  "PARTICIPANT-TYPE"
-    //  "RESOURCE-TYPE"
-    //  "STRUCTURED-DATA"
-    //  "STYLED-DESCRIPTION"
-    //  "ACKNOWLEDGED"
-    //  "PROXIMITY"
-    //  "CONCEPT"
-    //  "LINK"
-    //  "REFID"
+mod geo_property;
+pub use geo_property::GeoProperty;
 
-    // NOTE: High priority
-    //  "GEO"
+mod location_property;
+pub use location_property::LocationProperty;
 
-    Categories(categories_property::CategoriesProperty),    //  "CATEGORIES"
-    Class(class_property::ClassProperty),                   //  "CLASS"
-    Description(description_property::DescriptionProperty), //  "DESCRIPTION"
-    DTEnd(dtend_property::DTEndProperty),                   //  "DTEND"
-    DTStart(dtstart_property::DTStartProperty),             //  "DTSTART"
-    Duration(duration_property::DurationProperty),          //  "DURATION"
-    ExDate(exdate_property::ExDateProperty),                //  "EXDATE"
-    ExRule(exrule_property::ExRuleProperty),                //  "EXRULE"
-    RRule(rrule_property::RRuleProperty),                   //  "RRULE"
-    Location(location_property::LocationProperty),          //  "LOCATION"
-    RDate(rdate_property::RDateProperty),                   //  "RDATE"
-    RelatedTo(related_to_property::RelatedToProperty),      //  "RELATED-TO"
-    Summary(summary_property::SummaryProperty),             //  "SUMMARY"
-    UID(uid_property::UIDProperty),                         //  "UID"
-    X(x_property::XProperty),                               //  "X-*"
-}
+mod related_to_property;
+pub use related_to_property::RelatedToProperty;
 
-/*
-impl Properties {
-    pub fn parse_ical(input: &str) -> ParserResult<&str, UIDProperty> {
-    }
-}
-*/
+mod resources_property;
+pub use resources_property::ResourcesProperty;
+
+mod summary_property;
+pub use summary_property::SummaryProperty;
+
+mod dtend_property;
+pub use dtend_property::DTEndProperty;
+
+mod dtstart_property;
+pub use dtstart_property::DTStartProperty;
+
+mod exdate_property;
+pub use exdate_property::ExDateProperty;
+
+mod rdate_property;
+pub use rdate_property::RDateProperty;
+
+mod exrule_property;
+pub use exrule_property::ExRuleProperty;
+
+mod rrule_property;
+pub use rrule_property::RRuleProperty;
+
+mod duration_property;
+pub use duration_property::DurationProperty;
+
+mod properties;
+pub use properties::Properties;
