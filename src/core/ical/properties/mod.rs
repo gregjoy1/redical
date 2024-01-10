@@ -53,4 +53,4 @@ mod duration_property;
 pub use duration_property::DurationProperty;
 
 mod properties;
-pub use properties::Properties;
+pub use properties::{Properties, Property};

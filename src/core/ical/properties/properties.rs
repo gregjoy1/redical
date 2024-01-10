@@ -1,7 +1,8 @@
+use std::str::FromStr;
 use nom::{
     branch::alt,
     bytes::complete::tag,
-    error::context,
+    error::{context, convert_error},
     combinator::{opt, map},
     multi::separated_list1,
     sequence::terminated,
@@ -11,7 +12,7 @@ use crate::core::ical::properties::*;
 use crate::core::ical::parser::common::ParserResult;
 
 #[derive(Debug, PartialEq)]
-pub enum Properties {
+pub enum Property {
     // TODO: Implement "CALSCALE"
     // TODO: Implement "METHOD"
     // TODO: Implement "PRODID"
@@ -84,10 +85,10 @@ pub enum Properties {
     X(XProperty),                     //  "X-*"
 }
 
-impl Properties {
+impl Property {
     pub fn parse_ical(input: &str) -> ParserResult<&str, Self> {
         context(
-            "properties",
+            "property",
             alt(
                 (
                     map(ResourcesProperty::parse_ical, Self::Resources),     //  "RESOURCES"
@@ -111,9 +112,30 @@ impl Properties {
             )
         )(input)
     }
+}
 
-    pub fn parse_ical_properties(input: &str) -> ParserResult<&str, Vec<Self>> {
-        terminated(separated_list1(tag(" "), Self::parse_ical), opt(tag(" ")))(input)
+#[derive(Debug, PartialEq)]
+pub struct Properties(Vec<Property>);
+
+impl FromStr for Properties {
+    type Err = String;
+
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        let parsed_properties = terminated(separated_list1(tag(" "), Property::parse_ical), opt(tag(" ")))(input);
+
+        match parsed_properties {
+            Ok((_remaining, properties)) => {
+                Ok(Properties(properties))
+            },
+
+            Err(error) => {
+                if let nom::Err::Error(error) = error {
+                    Err(convert_error(input, error))
+                } else {
+                    Err(error.to_string())
+                }
+            }
+        }
     }
 }
 
@@ -124,7 +146,7 @@ mod test {
     use pretty_assertions_sorted::assert_eq;
 
     #[test]
-    fn test_parse_ical_properties() {
+    fn test_parse_ical_property() {
         let inputs = vec![
             "CATEGORIES:APPOINTMENT",
             "RELATED-TO:UID",
@@ -146,36 +168,34 @@ mod test {
 
         let joined_inputs = inputs.clone().into_iter().map(String::from).collect::<Vec<String>>().join(" ");
 
-        let parser_result = Properties::parse_ical_properties(&joined_inputs);
+        let parser_result = Properties::from_str(&joined_inputs);
 
-        let Ok((remaining, parsed_properties)) = parser_result else {
-            panic!(r#"Expected Properties::parse_ical_properties to be ok, received: `{:?}`"#, parser_result);
+        let Ok(parsed_properties) = parser_result else {
+            panic!(r#"Expected Property::parse_ical_property to be ok, received: `{:?}`"#, parser_result);
         };
 
-        dbg!(&parsed_properties);
-
-        assert_eq!(remaining, "");
+        let parsed_properties = parsed_properties.0;
 
         assert_eq!(&parsed_properties.len(), &inputs.len());
 
         let mut parsed_properties_iter = parsed_properties.into_iter();
 
-        assert!(matches!(parsed_properties_iter.next(), Some(Properties::Categories(_))));
-        assert!(matches!(parsed_properties_iter.next(), Some(Properties::RelatedTo(_))));
-        assert!(matches!(parsed_properties_iter.next(), Some(Properties::X(_))));
-        assert!(matches!(parsed_properties_iter.next(), Some(Properties::Resources(_))));
-        assert!(matches!(parsed_properties_iter.next(), Some(Properties::Class(_))));
-        assert!(matches!(parsed_properties_iter.next(), Some(Properties::DTEnd(_))));
-        assert!(matches!(parsed_properties_iter.next(), Some(Properties::DTStart(_))));
-        assert!(matches!(parsed_properties_iter.next(), Some(Properties::ExDate(_))));
-        assert!(matches!(parsed_properties_iter.next(), Some(Properties::RDate(_))));
-        assert!(matches!(parsed_properties_iter.next(), Some(Properties::RRule(_))));
-        assert!(matches!(parsed_properties_iter.next(), Some(Properties::ExRule(_))));
-        assert!(matches!(parsed_properties_iter.next(), Some(Properties::Summary(_))));
-        assert!(matches!(parsed_properties_iter.next(), Some(Properties::Description(_))));
-        assert!(matches!(parsed_properties_iter.next(), Some(Properties::Geo(_))));
-        assert!(matches!(parsed_properties_iter.next(), Some(Properties::UID(_))));
-        assert!(matches!(parsed_properties_iter.next(), Some(Properties::Location(_))));
+        assert!(matches!(parsed_properties_iter.next(), Some(Property::Categories(_))));
+        assert!(matches!(parsed_properties_iter.next(), Some(Property::RelatedTo(_))));
+        assert!(matches!(parsed_properties_iter.next(), Some(Property::X(_))));
+        assert!(matches!(parsed_properties_iter.next(), Some(Property::Resources(_))));
+        assert!(matches!(parsed_properties_iter.next(), Some(Property::Class(_))));
+        assert!(matches!(parsed_properties_iter.next(), Some(Property::DTEnd(_))));
+        assert!(matches!(parsed_properties_iter.next(), Some(Property::DTStart(_))));
+        assert!(matches!(parsed_properties_iter.next(), Some(Property::ExDate(_))));
+        assert!(matches!(parsed_properties_iter.next(), Some(Property::RDate(_))));
+        assert!(matches!(parsed_properties_iter.next(), Some(Property::RRule(_))));
+        assert!(matches!(parsed_properties_iter.next(), Some(Property::ExRule(_))));
+        assert!(matches!(parsed_properties_iter.next(), Some(Property::Summary(_))));
+        assert!(matches!(parsed_properties_iter.next(), Some(Property::Description(_))));
+        assert!(matches!(parsed_properties_iter.next(), Some(Property::Geo(_))));
+        assert!(matches!(parsed_properties_iter.next(), Some(Property::UID(_))));
+        assert!(matches!(parsed_properties_iter.next(), Some(Property::Location(_))));
 
         assert!(matches!(parsed_properties_iter.next(), None));
     }
