@@ -7,7 +7,7 @@ use nom::{
     combinator::{cut, map, opt},
     error::context,
     multi::separated_list1,
-    sequence::{preceded, separated_pair, tuple},
+    sequence::{pair, preceded, separated_pair, tuple},
 };
 
 use crate::core::ical::parser::common;
@@ -21,6 +21,7 @@ use crate::core::ical::serializer::{
 #[derive(Debug, PartialEq)]
 pub struct XProperty {
     language: Option<String>,
+    name: String,
     value: String,
     x_params: Option<HashMap<String, Vec<String>>>,
 }
@@ -66,7 +67,7 @@ impl XProperty {
     const NAME: &'static str = "X-PROPERTY";
 
     pub fn parse_ical(input: &str) -> ParserResult<&str, XProperty> {
-        preceded(
+        pair(
             common::x_name,
             cut(context(
                 "X-PROPERTY",
@@ -84,9 +85,9 @@ impl XProperty {
             )),
         )(input)
         .map(
-            |(remaining, (parsed_params, _colon_delimeter, parsed_value)): (
+            |(remaining, (parsed_name, (parsed_params, _colon_delimeter, parsed_value))): (
                 &str,
-                (Option<HashMap<&str, common::ParsedValue>>, &str, &str),
+                (&str, (Option<HashMap<&str, common::ParsedValue>>, &str, &str)),
             )| {
                 let mut language: Option<String> = None;
                 let mut x_params: Option<HashMap<String, Vec<String>>> = None;
@@ -111,10 +112,12 @@ impl XProperty {
                     }
                 }
 
+                let name = String::from(parsed_name.trim());
                 let value = String::from(parsed_value.trim());
 
                 let parsed_property = XProperty {
                     language,
+                    name,
                     value,
                     x_params,
                 };
@@ -140,6 +143,7 @@ mod test {
                 XProperty {
                     language: None,
                     x_params: None,
+                    name: String::from("X-PROPERTY"),
                     value: String::from(""),
                 },
             ))
@@ -155,6 +159,7 @@ mod test {
                 XProperty {
                     language: None,
                     x_params: None,
+                    name: String::from("X-PROPERTY"),
                     value: String::from("Experimental property text."),
                 },
             ))
@@ -181,6 +186,7 @@ mod test {
                             vec![String::from("VALUE_ONE"), String::from("VALUE_TWO")]
                         ),
                     ])),
+                    name: String::from("X-PROPERTY"),
                     value: String::from("Experimental property text."),
                 },
             ))
@@ -207,6 +213,7 @@ mod test {
                             vec![String::from("VALUE_ONE"), String::from("VALUE_TWO")]
                         ),
                     ])),
+                    name: String::from("X-PROPERTY"),
                     value: String::from("Experimental property text."),
                 },
             ))
@@ -233,6 +240,7 @@ mod test {
                         vec![String::from("VALUE_ONE"), String::from("VALUE_TWO")]
                     ),
                 ])),
+                name: String::from("X-PROPERTY"),
                 value: String::from("Experimental property text."),
             },
         );
