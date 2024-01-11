@@ -149,6 +149,50 @@ impl ScheduleProperties {
         }
     }
 
+    pub fn extract_rrule_key_value_pair(&self) -> Option<KeyValuePair> {
+        self.rrule.and_then(|property| Some(property.to_key_value_pair()))
+    }
+
+    pub fn extract_exrule_key_value_pair(&self) -> Option<KeyValuePair> {
+        self.exrule.and_then(|property| Some(property.to_key_value_pair()))
+    }
+
+    pub fn extract_rdates_key_value_pairs(&self) -> Option<HashSet<KeyValuePair>> {
+        self.rdates.and_then(|properties| {
+            let mut key_value_pairs = HashSet::new();
+
+            for property in properties {
+                key_value_pairs.insert(property.to_key_value_pair());
+            }
+
+            Some(key_value_pairs)
+        })
+    }
+
+    pub fn extract_exdates_key_value_pairs(&self) -> Option<HashSet<KeyValuePair>> {
+        self.exdates.and_then(|properties| {
+            let mut key_value_pairs = HashSet::new();
+
+            for property in properties {
+                key_value_pairs.insert(property.to_key_value_pair());
+            }
+
+            Some(key_value_pairs)
+        })
+    }
+
+    pub fn extract_duration_key_value_pair(&self) -> Option<KeyValuePair> {
+        self.duration.and_then(|property| Some(property.to_key_value_pair()))
+    }
+
+    pub fn extract_dtstart_key_value_pair(&self) -> Option<KeyValuePair> {
+        self.dtstart.and_then(|property| Some(property.to_key_value_pair()))
+    }
+
+    pub fn extract_dtend_key_value_pair(&self) -> Option<KeyValuePair> {
+        self.dtend.and_then(|property| Some(property.to_key_value_pair()))
+    }
+
     pub fn insert(&mut self, property: Property) -> Result<&Self, String> {
         match property {
             Property::RRule(property) => { self.rrule = Some(property); },
@@ -313,6 +357,40 @@ impl IndexedProperties {
         }
     }
 
+    pub fn extract_all_category_strings(&self) -> Option<HashSet<String>> {
+        self.categories.and_then(|categories_properties| {
+            let mut categories: HashSet<String> = HashSet::new();
+
+            for categories_property in categories_properties {
+                for category in categories_property.categories {
+                    categories.insert(category);
+                }
+            }
+
+            Some(categories)
+        })
+    }
+
+    pub fn extract_all_related_to_key_value_pairs(&self) -> Option<HashSet<KeyValuePair>> {
+        self.related_to.and_then(|related_to_properties| {
+            let mut related_to_key_value_pairs: HashSet<KeyValuePair> = HashSet::new();
+
+            for related_to_property in related_to_properties {
+                related_to_key_value_pairs.insert(related_to_property.to_key_value_pair());
+            }
+
+            Some(related_to_key_value_pairs)
+        })
+    }
+
+    pub fn extract_geo_point(&self) -> Option<GeoPoint> {
+        self.geo.and_then(|geo_property| Some(GeoPoint::from(geo_property)))
+    }
+
+    pub fn extract_class(&self) -> Option<String> {
+        self.class.and_then(|class_property| Some(class_property.class))
+    }
+
     pub fn insert(&mut self, property: Property) -> Result<&Self, String> {
         match property {
             Property::Class(property) => {
@@ -350,6 +428,16 @@ impl PassiveProperties {
         PassiveProperties {
             properties: BTreeSet::new(),
         }
+    }
+
+    pub fn extract_properties_key_value_pairs(&self) -> HashSet<KeyValuePair> {
+        let mut key_value_pairs = HashSet::new();
+
+        for property in self.properties {
+            key_value_pairs.insert(property.to_key_value_pair());
+        }
+
+        key_value_pairs
     }
 
     pub fn insert(&mut self, property: Property) -> Result<&Self, String> {

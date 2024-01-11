@@ -1,15 +1,13 @@
 use std::collections::HashSet;
 use std::hash::Hash;
 
-use crate::core::parsers::duration::ParsedDuration;
+use crate::core::ical::properties::DurationProperty;
 use crate::core::{
     btree_hashset_to_hashset, hashmap_to_hashset, Event, GeoPoint, KeyValuePair, UpdatedAttribute,
     UpdatedSetMembers,
 };
 
-use serde::{Deserialize, Serialize};
-
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct EventDiff {
     pub indexed_categories: Option<UpdatedSetMembers<String>>,
     pub indexed_related_to: Option<UpdatedSetMembers<KeyValuePair>>,
@@ -38,8 +36,8 @@ impl EventDiff {
         updated_event: &Event,
     ) -> Option<UpdatedSetMembers<String>> {
         Some(UpdatedSetMembers::new(
-            original_event.indexed_properties.categories.as_ref(),
-            updated_event.indexed_properties.categories.as_ref(),
+            original_event.indexed_properties.extract_all_category_strings().as_ref(),
+            updated_event.indexed_properties.extract_all_category_strings().as_ref(),
         ))
     }
 
@@ -48,9 +46,9 @@ impl EventDiff {
         updated_event: &Event,
     ) -> Option<UpdatedSetMembers<KeyValuePair>> {
         let original_related_to =
-            hashmap_to_hashset(original_event.indexed_properties.related_to.as_ref());
+            original_event.indexed_properties.extract_all_related_to_key_value_pairs();
         let updated_related_to =
-            hashmap_to_hashset(updated_event.indexed_properties.related_to.as_ref());
+            updated_event.indexed_properties.extract_all_related_to_key_value_pairs();
 
         Some(UpdatedSetMembers::new(
             original_related_to.as_ref(),
@@ -62,8 +60,8 @@ impl EventDiff {
         original_event: &Event,
         updated_event: &Event,
     ) -> Option<UpdatedAttribute<GeoPoint>> {
-        let original_geo = &original_event.indexed_properties.geo;
-        let updated_geo = &updated_event.indexed_properties.geo;
+        let original_geo = &original_event.indexed_properties.extract_geo_point();
+        let updated_geo = &updated_event.indexed_properties.extract_geo_point();
 
         if original_geo.is_none() && updated_geo.is_none() {
             None
@@ -76,8 +74,8 @@ impl EventDiff {
         original_event: &Event,
         updated_event: &Event,
     ) -> Option<UpdatedAttribute<String>> {
-        let original_class = &original_event.indexed_properties.class;
-        let updated_class = &updated_event.indexed_properties.class;
+        let original_class = &original_event.indexed_properties.extract_class();
+        let updated_class = &updated_event.indexed_properties.extract_class();
 
         if original_class.is_none() && updated_class.is_none() {
             None
@@ -92,13 +90,13 @@ impl EventDiff {
     ) -> Option<UpdatedSetMembers<KeyValuePair>> {
         // TODO: Improve this to be 0 copy
         let original_passive_properties =
-            btree_hashset_to_hashset(Some(&original_event.passive_properties.properties));
+            Some(&original_event.passive_properties.extract_properties_key_value_pairs());
         let updated_passive_properties =
-            btree_hashset_to_hashset(Some(&updated_event.passive_properties.properties));
+            Some(&updated_event.passive_properties.extract_properties_key_value_pairs());
 
         Some(UpdatedSetMembers::new(
-            original_passive_properties.as_ref(),
-            updated_passive_properties.as_ref(),
+            original_passive_properties,
+            updated_passive_properties,
         ))
     }
 
@@ -110,13 +108,13 @@ impl EventDiff {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct SchedulePropertiesDiff {
     rrule: Option<UpdatedAttribute<KeyValuePair>>,
     exrule: Option<UpdatedAttribute<KeyValuePair>>,
     rdate: Option<UpdatedSetMembers<KeyValuePair>>,
     exdate: Option<UpdatedSetMembers<KeyValuePair>>,
-    duration: Option<UpdatedAttribute<ParsedDuration>>,
+    duration: Option<UpdatedAttribute<DurationProperty>>,
     dtstart: Option<UpdatedAttribute<KeyValuePair>>,
     dtend: Option<UpdatedAttribute<KeyValuePair>>,
 }
@@ -128,32 +126,32 @@ impl SchedulePropertiesDiff {
 
         SchedulePropertiesDiff {
             rrule: Self::build_updated_attribute(
-                &original_event_schedule_properties.rrule,
-                &updated_event_schedule_properties.rrule,
+                &original_event_schedule_properties.extract_rrule_key_value_pair(),
+                &updated_event_schedule_properties.extract_rrule_key_value_pair(),
             ),
             exrule: Self::build_updated_attribute(
-                &original_event_schedule_properties.exrule,
-                &updated_event_schedule_properties.exrule,
+                &original_event_schedule_properties.extract_exrule_key_value_pair(),
+                &updated_event_schedule_properties.extract_exrule_key_value_pair(),
             ),
             rdate: Self::build_updated_set_members(
-                original_event_schedule_properties.rdate.as_ref(),
-                updated_event_schedule_properties.rdate.as_ref(),
+                original_event_schedule_properties.extract_rdates_key_value_pairs().as_ref(),
+                updated_event_schedule_properties.extract_rdates_key_value_pairs().as_ref(),
             ),
             exdate: Self::build_updated_set_members(
-                original_event_schedule_properties.exdate.as_ref(),
-                updated_event_schedule_properties.exdate.as_ref(),
+                original_event_schedule_properties.extract_exdates_key_value_pairs().as_ref(),
+                updated_event_schedule_properties.extract_exdates_key_value_pairs().as_ref(),
             ),
             duration: Self::build_updated_attribute(
                 &original_event_schedule_properties.duration,
                 &updated_event_schedule_properties.duration,
             ),
             dtstart: Self::build_updated_attribute(
-                &original_event_schedule_properties.dtstart,
-                &updated_event_schedule_properties.dtstart,
+                &original_event_schedule_properties.extract_dtstart_key_value_pair(),
+                &updated_event_schedule_properties.extract_dtstart_key_value_pair(),
             ),
             dtend: Self::build_updated_attribute(
-                &original_event_schedule_properties.dtend,
-                &updated_event_schedule_properties.dtend,
+                &original_event_schedule_properties.extract_dtend_key_value_pair(),
+                &updated_event_schedule_properties.extract_dtend_key_value_pair(),
             ),
         }
     }
@@ -191,9 +189,11 @@ impl SchedulePropertiesDiff {
 mod test {
     use super::*;
 
+    use crate::testing::macros::build_property_from_ical;
     use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
     use crate::core::{IndexedProperties, KeyValuePair, PassiveProperties, ScheduleProperties};
+    use crate::core::ical::properties::{Property, DescriptionProperty, RRuleProperty, ExRuleProperty, RDateProperty, ExDateProperty, DurationProperty, DTStartProperty, DTEndProperty, GeoProperty, RelatedToProperty, CategoriesProperty, ClassProperty};
 
     #[test]
     fn test_event_diff() {
@@ -250,38 +250,25 @@ mod test {
             uid: String::from("event_UID"),
 
             schedule_properties: ScheduleProperties {
-                rrule: Some(KeyValuePair::new(
-                    String::from("RRULE"),
-                    String::from(":FREQ=DAILY;UNTIL=20230331T183000Z;INTERVAL=1"),
-                )),
+                rrule: Some(build_property_from_ical!(RRuleProperty, "RRULE:FREQ=DAILY;UNTIL=20230331T183000Z;INTERVAL=1")),
                 exrule: None,
-                rdate: None,
-                exdate: None,
+                rdates: None,
+                exdates: None,
                 duration: None,
-                dtstart: Some(KeyValuePair::new(
-                    String::from("DTSTART"),
-                    String::from(":20201231T183000Z"),
-                )),
+                dtstart: Some(build_property_from_ical!(DTStartProperty, "DTSTART:20201231T183000Z")),
                 dtend: None,
                 parsed_rrule_set: None,
             },
 
             indexed_properties: IndexedProperties {
-                geo: Some(GeoPoint::from((-0.1278f64, 51.5074f64))),
-                class: Some(String::from("PRIVATE")),
+                geo: Some(build_property_from_ical!(GeoProperty, "GEO:51.5074;-0.1278")),
+                class: Some(build_property_from_ical!(ClassProperty, "CLASS:PRIVATE")),
                 related_to: None,
-                categories: Some(HashSet::from([
-                    String::from("CATEGORY_ONE"),
-                    String::from("CATEGORY_TWO"),
-                    String::from("CATEGORY_THREE"),
-                ])),
+                categories: Some(HashSet::from([build_property_from_ical!(CategoriesProperty, "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,CATEGORY_THREE")])),
             },
 
             passive_properties: PassiveProperties {
-                properties: BTreeSet::from([KeyValuePair::new(
-                    String::from("DESCRIPTION"),
-                    String::from("Testing description text."),
-                )]),
+                properties: BTreeSet::from([Property::Description(build_property_from_ical!(DescriptionProperty, "DESCRIPTION:The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA"))]),
             },
 
             overrides: BTreeMap::new(),
@@ -343,18 +330,12 @@ mod test {
             uid: String::from("event_UID"),
 
             schedule_properties: ScheduleProperties {
-                rrule: Some(KeyValuePair::new(
-                    String::from("RRULE"),
-                    String::from(":FREQ=DAILY;UNTIL=20230231T183000Z;INTERVAL=1"),
-                )),
+                rrule: Some(build_property_from_ical!(RRuleProperty, "RRULE:FREQ=DAILY;UNTIL=20230231T183000Z;INTERVAL=1")),
                 exrule: None,
-                rdate: None,
-                exdate: None,
+                rdates: None,
+                exdates: None,
                 duration: None,
-                dtstart: Some(KeyValuePair::new(
-                    String::from("DTSTART"),
-                    String::from(":20201131T183000Z"),
-                )),
+                dtstart: Some(build_property_from_ical!(DTStartProperty, "DTSTART:20201131T183000Z")),
                 dtend: None,
                 parsed_rrule_set: None,
             },
@@ -362,27 +343,15 @@ mod test {
             indexed_properties: IndexedProperties {
                 geo: None,
                 class: None,
-                related_to: Some(HashMap::from([
-                    (
-                        String::from("X-IDX-CAL"),
-                        HashSet::from([String::from("indexed_calendar_UID")]),
-                    ),
-                    (
-                        String::from("PARENT"),
-                        HashSet::from([String::from("another_event_UID")]),
-                    ),
+                related_to: Some(HashSet::from([
+                    build_property_from_ical!(RelatedToProperty, "RELATED-TO;RELTYPE=X-IDX-CAL;indexed_calendar_UID"),
+                    build_property_from_ical!(RelatedToProperty, "RELATED-TO;RELTYPE=PARENT;another_event_UID"),
                 ])),
-                categories: Some(HashSet::from([
-                    String::from("CATEGORY_THREE"),
-                    String::from("CATEGORY_FOUR"),
-                ])),
+                categories: Some(HashSet::from([build_property_from_ical!(CategoriesProperty, "CATEGORIES:CATEGORY_THREE,CATEGORY_FOUR")])),
             },
 
             passive_properties: PassiveProperties {
-                properties: BTreeSet::from([KeyValuePair::new(
-                    String::from("DESCRIPTION"),
-                    String::from("Testing original description text."),
-                )]),
+                properties: BTreeSet::from([Property::Description(build_property_from_ical!(DescriptionProperty, "DESCRIPTION:Testing original description text"))]),
             },
 
             overrides: BTreeMap::new(),

@@ -307,6 +307,7 @@ mod test {
 
     use super::*;
     use pretty_assertions_sorted::assert_eq;
+    use nom::error::ErrorKind;
 
     #[test]
     fn test_get_duration_in_seconds() {
