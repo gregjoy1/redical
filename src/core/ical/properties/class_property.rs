@@ -1,5 +1,5 @@
-use std::hash::{Hash, Hasher};
 use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 
 use nom::{
     branch::alt,
@@ -72,15 +72,13 @@ impl ClassProperty {
                 tuple((
                     build_property_params_parser!("CLASS"),
                     common::colon_delimeter,
-                    alt(
-                        (
-                            tag("PUBLIC"),
-                            tag("PRIVATE"),
-                            tag("CONFIDENTIAL"),
-                            common::x_name,
-                            common::iana_token,
-                        )
-                    ),
+                    alt((
+                        tag("PUBLIC"),
+                        tag("PRIVATE"),
+                        tag("CONFIDENTIAL"),
+                        common::x_name,
+                        common::iana_token,
+                    )),
                 )),
             )),
         )(input)
@@ -104,10 +102,7 @@ impl ClassProperty {
 
                 let class = String::from(parsed_value.trim());
 
-                let parsed_property = ClassProperty {
-                    class,
-                    x_params,
-                };
+                let parsed_property = ClassProperty { class, x_params };
 
                 (remaining, parsed_property)
             },
@@ -119,45 +114,21 @@ impl ClassProperty {
 mod test {
 
     use super::*;
+    use nom::error::{ErrorKind, VerboseError, VerboseErrorKind};
     use pretty_assertions_sorted::assert_eq;
-    use nom::error::{VerboseError, VerboseErrorKind, ErrorKind};
 
     #[test]
     fn test_parse_ical_empty() {
         assert_eq!(
             ClassProperty::parse_ical("CLASS:"),
-            Err(
-                nom::Err::Failure(
-                    VerboseError {
-                        errors: vec![
-                            (
-                                "",
-                                VerboseErrorKind::Nom(
-                                    ErrorKind::TakeWhile1,
-                                ),
-                            ),
-                            (
-                                "",
-                                VerboseErrorKind::Context(
-                                    "IANA token",
-                                ),
-                            ),
-                            (
-                                "",
-                                VerboseErrorKind::Nom(
-                                    ErrorKind::Alt,
-                                ),
-                            ),
-                            (
-                                ":",
-                                VerboseErrorKind::Context(
-                                    "CLASS",
-                                ),
-                            ),
-                        ]
-                    }
-                )
-            )
+            Err(nom::Err::Failure(VerboseError {
+                errors: vec![
+                    ("", VerboseErrorKind::Nom(ErrorKind::TakeWhile1,),),
+                    ("", VerboseErrorKind::Context("IANA token",),),
+                    ("", VerboseErrorKind::Nom(ErrorKind::Alt,),),
+                    (":", VerboseErrorKind::Context("CLASS",),),
+                ]
+            }))
         );
     }
 
@@ -209,38 +180,14 @@ mod test {
 
         assert_eq!(
             ClassProperty::parse_ical("CLASS:🎄-VALUE"),
-            Err(
-                nom::Err::Failure(
-                    VerboseError {
-                        errors: vec![
-                            (
-                                "🎄-VALUE",
-                                VerboseErrorKind::Nom(
-                                    ErrorKind::TakeWhile1,
-                                ),
-                            ),
-                            (
-                                "🎄-VALUE",
-                                VerboseErrorKind::Context(
-                                    "IANA token",
-                                ),
-                            ),
-                            (
-                                "🎄-VALUE",
-                                VerboseErrorKind::Nom(
-                                    ErrorKind::Alt,
-                                ),
-                            ),
-                            (
-                                ":🎄-VALUE",
-                                VerboseErrorKind::Context(
-                                    "CLASS",
-                                )
-                            ),
-                        ]
-                    }
-                )
-            )
+            Err(nom::Err::Failure(VerboseError {
+                errors: vec![
+                    ("🎄-VALUE", VerboseErrorKind::Nom(ErrorKind::TakeWhile1,),),
+                    ("🎄-VALUE", VerboseErrorKind::Context("IANA token",),),
+                    ("🎄-VALUE", VerboseErrorKind::Nom(ErrorKind::Alt,),),
+                    (":🎄-VALUE", VerboseErrorKind::Context("CLASS",)),
+                ]
+            }))
         );
     }
 
@@ -298,7 +245,9 @@ mod test {
     fn test_serialize_to_ical() {
         let parsed_categories_property = ClassProperty::parse_ical(
             r#"CLASS;X-TEST-KEY-ONE=VALUE_ONE,"VALUE_TWO";X-TEST-KEY-TWO="KEY -🎄- TWO":PUBLIC"#,
-        ).unwrap().1;
+        )
+        .unwrap()
+        .1;
 
         assert_eq!(
             parsed_categories_property,

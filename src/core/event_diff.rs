@@ -36,8 +36,14 @@ impl EventDiff {
         updated_event: &Event,
     ) -> Option<UpdatedSetMembers<String>> {
         Some(UpdatedSetMembers::new(
-            original_event.indexed_properties.extract_all_category_strings().as_ref(),
-            updated_event.indexed_properties.extract_all_category_strings().as_ref(),
+            original_event
+                .indexed_properties
+                .extract_all_category_strings()
+                .as_ref(),
+            updated_event
+                .indexed_properties
+                .extract_all_category_strings()
+                .as_ref(),
         ))
     }
 
@@ -45,10 +51,12 @@ impl EventDiff {
         original_event: &Event,
         updated_event: &Event,
     ) -> Option<UpdatedSetMembers<KeyValuePair>> {
-        let original_related_to =
-            original_event.indexed_properties.extract_all_related_to_key_value_pairs();
-        let updated_related_to =
-            updated_event.indexed_properties.extract_all_related_to_key_value_pairs();
+        let original_related_to = original_event
+            .indexed_properties
+            .extract_all_related_to_key_value_pairs();
+        let updated_related_to = updated_event
+            .indexed_properties
+            .extract_all_related_to_key_value_pairs();
 
         Some(UpdatedSetMembers::new(
             original_related_to.as_ref(),
@@ -89,10 +97,16 @@ impl EventDiff {
         updated_event: &Event,
     ) -> Option<UpdatedSetMembers<KeyValuePair>> {
         // TODO: Improve this to be 0 copy
-        let original_passive_properties =
-            Some(&original_event.passive_properties.extract_properties_key_value_pairs());
-        let updated_passive_properties =
-            Some(&updated_event.passive_properties.extract_properties_key_value_pairs());
+        let original_passive_properties = Some(
+            &original_event
+                .passive_properties
+                .extract_properties_key_value_pairs(),
+        );
+        let updated_passive_properties = Some(
+            &updated_event
+                .passive_properties
+                .extract_properties_key_value_pairs(),
+        );
 
         Some(UpdatedSetMembers::new(
             original_passive_properties,
@@ -134,12 +148,20 @@ impl SchedulePropertiesDiff {
                 &updated_event_schedule_properties.extract_exrule_key_value_pair(),
             ),
             rdate: Self::build_updated_set_members(
-                original_event_schedule_properties.extract_rdates_key_value_pairs().as_ref(),
-                updated_event_schedule_properties.extract_rdates_key_value_pairs().as_ref(),
+                original_event_schedule_properties
+                    .extract_rdates_key_value_pairs()
+                    .as_ref(),
+                updated_event_schedule_properties
+                    .extract_rdates_key_value_pairs()
+                    .as_ref(),
             ),
             exdate: Self::build_updated_set_members(
-                original_event_schedule_properties.extract_exdates_key_value_pairs().as_ref(),
-                updated_event_schedule_properties.extract_exdates_key_value_pairs().as_ref(),
+                original_event_schedule_properties
+                    .extract_exdates_key_value_pairs()
+                    .as_ref(),
+                updated_event_schedule_properties
+                    .extract_exdates_key_value_pairs()
+                    .as_ref(),
             ),
             duration: Self::build_updated_attribute(
                 &original_event_schedule_properties.duration,
@@ -192,8 +214,12 @@ mod test {
     use crate::testing::macros::build_property_from_ical;
     use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
+    use crate::core::ical::properties::{
+        CategoriesProperty, ClassProperty, DTEndProperty, DTStartProperty, DescriptionProperty,
+        DurationProperty, ExDateProperty, ExRuleProperty, GeoProperty, Property, RDateProperty,
+        RRuleProperty, RelatedToProperty,
+    };
     use crate::core::{IndexedProperties, KeyValuePair, PassiveProperties, ScheduleProperties};
-    use crate::core::ical::properties::{Property, DescriptionProperty, RRuleProperty, ExRuleProperty, RDateProperty, ExDateProperty, DurationProperty, DTStartProperty, DTEndProperty, GeoProperty, RelatedToProperty, CategoriesProperty, ClassProperty};
 
     #[test]
     fn test_event_diff() {
@@ -250,25 +276,40 @@ mod test {
             uid: String::from("event_UID"),
 
             schedule_properties: ScheduleProperties {
-                rrule: Some(build_property_from_ical!(RRuleProperty, "RRULE:FREQ=DAILY;UNTIL=20230331T183000Z;INTERVAL=1")),
+                rrule: Some(build_property_from_ical!(
+                    RRuleProperty,
+                    "RRULE:FREQ=DAILY;UNTIL=20230331T183000Z;INTERVAL=1"
+                )),
                 exrule: None,
                 rdates: None,
                 exdates: None,
                 duration: None,
-                dtstart: Some(build_property_from_ical!(DTStartProperty, "DTSTART:20201231T183000Z")),
+                dtstart: Some(build_property_from_ical!(
+                    DTStartProperty,
+                    "DTSTART:20201231T183000Z"
+                )),
                 dtend: None,
                 parsed_rrule_set: None,
             },
 
             indexed_properties: IndexedProperties {
-                geo: Some(build_property_from_ical!(GeoProperty, "GEO:51.5074;-0.1278")),
+                geo: Some(build_property_from_ical!(
+                    GeoProperty,
+                    "GEO:51.5074;-0.1278"
+                )),
                 class: Some(build_property_from_ical!(ClassProperty, "CLASS:PRIVATE")),
                 related_to: None,
-                categories: Some(HashSet::from([build_property_from_ical!(CategoriesProperty, "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,CATEGORY_THREE")])),
+                categories: Some(HashSet::from([build_property_from_ical!(
+                    CategoriesProperty,
+                    "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,CATEGORY_THREE"
+                )])),
             },
 
             passive_properties: PassiveProperties {
-                properties: BTreeSet::from([Property::Description(build_property_from_ical!(DescriptionProperty, "DESCRIPTION:The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA"))]),
+                properties: BTreeSet::from([Property::Description(build_property_from_ical!(
+                    DescriptionProperty,
+                    "DESCRIPTION:The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA"
+                ))]),
             },
 
             overrides: BTreeMap::new(),
@@ -330,12 +371,18 @@ mod test {
             uid: String::from("event_UID"),
 
             schedule_properties: ScheduleProperties {
-                rrule: Some(build_property_from_ical!(RRuleProperty, "RRULE:FREQ=DAILY;UNTIL=20230231T183000Z;INTERVAL=1")),
+                rrule: Some(build_property_from_ical!(
+                    RRuleProperty,
+                    "RRULE:FREQ=DAILY;UNTIL=20230231T183000Z;INTERVAL=1"
+                )),
                 exrule: None,
                 rdates: None,
                 exdates: None,
                 duration: None,
-                dtstart: Some(build_property_from_ical!(DTStartProperty, "DTSTART:20201131T183000Z")),
+                dtstart: Some(build_property_from_ical!(
+                    DTStartProperty,
+                    "DTSTART:20201131T183000Z"
+                )),
                 dtend: None,
                 parsed_rrule_set: None,
             },
@@ -344,14 +391,26 @@ mod test {
                 geo: None,
                 class: None,
                 related_to: Some(HashSet::from([
-                    build_property_from_ical!(RelatedToProperty, "RELATED-TO;RELTYPE=X-IDX-CAL;indexed_calendar_UID"),
-                    build_property_from_ical!(RelatedToProperty, "RELATED-TO;RELTYPE=PARENT;another_event_UID"),
+                    build_property_from_ical!(
+                        RelatedToProperty,
+                        "RELATED-TO;RELTYPE=X-IDX-CAL;indexed_calendar_UID"
+                    ),
+                    build_property_from_ical!(
+                        RelatedToProperty,
+                        "RELATED-TO;RELTYPE=PARENT;another_event_UID"
+                    ),
                 ])),
-                categories: Some(HashSet::from([build_property_from_ical!(CategoriesProperty, "CATEGORIES:CATEGORY_THREE,CATEGORY_FOUR")])),
+                categories: Some(HashSet::from([build_property_from_ical!(
+                    CategoriesProperty,
+                    "CATEGORIES:CATEGORY_THREE,CATEGORY_FOUR"
+                )])),
             },
 
             passive_properties: PassiveProperties {
-                properties: BTreeSet::from([Property::Description(build_property_from_ical!(DescriptionProperty, "DESCRIPTION:Testing original description text"))]),
+                properties: BTreeSet::from([Property::Description(build_property_from_ical!(
+                    DescriptionProperty,
+                    "DESCRIPTION:Testing original description text"
+                ))]),
             },
 
             overrides: BTreeMap::new(),

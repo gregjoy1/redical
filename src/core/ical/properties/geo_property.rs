@@ -1,5 +1,5 @@
-use std::hash::{Hash, Hasher};
 use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 
 use nom::{
     branch::alt,
@@ -28,9 +28,9 @@ pub struct GeoProperty {
 
 impl PartialEq for GeoProperty {
     fn eq(&self, other: &Self) -> bool {
-        self.latitude.total_cmp(&other.latitude).is_eq() &&
-        self.longitude.total_cmp(&other.longitude).is_eq() &&
-        self.x_params == other.x_params
+        self.latitude.total_cmp(&other.latitude).is_eq()
+            && self.longitude.total_cmp(&other.longitude).is_eq()
+            && self.x_params == other.x_params
     }
 }
 

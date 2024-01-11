@@ -53,12 +53,7 @@ impl Into<LowerBoundFilterCondition> for LowerBoundRangeCondition {
 }
 
 impl LowerBoundRangeCondition {
-    pub fn is_filtered(
-        &self,
-        _event_uid: String,
-        dtstart_timestamp: &i64,
-        duration: &i64,
-    ) -> bool {
+    pub fn is_filtered(&self, _event_uid: String, dtstart_timestamp: &i64, duration: &i64) -> bool {
         match self {
             LowerBoundRangeCondition::GreaterThan(
                 range_condition_property,
@@ -104,12 +99,7 @@ impl Into<UpperBoundFilterCondition> for UpperBoundRangeCondition {
 }
 
 impl UpperBoundRangeCondition {
-    pub fn is_filtered(
-        &self,
-        _event_uid: String,
-        dtstart_timestamp: &i64,
-        duration: &i64,
-    ) -> bool {
+    pub fn is_filtered(&self, _event_uid: String, dtstart_timestamp: &i64, duration: &i64) -> bool {
         match self {
             UpperBoundRangeCondition::LessThan(range_condition_property) => {
                 let (value, comparison) =

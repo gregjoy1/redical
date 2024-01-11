@@ -1,5 +1,5 @@
-use std::hash::{Hash, Hasher};
 use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 
 use nom::{
     branch::alt,
@@ -96,10 +96,7 @@ impl UIDProperty {
 
                 let uid = String::from(parsed_value.trim());
 
-                let parsed_property = UIDProperty {
-                    uid,
-                    x_params,
-                };
+                let parsed_property = UIDProperty { uid, x_params };
 
                 (remaining, parsed_property)
             },
@@ -195,7 +192,9 @@ mod test {
     fn test_serialize_to_ical() {
         let parsed_categories_property = UIDProperty::parse_ical(
             r#"UID;X-TEST-KEY-ONE=VALUE_ONE,"VALUE_TWO";X-TEST-KEY-TWO="KEY -🎄- TWO":UID text."#,
-        ).unwrap().1;
+        )
+        .unwrap()
+        .1;
 
         assert_eq!(
             parsed_categories_property,
@@ -217,9 +216,7 @@ mod test {
         let serialized_ical = parsed_categories_property.serialize_to_ical();
 
         assert_eq!(
-            UIDProperty::parse_ical(serialized_ical.as_str())
-                .unwrap()
-                .1,
+            UIDProperty::parse_ical(serialized_ical.as_str()).unwrap().1,
             parsed_categories_property
         );
 

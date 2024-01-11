@@ -1,5 +1,5 @@
-use std::hash::{Hash, Hasher};
 use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 
 use nom::{
     branch::alt,
@@ -94,7 +94,10 @@ impl XProperty {
         .map(
             |(remaining, (parsed_name, (parsed_params, _colon_delimeter, parsed_value))): (
                 &str,
-                (&str, (Option<HashMap<&str, common::ParsedValue>>, &str, &str)),
+                (
+                    &str,
+                    (Option<HashMap<&str, common::ParsedValue>>, &str, &str),
+                ),
             )| {
                 let mut language: Option<String> = None;
                 let mut x_params: Option<HashMap<String, Vec<String>>> = None;
@@ -255,9 +258,7 @@ mod test {
         let serialized_ical = parsed_categories_property.serialize_to_ical();
 
         assert_eq!(
-            XProperty::parse_ical(serialized_ical.as_str())
-                .unwrap()
-                .1,
+            XProperty::parse_ical(serialized_ical.as_str()).unwrap().1,
             parsed_categories_property
         );
 

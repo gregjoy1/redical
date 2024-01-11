@@ -9,8 +9,8 @@ use serde::{Deserialize, Serialize};
 
 use std::hash::{Hash, Hasher};
 
-use crate::core::{IndexedConclusion, InvertedCalendarIndexTerm};
 use crate::core::ical::properties::GeoProperty;
+use crate::core::{IndexedConclusion, InvertedCalendarIndexTerm};
 
 #[derive(Debug, PartialOrd, PartialEq, Eq, Clone)]
 pub enum GeoDistance {

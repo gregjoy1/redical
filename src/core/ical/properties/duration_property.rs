@@ -1,5 +1,5 @@
-use std::hash::{Hash, Hasher};
 use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 
 use nom::{
     bytes::complete::tag,
@@ -306,8 +306,8 @@ impl DurationProperty {
 mod test {
 
     use super::*;
-    use pretty_assertions_sorted::assert_eq;
     use nom::error::ErrorKind;
+    use pretty_assertions_sorted::assert_eq;
 
     #[test]
     fn test_get_duration_in_seconds() {

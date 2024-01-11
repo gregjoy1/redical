@@ -1,10 +1,14 @@
-use std::str::FromStr;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::str::FromStr;
 
 use rrule::{RRuleError, RRuleSet};
 
+use crate::core::ical::properties::{
+    CategoriesProperty, ClassProperty, DTEndProperty, DTStartProperty, DurationProperty,
+    ExDateProperty, ExRuleProperty, GeoProperty, Properties, Property, RDateProperty,
+    RRuleProperty, RelatedToProperty,
+};
 use crate::core::ical::serializer::SerializableICalProperty;
-use crate::core::ical::properties::{Property, Properties, RRuleProperty, ExRuleProperty, RDateProperty, ExDateProperty, DurationProperty, DTStartProperty, DTEndProperty, GeoProperty, RelatedToProperty, CategoriesProperty, ClassProperty};
 
 use crate::core::parsers::datetime::{datestring_to_date, ParseError};
 
@@ -150,11 +154,13 @@ impl ScheduleProperties {
     }
 
     pub fn extract_rrule_key_value_pair(&self) -> Option<KeyValuePair> {
-        self.rrule.and_then(|property| Some(property.to_key_value_pair()))
+        self.rrule
+            .and_then(|property| Some(property.to_key_value_pair()))
     }
 
     pub fn extract_exrule_key_value_pair(&self) -> Option<KeyValuePair> {
-        self.exrule.and_then(|property| Some(property.to_key_value_pair()))
+        self.exrule
+            .and_then(|property| Some(property.to_key_value_pair()))
     }
 
     pub fn extract_rdates_key_value_pairs(&self) -> Option<HashSet<KeyValuePair>> {
@@ -182,15 +188,18 @@ impl ScheduleProperties {
     }
 
     pub fn extract_duration_key_value_pair(&self) -> Option<KeyValuePair> {
-        self.duration.and_then(|property| Some(property.to_key_value_pair()))
+        self.duration
+            .and_then(|property| Some(property.to_key_value_pair()))
     }
 
     pub fn extract_dtstart_key_value_pair(&self) -> Option<KeyValuePair> {
-        self.dtstart.and_then(|property| Some(property.to_key_value_pair()))
+        self.dtstart
+            .and_then(|property| Some(property.to_key_value_pair()))
     }
 
     pub fn extract_dtend_key_value_pair(&self) -> Option<KeyValuePair> {
-        self.dtend.and_then(|property| Some(property.to_key_value_pair()))
+        self.dtend
+            .and_then(|property| Some(property.to_key_value_pair()))
     }
 
     pub fn insert(&mut self, property: Property) -> Result<&Self, String> {
@@ -251,13 +260,11 @@ impl ScheduleProperties {
         }
 
         if let Some(exdatesss) = &self.exdates {
-            exdatesss
-                .iter()
-                .for_each(|exdates| {
-                    is_missing_rules = false;
+            exdatesss.iter().for_each(|exdates| {
+                is_missing_rules = false;
 
-                    ical_parts.push(exdates.serialize_to_ical());
-                });
+                ical_parts.push(exdates.serialize_to_ical());
+            });
         }
 
         if let Some(dtstart) = &self.dtstart {
@@ -384,33 +391,42 @@ impl IndexedProperties {
     }
 
     pub fn extract_geo_point(&self) -> Option<GeoPoint> {
-        self.geo.and_then(|geo_property| Some(GeoPoint::from(geo_property)))
+        self.geo
+            .and_then(|geo_property| Some(GeoPoint::from(geo_property)))
     }
 
     pub fn extract_class(&self) -> Option<String> {
-        self.class.and_then(|class_property| Some(class_property.class))
+        self.class
+            .and_then(|class_property| Some(class_property.class))
     }
 
     pub fn insert(&mut self, property: Property) -> Result<&Self, String> {
         match property {
             Property::Class(property) => {
                 self.class = Some(property);
-            },
+            }
 
             Property::Geo(property) => {
                 self.geo = Some(property);
-            },
+            }
 
             Property::Categories(property) => {
-                self.categories.get_or_insert(HashSet::new()).insert(property);
-            },
+                self.categories
+                    .get_or_insert(HashSet::new())
+                    .insert(property);
+            }
 
             Property::RelatedTo(property) => {
-                self.related_to.get_or_insert(HashSet::new()).insert(property);
-            },
+                self.related_to
+                    .get_or_insert(HashSet::new())
+                    .insert(property);
+            }
 
             _ => {
-                return Err(format!("Expected indexable property (CATEGORIES, RELATED_TO), received: {}", property.serialize_to_ical()));
+                return Err(format!(
+                    "Expected indexable property (CATEGORIES, RELATED_TO), received: {}",
+                    property.serialize_to_ical()
+                ));
             }
         };
 
@@ -442,23 +458,26 @@ impl PassiveProperties {
 
     pub fn insert(&mut self, property: Property) -> Result<&Self, String> {
         match property {
-            Property::Class(_) |
-            Property::Geo(_) |
-            Property::Categories(_) |
-            Property::RelatedTo(_) |
-            Property::RRule(_) |
-            Property::ExRule(_) |
-            Property::DTStart(_) |
-            Property::DTEnd(_) |
-            Property::RDate(_) |
-            Property::ExDate(_) |
-            Property::Duration(_) => {
-                return Err(format!("Expected passive property, received: {}", property.serialize_to_ical()));
-            },
+            Property::Class(_)
+            | Property::Geo(_)
+            | Property::Categories(_)
+            | Property::RelatedTo(_)
+            | Property::RRule(_)
+            | Property::ExRule(_)
+            | Property::DTStart(_)
+            | Property::DTEnd(_)
+            | Property::RDate(_)
+            | Property::ExDate(_)
+            | Property::Duration(_) => {
+                return Err(format!(
+                    "Expected passive property, received: {}",
+                    property.serialize_to_ical()
+                ));
+            }
 
             _ => {
                 self.properties.insert(property);
-            },
+            }
         };
 
         Ok(self)
@@ -505,26 +524,26 @@ impl Event {
 
             for parsed_property in parsed_properties {
                 match parsed_property {
-                    Property::Class(_) |
-                    Property::Geo(_) |
-                    Property::Categories(_) |
-                    Property::RelatedTo(_) => {
+                    Property::Class(_)
+                    | Property::Geo(_)
+                    | Property::Categories(_)
+                    | Property::RelatedTo(_) => {
                         new_event.indexed_properties.insert(parsed_property)?;
-                    },
+                    }
 
-                    Property::RRule(_) |
-                    Property::ExRule(_) |
-                    Property::DTStart(_) |
-                    Property::DTEnd(_) |
-                    Property::RDate(_) |
-                    Property::ExDate(_) |
-                    Property::Duration(_) => {
+                    Property::RRule(_)
+                    | Property::ExRule(_)
+                    | Property::DTStart(_)
+                    | Property::DTEnd(_)
+                    | Property::RDate(_)
+                    | Property::ExDate(_)
+                    | Property::Duration(_) => {
                         new_event.schedule_properties.insert(parsed_property)?;
-                    },
+                    }
 
                     _ => {
                         new_event.passive_properties.insert(parsed_property)?;
-                    },
+                    }
                 }
             }
 
@@ -664,7 +683,10 @@ mod test {
                 geo: None,
                 class: None,
                 related_to: None,
-                categories: Some(HashSet::from([build_property_from_ical!(CategoriesProperty, "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,CATEGORY_THREE")])),
+                categories: Some(HashSet::from([build_property_from_ical!(
+                    CategoriesProperty,
+                    "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,CATEGORY_THREE"
+                )])),
             },
 
             passive_properties: PassiveProperties {
@@ -936,12 +958,18 @@ mod test {
                 uid: String::from("event_UID"),
 
                 schedule_properties: ScheduleProperties {
-                    rrule: Some(build_property_from_ical!(RRuleProperty, "RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH")),
+                    rrule: Some(build_property_from_ical!(
+                        RRuleProperty,
+                        "RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH"
+                    )),
                     exrule: None,
                     rdates: None,
                     exdates: None,
                     duration: None,
-                    dtstart: Some(build_property_from_ical!(DTStartProperty, "DTSTART:16010101T020000")),
+                    dtstart: Some(build_property_from_ical!(
+                        DTStartProperty,
+                        "DTSTART:16010101T020000"
+                    )),
                     dtend: None,
                     parsed_rrule_set: None,
                 },
@@ -973,7 +1001,10 @@ mod test {
                 uid: String::from("event_UID"),
 
                 schedule_properties: ScheduleProperties {
-                    rrule: Some(build_property_from_ical!(RRuleProperty, "RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH")),
+                    rrule: Some(build_property_from_ical!(
+                        RRuleProperty,
+                        "RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH"
+                    )),
                     exrule: None,
                     rdates: None,
                     exdates: None,
@@ -1124,12 +1155,18 @@ mod test {
                 uid: String::from("event_UID"),
 
                 schedule_properties: ScheduleProperties {
-                    rrule: Some(build_property_from_ical!(RRuleProperty, "RRULE:FREQ=WEEKLY;UNTIL=20210331T183000Z;INTERVAL=1;BYDAY=TU")),
+                    rrule: Some(build_property_from_ical!(
+                        RRuleProperty,
+                        "RRULE:FREQ=WEEKLY;UNTIL=20210331T183000Z;INTERVAL=1;BYDAY=TU"
+                    )),
                     exrule: None,
                     rdates: None,
                     exdates: None,
                     duration: None,
-                    dtstart: Some(build_property_from_ical!(DTStartProperty, "DTSTART:20201231T183000Z")),
+                    dtstart: Some(build_property_from_ical!(
+                        DTStartProperty,
+                        "DTSTART:20201231T183000Z"
+                    )),
                     dtend: None,
                     parsed_rrule_set: None,
                 },
@@ -1185,12 +1222,30 @@ mod test {
                     geo: None,
                     class: None,
                     related_to: Some(HashSet::from([
-                        build_property_from_ical!(RelatedToProperty, "RELATED-TO;RELTYPE=X-IDX-CAL;redical//IndexedCalendar_One"),
-                        build_property_from_ical!(RelatedToProperty, "RELATED-TO;RELTYPE=X-IDX-CAL;redical//IndexedCalendar_Two"),
-                        build_property_from_ical!(RelatedToProperty, "RELATED-TO;RELTYPE=X-IDX-CAL;redical//IndexedCalendar_Three"),
-                        build_property_from_ical!(RelatedToProperty, "RELATED-TO;RELTYPE=PARENT;ParentUID_One"),
-                        build_property_from_ical!(RelatedToProperty, "RELATED-TO;RELTYPE=PARENT;ParentUID_Two"),
-                        build_property_from_ical!(RelatedToProperty, "RELATED-TO;RELTYPE=CHILD;ChildUID"),
+                        build_property_from_ical!(
+                            RelatedToProperty,
+                            "RELATED-TO;RELTYPE=X-IDX-CAL;redical//IndexedCalendar_One"
+                        ),
+                        build_property_from_ical!(
+                            RelatedToProperty,
+                            "RELATED-TO;RELTYPE=X-IDX-CAL;redical//IndexedCalendar_Two"
+                        ),
+                        build_property_from_ical!(
+                            RelatedToProperty,
+                            "RELATED-TO;RELTYPE=X-IDX-CAL;redical//IndexedCalendar_Three"
+                        ),
+                        build_property_from_ical!(
+                            RelatedToProperty,
+                            "RELATED-TO;RELTYPE=PARENT;ParentUID_One"
+                        ),
+                        build_property_from_ical!(
+                            RelatedToProperty,
+                            "RELATED-TO;RELTYPE=PARENT;ParentUID_Two"
+                        ),
+                        build_property_from_ical!(
+                            RelatedToProperty,
+                            "RELATED-TO;RELTYPE=CHILD;ChildUID"
+                        ),
                     ])),
                     categories: None
                 },

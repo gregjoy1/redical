@@ -1,15 +1,15 @@
-use std::str::FromStr;
 use nom::{
     branch::alt,
     bytes::complete::tag,
+    combinator::{map, opt},
     error::{context, convert_error},
-    combinator::{opt, map},
     multi::separated_list1,
     sequence::terminated,
 };
+use std::str::FromStr;
 
-use crate::core::ical::properties::*;
 use crate::core::ical::parser::common::ParserResult;
+use crate::core::ical::properties::*;
 use crate::core::ical::serializer::{SerializableICalProperty, SerializedValue};
 
 #[derive(Debug, Eq, PartialEq, Clone, Ord, PartialOrd)]
@@ -66,7 +66,6 @@ pub enum Property {
     // TODO: Implement "CONCEPT"
     // TODO: Implement "LINK"
     // TODO: Implement "REFID"
-
     Resources(ResourcesProperty),     //  "RESOURCES"
     Categories(CategoriesProperty),   //  "CATEGORIES"
     Class(ClassProperty),             //  "CLASS"
@@ -89,23 +88,23 @@ pub enum Property {
 impl SerializableICalProperty for Property {
     fn serialize_to_split_ical(&self) -> (String, Option<Vec<(String, String)>>, SerializedValue) {
         match self {
-           Self::Resources(property) => property.serialize_to_split_ical(),
-           Self::Categories(property) => property.serialize_to_split_ical(),
-           Self::Class(property) => property.serialize_to_split_ical(),
-           Self::Geo(property) => property.serialize_to_split_ical(),
-           Self::Description(property) => property.serialize_to_split_ical(),
-           Self::DTEnd(property) => property.serialize_to_split_ical(),
-           Self::DTStart(property) => property.serialize_to_split_ical(),
-           Self::Duration(property) => property.serialize_to_split_ical(),
-           Self::ExDate(property) => property.serialize_to_split_ical(),
-           Self::ExRule(property) => property.serialize_to_split_ical(),
-           Self::RRule(property) => property.serialize_to_split_ical(),
-           Self::Location(property) => property.serialize_to_split_ical(),
-           Self::RDate(property) => property.serialize_to_split_ical(),
-           Self::RelatedTo(property) => property.serialize_to_split_ical(),
-           Self::Summary(property) => property.serialize_to_split_ical(),
-           Self::UID(property) => property.serialize_to_split_ical(),
-           Self::X(property) => property.serialize_to_split_ical(),
+            Self::Resources(property) => property.serialize_to_split_ical(),
+            Self::Categories(property) => property.serialize_to_split_ical(),
+            Self::Class(property) => property.serialize_to_split_ical(),
+            Self::Geo(property) => property.serialize_to_split_ical(),
+            Self::Description(property) => property.serialize_to_split_ical(),
+            Self::DTEnd(property) => property.serialize_to_split_ical(),
+            Self::DTStart(property) => property.serialize_to_split_ical(),
+            Self::Duration(property) => property.serialize_to_split_ical(),
+            Self::ExDate(property) => property.serialize_to_split_ical(),
+            Self::ExRule(property) => property.serialize_to_split_ical(),
+            Self::RRule(property) => property.serialize_to_split_ical(),
+            Self::Location(property) => property.serialize_to_split_ical(),
+            Self::RDate(property) => property.serialize_to_split_ical(),
+            Self::RelatedTo(property) => property.serialize_to_split_ical(),
+            Self::Summary(property) => property.serialize_to_split_ical(),
+            Self::UID(property) => property.serialize_to_split_ical(),
+            Self::X(property) => property.serialize_to_split_ical(),
         }
     }
 }
@@ -114,27 +113,25 @@ impl Property {
     pub fn parse_ical(input: &str) -> ParserResult<&str, Self> {
         context(
             "property",
-            alt(
-                (
-                    map(ResourcesProperty::parse_ical, Self::Resources),     //  "RESOURCES"
-                    map(CategoriesProperty::parse_ical, Self::Categories),   //  "CATEGORIES"
-                    map(ClassProperty::parse_ical, Self::Class),             //  "CLASS"
-                    map(GeoProperty::parse_ical, Self::Geo),                 //  "GEO"
-                    map(DescriptionProperty::parse_ical, Self::Description), //  "DESCRIPTION"
-                    map(DTEndProperty::parse_ical, Self::DTEnd),             //  "DTEND"
-                    map(DTStartProperty::parse_ical, Self::DTStart),         //  "DTSTART"
-                    map(DurationProperty::parse_ical, Self::Duration),       //  "DURATION"
-                    map(ExDateProperty::parse_ical, Self::ExDate),           //  "EXDATE"
-                    map(ExRuleProperty::parse_ical, Self::ExRule),           //  "EXRULE"
-                    map(RRuleProperty::parse_ical, Self::RRule),             //  "RRULE"
-                    map(LocationProperty::parse_ical, Self::Location),       //  "LOCATION"
-                    map(RDateProperty::parse_ical, Self::RDate),             //  "RDATE"
-                    map(RelatedToProperty::parse_ical, Self::RelatedTo),     //  "RELATED-TO"
-                    map(SummaryProperty::parse_ical, Self::Summary),         //  "SUMMARY"
-                    map(UIDProperty::parse_ical, Self::UID),                 //  "UID"
-                    map(XProperty::parse_ical, Self::X),                     //  "X-*"
-                )
-            )
+            alt((
+                map(ResourcesProperty::parse_ical, Self::Resources), //  "RESOURCES"
+                map(CategoriesProperty::parse_ical, Self::Categories), //  "CATEGORIES"
+                map(ClassProperty::parse_ical, Self::Class),         //  "CLASS"
+                map(GeoProperty::parse_ical, Self::Geo),             //  "GEO"
+                map(DescriptionProperty::parse_ical, Self::Description), //  "DESCRIPTION"
+                map(DTEndProperty::parse_ical, Self::DTEnd),         //  "DTEND"
+                map(DTStartProperty::parse_ical, Self::DTStart),     //  "DTSTART"
+                map(DurationProperty::parse_ical, Self::Duration),   //  "DURATION"
+                map(ExDateProperty::parse_ical, Self::ExDate),       //  "EXDATE"
+                map(ExRuleProperty::parse_ical, Self::ExRule),       //  "EXRULE"
+                map(RRuleProperty::parse_ical, Self::RRule),         //  "RRULE"
+                map(LocationProperty::parse_ical, Self::Location),   //  "LOCATION"
+                map(RDateProperty::parse_ical, Self::RDate),         //  "RDATE"
+                map(RelatedToProperty::parse_ical, Self::RelatedTo), //  "RELATED-TO"
+                map(SummaryProperty::parse_ical, Self::Summary),     //  "SUMMARY"
+                map(UIDProperty::parse_ical, Self::UID),             //  "UID"
+                map(XProperty::parse_ical, Self::X),                 //  "X-*"
+            )),
         )(input)
     }
 }
@@ -146,12 +143,13 @@ impl FromStr for Properties {
     type Err = String;
 
     fn from_str(input: &str) -> Result<Self, Self::Err> {
-        let parsed_properties = terminated(separated_list1(tag(" "), Property::parse_ical), opt(tag(" ")))(input);
+        let parsed_properties = terminated(
+            separated_list1(tag(" "), Property::parse_ical),
+            opt(tag(" ")),
+        )(input);
 
         match parsed_properties {
-            Ok((_remaining, properties)) => {
-                Ok(Properties(properties))
-            },
+            Ok((_remaining, properties)) => Ok(Properties(properties)),
 
             Err(error) => {
                 if let nom::Err::Error(error) = error {
@@ -191,12 +189,20 @@ mod test {
             "LOCATION:Location text.",
         ];
 
-        let joined_inputs = inputs.clone().into_iter().map(String::from).collect::<Vec<String>>().join(" ");
+        let joined_inputs = inputs
+            .clone()
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<String>>()
+            .join(" ");
 
         let parser_result = Properties::from_str(&joined_inputs);
 
         let Ok(parsed_properties) = parser_result else {
-            panic!(r#"Expected Property::parse_ical_property to be ok, received: `{:?}`"#, parser_result);
+            panic!(
+                r#"Expected Property::parse_ical_property to be ok, received: `{:?}`"#,
+                parser_result
+            );
         };
 
         let parsed_properties = parsed_properties.0;
@@ -205,22 +211,85 @@ mod test {
 
         let mut parsed_properties_iter = parsed_properties.into_iter();
 
-        assert!(matches!(parsed_properties_iter.next(), Some(Property::Categories(_))));
-        assert!(matches!(parsed_properties_iter.next(), Some(Property::RelatedTo(_))));
-        assert!(matches!(parsed_properties_iter.next(), Some(Property::X(_))));
-        assert!(matches!(parsed_properties_iter.next(), Some(Property::Resources(_))));
-        assert!(matches!(parsed_properties_iter.next(), Some(Property::Class(_))));
-        assert!(matches!(parsed_properties_iter.next(), Some(Property::DTEnd(_))));
-        assert!(matches!(parsed_properties_iter.next(), Some(Property::DTStart(_))));
-        assert!(matches!(parsed_properties_iter.next(), Some(Property::ExDate(_))));
-        assert!(matches!(parsed_properties_iter.next(), Some(Property::RDate(_))));
-        assert!(matches!(parsed_properties_iter.next(), Some(Property::RRule(_))));
-        assert!(matches!(parsed_properties_iter.next(), Some(Property::ExRule(_))));
-        assert!(matches!(parsed_properties_iter.next(), Some(Property::Summary(_))));
-        assert!(matches!(parsed_properties_iter.next(), Some(Property::Description(_))));
-        assert!(matches!(parsed_properties_iter.next(), Some(Property::Geo(_))));
-        assert!(matches!(parsed_properties_iter.next(), Some(Property::UID(_))));
-        assert!(matches!(parsed_properties_iter.next(), Some(Property::Location(_))));
+        assert!(matches!(
+            parsed_properties_iter.next(),
+            Some(Property::Categories(_))
+        ));
+
+        assert!(matches!(
+            parsed_properties_iter.next(),
+            Some(Property::RelatedTo(_))
+        ));
+
+        assert!(matches!(
+            parsed_properties_iter.next(),
+            Some(Property::X(_))
+        ));
+
+        assert!(matches!(
+            parsed_properties_iter.next(),
+            Some(Property::Resources(_))
+        ));
+
+        assert!(matches!(
+            parsed_properties_iter.next(),
+            Some(Property::Class(_))
+        ));
+
+        assert!(matches!(
+            parsed_properties_iter.next(),
+            Some(Property::DTEnd(_))
+        ));
+
+        assert!(matches!(
+            parsed_properties_iter.next(),
+            Some(Property::DTStart(_))
+        ));
+
+        assert!(matches!(
+            parsed_properties_iter.next(),
+            Some(Property::ExDate(_))
+        ));
+
+        assert!(matches!(
+            parsed_properties_iter.next(),
+            Some(Property::RDate(_))
+        ));
+
+        assert!(matches!(
+            parsed_properties_iter.next(),
+            Some(Property::RRule(_))
+        ));
+
+        assert!(matches!(
+            parsed_properties_iter.next(),
+            Some(Property::ExRule(_))
+        ));
+
+        assert!(matches!(
+            parsed_properties_iter.next(),
+            Some(Property::Summary(_))
+        ));
+
+        assert!(matches!(
+            parsed_properties_iter.next(),
+            Some(Property::Description(_))
+        ));
+
+        assert!(matches!(
+            parsed_properties_iter.next(),
+            Some(Property::Geo(_))
+        ));
+
+        assert!(matches!(
+            parsed_properties_iter.next(),
+            Some(Property::UID(_))
+        ));
+
+        assert!(matches!(
+            parsed_properties_iter.next(),
+            Some(Property::Location(_))
+        ));
 
         assert!(matches!(parsed_properties_iter.next(), None));
     }

@@ -1,5 +1,5 @@
-use std::hash::{Hash, Hasher};
 use std::collections::{HashMap, HashSet};
+use std::hash::{Hash, Hasher};
 
 use nom::{
     branch::alt,
