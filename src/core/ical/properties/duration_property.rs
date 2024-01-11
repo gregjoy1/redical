@@ -1,10 +1,11 @@
-use std::collections::{HashMap, HashSet};
+use std::hash::{Hash, Hasher};
+use std::collections::HashMap;
 
 use nom::{
     bytes::complete::tag,
     character::complete::{char, digit1},
     combinator::{cut, map, opt},
-    error::{context, ErrorKind, VerboseError, VerboseErrorKind},
+    error::{context, VerboseError, VerboseErrorKind},
     multi::separated_list1,
     sequence::{preceded, separated_pair, terminated, tuple},
 };
@@ -12,7 +13,6 @@ use nom::{
 use crate::core::ical::parser::common;
 use crate::core::ical::parser::common::ParserResult;
 use crate::core::ical::parser::macros::*;
-use crate::core::ical::parser::properties;
 use crate::core::ical::serializer::{
     quote_string_if_needed, SerializableICalProperty, SerializedValue,
 };
@@ -26,6 +26,12 @@ pub struct DurationProperty {
     pub seconds: Option<i64>,
 
     pub x_params: Option<HashMap<String, Vec<String>>>,
+}
+
+impl Hash for DurationProperty {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.serialize_to_ical().hash(state);
+    }
 }
 
 impl SerializableICalProperty for DurationProperty {

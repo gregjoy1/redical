@@ -1,3 +1,4 @@
+use std::hash::{Hash, Hasher};
 use std::collections::HashMap;
 
 use nom::{
@@ -18,12 +19,18 @@ use crate::core::ical::serializer::{
     quote_string_if_needed, SerializableICalProperty, SerializedValue,
 };
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct SummaryProperty {
-    altrep: Option<String>,
-    language: Option<String>,
-    summary: String,
-    x_params: Option<HashMap<String, Vec<String>>>,
+    pub altrep: Option<String>,
+    pub language: Option<String>,
+    pub summary: String,
+    pub x_params: Option<HashMap<String, Vec<String>>>,
+}
+
+impl Hash for SummaryProperty {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.serialize_to_ical().hash(state);
+    }
 }
 
 impl SerializableICalProperty for SummaryProperty {

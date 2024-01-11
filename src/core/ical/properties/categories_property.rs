@@ -1,3 +1,4 @@
+use std::hash::{Hash, Hasher};
 use std::collections::{HashMap, HashSet};
 
 use nom::{
@@ -18,11 +19,17 @@ use crate::core::ical::serializer::{
     quote_string_if_needed, SerializableICalProperty, SerializedValue,
 };
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct CategoriesProperty {
-    language: Option<String>,
-    categories: HashSet<String>,
-    x_params: Option<HashMap<String, Vec<String>>>,
+    pub language: Option<String>,
+    pub categories: HashSet<String>,
+    pub x_params: Option<HashMap<String, Vec<String>>>,
+}
+
+impl Hash for CategoriesProperty {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.serialize_to_ical().hash(state);
+    }
 }
 
 impl SerializableICalProperty for CategoriesProperty {

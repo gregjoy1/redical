@@ -1,3 +1,4 @@
+use std::hash::{Hash, Hasher};
 use std::collections::HashMap;
 
 use nom::{
@@ -18,11 +19,27 @@ use crate::core::ical::serializer::{
     quote_string_if_needed, SerializableICalProperty, SerializedValue,
 };
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct GeoProperty {
-    latitude: f64,
-    longitude: f64,
-    x_params: Option<HashMap<String, Vec<String>>>,
+    pub latitude: f64,
+    pub longitude: f64,
+    pub x_params: Option<HashMap<String, Vec<String>>>,
+}
+
+impl PartialEq for GeoProperty {
+    fn eq(&self, other: &Self) -> bool {
+        self.latitude.total_cmp(&other.latitude).is_eq() &&
+        self.longitude.total_cmp(&other.longitude).is_eq() &&
+        self.x_params == other.x_params
+    }
+}
+
+impl Eq for GeoProperty {}
+
+impl Hash for GeoProperty {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.serialize_to_ical().hash(state);
+    }
 }
 
 impl SerializableICalProperty for GeoProperty {

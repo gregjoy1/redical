@@ -2,6 +2,7 @@ use chrono::TimeZone;
 use rrule::Tz;
 
 use crate::core::ical::parser::common::ParserResult;
+use crate::core::utils::KeyValuePair;
 
 mod serialized_value;
 
@@ -41,10 +42,10 @@ where
 }
 
 pub trait SerializableICalProperty {
-    fn serialize_to_ical(&self) -> String {
+    fn to_key_value_pair(&self) -> KeyValuePair {
         let (name, params, value) = self.serialize_to_split_ical();
 
-        let mut serialized_property = name.clone();
+        let mut serialized_property = String::new();
 
         if let Some(params) = params {
             if params.len() > 0 {
@@ -62,7 +63,11 @@ pub trait SerializableICalProperty {
         serialized_property.push(':');
         serialized_property.push_str(value.to_string().as_str());
 
-        serialized_property
+        KeyValuePair::new(name, serialized_property)
+    }
+
+    fn serialize_to_ical(&self) -> String {
+        self.to_key_value_pair().to_string()
     }
 
     fn serialize_to_split_ical(&self) -> (String, Option<Vec<(String, String)>>, SerializedValue);

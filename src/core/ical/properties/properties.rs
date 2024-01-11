@@ -10,8 +10,9 @@ use nom::{
 
 use crate::core::ical::properties::*;
 use crate::core::ical::parser::common::ParserResult;
+use crate::core::ical::serializer::{SerializableICalProperty, SerializedValue};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone, Ord, PartialOrd)]
 pub enum Property {
     // TODO: Implement "CALSCALE"
     // TODO: Implement "METHOD"
@@ -85,6 +86,30 @@ pub enum Property {
     X(XProperty),                     //  "X-*"
 }
 
+impl SerializableICalProperty for Property {
+    fn serialize_to_split_ical(&self) -> (String, Option<Vec<(String, String)>>, SerializedValue) {
+        match self {
+           Self::Resources(property) => property.serialize_to_split_ical(),
+           Self::Categories(property) => property.serialize_to_split_ical(),
+           Self::Class(property) => property.serialize_to_split_ical(),
+           Self::Geo(property) => property.serialize_to_split_ical(),
+           Self::Description(property) => property.serialize_to_split_ical(),
+           Self::DTEnd(property) => property.serialize_to_split_ical(),
+           Self::DTStart(property) => property.serialize_to_split_ical(),
+           Self::Duration(property) => property.serialize_to_split_ical(),
+           Self::ExDate(property) => property.serialize_to_split_ical(),
+           Self::ExRule(property) => property.serialize_to_split_ical(),
+           Self::RRule(property) => property.serialize_to_split_ical(),
+           Self::Location(property) => property.serialize_to_split_ical(),
+           Self::RDate(property) => property.serialize_to_split_ical(),
+           Self::RelatedTo(property) => property.serialize_to_split_ical(),
+           Self::Summary(property) => property.serialize_to_split_ical(),
+           Self::UID(property) => property.serialize_to_split_ical(),
+           Self::X(property) => property.serialize_to_split_ical(),
+        }
+    }
+}
+
 impl Property {
     pub fn parse_ical(input: &str) -> ParserResult<&str, Self> {
         context(
@@ -114,8 +139,8 @@ impl Property {
     }
 }
 
-#[derive(Debug, PartialEq)]
-pub struct Properties(Vec<Property>);
+#[derive(Debug, Eq, PartialEq, Clone)]
+pub struct Properties(pub Vec<Property>);
 
 impl FromStr for Properties {
     type Err = String;

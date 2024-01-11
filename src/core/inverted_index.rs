@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+use crate::core::ical::serializer::SerializableICalProperty;
 use std::collections::{HashMap, HashSet};
 
 use crate::core::event::Event;
@@ -207,9 +208,11 @@ where
             terms: HashMap::new(),
         };
 
-        if let Some(ref categories) = event.indexed_properties.categories {
-            for category in categories.iter() {
-                indexed_categories.insert(category);
+        if let Some(categories_properties) = event.indexed_properties.categories {
+            for categories_property in categories_properties {
+                for category in categories_property.categories {
+                    indexed_categories.insert(&category);
+                }
             }
         }
 
@@ -227,14 +230,9 @@ where
             terms: HashMap::new(),
         };
 
-        if let Some(ref related_to_map) = event.indexed_properties.related_to {
-            for (reltype, reltype_uids) in related_to_map.iter() {
-                for reltype_uid in reltype_uids.iter() {
-                    let reltype_uid_pair =
-                        KeyValuePair::new(reltype.clone(), reltype_uid.clone());
-
-                    indexed_related_to.insert(&reltype_uid_pair);
-                }
+        if let Some(related_to_properties) = event.indexed_properties.related_to {
+            for related_to_property in related_to_properties {
+                indexed_related_to.insert(&related_to_property.to_key_value_pair());
             }
         }
 
@@ -253,8 +251,8 @@ where
             terms: HashMap::new(),
         };
 
-        if let Some(ref geo_point) = event.indexed_properties.geo {
-            indexed_geo.insert(geo_point);
+        if let Some(geo_property) = event.indexed_properties.geo {
+            indexed_geo.insert(&GeoPoint::from(geo_property));
         }
 
         for (timestamp, event_override) in event.overrides.iter() {
@@ -273,8 +271,8 @@ where
             terms: HashMap::new(),
         };
 
-        if let Some(ref class) = event.indexed_properties.class {
-            indexed_class.insert(class);
+        if let Some(class_property) = event.indexed_properties.class {
+            indexed_class.insert(&class_property.class);
         }
 
         for (timestamp, event_override) in event.overrides.iter() {

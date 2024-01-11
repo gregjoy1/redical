@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
 
 use crate::core::{IndexedConclusion, InvertedCalendarIndexTerm};
+use crate::core::ical::properties::GeoProperty;
 
 #[derive(Debug, PartialOrd, PartialEq, Eq, Clone)]
 pub enum GeoDistance {
@@ -143,6 +144,13 @@ impl Ord for GeoDistance {
 pub struct GeoPoint {
     pub long: f64,
     pub lat: f64,
+}
+
+impl From<GeoProperty> for GeoPoint {
+    #[inline]
+    fn from(property: GeoProperty) -> Self {
+        GeoPoint::new(property.longitude, property.latitude)
+    }
 }
 
 impl From<(f64, f64)> for GeoPoint {

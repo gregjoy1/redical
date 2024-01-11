@@ -1,6 +1,7 @@
 #[macro_export]
 macro_rules! build_rrule_property {
     ($property_name:expr, $property_struct:ident) => {
+        use std::hash::{Hash, Hasher};
         use rrule::Tz;
 
         use std::collections::HashMap;
@@ -23,25 +24,31 @@ macro_rules! build_rrule_property {
             SerializedValue,
         };
 
-        #[derive(Debug, PartialEq)]
+        #[derive(Debug, Eq, PartialEq, Clone)]
         pub struct $property_struct {
-            freq: String,
-            interval: usize,
-            count: Option<usize>,
-            wkst: Option<String>,
-            until_utc_timestamp: Option<i64>,
-            by_second: Option<Vec<String>>,
-            by_minute: Option<Vec<String>>,
-            by_hour: Option<Vec<String>>,
-            by_day: Option<Vec<String>>,
-            by_week_no: Option<Vec<String>>,
-            by_month: Option<Vec<String>>,
-            by_month_day: Option<Vec<String>>,
-            by_year_day: Option<Vec<String>>,
-            by_easter: Option<Vec<String>>,
-            by_set_pos: Option<Vec<String>>,
+            pub freq: String,
+            pub interval: usize,
+            pub count: Option<usize>,
+            pub wkst: Option<String>,
+            pub until_utc_timestamp: Option<i64>,
+            pub by_second: Option<Vec<String>>,
+            pub by_minute: Option<Vec<String>>,
+            pub by_hour: Option<Vec<String>>,
+            pub by_day: Option<Vec<String>>,
+            pub by_week_no: Option<Vec<String>>,
+            pub by_month: Option<Vec<String>>,
+            pub by_month_day: Option<Vec<String>>,
+            pub by_year_day: Option<Vec<String>>,
+            pub by_easter: Option<Vec<String>>,
+            pub by_set_pos: Option<Vec<String>>,
 
-            x_params: Option<HashMap<String, Vec<String>>>,
+            pub x_params: Option<HashMap<String, Vec<String>>>,
+        }
+
+        impl Hash for $property_struct {
+            fn hash<H: Hasher>(&self, state: &mut H) {
+                self.serialize_to_ical().hash(state);
+            }
         }
 
         impl SerializableICalProperty for $property_struct {

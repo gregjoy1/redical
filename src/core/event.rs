@@ -1,14 +1,12 @@
+use std::str::FromStr;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use rrule::{RRuleError, RRuleSet};
 
-use serde::{Deserialize, Serialize};
-
-use crate::core::parsers::ical_common::ParsedValue;
-use crate::core::parsers::ical_properties::{parse_properties, ParsedProperty};
+use crate::core::ical::serializer::SerializableICalProperty;
+use crate::core::ical::properties::{Property, Properties, RRuleProperty, ExRuleProperty, RDateProperty, ExDateProperty, DurationProperty, DTStartProperty, DTEndProperty, GeoProperty, RelatedToProperty, CategoriesProperty, ClassProperty};
 
 use crate::core::parsers::datetime::{datestring_to_date, ParseError};
-use crate::core::parsers::duration::ParsedDuration;
 
 use crate::core::event_occurrence_override::EventOccurrenceOverride;
 
@@ -125,15 +123,15 @@ fn rebase_override(
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct ScheduleProperties {
-    pub rrule: Option<KeyValuePair>,
-    pub exrule: Option<KeyValuePair>,
-    pub rdate: Option<HashSet<KeyValuePair>>,
-    pub exdate: Option<HashSet<KeyValuePair>>,
-    pub duration: Option<ParsedDuration>,
-    pub dtstart: Option<KeyValuePair>,
-    pub dtend: Option<KeyValuePair>,
+    pub rrule: Option<RRuleProperty>,
+    pub exrule: Option<ExRuleProperty>,
+    pub rdates: Option<HashSet<RDateProperty>>,
+    pub exdates: Option<HashSet<ExDateProperty>>,
+    pub duration: Option<DurationProperty>,
+    pub dtstart: Option<DTStartProperty>,
+    pub dtend: Option<DTEndProperty>,
     pub parsed_rrule_set: Option<rrule::RRuleSet>,
 }
 
@@ -142,8 +140,8 @@ impl ScheduleProperties {
         ScheduleProperties {
             rrule: None,
             exrule: None,
-            rdate: None,
-            exdate: None,
+            rdates: None,
+            exdates: None,
             duration: None,
             dtstart: None,
             dtend: None,
@@ -151,33 +149,29 @@ impl ScheduleProperties {
         }
     }
 
-    pub fn insert(&mut self, property: ParsedProperty) -> Result<&Self, String> {
+    pub fn insert(&mut self, property: Property) -> Result<&Self, String> {
         match property {
-            ParsedProperty::RRule(content)    => { self.rrule   = Some(content.content_line); },
-            ParsedProperty::ExRule(content)   => { self.exrule  = Some(content.content_line); },
-            ParsedProperty::DtStart(content)  => { self.dtstart = Some(content.content_line); },
-            ParsedProperty::DtEnd(content)    => { self.dtend   = Some(content.content_line); },
+            Property::RRule(property) => { self.rrule = Some(property); },
+            Property::ExRule(property) => { self.exrule = Some(property); },
+            Property::DTStart(property) => { self.dtstart = Some(property); },
+            Property::DTEnd(property) => { self.dtend = Some(property); },
 
-            ParsedProperty::RDate(content)    => {
-                match &mut self.rdate {
-                    Some(rdate) => { rdate.insert(content.content_line); },
-                    None => { self.rdate = Some(HashSet::from([content.content_line])); }
+            Property::RDate(property) => {
+                match &mut self.rdates {
+                    Some(rdates) => { rdates.insert(property); },
+                    None => { self.rdates = Some(HashSet::from([property])); }
                 }
             },
 
-            ParsedProperty::ExDate(content)   => {
-                match &mut self.exdate {
-                    Some(exdate) => { exdate.insert(content.content_line); },
-                    None => { self.exdate = Some(HashSet::from([content.content_line])); }
+            Property::ExDate(property) => {
+                match &mut self.exdates {
+                    Some(exdates) => { exdates.insert(property); },
+                    None => { self.exdates = Some(HashSet::from([property])); }
                 }
             },
 
-            ParsedProperty::Duration(content) => {
-                if let ParsedValue::Duration(parsed_duration) = content.value {
-                    self.duration = Some(parsed_duration);
-                } else {
-                    return Err(String::from("Expected schedule property DURATION to be valid."))
-                }
+            Property::Duration(property) => {
+                self.duration = Some(property);
             },
 
             _ => {
@@ -192,45 +186,45 @@ impl ScheduleProperties {
         let mut is_missing_rules = true;
         let mut ical_parts = vec![];
 
-        if let Some(rrule_content_line) = &self.rrule {
+        if let Some(rrule) = &self.rrule {
             is_missing_rules = false;
 
-            ical_parts.push(rrule_content_line.to_string());
+            ical_parts.push(rrule.serialize_to_ical());
         }
 
-        if let Some(exrule_content_line) = &self.exrule {
+        if let Some(exrule) = &self.exrule {
             is_missing_rules = false;
 
-            ical_parts.push(exrule_content_line.to_string());
+            ical_parts.push(exrule.serialize_to_ical());
         }
 
-        if let Some(rdates_content_lines) = &self.rdate {
-            rdates_content_lines.iter().for_each(|rdate_content_line| {
+        if let Some(rdatesss) = &self.rdates {
+            rdatesss.iter().for_each(|rdates| {
                 is_missing_rules = false;
 
-                ical_parts.push(rdate_content_line.to_string());
+                ical_parts.push(rdates.serialize_to_ical());
             });
         }
 
-        if let Some(exdates_content_lines) = &self.exdate {
-            exdates_content_lines
+        if let Some(exdatesss) = &self.exdates {
+            exdatesss
                 .iter()
-                .for_each(|exdate_content_line| {
+                .for_each(|exdates| {
                     is_missing_rules = false;
 
-                    ical_parts.push(exdate_content_line.to_string());
+                    ical_parts.push(exdates.serialize_to_ical());
                 });
         }
 
-        if let Some(dtstart_content_line) = &self.dtstart {
-            ical_parts.push(dtstart_content_line.to_string());
+        if let Some(dtstart) = &self.dtstart {
+            ical_parts.push(dtstart.serialize_to_ical());
 
             // If parsed ical does not contain any RRULE or RDATE properties, we need to
             // artifically create them based on the specified DTSTART properties so that the
             // rrule_set date extrapolation works, even for a single date.
             //
             // NOTE: This has to be a single recurring RRULE instead of RDATE because the rrule
-            // crate does not serialize the rdates -
+            // crate does not serialize the rdatess -
             // https://github.com/fmeringdal/rust-rrule/blob/main/rrule/src/core/rruleset.rs#L264
             //
             // This means that when the Calendar struct is persisted to disk as a string, it panics
@@ -239,12 +233,7 @@ impl ScheduleProperties {
             // "RRule parsing error: Missing date generation property. There needs to be at least
             // one `RRULE` or `RDATE` to generate occurrences."
             if is_missing_rules {
-                let rrule_content_line = KeyValuePair::new(
-                    String::from("RRULE"),
-                    String::from(":FREQ=MINUTELY;COUNT=1"),
-                );
-
-                ical_parts.push(rrule_content_line.to_string());
+                ical_parts.push(String::from("RRULE:FREQ=MINUTELY;COUNT=1"));
             }
         }
 
@@ -255,7 +244,7 @@ impl ScheduleProperties {
         if let Some(dtstart) = self.dtstart.as_ref() {
             // TODO: properly parse this so TZID is catered to.
             let parsed_datetime = dtstart
-                .to_string()
+                .serialize_to_ical()
                 .replace(&String::from("DTSTART:"), &String::from(""));
 
             return match datestring_to_date(&parsed_datetime, None, "DTSTART") {
@@ -271,7 +260,7 @@ impl ScheduleProperties {
         if let Some(dtend) = self.dtend.as_ref() {
             // TODO: properly parse this so TZID is catered to.
             let parsed_datetime = dtend
-                .to_string()
+                .serialize_to_ical()
                 .replace(&String::from("DTEND:"), &String::from(""));
 
             return match datestring_to_date(&parsed_datetime, None, "DTEND") {
@@ -306,12 +295,12 @@ impl ScheduleProperties {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct IndexedProperties {
-    pub geo: Option<GeoPoint>,
-    pub related_to: Option<HashMap<String, HashSet<String>>>,
-    pub categories: Option<HashSet<String>>,
-    pub class: Option<String>,
+    pub geo: Option<GeoProperty>,
+    pub related_to: Option<HashSet<RelatedToProperty>>,
+    pub categories: Option<HashSet<CategoriesProperty>>,
+    pub class: Option<ClassProperty>,
 }
 
 impl IndexedProperties {
@@ -324,147 +313,36 @@ impl IndexedProperties {
         }
     }
 
-    pub fn insert(&mut self, property: ParsedProperty) -> Result<&Self, String> {
+    pub fn insert(&mut self, property: Property) -> Result<&Self, String> {
         match property {
-            ParsedProperty::Class(content) => {
-                if let ParsedValue::Single(parsed_classification) = content.value {
-                    self.class = Some(String::from(parsed_classification));
-
-                    Ok(self)
-                } else {
-                    return Err(String::from("Expected classification to be single value"));
-                }
+            Property::Class(property) => {
+                self.class = Some(property);
             },
 
-            ParsedProperty::Geo(content) => {
-                if let ParsedValue::LatLong(parsed_latitude, parsed_longitude) = content.value {
-                    let geo_point = GeoPoint::from(
-                        (
-                            parsed_longitude,
-                            parsed_latitude,
-                        )
-                    );
-
-                    geo_point.validate()?;
-
-                    self.geo = Some(geo_point);
-
-                    Ok(self)
-                } else {
-                    return Err(String::from("Expected latitude, longitude"));
-                }
+            Property::Geo(property) => {
+                self.geo = Some(property);
             },
 
-            ParsedProperty::Categories(content)  => {
-                match content.value {
-                    ParsedValue::List(list) => {
-                        list.iter().for_each(|category| {
-                            let category = String::from(*category);
-
-                            match &mut self.categories {
-                                Some(categories) => {
-                                    categories.insert(category);
-                                },
-
-                                None => {
-                                    self.categories = Some(
-                                        HashSet::from([
-                                            category
-                                        ])
-                                    );
-                                }
-                            };
-                        });
-
-                        Ok(self)
-                    },
-                    _ => {
-                        Err(String::from("Expected category to have list value."))
-                    }
-                }
+            Property::Categories(property) => {
+                self.categories.get_or_insert(HashSet::new()).insert(property);
             },
 
-            // TODO: Break into pieces so that it can be indexed like categories.
-            ParsedProperty::RelatedTo(content)  => {
-                // TODO: improve
-                let default_reltype = String::from("PARENT");
-
-                let reltype: String = match content.params {
-                    Some(params) => {
-                        match params.get(&"RELTYPE") {
-                            Some(value) => {
-                                // TODO: Clean this up...
-                                match &value {
-                                    ParsedValue::List(list_values) => {
-                                        if list_values.len() == 1 {
-                                            String::from(list_values[0])
-                                        } else {
-                                            return Err(String::from("Expected related_to RELTYPE to be a single value."))
-                                        }
-                                    },
-
-                                    ParsedValue::Single(value) => {
-                                        String::from(*value)
-                                    },
-
-                                    _ => {
-                                        return Err(String::from("Expected related_to RELTYPE to be a single value."))
-                                    }
-                                }
-                            },
-
-                            None => default_reltype
-                        }
-                    },
-
-                    None => default_reltype
-                };
-
-                match content.value {
-                    ParsedValue::List(list) => {
-                        list.iter().for_each(|related_to_uid| {
-                            match &mut self.related_to {
-                                Some(related_to_map) => {
-                                    related_to_map.entry(reltype.clone())
-                                                  .and_modify(|reltype_uids| { reltype_uids.insert(String::from(*related_to_uid)); })
-                                                  .or_insert(HashSet::from([String::from(*related_to_uid)]));
-                                },
-
-                                None => {
-                                    self.related_to = Some(
-                                        HashMap::from(
-                                            [
-                                                (
-                                                    reltype.clone(),
-                                                    HashSet::from([
-                                                        String::from(*related_to_uid)
-                                                    ])
-                                                )
-                                            ]
-                                        )
-                                    );
-                                }
-                            }
-                        });
-
-                        Ok(self)
-                    },
-                    _ => {
-                        Err(String::from("Expected related_to to have list value."))
-                    }
-                }
+            Property::RelatedTo(property) => {
+                self.related_to.get_or_insert(HashSet::new()).insert(property);
             },
 
             _ => {
-                Err(String::from("Expected indexable property (CATEGORIES, RELATED_TO), received: {property.content_line}"))
+                return Err(format!("Expected indexable property (CATEGORIES, RELATED_TO), received: {}", property.serialize_to_ical()));
             }
-        }
+        };
+
+        Ok(self)
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct PassiveProperties {
-    pub properties: BTreeSet<KeyValuePair>,
+    pub properties: BTreeSet<Property>,
 }
 
 impl PassiveProperties {
@@ -474,22 +352,32 @@ impl PassiveProperties {
         }
     }
 
-    pub fn insert(&mut self, property: ParsedProperty) -> Result<&Self, String> {
+    pub fn insert(&mut self, property: Property) -> Result<&Self, String> {
         match property {
-            ParsedProperty::Description(content) | ParsedProperty::Other(content) => {
-                self.properties.insert(content.content_line);
+            Property::Class(_) |
+            Property::Geo(_) |
+            Property::Categories(_) |
+            Property::RelatedTo(_) |
+            Property::RRule(_) |
+            Property::ExRule(_) |
+            Property::DTStart(_) |
+            Property::DTEnd(_) |
+            Property::RDate(_) |
+            Property::ExDate(_) |
+            Property::Duration(_) => {
+                return Err(format!("Expected passive property, received: {}", property.serialize_to_ical()));
+            },
 
-                Ok(self)
-            }
+            _ => {
+                self.properties.insert(property);
+            },
+        };
 
-            _ => Err(String::from(
-                "Expected passive property, received: {property.content_line}",
-            )),
-        }
+        Ok(self)
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Event {
     pub uid: String,
 
@@ -524,57 +412,36 @@ impl Event {
     }
 
     pub fn parse_ical(uid: &str, input: &str) -> Result<Event, String> {
-        match parse_properties(input) {
-            Ok((_, parsed_properties)) => {
-                let new_event: &mut Event = &mut Event::new(String::from(uid));
+        Properties::from_str(input).and_then(|Properties(parsed_properties)| {
+            let mut new_event = Event::new(String::from(uid));
 
-                parsed_properties
-                    .into_iter()
-                    .try_for_each(|parsed_property: ParsedProperty| {
-                        match parsed_property {
-                            ParsedProperty::Geo(_)
-                            | ParsedProperty::Categories(_)
-                            | ParsedProperty::Class(_)
-                            | ParsedProperty::RelatedTo(_) => {
-                                if let Err(error) =
-                                    new_event.indexed_properties.insert(parsed_property)
-                                {
-                                    return Err(error);
-                                }
-                            }
+            for parsed_property in parsed_properties {
+                match parsed_property {
+                    Property::Class(_) |
+                    Property::Geo(_) |
+                    Property::Categories(_) |
+                    Property::RelatedTo(_) => {
+                        new_event.indexed_properties.insert(parsed_property)?;
+                    },
 
-                            ParsedProperty::Description(_) | ParsedProperty::Other(_) => {
-                                if let Err(error) =
-                                    new_event.passive_properties.insert(parsed_property)
-                                {
-                                    return Err(error);
-                                }
-                            }
+                    Property::RRule(_) |
+                    Property::ExRule(_) |
+                    Property::DTStart(_) |
+                    Property::DTEnd(_) |
+                    Property::RDate(_) |
+                    Property::ExDate(_) |
+                    Property::Duration(_) => {
+                        new_event.schedule_properties.insert(parsed_property)?;
+                    },
 
-                            // Assumed to be any of:
-                            //   - ParsedProperty::RRule
-                            //   - ParsedProperty::ExRule
-                            //   - ParsedProperty::RDate
-                            //   - ParsedProperty::ExDate
-                            //   - ParsedProperty::Duration
-                            //   - ParsedProperty::DtStart
-                            //   - ParsedProperty::DtEnd
-                            _ => {
-                                if let Err(error) =
-                                    new_event.schedule_properties.insert(parsed_property)
-                                {
-                                    return Err(error);
-                                }
-                            }
-                        }
-
-                        Ok(())
-                    })?;
-
-                Ok(new_event.clone())
+                    _ => {
+                        new_event.passive_properties.insert(parsed_property)?;
+                    },
+                }
             }
-            Err(err) => Err(err.to_string()),
-        }
+
+            Ok(new_event)
+        })
     }
 
     pub fn rebuild_indexed_categories(&mut self) -> Result<&mut Self, String> {
@@ -681,6 +548,9 @@ mod test {
     use crate::core::IndexedConclusion;
 
     use crate::core::utils::UpdatedSetMembers;
+    use crate::testing::macros::build_property_from_ical;
+
+    use crate::core::ical::properties::DescriptionProperty;
 
     use std::collections::BTreeMap;
 
@@ -694,8 +564,8 @@ mod test {
             schedule_properties: ScheduleProperties {
                 rrule: None,
                 exrule: None,
-                rdate: None,
-                exdate: None,
+                rdates: None,
+                exdates: None,
                 duration: None,
                 dtstart: None,
                 dtend: None,
@@ -706,11 +576,7 @@ mod test {
                 geo: None,
                 class: None,
                 related_to: None,
-                categories: Some(HashSet::from([
-                    String::from("CATEGORY_ONE"),
-                    String::from("CATEGORY_TWO"),
-                    String::from("CATEGORY_THREE"),
-                ])),
+                categories: Some(HashSet::from([build_property_from_ical!(CategoriesProperty, "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,CATEGORY_THREE")])),
             },
 
             passive_properties: PassiveProperties {
@@ -940,48 +806,32 @@ mod test {
                 uid: String::from("event_UID"),
 
                 schedule_properties: ScheduleProperties {
-                    rrule:            Some(
-                        KeyValuePair::new(
-                            String::from("RRULE"),
-                            String::from(":FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH"),
-                        )
-                    ),
-                    exrule:           None,
-                    rdate:            None,
-                    exdate:           None,
-                    duration:         None,
-                    dtstart:          None,
-                    dtend:            None,
+                    rrule: Some(build_property_from_ical!(RRuleProperty, "RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH")),
+                    exrule: None,
+                    rdates: None,
+                    exdates: None,
+                    duration: None,
+                    dtstart: None,
+                    dtend: None,
                     parsed_rrule_set: None,
                 },
 
-                indexed_properties:  IndexedProperties {
-                    geo:              None,
-                    class:            None,
-                    categories:       Some(
-                        HashSet::from([
-                            String::from("CATEGORY_ONE"),
-                            String::from("CATEGORY_TWO"),
-                            String::from("CATEGORY THREE")
-                        ])
-                    ),
-                    related_to:       None,
+                indexed_properties: IndexedProperties {
+                    geo: None,
+                    class: None,
+                    categories: Some(HashSet::from([build_property_from_ical!(CategoriesProperty, "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,CATEGORY_THREE")])),
+                    related_to: None,
                 },
 
-                passive_properties:  PassiveProperties {
-                    properties: BTreeSet::from([
-                                    KeyValuePair::new(
-                                        String::from("DESCRIPTION"),
-                                        String::from(";ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA"),
-                                    )
-                                ])
+                passive_properties: PassiveProperties {
+                    properties: BTreeSet::from([Property::Description(build_property_from_ical!(DescriptionProperty, "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA"))]),
                 },
 
-                overrides:           BTreeMap::new(),
-                indexed_categories:  None,
-                indexed_related_to:  None,
-                indexed_geo:         None,
-                indexed_class:       None,
+                overrides: BTreeMap::new(),
+                indexed_categories: None,
+                indexed_related_to: None,
+                indexed_geo: None,
+                indexed_class: None,
             }
         );
     }
@@ -998,18 +848,12 @@ mod test {
                 uid: String::from("event_UID"),
 
                 schedule_properties: ScheduleProperties {
-                    rrule: Some(KeyValuePair::new(
-                        String::from("RRULE"),
-                        String::from(":FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH"),
-                    )),
+                    rrule: Some(build_property_from_ical!(RRuleProperty, "RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH")),
                     exrule: None,
-                    rdate: None,
-                    exdate: None,
+                    rdates: None,
+                    exdates: None,
                     duration: None,
-                    dtstart: Some(KeyValuePair::new(
-                        String::from("DTSTART"),
-                        String::from(":16010101T020000"),
-                    )),
+                    dtstart: Some(build_property_from_ical!(DTStartProperty, "DTSTART:16010101T020000")),
                     dtend: None,
                     parsed_rrule_set: None,
                 },
@@ -1041,13 +885,10 @@ mod test {
                 uid: String::from("event_UID"),
 
                 schedule_properties: ScheduleProperties {
-                    rrule: Some(KeyValuePair::new(
-                        String::from("RRULE"),
-                        String::from(":FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH"),
-                    )),
+                    rrule: Some(build_property_from_ical!(RRuleProperty, "RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH")),
                     exrule: None,
-                    rdate: None,
-                    exdate: None,
+                    rdates: None,
+                    exdates: None,
                     duration: None,
                     dtstart: None,
                     dtend: None,
@@ -1110,31 +951,21 @@ mod test {
                     uid:                String::from("event_UID"),
 
                     schedule_properties: ScheduleProperties {
-                        rrule:            Some(
-                            KeyValuePair::new(
-                                String::from("RRULE"),
-                                String::from(":FREQ=WEEKLY;UNTIL=20210331T183000Z;INTERVAL=1;BYDAY=TU"),
-                            )
-                        ),
-                        exrule:           None,
-                        rdate:            None,
-                        exdate:           None,
-                        duration:         None,
-                        dtstart:          Some(
-                            KeyValuePair::new(
-                                String::from("DTSTART"),
-                                String::from(":20201231T183000Z"),
-                            )
-                        ),
-                        dtend:            None,
+                        rrule: Some(build_property_from_ical!(RRuleProperty, "RRULE:FREQ=WEEKLY;UNTIL=20210331T183000Z;INTERVAL=1;BYDAY=TU")),
+                        exrule: None,
+                        rdates: None,
+                        exdates: None,
+                        duration: None,
+                        dtstart: Some(build_property_from_ical!(DTStartProperty, "DTSTART:20201231T183000Z")),
+                        dtend: None,
                         parsed_rrule_set: None,
                     },
 
-                    indexed_properties:  IndexedProperties::new(),
+                    indexed_properties: IndexedProperties::new(),
 
-                    passive_properties:  PassiveProperties::new(),
+                    passive_properties: PassiveProperties::new(),
 
-                    overrides:           BTreeMap::from([
+                    overrides: BTreeMap::from([
                         (
                             1610476200,
                             EventOccurrenceOverride {
@@ -1205,18 +1036,12 @@ mod test {
                 uid: String::from("event_UID"),
 
                 schedule_properties: ScheduleProperties {
-                    rrule: Some(KeyValuePair::new(
-                        String::from("RRULE"),
-                        String::from(":FREQ=WEEKLY;UNTIL=20210331T183000Z;INTERVAL=1;BYDAY=TU"),
-                    )),
+                    rrule: Some(build_property_from_ical!(RRuleProperty, "RRULE:FREQ=WEEKLY;UNTIL=20210331T183000Z;INTERVAL=1;BYDAY=TU")),
                     exrule: None,
-                    rdate: None,
-                    exdate: None,
+                    rdates: None,
+                    exdates: None,
                     duration: None,
-                    dtstart: Some(KeyValuePair::new(
-                        String::from("DTSTART"),
-                        String::from(":20201231T183000Z"),
-                    )),
+                    dtstart: Some(build_property_from_ical!(DTStartProperty, "DTSTART:20201231T183000Z")),
                     dtend: None,
                     parsed_rrule_set: None,
                 },
@@ -1260,8 +1085,8 @@ mod test {
                 schedule_properties: ScheduleProperties {
                     rrule: None,
                     exrule: None,
-                    rdate: None,
-                    exdate: None,
+                    rdates: None,
+                    exdates: None,
                     duration: None,
                     dtstart: None,
                     dtend: None,
@@ -1271,26 +1096,13 @@ mod test {
                 indexed_properties: IndexedProperties {
                     geo: None,
                     class: None,
-                    related_to: Some(HashMap::from([
-                        (
-                            String::from("X-IDX-CAL"),
-                            HashSet::from([
-                                String::from("redical//IndexedCalendar_One"),
-                                String::from("redical//IndexedCalendar_Two"),
-                                String::from("redical//IndexedCalendar_Three"),
-                            ])
-                        ),
-                        (
-                            String::from("PARENT"),
-                            HashSet::from([
-                                String::from("ParentUID_One"),
-                                String::from("ParentUID_Two"),
-                            ])
-                        ),
-                        (
-                            String::from("CHILD"),
-                            HashSet::from([String::from("ChildUID"),])
-                        )
+                    related_to: Some(HashSet::from([
+                        build_property_from_ical!(RelatedToProperty, "RELATED-TO;RELTYPE=X-IDX-CAL;redical//IndexedCalendar_One"),
+                        build_property_from_ical!(RelatedToProperty, "RELATED-TO;RELTYPE=X-IDX-CAL;redical//IndexedCalendar_Two"),
+                        build_property_from_ical!(RelatedToProperty, "RELATED-TO;RELTYPE=X-IDX-CAL;redical//IndexedCalendar_Three"),
+                        build_property_from_ical!(RelatedToProperty, "RELATED-TO;RELTYPE=PARENT;ParentUID_One"),
+                        build_property_from_ical!(RelatedToProperty, "RELATED-TO;RELTYPE=PARENT;ParentUID_Two"),
+                        build_property_from_ical!(RelatedToProperty, "RELATED-TO;RELTYPE=CHILD;ChildUID"),
                     ])),
                     categories: None
                 },

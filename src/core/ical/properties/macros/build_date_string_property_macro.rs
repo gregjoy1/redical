@@ -1,6 +1,7 @@
 #[macro_export]
 macro_rules! build_date_string_property {
     ($property_name:expr, $property_struct:ident) => {
+        use std::hash::{Hash, Hasher};
         use std::collections::HashMap;
 
         use rrule::Tz;
@@ -23,7 +24,7 @@ macro_rules! build_date_string_property {
             SerializedValue,
         };
 
-        #[derive(Debug, PartialEq)]
+        #[derive(Debug, Eq, PartialEq, Clone)]
         pub enum ValueType {
             DateTime,
             Date,
@@ -38,12 +39,20 @@ macro_rules! build_date_string_property {
             }
         }
 
-        #[derive(Debug, PartialEq)]
+        #[derive(Debug, PartialEq, Clone)]
         pub struct $property_struct {
-            timezone: Option<Tz>,
-            value_type: Option<ValueType>,
-            utc_timestamp: i64,
-            x_params: Option<HashMap<String, Vec<String>>>,
+            pub timezone: Option<Tz>,
+            pub value_type: Option<ValueType>,
+            pub utc_timestamp: i64,
+            pub x_params: Option<HashMap<String, Vec<String>>>,
+        }
+
+        impl Eq for $property_struct {}
+
+        impl Hash for $property_struct {
+            fn hash<H: Hasher>(&self, state: &mut H) {
+                self.serialize_to_ical().hash(state);
+            }
         }
 
         impl SerializableICalProperty for $property_struct {

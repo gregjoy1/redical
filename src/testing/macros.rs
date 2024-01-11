@@ -11,3 +11,12 @@ macro_rules! assert_where_conditional_analysis {
 }
 
 pub use assert_where_conditional_analysis;
+
+#[macro_export]
+macro_rules! build_property_from_ical {
+    ($property_struct: ident, $property_ical: expr) => {
+        $property_struct::parse_ical($property_ical).unwrap().1
+    }
+}
+
+pub use build_property_from_ical;
