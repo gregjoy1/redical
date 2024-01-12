@@ -6,6 +6,7 @@ use nom::{
     multi::separated_list1,
     sequence::terminated,
 };
+
 use std::str::FromStr;
 
 use crate::core::ical::parser::common::ParserResult;

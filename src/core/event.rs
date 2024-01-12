@@ -8,6 +8,7 @@ use crate::core::ical::properties::{
     ExDateProperty, ExRuleProperty, GeoProperty, Properties, Property, RDateProperty,
     RRuleProperty, RelatedToProperty,
 };
+
 use crate::core::ical::serializer::SerializableICalProperty;
 
 use crate::core::parsers::datetime::{datestring_to_date, ParseError};

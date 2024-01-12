@@ -5,6 +5,8 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 
 use crate::core::{Event, EventOccurrenceOverride, GeoPoint, IndexedConclusion, KeyValuePair};
 
+use crate::core::ical::serializer::SerializableICalProperty;
+
 use crate::core::event_occurrence_iterator::{
     EventOccurrenceIterator, LowerBoundFilterCondition, UpperBoundFilterCondition,
 };
@@ -84,7 +86,7 @@ impl EventInstance {
             }
         }
 
-        event.indexed_properties.geo.clone()
+        event.indexed_properties.geo.and_then(|geo_property| Some(GeoPoint::from(geo_property)))
     }
 
     fn get_categories(
@@ -97,7 +99,7 @@ impl EventInstance {
             }
         }
 
-        event.indexed_properties.categories.clone()
+        event.indexed_properties.extract_all_category_strings()
     }
 
     fn get_related_to(
@@ -110,7 +112,21 @@ impl EventInstance {
             }
         }
 
-        event.indexed_properties.related_to.clone()
+        if let Some(event_related_to) = event.indexed_properties.related_to {
+            let mut related_to_map = HashMap::new();
+
+            for related_to_property in event_related_to {
+                related_to_map.entry(related_to_property.get_reltype())
+                              .and_modify(|uid_set: &mut HashSet<String>| {
+                                  uid_set.insert(related_to_property.uid);
+                              })
+                              .or_insert(HashSet::from([related_to_property.uid]));
+            }
+
+            return Some(related_to_map);
+        }
+
+        None
     }
 
     // This gets all the product of all the passive properties overridden by property name.
@@ -132,17 +148,10 @@ impl EventInstance {
         // If not found:
         //  Add the base event property
         for base_property in &event.passive_properties.properties {
-            match passive_properties
-                .iter()
-                .find(|passive_property| passive_property.key == base_property.key)
-            {
-                Some(_) => {
-                    continue;
-                }
+            let base_property_key_value_pair = base_property.to_key_value_pair();
 
-                None => {
-                    passive_properties.insert(base_property.clone());
-                }
+            if passive_properties.into_iter().find(|passive_property| passive_property.key == base_property_key_value_pair.key).is_none() {
+                passive_properties.insert(base_property_key_value_pair);
             }
         }
 
@@ -266,8 +275,6 @@ impl<'a> Iterator for EventInstanceIterator<'a> {
 #[cfg(test)]
 mod test {
     use super::*;
-
-    use crate::core::{IndexedProperties, PassiveProperties, ScheduleProperties};
 
     use crate::testing::utils::{build_event_and_overrides_from_ical, build_event_from_ical};
     use pretty_assertions_sorted::{assert_eq, assert_eq_sorted};

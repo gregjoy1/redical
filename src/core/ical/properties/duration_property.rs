@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::hash::{Hash, Hasher};
 
 use nom::{
     bytes::complete::tag,
@@ -28,11 +27,7 @@ pub struct DurationProperty {
     pub x_params: Option<HashMap<String, Vec<String>>>,
 }
 
-impl Hash for DurationProperty {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.serialize_to_ical().hash(state);
-    }
-}
+implement_property_ord_partial_ord_and_hash_traits!(DurationProperty);
 
 impl SerializableICalProperty for DurationProperty {
     fn serialize_to_split_ical(&self) -> (String, Option<Vec<(String, String)>>, SerializedValue) {

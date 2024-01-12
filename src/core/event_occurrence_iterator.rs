@@ -366,28 +366,23 @@ mod test {
 
     use crate::core::KeyValuePair;
 
+    use crate::core::ical::properties::{DTEndProperty, DTStartProperty, RRuleProperty};
+
+    use crate::testing::macros::build_property_from_ical;
+
     use std::collections::{BTreeMap, HashSet};
 
     use pretty_assertions_sorted::assert_eq;
 
     fn build_schedule_properties() -> ScheduleProperties {
         let mut schedule_properties = ScheduleProperties {
-            rrule: Some(KeyValuePair::new(
-                String::from("RRULE"),
-                String::from(":FREQ=SECONDLY;COUNT=10;INTERVAL=100"),
-            )),
+            rrule: Some(build_property_from_ical!(RRuleProperty, "RRULE:FREQ=SECONDLY;COUNT=10;INTERVAL=100")),
             exrule: None,
-            rdate: None,
-            exdate: None,
+            rdates: None,
+            exdates: None,
             duration: None,
-            dtstart: Some(KeyValuePair::new(
-                String::from("DTSTART"),
-                String::from(":19700101T000000Z"),
-            )),
-            dtend: Some(KeyValuePair::new(
-                String::from("DTEND"),
-                String::from(":19700101T000005Z"),
-            )),
+            dtstart: Some(build_property_from_ical!(DTStartProperty, "DTSTART:19700101T000000Z")),
+            dtend: Some(build_property_from_ical!(DTEndProperty, "DTEND:19700101T000005Z")),
             parsed_rrule_set: None,
         };
 
@@ -494,25 +489,33 @@ mod test {
         assert_eq!(event_occurrence_iterator.next(), Some((0, 5, None)));
         assert_eq!(event_occurrence_iterator.next(), Some((100, 105, None)));
         assert_eq!(event_occurrence_iterator.next(), Some((200, 205, None)));
+
         assert_eq!(
             event_occurrence_iterator.next(),
             Some((300, 305, Some(build_event_occurrence_override_300())))
         );
+
         assert_eq!(event_occurrence_iterator.next(), Some((400, 405, None)));
+
         assert_eq!(
             event_occurrence_iterator.next(),
             Some((500, 510, Some(build_event_occurrence_override_500())))
         );
+
         assert_eq!(event_occurrence_iterator.next(), Some((600, 605, None)));
+
         assert_eq!(
             event_occurrence_iterator.next(),
             Some((700, 705, Some(build_event_occurrence_override_700())))
         );
+
         assert_eq!(event_occurrence_iterator.next(), Some((800, 805, None)));
+
         assert_eq!(
             event_occurrence_iterator.next(),
             Some((900, 915, Some(build_event_occurrence_override_900())))
         );
+
         assert_eq!(event_occurrence_iterator.next(), None);
     }
 
@@ -568,10 +571,12 @@ mod test {
         .unwrap();
 
         assert_eq!(event_occurrence_iterator.next(), Some((800, 805, None)));
+
         assert_eq!(
             event_occurrence_iterator.next(),
             Some((900, 915, Some(build_event_occurrence_override_900())))
         );
+
         assert_eq!(event_occurrence_iterator.next(), None);
     }
 
@@ -625,6 +630,7 @@ mod test {
             event_occurrence_iterator.next(),
             Some((300, 305, Some(build_event_occurrence_override_300())))
         );
+
         assert_eq!(event_occurrence_iterator.next(), Some((400, 405, None)));
         assert_eq!(event_occurrence_iterator.next(), None);
     }
@@ -657,6 +663,7 @@ mod test {
             event_occurrence_iterator.next(),
             Some((300, 305, Some(build_event_occurrence_override_300())))
         );
+
         assert_eq!(event_occurrence_iterator.next(), Some((400, 405, None)));
         assert_eq!(event_occurrence_iterator.next(), None);
     }
@@ -685,6 +692,7 @@ mod test {
             Some(IndexedConclusion::Include(Some(HashSet::from([300])))),
         )
         .unwrap();
+
         assert_eq!(event_occurrence_iterator.next(), Some((400, 405, None)));
         assert_eq!(event_occurrence_iterator.next(), None);
     }
@@ -745,6 +753,7 @@ mod test {
             event_occurrence_iterator.next(),
             Some((300, 305, Some(build_event_occurrence_override_300())))
         );
+
         assert_eq!(event_occurrence_iterator.next(), None);
     }
 
@@ -752,22 +761,13 @@ mod test {
     fn test_event_occurrence_iterator_handle_expensive_runaway_indexed_conclusion_exclude_exceptions(
     ) {
         let mut schedule_properties = ScheduleProperties {
-            rrule: Some(KeyValuePair::new(
-                String::from("RRULE"),
-                String::from(":FREQ=SECONDLY;INTERVAL=100"),
-            )),
+            rrule: Some(build_property_from_ical!(RRuleProperty, "RRULE:FREQ=SECONDLY;INTERVAL=100")),
             exrule: None,
-            rdate: None,
-            exdate: None,
+            rdates: None,
+            exdates: None,
             duration: None,
-            dtstart: Some(KeyValuePair::new(
-                String::from("DTSTART"),
-                String::from(":19700101T000000Z"),
-            )),
-            dtend: Some(KeyValuePair::new(
-                String::from("DTEND"),
-                String::from(":19700101T000005Z"),
-            )),
+            dtstart: Some(build_property_from_ical!(DTStartProperty, "DTSTART:19700101T000000Z")),
+            dtend: Some(build_property_from_ical!(DTEndProperty, "DTEND:19700101T000005Z")),
             parsed_rrule_set: None,
         };
 

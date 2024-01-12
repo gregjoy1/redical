@@ -1,7 +1,6 @@
 #[macro_export]
 macro_rules! build_date_string_property {
     ($property_name:expr, $property_struct:ident) => {
-        use std::hash::{Hash, Hasher};
         use std::collections::HashMap;
 
         use rrule::Tz;
@@ -49,11 +48,7 @@ macro_rules! build_date_string_property {
 
         impl Eq for $property_struct {}
 
-        impl Hash for $property_struct {
-            fn hash<H: Hasher>(&self, state: &mut H) {
-                self.serialize_to_ical().hash(state);
-            }
-        }
+        implement_property_ord_partial_ord_and_hash_traits!($property_struct);
 
         impl SerializableICalProperty for $property_struct {
             fn serialize_to_split_ical(&self) -> (String, Option<Vec<(String, String)>>, SerializedValue) {

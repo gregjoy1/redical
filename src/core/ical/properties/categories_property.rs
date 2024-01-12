@@ -1,5 +1,4 @@
 use std::collections::{HashMap, HashSet};
-use std::hash::{Hash, Hasher};
 
 use nom::{
     branch::alt,
@@ -26,11 +25,7 @@ pub struct CategoriesProperty {
     pub x_params: Option<HashMap<String, Vec<String>>>,
 }
 
-impl Hash for CategoriesProperty {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.serialize_to_ical().hash(state);
-    }
-}
+implement_property_ord_partial_ord_and_hash_traits!(CategoriesProperty);
 
 impl SerializableICalProperty for CategoriesProperty {
     fn serialize_to_split_ical(&self) -> (String, Option<Vec<(String, String)>>, SerializedValue) {

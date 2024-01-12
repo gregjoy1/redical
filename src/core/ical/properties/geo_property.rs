@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::hash::{Hash, Hasher};
 
 use nom::{
     branch::alt,
@@ -36,11 +35,7 @@ impl PartialEq for GeoProperty {
 
 impl Eq for GeoProperty {}
 
-impl Hash for GeoProperty {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.serialize_to_ical().hash(state);
-    }
-}
+implement_property_ord_partial_ord_and_hash_traits!(GeoProperty);
 
 impl SerializableICalProperty for GeoProperty {
     fn serialize_to_split_ical(&self) -> (String, Option<Vec<(String, String)>>, SerializedValue) {

@@ -1,7 +1,6 @@
 #[macro_export]
 macro_rules! build_rrule_property {
     ($property_name:expr, $property_struct:ident) => {
-        use std::hash::{Hash, Hasher};
         use rrule::Tz;
 
         use std::collections::HashMap;
@@ -45,11 +44,7 @@ macro_rules! build_rrule_property {
             pub x_params: Option<HashMap<String, Vec<String>>>,
         }
 
-        impl Hash for $property_struct {
-            fn hash<H: Hasher>(&self, state: &mut H) {
-                self.serialize_to_ical().hash(state);
-            }
-        }
+        implement_property_ord_partial_ord_and_hash_traits!($property_struct);
 
         impl SerializableICalProperty for $property_struct {
             fn serialize_to_split_ical(&self) -> (String, Option<Vec<(String, String)>>, SerializedValue) {

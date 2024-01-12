@@ -27,11 +27,7 @@ pub struct LocationProperty {
     pub x_params: Option<HashMap<String, Vec<String>>>,
 }
 
-impl Hash for LocationProperty {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.serialize_to_ical().hash(state);
-    }
-}
+implement_property_ord_partial_ord_and_hash_traits!(LocationProperty);
 
 impl SerializableICalProperty for LocationProperty {
     fn serialize_to_split_ical(&self) -> (String, Option<Vec<(String, String)>>, SerializedValue) {

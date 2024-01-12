@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::hash::{Hash, Hasher};
 
 use nom::{
     branch::alt,
@@ -26,11 +25,7 @@ pub struct RelatedToProperty {
     pub x_params: Option<HashMap<String, Vec<String>>>,
 }
 
-impl Hash for RelatedToProperty {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.serialize_to_ical().hash(state);
-    }
-}
+implement_property_ord_partial_ord_and_hash_traits!(RelatedToProperty);
 
 impl SerializableICalProperty for RelatedToProperty {
     fn serialize_to_split_ical(&self) -> (String, Option<Vec<(String, String)>>, SerializedValue) {
@@ -73,6 +68,10 @@ impl SerializableICalProperty for RelatedToProperty {
 impl RelatedToProperty {
     const NAME: &'static str = "RELATED-TO";
     const DEFAULT_RELTYPE: &'static str = "PARENT";
+
+    pub fn get_reltype(&self) -> String {
+        self.reltype.unwrap_or(String::from(Self::DEFAULT_RELTYPE))
+    }
 
     // reltypeparam       = "RELTYPE" "="
     //                     ("PARENT"      ; Parent relationship. Default.
