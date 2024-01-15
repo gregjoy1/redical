@@ -62,7 +62,7 @@ fn rebase_override(
             }
 
             None => {
-                event_occurrence_override.categories.insert(indexed_categories.added.clone());
+                event_occurrence_override.categories = Some(indexed_categories.added.clone());
             }
         };
     }
@@ -100,7 +100,7 @@ fn rebase_override(
                         .or_insert(HashSet::from([added_reltype_uid_pair.value.clone()]));
                 }
 
-                event_occurrence_override.related_to.insert(overridden_related_to);
+                event_occurrence_override.related_to = Some(overridden_related_to);
             }
         };
     }
@@ -118,7 +118,7 @@ fn rebase_override(
             }
 
             None => {
-                event_occurrence_override.properties.insert(BTreeSet::from_iter(
+                event_occurrence_override.properties = Some(BTreeSet::from_iter(
                     indexed_passive_properties
                         .added
                         .iter()
@@ -211,27 +211,27 @@ impl ScheduleProperties {
 
     pub fn insert(&mut self, property: Property) -> Result<&Self, String> {
         match property {
-            Property::RRule(property) => { self.rrule.insert(property); },
-            Property::ExRule(property) => { self.exrule.insert(property); },
-            Property::DTStart(property) => { self.dtstart.insert(property); },
-            Property::DTEnd(property) => { self.dtend.insert(property); },
+            Property::RRule(property) => { self.rrule = Some(property); },
+            Property::ExRule(property) => { self.exrule = Some(property); },
+            Property::DTStart(property) => { self.dtstart = Some(property); },
+            Property::DTEnd(property) => { self.dtend = Some(property); },
 
             Property::RDate(property) => {
                 match &mut self.rdates {
                     Some(rdates) => { rdates.insert(property); },
-                    None => { self.rdates.insert(HashSet::from([property])); }
+                    None => { self.rdates = Some(HashSet::from([property])); }
                 }
             },
 
             Property::ExDate(property) => {
                 match &mut self.exdates {
                     Some(exdates) => { exdates.insert(property); },
-                    None => { self.exdates.insert(HashSet::from([property])); }
+                    None => { self.exdates = Some(HashSet::from([property])); }
                 }
             },
 
             Property::Duration(property) => {
-                self.duration.insert(property);
+                self.duration = Some(property);
             },
 
             _ => {
@@ -347,7 +347,7 @@ impl ScheduleProperties {
     pub fn build_parsed_rrule_set(&mut self) -> Result<(), rrule::RRuleError> {
         let parsed_rrule_set = self.parse_rrule()?;
 
-        self.parsed_rrule_set.insert(parsed_rrule_set);
+        self.parsed_rrule_set = Some(parsed_rrule_set);
 
         Ok(())
     }
