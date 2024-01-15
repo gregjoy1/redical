@@ -86,7 +86,7 @@ impl EventInstance {
             }
         }
 
-        event.indexed_properties.geo.and_then(|geo_property| Some(GeoPoint::from(geo_property)))
+        event.indexed_properties.geo.as_ref().and_then(|geo_property| Some(GeoPoint::from(geo_property)))
     }
 
     fn get_categories(
@@ -112,15 +112,15 @@ impl EventInstance {
             }
         }
 
-        if let Some(event_related_to) = event.indexed_properties.related_to {
+        if let Some(event_related_to) = event.indexed_properties.related_to.as_ref() {
             let mut related_to_map = HashMap::new();
 
             for related_to_property in event_related_to {
                 related_to_map.entry(related_to_property.get_reltype())
                               .and_modify(|uid_set: &mut HashSet<String>| {
-                                  uid_set.insert(related_to_property.uid);
+                                  uid_set.insert(related_to_property.uid.clone());
                               })
-                              .or_insert(HashSet::from([related_to_property.uid]));
+                              .or_insert(HashSet::from([related_to_property.uid.clone()]));
             }
 
             return Some(related_to_map);
@@ -150,7 +150,7 @@ impl EventInstance {
         for base_property in &event.passive_properties.properties {
             let base_property_key_value_pair = base_property.to_key_value_pair();
 
-            if passive_properties.into_iter().find(|passive_property| passive_property.key == base_property_key_value_pair.key).is_none() {
+            if passive_properties.iter().find(|passive_property| passive_property.key == base_property_key_value_pair.key).is_none() {
                 passive_properties.insert(base_property_key_value_pair);
             }
         }

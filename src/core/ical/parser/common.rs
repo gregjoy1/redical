@@ -13,6 +13,8 @@ impl UnicodeSegmentation for &str {
     }
 }
 
+use chrono_tz::Tz;
+
 use std::collections::HashMap;
 
 use crate::core::ical::parser::datetime::{parse_timezone, ParsedDateString};
@@ -62,7 +64,7 @@ pub enum ParsedValue<'a> {
     GeoDistance(GeoDistance),
     Params(HashMap<&'a str, ParsedValue<'a>>),
     DateString(ParsedDateString),
-    TimeZone(rrule::Tz),
+    TimeZone(Tz),
     Duration(ParsedDuration),
 }
 
@@ -228,7 +230,7 @@ impl<'a> ParsedValue<'a> {
         }
     }
 
-    pub fn expect_timezone(&'a self) -> rrule::Tz {
+    pub fn expect_timezone(&'a self) -> Tz {
         if let ParsedValue::TimeZone(parsed_value) = self {
             parsed_value.clone()
         } else {
@@ -819,12 +821,12 @@ mod test {
 
         assert_eq!(
             ParsedValue::parse_timezone("UTC"),
-            Ok(("", ParsedValue::TimeZone(rrule::Tz::UTC,)))
+            Ok(("", ParsedValue::TimeZone(Tz::UTC,)))
         );
 
         assert_eq!(
             ParsedValue::parse_timezone("Europe/London"),
-            Ok(("", ParsedValue::TimeZone(rrule::Tz::Europe__London,)))
+            Ok(("", ParsedValue::TimeZone(Tz::Europe__London,)))
         );
 
         assert_eq!(

@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use crate::core::inverted_index::{IndexedConclusion, InvertedCalendarIndex};
@@ -8,9 +9,7 @@ use crate::core::geo_index::{GeoPoint, GeoSpatialCalendarIndex};
 
 use crate::core::event::Event;
 
-// use serde::{Deserialize, Serialize};
-// #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Calendar {
     pub uid: String,
     pub events: HashMap<String, Event>,

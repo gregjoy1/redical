@@ -1,7 +1,8 @@
 #[macro_export]
 macro_rules! build_rrule_property {
     ($property_name:expr, $property_struct:ident) => {
-        use rrule::Tz;
+        use serde::{Deserialize, Serialize};
+        use chrono_tz::Tz;
 
         use std::collections::HashMap;
 
@@ -23,7 +24,7 @@ macro_rules! build_rrule_property {
             SerializedValue,
         };
 
-        #[derive(Debug, Eq, PartialEq, Clone)]
+        #[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone)]
         pub struct $property_struct {
             pub freq: String,
             pub interval: usize,
@@ -502,7 +503,7 @@ macro_rules! build_rrule_property {
                                 }
 
                                 "UNTIL" => {
-                                    match value.expect_date_string().to_date(Some(Tz::UTC), "UNTIL") {
+                                    match value.expect_date_string().to_date(Some(rrule::Tz::UTC), "UNTIL") {
                                         Ok(parsed_datetime) => {
                                             let _ = until_utc_timestamp.insert(parsed_datetime.timestamp());
                                         }

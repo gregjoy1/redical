@@ -208,10 +208,10 @@ where
             terms: HashMap::new(),
         };
 
-        if let Some(categories_properties) = event.indexed_properties.categories {
+        if let Some(categories_properties) = event.indexed_properties.categories.as_ref() {
             for categories_property in categories_properties {
-                for category in categories_property.categories {
-                    indexed_categories.insert(&category);
+                for category in &categories_property.categories {
+                    indexed_categories.insert(category);
                 }
             }
         }
@@ -230,7 +230,7 @@ where
             terms: HashMap::new(),
         };
 
-        if let Some(related_to_properties) = event.indexed_properties.related_to {
+        if let Some(related_to_properties) = event.indexed_properties.related_to.as_ref() {
             for related_to_property in related_to_properties {
                 indexed_related_to.insert(&related_to_property.to_key_value_pair());
             }
@@ -251,7 +251,7 @@ where
             terms: HashMap::new(),
         };
 
-        if let Some(geo_property) = event.indexed_properties.geo {
+        if let Some(geo_property) = event.indexed_properties.geo.as_ref() {
             indexed_geo.insert(&GeoPoint::from(geo_property));
         }
 
@@ -271,7 +271,7 @@ where
             terms: HashMap::new(),
         };
 
-        if let Some(class_property) = event.indexed_properties.class {
+        if let Some(class_property) = event.indexed_properties.class.as_ref() {
             indexed_class.insert(&class_property.class);
         }
 

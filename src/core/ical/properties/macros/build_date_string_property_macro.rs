@@ -1,9 +1,10 @@
 #[macro_export]
 macro_rules! build_date_string_property {
     ($property_name:expr, $property_struct:ident) => {
+        use serde::{Deserialize, Serialize};
         use std::collections::HashMap;
 
-        use rrule::Tz;
+        use chrono_tz::Tz;
 
         use nom::{
             branch::alt,
@@ -23,7 +24,7 @@ macro_rules! build_date_string_property {
             SerializedValue,
         };
 
-        #[derive(Debug, Eq, PartialEq, Clone)]
+        #[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone)]
         pub enum ValueType {
             DateTime,
             Date,
@@ -38,7 +39,7 @@ macro_rules! build_date_string_property {
             }
         }
 
-        #[derive(Debug, PartialEq, Clone)]
+        #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
         pub struct $property_struct {
             pub timezone: Option<Tz>,
             pub value_type: Option<ValueType>,
@@ -160,7 +161,12 @@ macro_rules! build_date_string_property {
 
                         let parsed_date_string = parsed_value.expect_date_string();
 
-                        let utc_timestamp = match parsed_date_string.to_date(timezone, Self::NAME) {
+                        // TODO: Clean up use of rrule::Tz over chrono_tz::Tz
+                        // NOTE: rrule::Tz is just an enum wrapper over chrono_tz::Tz except it
+                        //       does not have any implemented Serde serialization.
+                        let parsed_timezone = timezone.and_then(|timezone| Some(rrule::Tz::Tz(timezone)));
+
+                        let utc_timestamp = match parsed_date_string.to_date(parsed_timezone, Self::NAME) {
                             Ok(datetime) => datetime.timestamp(),
                             Err(_error) => {
                                 return Err(nom::Err::Error(VerboseError {

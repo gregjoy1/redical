@@ -1,5 +1,5 @@
 use chrono::TimeZone;
-use rrule::Tz;
+use chrono_tz::Tz;
 
 use crate::core::ical::parser::common::ParserResult;
 use crate::core::utils::KeyValuePair;
@@ -16,7 +16,7 @@ pub fn serialize_timestamp_to_ical_datetime(utc_timestamp: &i64, timezone: &Tz) 
 
     let local_datetime = timezone.timestamp_opt(utc_timestamp.clone(), 0).unwrap();
 
-    if matches!(timezone, Tz::Tz(chrono_tz::UTC)) {
+    if timezone == &Tz::UTC {
         timezone_postfix = "Z".to_string();
     }
 

@@ -19,19 +19,6 @@ lazy_static! {
             .expect("FLOATING_DATESTR_RE regex failed");
 }
 
-pub fn extract_and_parse_timezone_from_str(val: &str) -> Result<Option<Tz>, ParseError> {
-    if let Some(captures) = TZID_TZSTR_RE.captures(val) {
-        let timezone_capture = &captures["timezone"];
-
-        return match parse_timezone(timezone_capture) {
-            Ok(parsed_timezone) => Ok(Some(parsed_timezone)),
-            Err(error) => Err(error),
-        };
-    }
-
-    Ok(None)
-}
-
 // DateTime parsing utility function below (and all dependencies) extracted and copied out of the rust-rrule
 // crate.
 
@@ -193,7 +180,7 @@ impl ParsedDateString {
         let day = self.day.clone();
         let time = self.time.clone();
         let flags = self.flags.clone();
-        let dt = self.dt.as_str().clone();
+        let dt = self.dt.as_str();
 
         // Combine parts to create data time.
         let date = NaiveDate::from_ymd_opt(year, month, day).ok_or_else(|| {
@@ -284,10 +271,9 @@ pub type DateTime = chrono::DateTime<Tz>;
 use chrono::{NaiveDate, TimeZone};
 
 /// Attempts to convert a `str` to a `chrono_tz::Tz`.
-pub(crate) fn parse_timezone(tz: &str) -> Result<Tz, ParseError> {
+pub(crate) fn parse_timezone(tz: &str) -> Result<chrono_tz::Tz, ParseError> {
     chrono_tz::Tz::from_str(tz)
         .map_err(|_| ParseError::InvalidTimezone(tz.into()))
-        .map(Tz::Tz)
 }
 
 /// Convert a datetime string and a timezone to a `chrono::DateTime<Tz>`.
@@ -473,54 +459,6 @@ mod tests {
             Err(ParseError::InvalidDateTimeFormat(String::from(
                 "DTEND:197001_"
             )))
-        );
-    }
-
-    #[test]
-    fn test_extract_and_parse_timezone_from_str() {
-        assert_eq!(
-            extract_and_parse_timezone_from_str("DTEND;TZID=America/New_York:19700101T000830Z"),
-            Ok(Some(Tz::America__New_York))
-        );
-
-        assert_eq!(
-            extract_and_parse_timezone_from_str("DTEND;TZID=EST5EDT:19700101T000830Z"),
-            Ok(Some(Tz::EST5EDT))
-        );
-
-        assert_eq!(
-            extract_and_parse_timezone_from_str("DTEND;TZID=Etc/GMT:19700101T000830Z"),
-            Ok(Some(Tz::Etc__GMT))
-        );
-
-        assert_eq!(
-            extract_and_parse_timezone_from_str("DTEND;TZID=Etc/GMT+0:19700101T000830Z"),
-            Ok(Some(Tz::Etc__GMTPlus0))
-        );
-
-        assert_eq!(
-            extract_and_parse_timezone_from_str("DTEND;TZID=Etc/GMT-6:19700101T000830Z"),
-            Ok(Some(Tz::Etc__GMTMinus6))
-        );
-
-        assert_eq!(
-            extract_and_parse_timezone_from_str("DTEND;TZID=UTC:19700101T000830Z"),
-            Ok(Some(Tz::UTC))
-        );
-
-        assert_eq!(
-            extract_and_parse_timezone_from_str("DTEND;TZID=Zulu:19700101T000830Z"),
-            Ok(Some(Tz::Zulu))
-        );
-
-        assert_eq!(
-            extract_and_parse_timezone_from_str("DTEND:197001_"),
-            Ok(None)
-        );
-
-        assert_eq!(
-            extract_and_parse_timezone_from_str("DTEND;TZID=Etc/GAAss:19700101T000830Z"),
-            Err(ParseError::InvalidTimezone(String::from("Etc/GAAss")))
         );
     }
 }

@@ -1,7 +1,9 @@
+use serde::{Deserialize, Serialize};
+
 use nom::{
     branch::alt,
     bytes::complete::tag,
-    combinator::{map, opt},
+    combinator::{map, opt, all_consuming},
     error::{context, convert_error},
     multi::separated_list1,
     sequence::terminated,
@@ -9,11 +11,11 @@ use nom::{
 
 use std::str::FromStr;
 
-use crate::core::ical::parser::common::ParserResult;
+use crate::core::ical::parser::common::{white_space1, ParserResult};
 use crate::core::ical::properties::*;
 use crate::core::ical::serializer::{SerializableICalProperty, SerializedValue};
 
-#[derive(Debug, Eq, PartialEq, Clone, Ord, PartialOrd)]
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone, Ord, PartialOrd)]
 pub enum Property {
     // TODO: Implement "CALSCALE"
     // TODO: Implement "METHOD"
@@ -144,10 +146,9 @@ impl FromStr for Properties {
     type Err = String;
 
     fn from_str(input: &str) -> Result<Self, Self::Err> {
-        let parsed_properties = terminated(
-            separated_list1(tag(" "), Property::parse_ical),
-            opt(tag(" ")),
-        )(input);
+        let parsed_properties = all_consuming(separated_list1(white_space1, Property::parse_ical))(input);
+
+        dbg!(&parsed_properties);
 
         match parsed_properties {
             Ok((_remaining, properties)) => Ok(Properties(properties)),

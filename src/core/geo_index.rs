@@ -153,6 +153,13 @@ impl From<GeoProperty> for GeoPoint {
     }
 }
 
+impl From<&GeoProperty> for GeoPoint {
+    #[inline]
+    fn from(property: &GeoProperty) -> Self {
+        GeoPoint::new(property.longitude, property.latitude)
+    }
+}
+
 impl From<(f64, f64)> for GeoPoint {
     #[inline]
     fn from(coords: (f64, f64)) -> Self {

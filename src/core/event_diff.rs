@@ -98,19 +98,20 @@ impl EventDiff {
     ) -> Option<UpdatedSetMembers<KeyValuePair>> {
         // TODO: Improve this to be 0 copy
         let original_passive_properties = Some(
-            &original_event
+            original_event
                 .passive_properties
                 .extract_properties_key_value_pairs(),
         );
+
         let updated_passive_properties = Some(
-            &updated_event
+            updated_event
                 .passive_properties
                 .extract_properties_key_value_pairs(),
         );
 
         Some(UpdatedSetMembers::new(
-            original_passive_properties,
-            updated_passive_properties,
+            original_passive_properties.as_ref(),
+            updated_passive_properties.as_ref(),
         ))
     }
 
@@ -212,14 +213,18 @@ mod test {
     use super::*;
 
     use crate::testing::macros::build_property_from_ical;
-    use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+
+    use std::collections::{BTreeMap, BTreeSet, HashSet};
 
     use crate::core::ical::properties::{
-        CategoriesProperty, ClassProperty, DTEndProperty, DTStartProperty, DescriptionProperty,
+        CategoriesProperty, ClassProperty, DTStartProperty, DescriptionProperty,
         DurationProperty, ExDateProperty, ExRuleProperty, GeoProperty, Property, RDateProperty,
         RRuleProperty, RelatedToProperty,
     };
+
     use crate::core::{IndexedProperties, KeyValuePair, PassiveProperties, ScheduleProperties};
+
+    use pretty_assertions_sorted::assert_eq;
 
     #[test]
     fn test_event_diff() {
@@ -278,7 +283,7 @@ mod test {
             schedule_properties: ScheduleProperties {
                 rrule: Some(build_property_from_ical!(
                     RRuleProperty,
-                    "RRULE:FREQ=DAILY;UNTIL=20230331T183000Z;INTERVAL=1"
+                    "RRULE:FREQ=DAILY;UNTIL=20230330T183000Z;INTERVAL=1"
                 )),
                 exrule: None,
                 rdates: None,
@@ -286,7 +291,7 @@ mod test {
                 duration: None,
                 dtstart: Some(build_property_from_ical!(
                     DTStartProperty,
-                    "DTSTART:20201231T183000Z"
+                    "DTSTART:20201230T183000Z"
                 )),
                 dtend: None,
                 parsed_rrule_set: None,
@@ -308,7 +313,7 @@ mod test {
             passive_properties: PassiveProperties {
                 properties: BTreeSet::from([Property::Description(build_property_from_ical!(
                     DescriptionProperty,
-                    "DESCRIPTION:The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA"
+                    "DESCRIPTION:Testing updated description text"
                 ))]),
             },
 
@@ -345,13 +350,13 @@ mod test {
                     maintained: HashSet::new(),
                     added: HashSet::from([KeyValuePair {
                         key: String::from("DESCRIPTION"),
-                        value: String::from("Testing description text.")
+                        value: String::from(":Testing updated description text")
                     }])
                 }),
                 schedule_properties: Some(SchedulePropertiesDiff {
                     rrule: Some(UpdatedAttribute::Added(KeyValuePair::new(
                         String::from("RRULE"),
-                        String::from(":FREQ=DAILY;UNTIL=20230331T183000Z;INTERVAL=1"),
+                        String::from(":FREQ=DAILY;INTERVAL=1;UNTIL=20230330T183000Z"),
                     ))),
                     exrule: None,
                     rdate: None,
@@ -359,7 +364,7 @@ mod test {
                     duration: None,
                     dtstart: Some(UpdatedAttribute::Added(KeyValuePair::new(
                         String::from("DTSTART"),
-                        String::from(":20201231T183000Z"),
+                        String::from(":20201230T183000Z"),
                     ))),
                     dtend: None
                 })
@@ -373,7 +378,7 @@ mod test {
             schedule_properties: ScheduleProperties {
                 rrule: Some(build_property_from_ical!(
                     RRuleProperty,
-                    "RRULE:FREQ=DAILY;UNTIL=20230231T183000Z;INTERVAL=1"
+                    "RRULE:FREQ=DAILY;UNTIL=20230130T183000Z;INTERVAL=1"
                 )),
                 exrule: None,
                 rdates: None,
@@ -381,7 +386,7 @@ mod test {
                 duration: None,
                 dtstart: Some(build_property_from_ical!(
                     DTStartProperty,
-                    "DTSTART:20201131T183000Z"
+                    "DTSTART:20201130T183000Z"
                 )),
                 dtend: None,
                 parsed_rrule_set: None,
@@ -393,11 +398,11 @@ mod test {
                 related_to: Some(HashSet::from([
                     build_property_from_ical!(
                         RelatedToProperty,
-                        "RELATED-TO;RELTYPE=X-IDX-CAL;indexed_calendar_UID"
+                        "RELATED-TO;RELTYPE=X-IDX-CAL:indexed_calendar_UID"
                     ),
                     build_property_from_ical!(
                         RelatedToProperty,
-                        "RELATED-TO;RELTYPE=PARENT;another_event_UID"
+                        "RELATED-TO;RELTYPE=PARENT:another_event_UID"
                     ),
                 ])),
                 categories: Some(HashSet::from([build_property_from_ical!(
@@ -434,12 +439,12 @@ mod test {
                 indexed_related_to: Some(UpdatedSetMembers {
                     removed: HashSet::from([
                         KeyValuePair::new(
-                            String::from("X-IDX-CAL"),
-                            String::from("indexed_calendar_UID")
+                            String::from("RELATED-TO"),
+                            String::from(";RELTYPE=X-IDX-CAL:indexed_calendar_UID")
                         ),
                         KeyValuePair::new(
-                            String::from("PARENT"),
-                            String::from("another_event_UID")
+                            String::from("RELATED-TO"),
+                            String::from(";RELTYPE=PARENT:another_event_UID")
                         ),
                     ]),
                     maintained: HashSet::new(),
@@ -452,23 +457,23 @@ mod test {
                 passive_properties: Some(UpdatedSetMembers {
                     removed: HashSet::from([KeyValuePair {
                         key: String::from("DESCRIPTION"),
-                        value: String::from("Testing original description text."),
+                        value: String::from(":Testing original description text"),
                     }]),
                     maintained: HashSet::new(),
                     added: HashSet::from([KeyValuePair {
                         key: String::from("DESCRIPTION"),
-                        value: String::from("Testing description text."),
+                        value: String::from(":Testing updated description text"),
                     }])
                 }),
                 schedule_properties: Some(SchedulePropertiesDiff {
                     rrule: Some(UpdatedAttribute::Updated(
                         KeyValuePair::new(
                             String::from("RRULE"),
-                            String::from(":FREQ=DAILY;UNTIL=20230231T183000Z;INTERVAL=1"),
+                            String::from(":FREQ=DAILY;INTERVAL=1;UNTIL=20230130T183000Z"),
                         ),
                         KeyValuePair::new(
                             String::from("RRULE"),
-                            String::from(":FREQ=DAILY;UNTIL=20230331T183000Z;INTERVAL=1"),
+                            String::from(":FREQ=DAILY;INTERVAL=1;UNTIL=20230330T183000Z"),
                         )
                     )),
                     exrule: None,
@@ -478,11 +483,11 @@ mod test {
                     dtstart: Some(UpdatedAttribute::Updated(
                         KeyValuePair::new(
                             String::from("DTSTART"),
-                            String::from(":20201131T183000Z"),
+                            String::from(":20201130T183000Z"),
                         ),
                         KeyValuePair::new(
                             String::from("DTSTART"),
-                            String::from(":20201231T183000Z"),
+                            String::from(":20201230T183000Z"),
                         )
                     )),
                     dtend: None
@@ -507,12 +512,12 @@ mod test {
                 indexed_related_to: Some(UpdatedSetMembers {
                     removed: HashSet::from([
                         KeyValuePair::new(
-                            String::from("X-IDX-CAL"),
-                            String::from("indexed_calendar_UID")
+                            String::from("RELATED-TO"),
+                            String::from(";RELTYPE=X-IDX-CAL:indexed_calendar_UID")
                         ),
                         KeyValuePair::new(
-                            String::from("PARENT"),
-                            String::from("another_event_UID")
+                            String::from("RELATED-TO"),
+                            String::from(";RELTYPE=PARENT:another_event_UID")
                         ),
                     ]),
                     maintained: HashSet::new(),
@@ -523,7 +528,7 @@ mod test {
                 passive_properties: Some(UpdatedSetMembers {
                     removed: HashSet::from([KeyValuePair {
                         key: String::from("DESCRIPTION"),
-                        value: String::from("Testing original description text.")
+                        value: String::from(":Testing original description text")
                     }]),
                     maintained: HashSet::new(),
                     added: HashSet::new()
@@ -531,7 +536,7 @@ mod test {
                 schedule_properties: Some(SchedulePropertiesDiff {
                     rrule: Some(UpdatedAttribute::Removed(KeyValuePair::new(
                         String::from("RRULE"),
-                        String::from(":FREQ=DAILY;UNTIL=20230231T183000Z;INTERVAL=1"),
+                        String::from(":FREQ=DAILY;INTERVAL=1;UNTIL=20230130T183000Z"),
                     ))),
                     exrule: None,
                     rdate: None,
@@ -539,7 +544,7 @@ mod test {
                     duration: None,
                     dtstart: Some(UpdatedAttribute::Removed(KeyValuePair::new(
                         String::from("DTSTART"),
-                        String::from(":20201131T183000Z"),
+                        String::from(":20201130T183000Z"),
                     ))),
                     dtend: None
                 })

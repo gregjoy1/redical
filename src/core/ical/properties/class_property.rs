@@ -13,12 +13,13 @@ use nom::{
 use crate::core::ical::parser::common;
 use crate::core::ical::parser::common::ParserResult;
 use crate::core::ical::parser::macros::*;
-use crate::core::ical::parser::properties;
 use crate::core::ical::serializer::{
     quote_string_if_needed, SerializableICalProperty, SerializedValue,
 };
 
-#[derive(Debug, Eq, PartialEq, Clone)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone)]
 pub struct ClassProperty {
     pub class: String,
     pub x_params: Option<HashMap<String, Vec<String>>>,

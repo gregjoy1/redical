@@ -18,7 +18,9 @@ use crate::core::ical::serializer::{
     quote_string_if_needed, SerializableICalProperty, SerializedValue,
 };
 
-#[derive(Debug, Clone)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GeoProperty {
     pub latitude: f64,
     pub longitude: f64,

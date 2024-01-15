@@ -18,7 +18,9 @@ use crate::core::ical::serializer::{
     quote_string_if_needed, SerializableICalProperty, SerializedValue,
 };
 
-#[derive(Debug, Eq, PartialEq, Clone)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone)]
 pub struct XProperty {
     pub language: Option<String>,
     pub name: String,

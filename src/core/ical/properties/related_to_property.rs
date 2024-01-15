@@ -18,7 +18,9 @@ use crate::core::ical::serializer::{
     quote_string_if_needed, SerializableICalProperty, SerializedValue,
 };
 
-#[derive(Debug, Eq, PartialEq, Clone)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone)]
 pub struct RelatedToProperty {
     pub reltype: Option<String>,
     pub uid: String,
@@ -70,7 +72,7 @@ impl RelatedToProperty {
     const DEFAULT_RELTYPE: &'static str = "PARENT";
 
     pub fn get_reltype(&self) -> String {
-        self.reltype.unwrap_or(String::from(Self::DEFAULT_RELTYPE))
+        self.reltype.clone().unwrap_or(String::from(Self::DEFAULT_RELTYPE))
     }
 
     // reltypeparam       = "RELTYPE" "="
