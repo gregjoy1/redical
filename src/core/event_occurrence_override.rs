@@ -1,51 +1,48 @@
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 
-use crate::core::parsers::ical_common::ParsedValue;
-use crate::core::parsers::ical_properties::{parse_properties, ParsedProperty};
+use crate::core::event::{IndexedProperties, PassiveProperties};
 
-use crate::core::parsers::datetime::{
-    datestring_to_date, extract_and_parse_timezone_from_str, extract_datetime_from_str, ParseError,
+use crate::core::ical::serializer::SerializableICalProperty;
+
+use crate::core::ical::parser::datetime::{datestring_to_date, ParseError};
+
+use crate::core::ical::properties::{
+    DTEndProperty, DTStartProperty, DurationProperty, Properties, Property
 };
-use crate::core::parsers::duration::ParsedDuration;
-
-use crate::core::utils::KeyValuePair;
-
-use crate::core::geo_index::GeoPoint;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct EventOccurrenceOverride {
-    pub categories: Option<HashSet<String>>,
-    pub duration: Option<ParsedDuration>,
-    pub geo: Option<GeoPoint>,
-    pub class: Option<String>,
-    pub dtstart: Option<KeyValuePair>,
-    pub dtend: Option<KeyValuePair>,
-    pub related_to: Option<HashMap<String, HashSet<String>>>,
-    pub properties: Option<BTreeSet<KeyValuePair>>,
+    pub indexed_properties: IndexedProperties,
+    pub passive_properties: PassiveProperties,
+
+    pub dtstart: Option<DTStartProperty>,
+    pub dtend: Option<DTEndProperty>,
+    pub duration: Option<DurationProperty>,
+}
+
+impl Default for EventOccurrenceOverride {
+    fn default() -> Self {
+        EventOccurrenceOverride {
+            indexed_properties: IndexedProperties::new(),
+            passive_properties: PassiveProperties::new(),
+            dtstart: None,
+            dtend: None,
+            duration: None,
+        }
+    }
 }
 
 impl EventOccurrenceOverride {
-    pub fn new() -> EventOccurrenceOverride {
-        EventOccurrenceOverride {
-            properties: None,
-            categories: None,
-            class: None,
-            duration: None,
-            geo: None,
-            dtstart: None,
-            dtend: None,
-            related_to: None,
-        }
-    }
+    pub fn get_dtstart_timestamp(&self) -> Result<Option<i64>, ParseError> {
+        if let Some(dtstart) = self.dtstart.as_ref() {
+            // TODO: properly parse this so TZID is catered to.
+            let parsed_datetime = dtstart
+                .serialize_to_ical()
+                .replace(&String::from("DTSTART:"), &String::from(""));
 
-    pub fn get_dtend_timestamp(&self) -> Result<Option<i64>, ParseError> {
-        if let Some(datetime) = self.dtend.as_ref() {
-            let datetime_str = extract_datetime_from_str(&datetime.to_string())?;
-            let timezone = extract_and_parse_timezone_from_str(&datetime.to_string())?;
-
-            return match datestring_to_date(&datetime_str, timezone, "DTEND") {
+            return match datestring_to_date(&parsed_datetime, None, "DTSTART") {
                 Ok(datetime) => Ok(Some(datetime.timestamp())),
                 Err(error) => Err(error),
             };
@@ -54,189 +51,89 @@ impl EventOccurrenceOverride {
         Ok(None)
     }
 
-    pub fn get_duration(&self, dtstart_timestamp: &i64) -> Result<Option<i64>, ParseError> {
-        if let Some(duration) = self.duration.as_ref() {
-            return Ok(Some(duration.get_duration_in_seconds()));
-        }
+    pub fn get_dtend_timestamp(&self) -> Result<Option<i64>, ParseError> {
+        if let Some(dtend) = self.dtend.as_ref() {
+            // TODO: properly parse this so TZID is catered to.
+            let parsed_datetime = dtend
+                .serialize_to_ical()
+                .replace(&String::from("DTEND:"), &String::from(""));
 
-        if let Some(dtend_timestamp) = self.get_dtend_timestamp()? {
-            return Ok(Some(dtend_timestamp - dtstart_timestamp));
+            return match datestring_to_date(&parsed_datetime, None, "DTEND") {
+                Ok(datetime) => Ok(Some(datetime.timestamp())),
+                Err(error) => Err(error),
+            };
         }
 
         Ok(None)
     }
 
-    pub fn parse_ical(input: &str) -> Result<EventOccurrenceOverride, String> {
-        match parse_properties(input) {
-            Ok((_, parsed_properties)) => {
-                let new_override: &mut EventOccurrenceOverride =
-                    &mut EventOccurrenceOverride::new();
+    pub fn get_duration(&self) -> Result<Option<i64>, ParseError> {
+        if let Some(parsed_duration) = self.duration.as_ref() {
+            return Ok(Some(parsed_duration.get_duration_in_seconds()));
+        }
 
-                parsed_properties.into_iter()
-                    .try_for_each(|parsed_property: ParsedProperty| {
-                        match parsed_property {
-                            ParsedProperty::Class(content) => {
-                                if let ParsedValue::Single(parsed_classification) = content.value {
-                                    new_override.class = Some(String::from(parsed_classification));
-                                } else {
-                                    return Err(String::from("Expected classification to be single value"));
-                                }
-                            },
-
-                            ParsedProperty::Categories(content) => {
-                                let mut categories: HashSet<String> = HashSet::new();
-
-                                if let ParsedValue::List(list) = content.value {
-                                    list.iter().for_each(|category| {
-                                        categories.insert(String::from(*category));
-                                    });
-                                }
-
-                                new_override.categories = Some(categories);
-                            },
-
-                            ParsedProperty::RelatedTo(content)   => {
-                                // TODO: improve
-                                let default_reltype = String::from("PARENT");
-
-                                let reltype: String = match content.params {
-                                    Some(params) => {
-                                        match params.get(&"RELTYPE") {
-                                            Some(value) => {
-                                                // TODO: Clean this up...
-                                                match value {
-                                                    ParsedValue::List(list_values) => {
-                                                        if list_values.len() == 1 {
-                                                            String::from(list_values[0])
-                                                        } else {
-                                                            return Err(String::from("Expected related_to RELTYPE to be a single value."))
-                                                        }
-                                                    },
-
-                                                    ParsedValue::Single(value) => {
-                                                        String::from(*value)
-                                                    },
-
-                                                    _ => {
-                                                        return Err(String::from("Expected related_to RELTYPE to be a single value."))
-                                                    }
-                                                }
-                                            },
-
-                                            None => default_reltype
-                                        }
-                                    },
-
-                                    None => default_reltype
-                                };
-
-                                match content.value {
-                                    ParsedValue::List(list) => {
-                                        list.iter().for_each(|related_to_uid| {
-                                            match &mut new_override.related_to {
-                                                Some(related_to_map) => {
-                                                    related_to_map.entry(reltype.clone())
-                                                                  .and_modify(|reltype_uids| { reltype_uids.insert(String::from(*related_to_uid)); })
-                                                                  .or_insert(HashSet::from([String::from(*related_to_uid)]));
-                                                },
-
-                                                None => {
-                                                    new_override.related_to = Some(
-                                                        HashMap::from(
-                                                            [
-                                                                (
-                                                                    reltype.clone(),
-                                                                    HashSet::from([
-                                                                        String::from(*related_to_uid)
-                                                                    ])
-                                                                )
-                                                            ]
-                                                        )
-                                                    );
-                                                }
-                                            }
-                                        });
-                                    },
-
-                                    _ => {
-                                        return Err(String::from("Expected related_to to have list value."));
-                                    }
-                                };
-                            },
-
-                            ParsedProperty::RRule(_)  => { return Err(String::from("Event occurrence override does not expect an rrule property")); },
-                            ParsedProperty::ExRule(_) => { return Err(String::from("Event occurrence override does not expect an exrule property")); },
-                            ParsedProperty::RDate(_)  => { return Err(String::from("Event occurrence override does not expect an rdate property")); },
-                            ParsedProperty::ExDate(_) => { return Err(String::from("Event occurrence override does not expect an exdate property")); },
-
-                            ParsedProperty::DtStart(content)  => { new_override.dtstart     = Some(content.content_line); },
-                            ParsedProperty::DtEnd(content)    => { new_override.dtend       = Some(content.content_line); },
-
-                            ParsedProperty::Duration(content) => {
-                                if let ParsedValue::Duration(parsed_duration) = content.value {
-                                    new_override.duration = Some(parsed_duration);
-                                } else {
-                                    return Err(String::from("Event occurrence override expected DURATION property to be valid."))
-                                }
-                            },
-
-                            ParsedProperty::Geo(content) => {
-                                if let ParsedValue::LatLong(parsed_latitude, parsed_longitude) = content.value {
-                                    let geo_point = GeoPoint::from(
-                                        (
-                                            parsed_longitude,
-                                            parsed_latitude,
-                                        )
-                                    );
-
-                                    geo_point.validate()?;
-
-                                    new_override.geo = Some(geo_point);
-                                } else {
-                                    return Err(String::from("Expected latitude, longitude"));
-                                }
-                            },
-
-                            ParsedProperty::Description(content) | ParsedProperty::Other(content) => {
-                                if let Some(properties) = &mut new_override.properties {
-                                    properties.insert(content.content_line);
-                                } else {
-                                    new_override.properties = Some(
-                                        BTreeSet::from([
-                                            content.content_line
-                                        ])
-                                    );
-                                }
-                            }
-                        }
-
-                        Ok(())
-                    })?;
-
-                Ok(new_override.clone())
+        match (self.get_dtstart_timestamp(), self.get_dtend_timestamp()) {
+            (Ok(Some(dtstart_timestamp)), Ok(Some(dtend_timestamp))) => {
+                Ok(Some(dtend_timestamp - dtstart_timestamp))
             }
-            Err(err) => Err(err.to_string()),
+
+            _ => Ok(None),
         }
     }
 
-    // TODO: pull into DRY util to turn hash into set
-    pub fn build_override_related_to_set(&self) -> Option<HashSet<KeyValuePair>> {
-        if self.related_to.is_none() {
-            return None;
-        }
+    pub fn parse_ical(input: &str) -> Result<EventOccurrenceOverride, String> {
+        Properties::from_str(input).and_then(|Properties(parsed_properties)| {
+            let mut new_override = EventOccurrenceOverride::default();
 
-        let mut override_related_to_set = HashSet::<KeyValuePair>::new();
+            for parsed_property in parsed_properties {
+                match parsed_property {
+                    Property::Class(_)
+                    | Property::Geo(_)
+                    | Property::Categories(_)
+                    | Property::RelatedTo(_) => {
+                        new_override.indexed_properties.insert(parsed_property)?;
+                    }
 
-        if let Some(override_related_to_map) = &self.related_to {
-            for (reltype, reltype_uids) in override_related_to_map.iter() {
-                for reltype_uid in reltype_uids.iter() {
-                    override_related_to_set
-                        .insert(KeyValuePair::new(reltype.clone(), reltype_uid.clone()));
+                    Property::RRule(_) => {
+                        return Err(String::from("Event occurrence override does not expect an RRULE property"));
+                    },
+
+                    Property::ExRule(_) => {
+                        return Err(String::from("Event occurrence override does not expect an EXRULE property"));
+                    },
+
+                    Property::RDate(_) => {
+                        return Err(String::from("Event occurrence override does not expect an RDATE property"));
+                    },
+
+                    Property::ExDate(_) => {
+                        return Err(String::from("Event occurrence override does not expect an EXDATE property"));
+                    }
+
+                    Property::DTStart(dtstart_property) => {
+                        new_override.dtstart = Some(dtstart_property);
+                    }
+
+                    Property::DTEnd(dtend_property) => {
+                        new_override.dtend = Some(dtend_property);
+                    }
+
+                    Property::Duration(duration_property) => {
+                        new_override.duration = Some(duration_property);
+                    }
+
+                    _ => {
+                        new_override.passive_properties.insert(parsed_property)?;
+                    }
                 }
             }
-        }
 
-        Some(override_related_to_set)
+            if new_override.dtstart.is_none() {
+                return Err(String::from("Event occurrence override requires a DTSTART property"));
+            }
+
+            Ok(new_override)
+        })
     }
 }
 
@@ -244,43 +141,55 @@ impl EventOccurrenceOverride {
 mod test {
     use super::*;
 
+    use std::collections::{HashSet, BTreeSet};
+
+    use crate::core::ical::properties::{
+        CategoriesProperty, ClassProperty, DescriptionProperty, Property,
+    };
+
+    use crate::testing::macros::build_property_from_ical;
+
+    use pretty_assertions_sorted::assert_eq;
+
     #[test]
     fn test_parse_ical() {
-        let ical_with_rrule: &str = "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,\"CATEGORY THREE\"";
+        let ical_with_rrule: &str = "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas\\, NV\\, USA DTSTART:19700101T000500Z RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,\"CATEGORY THREE\"";
 
         assert_eq!(
             EventOccurrenceOverride::parse_ical(ical_with_rrule),
             Err(String::from(
-                "Event occurrence override does not expect an rrule property"
+                "Event occurrence override does not expect an RRULE property"
             ))
         );
 
-        let ical_without_rrule: &str = "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA CLASS:PRIVATE CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,\"CATEGORY THREE\"";
+        let ical_without_dtstart: &str = "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas\\, NV\\, USA";
+
+        assert_eq!(
+            EventOccurrenceOverride::parse_ical(ical_without_dtstart),
+            Err(String::from(
+                "Event occurrence override requires a DTSTART property"
+            ))
+        );
+
+        let ical_without_rrule: &str = "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas\\, NV\\, USA DTSTART:19700101T000500Z CLASS:PRIVATE CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,\"CATEGORY THREE\"";
 
         assert_eq!(
             EventOccurrenceOverride::parse_ical(ical_without_rrule).unwrap(),
             EventOccurrenceOverride {
-                geo:              None,
-                class:            Some(String::from("PRIVATE")),
-                properties:       Some(
-                    BTreeSet::from([
-                        KeyValuePair::new(
-                            String::from("DESCRIPTION"),
-                            String::from(";ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas, NV, USA")
-                        )
-                    ])
-                ),
-                categories:       Some(
-                    HashSet::from([
-                        String::from("CATEGORY_ONE"),
-                        String::from("CATEGORY_TWO"),
-                        String::from("CATEGORY THREE")
-                    ])
-                ),
-                duration:         None,
-                dtstart:          None,
-                dtend:            None,
-                related_to:       None
+                indexed_properties: IndexedProperties {
+                    geo: None,
+                    class: Some(build_property_from_ical!(ClassProperty, "CLASS:PRIVATE")),
+                    categories: Some(HashSet::from([build_property_from_ical!(CategoriesProperty, "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,CATEGORY THREE")])),
+                    related_to: None,
+                },
+
+                passive_properties: PassiveProperties {
+                    properties: BTreeSet::from([Property::Description(build_property_from_ical!(DescriptionProperty, "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas\\, NV\\, USA"))]),
+                },
+
+                duration: None,
+                dtstart: Some(build_property_from_ical!(DTStartProperty, "DTSTART:19700101T000500Z")),
+                dtend: None,
             }
         );
     }

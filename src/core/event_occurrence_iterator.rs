@@ -324,7 +324,7 @@ impl<'a> Iterator for EventOccurrenceIterator<'a> {
                     self.event_occurrence_overrides.get(&dtstart_timestamp);
 
                 if let Some(event_occurrenece_override) = event_occurrenece_override {
-                    duration = match event_occurrenece_override.get_duration(&dtstart_timestamp) {
+                    duration = match event_occurrenece_override.get_duration() {
                         Ok(Some(duration)) => duration,
                         _ => self.base_duration,
                     };
@@ -364,13 +364,13 @@ impl<'a> Iterator for EventOccurrenceIterator<'a> {
 mod test {
     use super::*;
 
-    use crate::core::KeyValuePair;
-
     use crate::core::ical::properties::{DTEndProperty, DTStartProperty, RRuleProperty};
 
     use crate::testing::macros::build_property_from_ical;
 
     use std::collections::{BTreeMap, HashSet};
+
+    use crate::core::event::{IndexedProperties, PassiveProperties};
 
     use pretty_assertions_sorted::assert_eq;
 
@@ -393,59 +393,61 @@ mod test {
 
     fn build_event_occurrence_override_300() -> EventOccurrenceOverride {
         EventOccurrenceOverride {
-            geo: None,
-            class: None,
-            properties: None,
-            categories: None,
+            indexed_properties: IndexedProperties {
+                geo: None,
+                class: None,
+                categories: None,
+                related_to: None,
+            },
+            passive_properties: PassiveProperties::new(),
             duration: None,
-            dtstart: None,
+            dtstart: Some(build_property_from_ical!(DTStartProperty, "DTSTART:19700101T000500Z")),
             dtend: None,
-            related_to: None,
         }
     }
 
     fn build_event_occurrence_override_500() -> EventOccurrenceOverride {
         EventOccurrenceOverride {
-            geo: None,
-            class: None,
-            properties: None,
-            categories: None,
+            indexed_properties: IndexedProperties {
+                geo: None,
+                class: None,
+                categories: None,
+                related_to: None,
+            },
+            passive_properties: PassiveProperties::new(),
             duration: None,
-            dtstart: None,
-            dtend: Some(KeyValuePair::new(
-                String::from("DTEND"),
-                String::from(":19700101T000830Z"),
-            )),
-            related_to: None,
+            dtstart: Some(build_property_from_ical!(DTStartProperty, "DTSTART:19700101T000820Z")),
+            dtend: Some(build_property_from_ical!(DTEndProperty, "DTEND:19700101T000830Z")),
         }
     }
 
     fn build_event_occurrence_override_700() -> EventOccurrenceOverride {
         EventOccurrenceOverride {
-            geo: None,
-            class: None,
-            properties: None,
-            categories: None,
+            indexed_properties: IndexedProperties {
+                geo: None,
+                class: None,
+                categories: None,
+                related_to: None,
+            },
+            passive_properties: PassiveProperties::new(),
             duration: None,
-            dtstart: None,
+            dtstart: Some(build_property_from_ical!(DTStartProperty, "DTSTART:19700101T001140Z")),
             dtend: None,
-            related_to: None,
         }
     }
 
     fn build_event_occurrence_override_900() -> EventOccurrenceOverride {
         EventOccurrenceOverride {
-            geo: None,
-            class: None,
-            properties: None,
-            categories: None,
+            indexed_properties: IndexedProperties {
+                geo: None,
+                class: None,
+                categories: None,
+                related_to: None,
+            },
+            passive_properties: PassiveProperties::new(),
             duration: None,
-            dtstart: None,
-            dtend: Some(KeyValuePair::new(
-                String::from("DTEND"),
-                String::from(":19700101T001515Z"),
-            )),
-            related_to: None,
+            dtstart: Some(build_property_from_ical!(DTStartProperty, "DTSTART:19700101T001500Z")),
+            dtend: Some(build_property_from_ical!(DTEndProperty, "DTEND:19700101T001515Z")),
         }
     }
 

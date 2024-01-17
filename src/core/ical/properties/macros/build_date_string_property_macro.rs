@@ -51,6 +51,17 @@ macro_rules! build_date_string_property {
 
         implement_property_ord_partial_ord_and_hash_traits!($property_struct);
 
+        impl From<i64> for $property_struct {
+            fn from(utc_timestamp: i64) -> Self {
+                $property_struct {
+                    timezone: None,
+                    value_type: None,
+                    utc_timestamp,
+                    x_params: None,
+                }
+            }
+        }
+
         impl SerializableICalProperty for $property_struct {
             fn serialize_to_split_ical(&self) -> (String, Option<Vec<(String, String)>>, SerializedValue) {
                 let mut param_key_value_pairs: Vec<(String, String)> = Vec::new();

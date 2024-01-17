@@ -217,7 +217,7 @@ where
         }
 
         for (timestamp, event_override) in event.overrides.iter() {
-            if let Some(override_categories_set) = &event_override.categories {
+            if let Some(override_categories_set) = &event_override.indexed_properties.extract_all_category_strings() {
                 indexed_categories.insert_override(timestamp.clone(), &override_categories_set);
             }
         }
@@ -237,7 +237,7 @@ where
         }
 
         for (timestamp, event_override) in event.overrides.iter() {
-            if let Some(override_related_to_set) = &event_override.build_override_related_to_set() {
+            if let Some(override_related_to_set) = &event_override.indexed_properties.extract_all_related_to_key_value_pairs() {
                 indexed_related_to.insert_override(timestamp.clone(), &override_related_to_set);
             }
         }
@@ -256,7 +256,7 @@ where
         }
 
         for (timestamp, event_override) in event.overrides.iter() {
-            if let Some(overridden_geo) = &event_override.geo {
+            if let Some(overridden_geo) = &event_override.indexed_properties.extract_geo_point() {
                 indexed_geo
                     .insert_override(timestamp.clone(), &HashSet::from([overridden_geo.clone()]));
             }
@@ -276,7 +276,7 @@ where
         }
 
         for (timestamp, event_override) in event.overrides.iter() {
-            if let Some(overridden_class) = &event_override.class {
+            if let Some(overridden_class) = &event_override.indexed_properties.extract_class() {
                 indexed_class.insert_override(
                     timestamp.clone(),
                     &HashSet::from([overridden_class.clone()]),

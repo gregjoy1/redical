@@ -1,4 +1,3 @@
-use crate::core::parsers::datetime::datestring_to_date;
 use crate::core::{Event, EventOccurrenceOverride};
 
 pub fn build_event_from_ical(event_uid: &str, event_ical_parts: Vec<&str>) -> crate::core::Event {
@@ -8,7 +7,7 @@ pub fn build_event_from_ical(event_uid: &str, event_ical_parts: Vec<&str>) -> cr
 pub fn build_event_and_overrides_from_ical(
     event_uid: &str,
     event_ical_parts: Vec<&str>,
-    event_overrides: Vec<(&str, Vec<&str>)>,
+    event_overrides: Vec<Vec<&str>>,
 ) -> crate::core::Event {
     let mut event = Event::parse_ical(event_uid, event_ical_parts.join(" ").as_str()).unwrap();
 
@@ -16,14 +15,13 @@ pub fn build_event_and_overrides_from_ical(
         panic!("Build Event '{event_uid}' from ical failed -- build_parsed_rrule_set returned error: {:#?}", error);
     }
 
-    for (override_dtstart, override_ical_parts) in event_overrides {
+    for override_ical_parts in event_overrides {
+        let parsed_event_occurrence_override = EventOccurrenceOverride::parse_ical(override_ical_parts.join(" ").as_str()).unwrap();
+
         assert!(event
             .override_occurrence(
-                datestring_to_date(override_dtstart, None, "")
-                    .unwrap()
-                    .timestamp(),
-                &EventOccurrenceOverride::parse_ical(override_ical_parts.join(" ").as_str())
-                    .unwrap()
+                parsed_event_occurrence_override.get_dtstart_timestamp().unwrap().unwrap(),
+                &parsed_event_occurrence_override,
             )
             .is_ok());
     }

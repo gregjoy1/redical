@@ -356,30 +356,24 @@ mod test {
                 "RELATED-TO;RELTYPE=CHILD:BASE_ChildUID",
             ],
             vec![
-                (
-                    "20210105T183000Z",
-                    vec![
-                        "DESCRIPTION:OVERRIDDEN description text.",
-                        "CATEGORIES:BASE_CATEGORY_ONE,OVERRIDDEN_CATEGORY_ONE",
-                        "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUID",
-                    ],
-                ),
-                (
-                    "20210112T183000Z",
-                    vec![
-                        "RELATED-TO;RELTYPE=CHILD:BASE_ChildUID",
-                        "RELATED-TO;RELTYPE=CHILD:OVERRIDDEN_ChildUID",
-                    ],
-                ),
-                (
-                    "20210126T183000Z",
-                    vec![
-                        "DESCRIPTION:OVERRIDDEN description text.",
-                        "CATEGORIES:OVERRIDDEN_CATEGORY_ONE,OVERRIDDEN_CATEGORY_TWO",
-                        "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUID",
-                        "RELATED-TO;RELTYPE=CHILD:OVERRIDDEN_ChildUID",
-                    ],
-                ),
+                vec![
+                    "DESCRIPTION:OVERRIDDEN description text.",
+                    "CATEGORIES:BASE_CATEGORY_ONE,OVERRIDDEN_CATEGORY_ONE",
+                    "DTSTART:20210105T183000Z",
+                    "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUID",
+                ],
+                vec![
+                    "RELATED-TO;RELTYPE=CHILD:BASE_ChildUID",
+                    "DTSTART:20210112T183000Z",
+                    "RELATED-TO;RELTYPE=CHILD:OVERRIDDEN_ChildUID",
+                ],
+                vec![
+                    "DESCRIPTION:OVERRIDDEN description text.",
+                    "DTSTART:20210126T183000Z",
+                    "CATEGORIES:OVERRIDDEN_CATEGORY_ONE,OVERRIDDEN_CATEGORY_TWO",
+                    "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUID",
+                    "RELATED-TO;RELTYPE=CHILD:OVERRIDDEN_ChildUID",
+                ],
             ],
         )
     }

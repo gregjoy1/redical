@@ -63,7 +63,7 @@ impl EventInstance {
     ) -> i64 {
         if let Some(event_occurrence_override) = event_occurrence_override {
             if let Ok(Some(overridden_duration)) =
-                event_occurrence_override.get_duration(&dtstart_timestamp)
+                event_occurrence_override.get_duration()
             {
                 return overridden_duration;
             }
@@ -81,8 +81,8 @@ impl EventInstance {
         event_occurrence_override: Option<&EventOccurrenceOverride>,
     ) -> Option<GeoPoint> {
         if let Some(event_occurrence_override) = event_occurrence_override {
-            if event_occurrence_override.geo.is_some() {
-                return event_occurrence_override.geo.clone();
+            if let Some(geo_point) = event_occurrence_override.indexed_properties.extract_geo_point() {
+                return Some(geo_point);
             }
         }
 
@@ -94,8 +94,8 @@ impl EventInstance {
         event_occurrence_override: Option<&EventOccurrenceOverride>,
     ) -> Option<HashSet<String>> {
         if let Some(event_occurrence_override) = event_occurrence_override {
-            if let Some(overridden_categories) = &event_occurrence_override.categories {
-                return Some(overridden_categories.clone());
+            if let Some(overridden_categories) = event_occurrence_override.indexed_properties.extract_all_category_strings() {
+                return Some(overridden_categories);
             }
         }
 
@@ -107,23 +107,13 @@ impl EventInstance {
         event_occurrence_override: Option<&EventOccurrenceOverride>,
     ) -> Option<HashMap<String, HashSet<String>>> {
         if let Some(event_occurrence_override) = event_occurrence_override {
-            if let Some(overridden_related_to) = &event_occurrence_override.related_to {
-                return Some(overridden_related_to.clone());
+            if let Some(overridden_related_to) = event_occurrence_override.indexed_properties.extract_all_related_to_key_value_map() {
+                return Some(overridden_related_to);
             }
         }
 
-        if let Some(event_related_to) = event.indexed_properties.related_to.as_ref() {
-            let mut related_to_map = HashMap::new();
-
-            for related_to_property in event_related_to {
-                related_to_map.entry(related_to_property.get_reltype())
-                              .and_modify(|uid_set: &mut HashSet<String>| {
-                                  uid_set.insert(related_to_property.uid.clone());
-                              })
-                              .or_insert(HashSet::from([related_to_property.uid.clone()]));
-            }
-
-            return Some(related_to_map);
+        if let Some(event_related_to) = event.indexed_properties.extract_all_related_to_key_value_map() {
+            return Some(event_related_to);
         }
 
         None
@@ -137,9 +127,13 @@ impl EventInstance {
         event: &Event,
         event_occurrence_override: Option<&EventOccurrenceOverride>,
     ) -> BTreeSet<KeyValuePair> {
-        let mut passive_properties = event_occurrence_override
-            .and_then(|event_occurrence_override| event_occurrence_override.properties.clone())
-            .unwrap_or(BTreeSet::new());
+        let mut passive_properties = BTreeSet::new();
+
+        if let Some(event_occurrence_override) = event_occurrence_override {
+            for property_key_value_pair in event_occurrence_override.passive_properties.extract_properties_key_value_pairs() {
+                passive_properties.insert(property_key_value_pair);
+            }
+        }
 
         // This searches for the presence of the base event passsive property name key in all the overrides:
         // If found:
@@ -386,17 +380,17 @@ mod test {
                 "DESCRIPTION:Event description text.",
                 "LOCATION:Event address text.",
             ],
-            vec![(
-                "20201231T183000Z",
+            vec![
                 vec![
                     "LOCATION:Overridden Event address text.",
                     "CATEGORIES:CATEGORY_ONE,CATEGORY_FOUR",
+                    "DTSTART:20201231T183000Z",
                     "RELATED-TO;RELTYPE=CHILD:ChildUID",
                     "RELATED-TO;RELTYPE=PARENT:ParentUID_Three",
                     "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_One",
                     "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Four",
                 ],
-            )],
+            ],
         );
 
         let Some(event_occurrence_override) = event.overrides.get(&1609439400) else {
@@ -480,30 +474,24 @@ mod test {
                 "RELATED-TO;RELTYPE=CHILD:BASE_ChildUID",
             ],
             vec![
-                (
-                    "20210105T183000Z",
-                    vec![
-                        "DESCRIPTION:OVERRIDDEN description text.",
-                        "CATEGORIES:BASE_CATEGORY_ONE,OVERRIDDEN_CATEGORY_ONE",
-                        "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUID",
-                    ],
-                ),
-                (
-                    "20210112T183000Z",
-                    vec![
-                        "RELATED-TO;RELTYPE=CHILD:BASE_ChildUID",
-                        "RELATED-TO;RELTYPE=CHILD:OVERRIDDEN_ChildUID",
-                    ],
-                ),
-                (
-                    "20210126T183000Z",
-                    vec![
-                        "DESCRIPTION:OVERRIDDEN description text.",
-                        "CATEGORIES:OVERRIDDEN_CATEGORY_ONE,OVERRIDDEN_CATEGORY_TWO",
-                        "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUID",
-                        "RELATED-TO;RELTYPE=CHILD:OVERRIDDEN_ChildUID",
-                    ],
-                ),
+                vec![
+                    "DESCRIPTION:OVERRIDDEN description text.",
+                    "DTSTART:20210105T183000Z",
+                    "CATEGORIES:BASE_CATEGORY_ONE,OVERRIDDEN_CATEGORY_ONE",
+                    "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUID",
+                ],
+                vec![
+                    "RELATED-TO;RELTYPE=CHILD:BASE_ChildUID",
+                    "DTSTART:20210112T183000Z",
+                    "RELATED-TO;RELTYPE=CHILD:OVERRIDDEN_ChildUID",
+                ],
+                vec![
+                    "DESCRIPTION:OVERRIDDEN description text.",
+                    "DTSTART:20210126T183000Z",
+                    "CATEGORIES:OVERRIDDEN_CATEGORY_ONE,OVERRIDDEN_CATEGORY_TWO",
+                    "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUID",
+                    "RELATED-TO;RELTYPE=CHILD:OVERRIDDEN_ChildUID",
+                ],
             ],
         );
 

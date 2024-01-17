@@ -148,8 +148,6 @@ impl FromStr for Properties {
     fn from_str(input: &str) -> Result<Self, Self::Err> {
         let parsed_properties = all_consuming(separated_list1(white_space1, Property::parse_ical))(input);
 
-        dbg!(&parsed_properties);
-
         match parsed_properties {
             Ok((_remaining, properties)) => Ok(Properties(properties)),
 
