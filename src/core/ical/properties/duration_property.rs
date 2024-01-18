@@ -65,7 +65,7 @@ impl From<i64> for DurationProperty {
             remaining_seconds = remaining_seconds % Self::SECONDS_IN_MINUTE;
         }
 
-        if remaining_seconds >= 0 {
+        if remaining_seconds > 0 || duration_in_seconds == 0 {
             seconds = Some(remaining_seconds);
         }
 

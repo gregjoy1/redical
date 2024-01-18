@@ -67,7 +67,7 @@ impl EventOccurrenceOverride {
         Ok(None)
     }
 
-    pub fn get_duration(&self) -> Result<Option<i64>, ParseError> {
+    pub fn get_duration_in_seconds(&self) -> Result<Option<i64>, ParseError> {
         if let Some(parsed_duration) = self.duration.as_ref() {
             return Ok(Some(parsed_duration.get_duration_in_seconds()));
         }

@@ -84,7 +84,7 @@ impl<'a> EventOccurrenceIterator<'a> {
         };
 
         let base_duration = schedule_properties
-            .get_duration()
+            .get_duration_in_seconds()
             .map_err(|error| error.to_string())?
             .unwrap_or(0);
 
@@ -324,7 +324,7 @@ impl<'a> Iterator for EventOccurrenceIterator<'a> {
                     self.event_occurrence_overrides.get(&dtstart_timestamp);
 
                 if let Some(event_occurrenece_override) = event_occurrenece_override {
-                    duration = match event_occurrenece_override.get_duration() {
+                    duration = match event_occurrenece_override.get_duration_in_seconds() {
                         Ok(Some(duration)) => duration,
                         _ => self.base_duration,
                     };

@@ -42,7 +42,7 @@ impl EventInstance {
             uid: event.uid.clone(),
             dtstart: dtstart_timestamp.clone().into(),
             dtend: Self::get_dtend_timestamp(dtstart_timestamp, event, event_occurrence_override).into(),
-            duration: Self::get_duration_seconds(dtstart_timestamp, event, event_occurrence_override).into(),
+            duration: Self::get_duration_in_seconds(event, event_occurrence_override).into(),
             indexed_properties: IndexedProperties {
                 geo: Self::get_geo(event, event_occurrence_override),
                 categories: Self::get_categories(event, event_occurrence_override),
@@ -60,23 +60,20 @@ impl EventInstance {
         event: &Event,
         event_occurrence_override: Option<&EventOccurrenceOverride>,
     ) -> i64 {
-        dtstart_timestamp + Self::get_duration_seconds(dtstart_timestamp, event, event_occurrence_override)
+        dtstart_timestamp + Self::get_duration_in_seconds(event, event_occurrence_override)
     }
 
-    fn get_duration_seconds(
-        dtstart_timestamp: &i64,
+    fn get_duration_in_seconds(
         event: &Event,
         event_occurrence_override: Option<&EventOccurrenceOverride>,
     ) -> i64 {
         if let Some(event_occurrence_override) = event_occurrence_override {
-            if let Ok(Some(overridden_duration)) =
-                event_occurrence_override.get_duration()
-            {
+            if let Ok(Some(overridden_duration)) = event_occurrence_override.get_duration_in_seconds() {
                 return overridden_duration;
             }
         }
 
-        if let Ok(Some(event_duration)) = event.schedule_properties.get_duration() {
+        if let Ok(Some(event_duration)) = event.schedule_properties.get_duration_in_seconds() {
             return event_duration;
         }
 
@@ -89,11 +86,11 @@ impl EventInstance {
     ) -> Option<GeoProperty> {
         if let Some(event_occurrence_override) = event_occurrence_override {
             if event_occurrence_override.indexed_properties.geo.is_some() {
-                return event_occurrence_override.indexed_properties.geo;
+                return event_occurrence_override.indexed_properties.geo.to_owned();
             }
         }
 
-        event.indexed_properties.geo
+        event.indexed_properties.geo.to_owned()
     }
 
     fn get_categories(
@@ -102,11 +99,11 @@ impl EventInstance {
     ) -> Option<HashSet<CategoriesProperty>> {
         if let Some(event_occurrence_override) = event_occurrence_override {
             if event_occurrence_override.indexed_properties.categories.is_some() {
-                return event_occurrence_override.indexed_properties.categories;
+                return event_occurrence_override.indexed_properties.categories.to_owned();
             }
         }
 
-        event.indexed_properties.categories
+        event.indexed_properties.categories.to_owned()
     }
 
     fn get_related_to(
@@ -115,11 +112,11 @@ impl EventInstance {
     ) -> Option<HashSet<RelatedToProperty>> {
         if let Some(event_occurrence_override) = event_occurrence_override {
             if event_occurrence_override.indexed_properties.related_to.is_some() {
-                return event_occurrence_override.indexed_properties.related_to;
+                return event_occurrence_override.indexed_properties.related_to.to_owned();
             }
         }
 
-        event.indexed_properties.related_to
+        event.indexed_properties.related_to.to_owned()
     }
 
     // This gets all the product of all the passive properties overridden by property name.
@@ -133,8 +130,8 @@ impl EventInstance {
         let mut passive_properties = BTreeSet::new();
 
         if let Some(event_occurrence_override) = event_occurrence_override {
-            for passive_property in event_occurrence_override.passive_properties.properties {
-                passive_properties.insert(passive_property);
+            for passive_property in &event_occurrence_override.passive_properties.properties {
+                passive_properties.insert(passive_property.to_owned());
             }
         }
 
@@ -159,15 +156,16 @@ impl EventInstance {
     ) -> Option<ClassProperty> {
         if let Some(event_occurrence_override) = event_occurrence_override {
             if event_occurrence_override.indexed_properties.class.is_some() {
-                return event_occurrence_override.indexed_properties.class;
+                return event_occurrence_override.indexed_properties.class.to_owned();
             }
         }
 
-        event.indexed_properties.class
+        event.indexed_properties.class.to_owned()
     }
 }
 
 impl SerializableICalComponent for EventInstance {
+    // TODO: Cater to timezone
     fn serialize_to_ical_set(&self, timezone: &Tz) -> BTreeSet<String> {
         let mut serializable_properties: BTreeSet<String> = BTreeSet::new();
 
@@ -196,7 +194,7 @@ impl SerializableICalComponent for EventInstance {
             }
         }
 
-        for passive_property in self.passive_properties.properties {
+        for passive_property in &self.passive_properties.properties {
             serializable_properties.insert(passive_property.serialize_to_ical());
         }
 
@@ -414,7 +412,7 @@ mod test {
             EventInstance {
                 uid: build_property_from_ical!(UIDProperty, "UID:event_UID"),
                 dtstart: build_property_from_ical!(DTStartProperty, "DTSTART:20201231T183000Z"),
-                dtend: build_property_from_ical!(DTEndProperty, "DTEND:20201231T183000Z"),
+                dtend: build_property_from_ical!(DTEndProperty, "DTEND:20201231T183100Z"),
                 duration: build_property_from_ical!(DurationProperty, "DURATION:PT1M"),
                 indexed_properties: IndexedProperties {
                     class: None,
