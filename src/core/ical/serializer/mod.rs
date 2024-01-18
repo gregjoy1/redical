@@ -1,5 +1,9 @@
+use std::collections::BTreeSet;
+
 use chrono::TimeZone;
 use chrono_tz::Tz;
+
+use crate::core::ical::properties::Property;
 
 use crate::core::ical::parser::common::ParserResult;
 use crate::core::utils::KeyValuePair;
@@ -39,6 +43,16 @@ where
     }
 
     format!(r#""{value}""#)
+}
+
+pub trait SerializableICalComponent {
+    // TODO: Wire up timezone...
+    fn serialize_to_ical(&self, timezone: &Tz) -> Vec<String> {
+        self.serialize_to_ical_set(timezone).into_iter().collect()
+    }
+
+    // TODO: Wire up timezone...
+    fn serialize_to_ical_set(&self, timezone: &Tz) -> BTreeSet<String>;
 }
 
 pub trait SerializableICalProperty {

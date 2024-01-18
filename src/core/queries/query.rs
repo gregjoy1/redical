@@ -193,14 +193,14 @@ impl Query {
         for (_, event_instance) in merged_iterator {
             let is_unique_dtstart_timestamp =
                 previous_dtstart_timestamp.is_some_and(|dtstart_timestamp| {
-                    dtstart_timestamp != event_instance.dtstart_timestamp
+                    dtstart_timestamp != event_instance.dtstart.utc_timestamp
                 });
 
             if is_unique_dtstart_timestamp && query_results.len() >= self.limit {
                 break;
             }
 
-            previous_dtstart_timestamp = Some(event_instance.dtstart_timestamp.clone());
+            previous_dtstart_timestamp = Some(event_instance.dtstart.utc_timestamp.clone());
 
             query_results.push(event_instance);
         }

@@ -1,7 +1,7 @@
 use redis_module::{Context, NextArg, RedisError, RedisResult, RedisString, RedisValue};
 
 use crate::core::queries::query::Query;
-use crate::core::serializers::ical_serializer::ICalSerializer;
+use crate::core::ical::serializer::SerializableICalComponent;
 use crate::core::Calendar;
 use crate::redis::calendar_data_type::CALENDAR_DATA_TYPE;
 

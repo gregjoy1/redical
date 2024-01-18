@@ -113,6 +113,12 @@ impl SerializableICalProperty for Property {
 }
 
 impl Property {
+    // Compare property names only, ignore the content.
+    pub fn property_name_eq(&self, other: &Self) -> bool {
+        // Use std::mem::discriminant to compare enum variant without comparing the data.
+        std::mem::discriminant(self) == std::mem::discriminant(other)
+    }
+
     pub fn parse_ical(input: &str) -> ParserResult<&str, Self> {
         context(
             "property",

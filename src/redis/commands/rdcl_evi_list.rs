@@ -2,7 +2,7 @@ use redis_module::{Context, NextArg, RedisError, RedisResult, RedisString, Redis
 
 use crate::redis::calendar_data_type::CALENDAR_DATA_TYPE;
 
-use crate::core::serializers::ical_serializer::ICalSerializer;
+use crate::core::ical::serializer::SerializableICalComponent;
 use crate::core::{Calendar, EventInstanceIterator};
 
 pub fn redical_event_instance_list(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
@@ -39,7 +39,7 @@ pub fn redical_event_instance_list(ctx: &Context, args: Vec<RedisString>) -> Red
                 .map(|event_instance| {
                     RedisValue::Array(
                         event_instance
-                            .serialize_to_ical(&rrule::Tz::UTC)
+                            .serialize_to_ical(&chrono_tz::Tz::UTC)
                             .iter()
                             .map(|ical_part| RedisValue::SimpleString(ical_part.to_owned()))
                             .collect(),

@@ -1,14 +1,15 @@
 use std::cmp::Ordering;
 use std::collections::BTreeSet;
 
-use rrule::Tz;
+use chrono::TimeZone;
+use chrono_tz::Tz;
 
 use geo::HaversineDistance;
 
 use crate::core::{EventInstance, GeoDistance, GeoPoint, KeyValuePair};
 
 use crate::core::serializers::ical_serializer;
-use crate::core::serializers::ical_serializer::ICalSerializer;
+use crate::core::ical::serializer::SerializableICalComponent;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum OrderingCondition {
@@ -24,16 +25,19 @@ impl OrderingCondition {
     ) -> QueryResultOrdering {
         match &self {
             OrderingCondition::DtStart => {
-                QueryResultOrdering::DtStart(event_instance.dtstart_timestamp.clone())
+                QueryResultOrdering::DtStart(event_instance.dtstart.utc_timestamp.clone())
             }
 
             OrderingCondition::DtStartGeoDist(ordering_geo_point) => {
-                let dtstart_timestamp = event_instance.dtstart_timestamp.clone();
+                let dtstart_timestamp = event_instance.dtstart.utc_timestamp.clone();
                 let geo_distance =
                     event_instance
+                        .indexed_properties
                         .geo
                         .clone()
-                        .and_then(|event_instance_geo_point| {
+                        .and_then(|event_instance_geo| {
+                            let event_instance_geo_point = GeoPoint::from(event_instance_geo);
+
                             Some(GeoDistance::new_from_meters_float(
                                 event_instance_geo_point.haversine_distance(&ordering_geo_point),
                             ))
@@ -43,12 +47,15 @@ impl OrderingCondition {
             }
 
             OrderingCondition::GeoDistDtStart(ordering_geo_point) => {
-                let dtstart_timestamp = event_instance.dtstart_timestamp.clone();
+                let dtstart_timestamp = event_instance.dtstart.utc_timestamp.clone();
                 let geo_distance =
                     event_instance
+                        .indexed_properties
                         .geo
                         .clone()
-                        .and_then(|event_instance_geo_point| {
+                        .and_then(|event_instance_geo| {
+                            let event_instance_geo_point = GeoPoint::from(event_instance_geo);
+
                             Some(GeoDistance::new_from_meters_float(
                                 event_instance_geo_point.haversine_distance(&ordering_geo_point),
                             ))
@@ -67,8 +74,10 @@ pub enum QueryResultOrdering {
     GeoDistDtStart(Option<GeoDistance>, i64),
 }
 
-impl ICalSerializer for QueryResultOrdering {
-    fn serialize_to_ical_set(&self, timezone: &Tz) -> BTreeSet<KeyValuePair> {
+impl SerializableICalComponent for QueryResultOrdering {
+    fn serialize_to_ical_set(&self, timezone: &Tz) -> BTreeSet<String> {
+        let timezone = rrule::Tz::Tz(timezone.to_owned());
+
         let mut serialized_ical_set = BTreeSet::new();
 
         match self {
@@ -76,20 +85,17 @@ impl ICalSerializer for QueryResultOrdering {
                 serialized_ical_set.insert(ical_serializer::serialize_dtstart_timestamp_to_ical(
                     dtstart_timestamp,
                     &timezone,
-                ));
+                ).to_string());
             }
 
             QueryResultOrdering::DtStartGeoDist(dtstart_timestamp, geo_distance) => {
                 serialized_ical_set.insert(ical_serializer::serialize_dtstart_timestamp_to_ical(
                     dtstart_timestamp,
                     &timezone,
-                ));
+                ).to_string());
 
                 if let Some(geo_distance) = geo_distance {
-                    serialized_ical_set.insert(KeyValuePair::new(
-                        String::from("X-GEO-DIST"),
-                        format!(":{}", geo_distance.to_string()),
-                    ));
+                    serialized_ical_set.insert(format!("X-GEO-DIST:{}", geo_distance.to_string()));
                 }
             }
 
@@ -97,13 +103,10 @@ impl ICalSerializer for QueryResultOrdering {
                 serialized_ical_set.insert(ical_serializer::serialize_dtstart_timestamp_to_ical(
                     dtstart_timestamp,
                     &timezone,
-                ));
+                ).to_string());
 
                 if let Some(geo_distance) = geo_distance {
-                    serialized_ical_set.insert(KeyValuePair::new(
-                        String::from("X-GEO-DIST"),
-                        format!(":{}", geo_distance.to_string()),
-                    ));
+                    serialized_ical_set.insert(format!("X-GEO-DIST:{}", geo_distance.to_string()));
                 }
             }
         }

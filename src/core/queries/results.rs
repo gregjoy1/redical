@@ -46,7 +46,7 @@ impl QueryResults {
     }
 
     pub fn push(&mut self, event_instance: EventInstance) {
-        let event_instance_uid = event_instance.uid.clone();
+        let event_instance_uid = event_instance.uid.uid.clone();
 
         if self.is_event_instance_included(&event_instance) {
             let result_ordering = self
@@ -83,7 +83,7 @@ impl QueryResults {
         if self
             .distinct_uid_lookup
             .as_ref()
-            .is_some_and(|distinct_uid_lookup| distinct_uid_lookup.contains(&event_instance.uid))
+            .is_some_and(|distinct_uid_lookup| distinct_uid_lookup.contains(&event_instance.uid.uid))
         {
             return false;
         }
@@ -132,61 +132,74 @@ impl QueryResultItem for QueryResult {}
 mod test {
     use super::*;
 
-    use crate::core::{GeoDistance, GeoPoint};
+    use crate::core::{GeoDistance, GeoPoint, IndexedProperties, PassiveProperties};
 
     use pretty_assertions_sorted::assert_eq;
 
     use std::collections::BTreeSet;
 
+    use crate::testing::macros::build_property_from_ical;
+
+    use crate::core::ical::properties::{
+        UIDProperty, DTEndProperty, DTStartProperty, DurationProperty, GeoProperty, CategoriesProperty, RelatedToProperty, ClassProperty, Property, DescriptionProperty, LocationProperty,
+    };
+
     fn build_event_instance_one() -> EventInstance {
         EventInstance {
-            uid: String::from("UID_ONE"),
-            dtstart_timestamp: 100,
-            dtend_timestamp: 110,
-            duration: 10,
-            geo: None,
-            categories: None,
-            related_to: None,
-            passive_properties: BTreeSet::new(),
+            uid: build_property_from_ical!(UIDProperty, "UID:UID_ONE"),
+            dtstart: build_property_from_ical!(DTStartProperty, "DTSTART:19700101T000140Z"),
+            dtend: build_property_from_ical!(DTEndProperty, "DTEND:19700101T000150Z"),
+            duration: build_property_from_ical!(DurationProperty, "DURATION:PT10S"),
+            indexed_properties: IndexedProperties::new(),
+            passive_properties: PassiveProperties::new(),
         }
     }
 
     fn build_event_instance_two() -> EventInstance {
         EventInstance {
-            uid: String::from("UID_TWO"),
-            dtstart_timestamp: 200,
-            dtend_timestamp: 210,
-            duration: 10,
-            geo: Some(GeoPoint::new(-2.0760367, 51.899779)), // Cheltenham
-            categories: None,
-            related_to: None,
-            passive_properties: BTreeSet::new(),
+            uid: build_property_from_ical!(UIDProperty, "UID:UID_TWO"),
+            dtstart: build_property_from_ical!(DTStartProperty, "DTSTART:19700101T000320Z"),
+            dtend: build_property_from_ical!(DTEndProperty, "DTEND:19700101T000330Z"),
+            duration: build_property_from_ical!(DurationProperty, "DURATION:PT10S"),
+            indexed_properties: IndexedProperties {
+                class: None,
+                geo: Some(build_property_from_ical!(GeoProperty, "GEO:51.899779;-2.0760367")), // Cheltenham
+                categories: None,
+                related_to: None,
+            },
+            passive_properties: PassiveProperties::new(),
         }
     }
 
     fn build_event_instance_three() -> EventInstance {
         EventInstance {
-            uid: String::from("UID_THREE"),
-            dtstart_timestamp: 300,
-            dtend_timestamp: 310,
-            duration: 10,
-            geo: Some(GeoPoint::new(-1.2475878, 51.7504163)), // Oxford
-            categories: None,
-            related_to: None,
-            passive_properties: BTreeSet::new(),
+            uid: build_property_from_ical!(UIDProperty, "UID:UID_THREE"),
+            dtstart: build_property_from_ical!(DTStartProperty, "DTSTART:19700101T000500Z"),
+            dtend: build_property_from_ical!(DTEndProperty, "DTEND:19700101T000510Z"),
+            duration: build_property_from_ical!(DurationProperty, "DURATION:PT10S"),
+            indexed_properties: IndexedProperties {
+                class: None,
+                geo: Some(build_property_from_ical!(GeoProperty, "GEO:51.7504163;-1.2475878")), // Oxford
+                categories: None,
+                related_to: None,
+            },
+            passive_properties: PassiveProperties::new(),
         }
     }
 
     fn build_event_instance_four() -> EventInstance {
         EventInstance {
-            uid: String::from("UID_FOUR"),
-            dtstart_timestamp: 400,
-            dtend_timestamp: 410,
-            duration: 10,
-            geo: Some(GeoPoint::new(-1.004574, 51.4517446)), // Reading
-            categories: None,
-            related_to: None,
-            passive_properties: BTreeSet::new(),
+            uid: build_property_from_ical!(UIDProperty, "UID:UID_FOUR"),
+            dtstart: build_property_from_ical!(DTStartProperty, "DTSTART:19700101T000640Z"),
+            dtend: build_property_from_ical!(DTEndProperty, "DTEND:19700101T000650Z"),
+            duration: build_property_from_ical!(DurationProperty, "DURATION:PT10S"),
+            indexed_properties: IndexedProperties {
+                class: None,
+                geo: Some(build_property_from_ical!(GeoProperty, "GEO:51.4517446;-1.004574")), // Reading
+                categories: None,
+                related_to: None,
+            },
+            passive_properties: PassiveProperties::new(),
         }
     }
 
