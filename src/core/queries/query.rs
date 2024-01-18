@@ -276,7 +276,7 @@ impl Query {
     ) -> Result<(), String> {
         let limit = if self.distinct_uids { Some(1) } else { None };
 
-        let event_uid = event.uid.clone();
+        let event_uid: String = event.uid.clone().into();
 
         let event_instance_iterator = EventInstanceIterator::new(
             event,

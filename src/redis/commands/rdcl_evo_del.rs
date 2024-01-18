@@ -87,7 +87,7 @@ pub fn redical_event_override_del(ctx: &Context, args: Vec<RedisString>) -> Redi
         event.indexed_class.as_ref(),
     );
 
-    let mut calendar_index_updater = CalendarIndexUpdater::new(event.uid.clone(), &mut calendar);
+    let mut calendar_index_updater = CalendarIndexUpdater::new(event.uid.into(), &mut calendar);
 
     calendar_index_updater
         .update_indexed_categories(&updated_event_categories_diff)

@@ -28,6 +28,21 @@ pub struct UIDProperty {
 
 implement_property_ord_partial_ord_and_hash_traits!(UIDProperty);
 
+impl From<String> for UIDProperty {
+    fn from(value: String) -> UIDProperty {
+        UIDProperty {
+            uid: value,
+            x_params: None,
+        }
+    }
+}
+
+impl From<UIDProperty> for String {
+    fn from(value: UIDProperty) -> String {
+        value.uid
+    }
+}
+
 impl SerializableICalProperty for UIDProperty {
     fn serialize_to_split_ical(&self) -> (String, Option<Vec<(String, String)>>, SerializedValue) {
         let mut param_key_value_pairs: Vec<(String, String)> = Vec::new();

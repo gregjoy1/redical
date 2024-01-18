@@ -33,7 +33,7 @@ impl EventInstance {
         event_occurrence_override: Option<&EventOccurrenceOverride>,
     ) -> Self {
         EventInstance {
-            uid: event.uid.to_owned(),
+            uid: event.uid.clone().into(),
             dtstart_timestamp: dtstart_timestamp.to_owned(),
             dtend_timestamp: Self::get_dtend_timestamp(
                 dtstart_timestamp,
@@ -298,7 +298,7 @@ mod test {
         assert_eq_sorted!(
             event_instance,
             EventInstance {
-                uid: String::from("event_UID"),
+                uid: String::from("event_UID").into(),
                 dtstart_timestamp: 100,
                 dtend_timestamp: 160,
                 duration: 60,
@@ -403,7 +403,7 @@ mod test {
         assert_eq!(
             event_instance,
             EventInstance {
-                uid: String::from("event_UID"),
+                uid: String::from("event_UID").into(),
                 dtstart_timestamp: 1609439400,
                 dtend_timestamp: 1609439460,
                 duration: 60,

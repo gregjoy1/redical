@@ -54,7 +54,7 @@ pub fn redical_event_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     let event_diff = if existing_event.is_some() {
         EventDiff::new(&existing_event.as_ref().unwrap(), &event)
     } else {
-        EventDiff::new(&Event::new(event.uid.clone()), &event)
+        EventDiff::new(&Event::new(event.uid.clone().into()), &event)
     };
 
     if existing_event.is_some() {
@@ -115,7 +115,7 @@ pub fn redical_event_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
         event.indexed_class.as_ref(),
     );
 
-    let mut calendar_index_updater = CalendarIndexUpdater::new(event.uid.clone(), &mut calendar);
+    let mut calendar_index_updater = CalendarIndexUpdater::new(event.uid.clone().into(), &mut calendar);
 
     calendar_index_updater
         .update_indexed_categories(&updated_event_categories_diff)

@@ -7,7 +7,7 @@ use rrule::{RRuleError, RRuleSet};
 use crate::core::ical::properties::{
     CategoriesProperty, ClassProperty, DTEndProperty, DTStartProperty, DurationProperty,
     ExDateProperty, ExRuleProperty, GeoProperty, Properties, Property, RDateProperty,
-    RRuleProperty, RelatedToProperty,
+    RRuleProperty, RelatedToProperty, UIDProperty,
 };
 
 use crate::core::ical::serializer::SerializableICalProperty;
@@ -518,7 +518,7 @@ impl PassiveProperties {
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Event {
-    pub uid: String,
+    pub uid: UIDProperty,
 
     pub schedule_properties: ScheduleProperties,
     pub indexed_properties: IndexedProperties,
@@ -535,7 +535,7 @@ pub struct Event {
 impl Event {
     pub fn new(uid: String) -> Event {
         Event {
-            uid,
+            uid: UIDProperty::from(uid),
 
             schedule_properties: ScheduleProperties::new(),
             indexed_properties: IndexedProperties::new(),
@@ -686,19 +686,18 @@ mod test {
 
     use crate::core::IndexedConclusion;
 
-    use crate::core::utils::UpdatedSetMembers;
     use crate::testing::macros::build_property_from_ical;
 
     use crate::core::ical::properties::DescriptionProperty;
 
     use std::collections::BTreeMap;
 
-    use pretty_assertions_sorted::{assert_eq, assert_eq_sorted};
+    use pretty_assertions_sorted::assert_eq;
 
     #[test]
     fn test_indexed_categories() {
         let event = Event {
-            uid: String::from("event_UID"),
+            uid: String::from("event_UID").into(),
 
             schedule_properties: ScheduleProperties {
                 rrule: None,
@@ -932,7 +931,7 @@ mod test {
         assert_eq!(
             Event::parse_ical("event_UID", ical).unwrap(),
             Event {
-                uid: String::from("event_UID"),
+                uid: String::from("event_UID").into(),
 
                 schedule_properties: ScheduleProperties {
                     rrule: Some(build_property_from_ical!(RRuleProperty, "RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH")),
@@ -974,7 +973,7 @@ mod test {
         assert_eq!(
             parsed_event,
             Event {
-                uid: String::from("event_UID"),
+                uid: String::from("event_UID").into(),
 
                 schedule_properties: ScheduleProperties {
                     rrule: Some(build_property_from_ical!(
@@ -1017,7 +1016,7 @@ mod test {
         assert_eq!(
             parsed_event,
             Event {
-                uid: String::from("event_UID"),
+                uid: String::from("event_UID").into(),
 
                 schedule_properties: ScheduleProperties {
                     rrule: Some(build_property_from_ical!(
@@ -1077,7 +1076,7 @@ mod test {
             parsed_event.override_occurrence(1610476200, &event_occurrence_override),
             Ok(
                 &Event {
-                    uid: String::from("event_UID"),
+                    uid: String::from("event_UID").into(),
 
                     schedule_properties: ScheduleProperties {
                         rrule: Some(build_property_from_ical!(RRuleProperty, "RRULE:FREQ=WEEKLY;UNTIL=20210331T183000Z;INTERVAL=1;BYDAY=TU")),
@@ -1153,7 +1152,7 @@ mod test {
         assert_eq!(
             parsed_event.remove_occurrence_override(1610476200),
             Ok(&Event {
-                uid: String::from("event_UID"),
+                uid: String::from("event_UID").into(),
 
                 schedule_properties: ScheduleProperties {
                     rrule: Some(build_property_from_ical!(
@@ -1206,7 +1205,7 @@ mod test {
         assert_eq!(
             parsed_event,
             Event {
-                uid: String::from("event_UID"),
+                uid: String::from("event_UID").into(),
 
                 schedule_properties: ScheduleProperties {
                     rrule: None,

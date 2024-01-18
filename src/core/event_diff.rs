@@ -278,7 +278,7 @@ mod test {
 
         // Test changes between blank original Event and populated updated Event
         let updated_event = Event {
-            uid: String::from("event_UID"),
+            uid: String::from("event_UID").into(),
 
             schedule_properties: ScheduleProperties {
                 rrule: Some(build_property_from_ical!(
@@ -373,7 +373,7 @@ mod test {
 
         // Test changes between populated original and updated Events (with removals).
         let original_event = Event {
-            uid: String::from("event_UID"),
+            uid: String::from("event_UID").into(),
 
             schedule_properties: ScheduleProperties {
                 rrule: Some(build_property_from_ical!(
