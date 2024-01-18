@@ -31,6 +31,56 @@ pub struct DurationProperty {
 
 implement_property_ord_partial_ord_and_hash_traits!(DurationProperty);
 
+impl From<i64> for DurationProperty {
+    fn from(duration_in_seconds: i64) -> Self {
+        let mut remaining_seconds = duration_in_seconds;
+
+        let mut weeks = None;
+        let mut days = None;
+        let mut hours = None;
+        let mut minutes = None;
+        let mut seconds = None;
+
+        if remaining_seconds >= Self::SECONDS_IN_WEEK {
+            weeks = Some(remaining_seconds / Self::SECONDS_IN_WEEK);
+
+            remaining_seconds = remaining_seconds % Self::SECONDS_IN_WEEK;
+        }
+
+        if remaining_seconds >= Self::SECONDS_IN_DAY {
+            days = Some(remaining_seconds / Self::SECONDS_IN_DAY);
+
+            remaining_seconds = remaining_seconds % Self::SECONDS_IN_DAY;
+        }
+
+        if remaining_seconds >= Self::SECONDS_IN_HOUR {
+            hours = Some(remaining_seconds / Self::SECONDS_IN_HOUR);
+
+            remaining_seconds = remaining_seconds % Self::SECONDS_IN_HOUR;
+        }
+
+        if remaining_seconds >= Self::SECONDS_IN_MINUTE {
+            minutes = Some(remaining_seconds / Self::SECONDS_IN_MINUTE);
+
+            remaining_seconds = remaining_seconds % Self::SECONDS_IN_MINUTE;
+        }
+
+        if remaining_seconds >= 0 {
+            seconds = Some(remaining_seconds);
+        }
+
+        DurationProperty {
+            weeks,
+            days,
+            hours,
+            minutes,
+            seconds,
+
+            x_params: None,
+        }
+    }
+}
+
 impl SerializableICalProperty for DurationProperty {
     fn serialize_to_split_ical(&self) -> (String, Option<Vec<(String, String)>>, SerializedValue) {
         let mut param_key_value_pairs: Vec<(String, String)> = Vec::new();
@@ -305,6 +355,57 @@ mod test {
     use super::*;
     use nom::error::ErrorKind;
     use pretty_assertions_sorted::assert_eq;
+
+    #[test]
+    fn test_from_seconds_int() {
+        assert_eq!(
+            DurationProperty::from(1483506),
+            DurationProperty {
+                weeks: Some(2),
+                days: Some(3),
+                hours: Some(4),
+                minutes: Some(5),
+                seconds: Some(6),
+                x_params: None,
+            }
+        );
+
+        assert_eq!(
+            DurationProperty::from(25),
+            DurationProperty {
+                weeks: None,
+                days: None,
+                hours: None,
+                minutes: None,
+                seconds: Some(25),
+                x_params: None,
+            }
+        );
+
+        assert_eq!(
+            DurationProperty::from(0),
+            DurationProperty {
+                weeks: None,
+                days: None,
+                hours: None,
+                minutes: None,
+                seconds: Some(0),
+                x_params: None,
+            }
+        );
+
+        assert_eq!(
+            DurationProperty::from(-100),
+            DurationProperty {
+                weeks: None,
+                days: None,
+                hours: None,
+                minutes: None,
+                seconds: None,
+                x_params: None,
+            }
+        );
+    }
 
     #[test]
     fn test_get_duration_in_seconds() {
