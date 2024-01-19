@@ -4,7 +4,7 @@ use crate::core::{
 };
 use chrono_tz::Tz;
 
-use crate::core::parsers::ical_query::parse_query_string;
+use crate::core::queries::query_parser::parse_query_string;
 use crate::core::queries::indexed_property_filters::WhereConditional;
 use crate::core::queries::results::QueryResults;
 use crate::core::queries::results_ordering::OrderingCondition;

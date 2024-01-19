@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use chrono_tz::Tz;
+
 use nom::{
     branch::alt,
     bytes::complete::tag,
@@ -20,38 +22,38 @@ use crate::core::queries::results_range_bounds::{
 };
 use crate::core::{GeoDistance, GeoPoint, KeyValuePair};
 
-use crate::core::parsers::ical_common;
-use crate::core::parsers::ical_common::ParserResult;
+use crate::core::ical::parser::common;
+use crate::core::ical::parser::common::ParserResult;
 
 fn parse_list_values(input: &str) -> ParserResult<&str, &str> {
-    alt((ical_common::quoted_string, param_text))(input)
+    alt((common::quoted_string, param_text))(input)
 }
 
 fn parse_single_value(input: &str) -> ParserResult<&str, &str> {
-    alt((ical_common::quoted_string, param_text))(input)
+    alt((common::quoted_string, param_text))(input)
 }
 
 fn look_ahead_property_parser(input: &str) -> ParserResult<&str, &str> {
     alt((
-        preceded(ical_common::white_space, tag(")")),
+        preceded(common::white_space, tag(")")),
         recognize(tuple((
-            ical_common::white_space1,
+            common::white_space1,
             alt((tag("AND"), tag("&&"), tag("OR"), tag("||"))),
-            ical_common::white_space1,
+            common::white_space1,
             tag("X-RELATED-TO"),
-            // ical_common::name,
+            // common::name,
             alt((
-                ical_common::colon_delimeter,
-                ical_common::semicolon_delimeter,
+                common::colon_delimeter,
+                common::semicolon_delimeter,
             )),
         ))),
-        ical_common::look_ahead_property_parser,
+        common::look_ahead_property_parser,
     ))(input)
 }
 
 // paramtext     = *SAFE-CHAR
 fn param_text(input: &str) -> ParserResult<&str, &str> {
-    ical_common::parse_with_look_ahead_parser(ical_common::param_text, look_ahead_property_parser)(
+    common::parse_with_look_ahead_parser(common::param_text, look_ahead_property_parser)(
         input,
     )
 }
@@ -62,7 +64,7 @@ pub fn values(input: &str) -> ParserResult<&str, Vec<&str>> {
 
 // value         = *VALUE-CHAR
 fn value(input: &str) -> ParserResult<&str, &str> {
-    ical_common::parse_with_look_ahead_parser(ical_common::value, look_ahead_property_parser)(input)
+    common::parse_with_look_ahead_parser(common::value, look_ahead_property_parser)(input)
 }
 
 #[derive(Debug)]
@@ -72,7 +74,7 @@ pub enum ParsedQueryComponent {
     DistinctUID,
     FromDateTime(LowerBoundRangeCondition),
     UntilDateTime(UpperBoundRangeCondition),
-    InTimezone(rrule::Tz),
+    InTimezone(Tz),
     Order(OrderingCondition),
     WhereCategories(Vec<String>, WhereOperator, WhereOperator),
     WhereRelatedTo(String, Vec<String>, WhereOperator, WhereOperator),
@@ -85,7 +87,7 @@ macro_rules! build_property_params_parser {
     ($property_name:tt) => {
         opt(
             preceded(
-                ical_common::semicolon_delimeter,
+                common::semicolon_delimeter,
                 build_property_params_value_parser!($property_name)
             )
         )
@@ -94,7 +96,7 @@ macro_rules! build_property_params_parser {
     ($property_name:tt, $(($param_name:expr, $param_parser:expr)),+ $(,)*) => {
         opt(
             preceded(
-                ical_common::semicolon_delimeter,
+                common::semicolon_delimeter,
                 build_property_params_value_parser!(
                     $property_name,
                     $(
@@ -112,7 +114,7 @@ macro_rules! build_property_params_value_parser {
             concat!($property_name, " params"),
             map(
                 separated_list1(
-                    ical_common::semicolon_delimeter,
+                    common::semicolon_delimeter,
                     context(
                         concat!($property_name, " param"),
                         separated_pair(
@@ -136,7 +138,7 @@ macro_rules! build_property_params_value_parser {
             concat!($property_name, " params"),
             map(
                 separated_list1(
-                    ical_common::semicolon_delimeter,
+                    common::semicolon_delimeter,
                     alt(
                         (
                             $(
@@ -168,19 +170,15 @@ fn parse_timezone_query_property_content(input: &str) -> ParserResult<&str, Pars
         cut(context(
             "X-TZID",
             tuple((
-                ical_common::colon_delimeter,
-                ical_common::ParsedValue::parse_timezone,
+                common::colon_delimeter,
+                common::ParsedValue::parse_timezone,
             )),
         )),
     )(input)
-    .map(|(remaining, (_colon_delimeter, parsed_timezone))| {
-        let timezone = match parsed_timezone {
-            ical_common::ParsedValue::TimeZone(timezone) => timezone,
+    .map(|(remaining, (_colon_delimeter, parsed_value))| {
+        let parsed_timezone = parsed_value.expect_timezone();
 
-            _ => rrule::Tz::UTC,
-        };
-
-        (remaining, ParsedQueryComponent::InTimezone(timezone))
+        (remaining, ParsedQueryComponent::InTimezone(parsed_timezone))
     })
 }
 
@@ -190,7 +188,7 @@ fn parse_limit_query_property_content(input: &str) -> ParserResult<&str, ParsedQ
         tag("X-LIMIT"),
         cut(context(
             "X-LIMIT",
-            tuple((ical_common::colon_delimeter, digit1)),
+            tuple((common::colon_delimeter, digit1)),
         )),
     )(input)
     .map(|(remaining, (_colon_delimeter, parsed_value))| {
@@ -212,7 +210,7 @@ fn parse_offset_query_property_content(input: &str) -> ParserResult<&str, Parsed
         tag("X-OFFSET"),
         cut(context(
             "X-OFFSET",
-            tuple((ical_common::colon_delimeter, digit1)),
+            tuple((common::colon_delimeter, digit1)),
         )),
     )(input)
     .map(|(remaining, (_colon_delimeter, parsed_value))| {
@@ -236,7 +234,7 @@ fn parse_distinct_uid_query_property_content(
         tag("X-DISTINCT"),
         cut(context(
             "X-DISTINCT",
-            tuple((ical_common::colon_delimeter, tag("UID"))),
+            tuple((common::colon_delimeter, tag("UID"))),
         )),
     )(input)
     .map(|(remaining, (_colon_delimeter, _parsed_value))| {
@@ -252,29 +250,29 @@ fn parse_from_query_property_content(input: &str) -> ParserResult<&str, ParsedQu
         cut(context(
             "X-FROM",
             tuple((
-                ical_common::semicolon_delimeter,
+                common::semicolon_delimeter,
                 build_property_params_value_parser!(
                     "X-FROM",
                     (
                         "PROP",
                         map(alt((tag("DTSTART"), tag("DTEND"))), |value| {
-                            ical_common::ParsedValue::Single(value)
+                            common::ParsedValue::Single(value)
                         })
                     ),
                     (
                         "OP",
                         map(alt((tag("GTE"), tag("GT"))), |value| {
-                            ical_common::ParsedValue::Single(value)
+                            common::ParsedValue::Single(value)
                         })
                     ),
-                    ("TZID", ical_common::ParsedValue::parse_timezone),
+                    ("TZID", common::ParsedValue::parse_timezone),
                     (
                         "UID",
-                        ical_common::ParsedValue::parse_single(parse_single_value)
+                        common::ParsedValue::parse_single(parse_single_value)
                     ),
                 ),
-                ical_common::colon_delimeter,
-                ical_common::ParsedValue::parse_date_string,
+                common::colon_delimeter,
+                common::ParsedValue::parse_date_string,
             )),
         )),
     )(input)
@@ -283,22 +281,19 @@ fn parse_from_query_property_content(input: &str) -> ParserResult<&str, ParsedQu
             &str,
             (
                 &str,
-                HashMap<&str, ical_common::ParsedValue>,
+                HashMap<&str, common::ParsedValue>,
                 &str,
-                ical_common::ParsedValue,
+                common::ParsedValue,
             ),
         )| {
-            let ical_common::ParsedValue::DateString(parsed_date_string) = parsed_value else {
+            let common::ParsedValue::DateString(parsed_date_string) = parsed_value else {
                 panic!("Expected parsed date string, received: {:#?}", parsed_value);
             };
 
-            let timezone = match parsed_params.get(&"TZID") {
-                Some(ical_common::ParsedValue::TimeZone(timezone)) => timezone,
-                _ => &rrule::Tz::UTC,
-            };
+            let parsed_timezone = parsed_params.get(&"TZID").and_then(|parsed_value| Some(parsed_value.expect_timezone())).unwrap_or(Tz::UTC);
 
             let datetime_timestamp = parsed_date_string
-                .to_date(Some(*timezone), "X-FROM")
+                .to_date(Some(parsed_timezone.into()), "X-FROM")
                 .unwrap_or_else(|error| {
                     panic!(
                         "Parsed date string unable to be converted to timestamp, error: {:#?}",
@@ -308,10 +303,10 @@ fn parse_from_query_property_content(input: &str) -> ParserResult<&str, ParsedQu
                 .timestamp();
 
             let range_condition_property = match parsed_params.get(&"PROP") {
-                Some(ical_common::ParsedValue::Single("DTSTART")) => {
+                Some(common::ParsedValue::Single("DTSTART")) => {
                     RangeConditionProperty::DtStart(datetime_timestamp)
                 }
-                Some(ical_common::ParsedValue::Single("DTEND")) => {
+                Some(common::ParsedValue::Single("DTEND")) => {
                     RangeConditionProperty::DtEnd(datetime_timestamp)
                 }
 
@@ -319,15 +314,15 @@ fn parse_from_query_property_content(input: &str) -> ParserResult<&str, ParsedQu
             };
 
             let event_uid = match parsed_params.get(&"UID") {
-                Some(ical_common::ParsedValue::Single(uid)) => Some(String::from(*uid)),
+                Some(common::ParsedValue::Single(uid)) => Some(String::from(*uid)),
                 _ => None,
             };
 
             let lower_bound_range_condition = match parsed_params.get(&"OP") {
-                Some(ical_common::ParsedValue::Single("GT")) => {
+                Some(common::ParsedValue::Single("GT")) => {
                     LowerBoundRangeCondition::GreaterThan(range_condition_property, event_uid)
                 }
-                Some(ical_common::ParsedValue::Single("GTE")) => {
+                Some(common::ParsedValue::Single("GTE")) => {
                     LowerBoundRangeCondition::GreaterEqualThan(range_condition_property, event_uid)
                 }
 
@@ -350,25 +345,25 @@ fn parse_until_query_property_content(input: &str) -> ParserResult<&str, ParsedQ
         cut(context(
             "X-UNTIL",
             tuple((
-                ical_common::semicolon_delimeter,
+                common::semicolon_delimeter,
                 build_property_params_value_parser!(
                     "X-UNTIL",
                     (
                         "PROP",
                         map(alt((tag("DTSTART"), tag("DTEND"))), |value| {
-                            ical_common::ParsedValue::Single(value)
+                            common::ParsedValue::Single(value)
                         })
                     ),
                     (
                         "OP",
                         map(alt((tag("LTE"), tag("LT"))), |value| {
-                            ical_common::ParsedValue::Single(value)
+                            common::ParsedValue::Single(value)
                         })
                     ),
-                    ("TZID", ical_common::ParsedValue::parse_timezone),
+                    ("TZID", common::ParsedValue::parse_timezone),
                 ),
-                ical_common::colon_delimeter,
-                ical_common::ParsedValue::parse_date_string,
+                common::colon_delimeter,
+                common::ParsedValue::parse_date_string,
             )),
         )),
     )(input)
@@ -377,22 +372,19 @@ fn parse_until_query_property_content(input: &str) -> ParserResult<&str, ParsedQ
             &str,
             (
                 &str,
-                HashMap<&str, ical_common::ParsedValue>,
+                HashMap<&str, common::ParsedValue>,
                 &str,
-                ical_common::ParsedValue,
+                common::ParsedValue,
             ),
         )| {
-            let ical_common::ParsedValue::DateString(parsed_date_string) = parsed_value else {
+            let common::ParsedValue::DateString(parsed_date_string) = parsed_value else {
                 panic!("Expected parsed date string, received: {:#?}", parsed_value);
             };
 
-            let timezone = match parsed_params.get(&"TZID") {
-                Some(ical_common::ParsedValue::TimeZone(timezone)) => timezone,
-                _ => &rrule::Tz::UTC,
-            };
+            let parsed_timezone = parsed_params.get(&"TZID").and_then(|parsed_value| Some(parsed_value.expect_timezone())).unwrap_or(Tz::UTC);
 
             let datetime_timestamp = parsed_date_string
-                .to_date(Some(*timezone), "X-FROM")
+                .to_date(Some(parsed_timezone.into()), "X-FROM")
                 .unwrap_or_else(|error| {
                     panic!(
                         "Parsed date string unable to be converted to timestamp, error: {:#?}",
@@ -402,10 +394,10 @@ fn parse_until_query_property_content(input: &str) -> ParserResult<&str, ParsedQ
                 .timestamp();
 
             let range_condition_property = match parsed_params.get(&"PROP") {
-                Some(ical_common::ParsedValue::Single("DTSTART")) => {
+                Some(common::ParsedValue::Single("DTSTART")) => {
                     RangeConditionProperty::DtStart(datetime_timestamp)
                 }
-                Some(ical_common::ParsedValue::Single("DTEND")) => {
+                Some(common::ParsedValue::Single("DTEND")) => {
                     RangeConditionProperty::DtEnd(datetime_timestamp)
                 }
 
@@ -413,10 +405,10 @@ fn parse_until_query_property_content(input: &str) -> ParserResult<&str, ParsedQ
             };
 
             let upper_bound_range_condition = match parsed_params.get(&"OP") {
-                Some(ical_common::ParsedValue::Single("LT")) => {
+                Some(common::ParsedValue::Single("LT")) => {
                     UpperBoundRangeCondition::LessThan(range_condition_property)
                 }
-                Some(ical_common::ParsedValue::Single("LTE")) => {
+                Some(common::ParsedValue::Single("LTE")) => {
                     UpperBoundRangeCondition::LessEqualThan(range_condition_property)
                 }
 
@@ -441,20 +433,20 @@ fn parse_categories_query_property_content(
             "X-CATEGORIES",
             tuple((
                 opt(preceded(
-                    ical_common::semicolon_delimeter,
+                    common::semicolon_delimeter,
                     build_property_params_value_parser!(
                         "X-CATEGORIES",
                         (
                             "OP",
                             map(alt((tag("AND"), tag("OR"))), |value| {
-                                ical_common::ParsedValue::Single(value)
+                                common::ParsedValue::Single(value)
                             })
                         ),
                     ),
                 )),
                 preceded(
-                    ical_common::colon_delimeter,
-                    ical_common::ParsedValue::parse_list(parse_list_values),
+                    common::colon_delimeter,
+                    common::ParsedValue::parse_list(parse_list_values),
                 ),
             )),
         )),
@@ -463,8 +455,8 @@ fn parse_categories_query_property_content(
         |(remaining, (parsed_params, parsed_value)): (
             &str,
             (
-                Option<HashMap<&str, ical_common::ParsedValue>>,
-                ical_common::ParsedValue,
+                Option<HashMap<&str, common::ParsedValue>>,
+                common::ParsedValue,
             ),
         )| {
             // Defaults
@@ -472,14 +464,14 @@ fn parse_categories_query_property_content(
 
             if let Some(parsed_params) = parsed_params {
                 internal_where_operator = match parsed_params.get(&"OP") {
-                    Some(ical_common::ParsedValue::Single("AND")) => WhereOperator::And,
-                    Some(ical_common::ParsedValue::Single("OR")) => WhereOperator::Or,
+                    Some(common::ParsedValue::Single("AND")) => WhereOperator::And,
+                    Some(common::ParsedValue::Single("OR")) => WhereOperator::Or,
 
                     _ => WhereOperator::And,
                 };
             }
 
-            let ical_common::ParsedValue::List(parsed_categories) = parsed_value else {
+            let common::ParsedValue::List(parsed_categories) = parsed_value else {
                 panic!(
                     "Expected categories to be a list of Strings, received: {:#?}",
                     parsed_value
@@ -511,24 +503,24 @@ fn parse_related_to_query_property_content(
             "X-RELATED-TO",
             tuple((
                 opt(preceded(
-                    ical_common::semicolon_delimeter,
+                    common::semicolon_delimeter,
                     build_property_params_value_parser!(
                         "X-RELATED-TO",
                         (
                             "OP",
                             map(alt((tag("AND"), tag("OR"))), |value| {
-                                ical_common::ParsedValue::Single(value)
+                                common::ParsedValue::Single(value)
                             })
                         ),
                         (
                             "RELTYPE",
-                            ical_common::ParsedValue::parse_single(parse_single_value)
+                            common::ParsedValue::parse_single(parse_single_value)
                         ),
                     ),
                 )),
                 preceded(
-                    ical_common::colon_delimeter,
-                    ical_common::ParsedValue::parse_list(parse_list_values),
+                    common::colon_delimeter,
+                    common::ParsedValue::parse_list(parse_list_values),
                 ),
             )),
         )),
@@ -537,8 +529,8 @@ fn parse_related_to_query_property_content(
         |(remaining, (parsed_params, parsed_value)): (
             &str,
             (
-                Option<HashMap<&str, ical_common::ParsedValue>>,
-                ical_common::ParsedValue,
+                Option<HashMap<&str, common::ParsedValue>>,
+                common::ParsedValue,
             ),
         )| {
             // Defaults
@@ -547,20 +539,20 @@ fn parse_related_to_query_property_content(
 
             if let Some(parsed_params) = parsed_params {
                 internal_where_operator = match parsed_params.get(&"OP") {
-                    Some(ical_common::ParsedValue::Single("AND")) => WhereOperator::And,
-                    Some(ical_common::ParsedValue::Single("OR")) => WhereOperator::Or,
+                    Some(common::ParsedValue::Single("AND")) => WhereOperator::And,
+                    Some(common::ParsedValue::Single("OR")) => WhereOperator::Or,
 
                     _ => WhereOperator::And,
                 };
 
                 parsed_reltype = match parsed_params.get(&"RELTYPE") {
-                    Some(ical_common::ParsedValue::Single(reltype)) => String::from(*reltype),
+                    Some(common::ParsedValue::Single(reltype)) => String::from(*reltype),
 
                     _ => String::from("PARENT"),
                 };
             };
 
-            let ical_common::ParsedValue::List(parsed_related_to_uids) = parsed_value else {
+            let common::ParsedValue::List(parsed_related_to_uids) = parsed_value else {
                 panic!(
                     "Expected related-to UIDS to be a list of Strings, received: {:#?}",
                     parsed_value
@@ -595,13 +587,13 @@ fn parse_geo_distance_query_property_content(
         cut(context(
             "X-GEO",
             tuple((
-                ical_common::semicolon_delimeter,
+                common::semicolon_delimeter,
                 build_property_params_value_parser!(
                     "X-GEO",
-                    ("DIST", ical_common::ParsedValue::parse_geo_distance),
+                    ("DIST", common::ParsedValue::parse_geo_distance),
                 ),
-                ical_common::colon_delimeter,
-                ical_common::ParsedValue::parse_lat_long,
+                common::colon_delimeter,
+                common::ParsedValue::parse_lat_long,
             )),
         )),
     )(input)
@@ -610,13 +602,13 @@ fn parse_geo_distance_query_property_content(
             &str,
             (
                 &str,
-                HashMap<&str, ical_common::ParsedValue>,
+                HashMap<&str, common::ParsedValue>,
                 &str,
-                ical_common::ParsedValue,
+                common::ParsedValue,
             ),
         )| {
             let parsed_geo_distance = match parsed_params.get(&"DIST") {
-                Some(ical_common::ParsedValue::GeoDistance(geo_distance)) => geo_distance.clone(),
+                Some(common::ParsedValue::GeoDistance(geo_distance)) => geo_distance.clone(),
 
                 _ => {
                     return Err(nom::Err::Error(nom::error::VerboseError::add_context(
@@ -628,7 +620,7 @@ fn parse_geo_distance_query_property_content(
             };
 
             let parsed_geo_point = match parsed_value {
-                ical_common::ParsedValue::LatLong(latitude, longitude) => {
+                common::ParsedValue::LatLong(latitude, longitude) => {
                     GeoPoint::new(longitude, latitude)
                 }
 
@@ -661,20 +653,20 @@ fn parse_class_query_property_content(input: &str) -> ParserResult<&str, ParsedQ
             "X-CLASS",
             tuple((
                 opt(preceded(
-                    ical_common::semicolon_delimeter,
+                    common::semicolon_delimeter,
                     build_property_params_value_parser!(
                         "X-CLASS",
                         (
                             "OP",
                             map(alt((tag("AND"), tag("OR"))), |value| {
-                                ical_common::ParsedValue::Single(value)
+                                common::ParsedValue::Single(value)
                             })
                         ),
                     ),
                 )),
                 preceded(
-                    ical_common::colon_delimeter,
-                    ical_common::ParsedValue::parse_list(
+                    common::colon_delimeter,
+                    common::ParsedValue::parse_list(
                         alt(
                             (
                                 tag("PUBLIC"),
@@ -691,8 +683,8 @@ fn parse_class_query_property_content(input: &str) -> ParserResult<&str, ParsedQ
         |(remaining, (parsed_params, parsed_value)): (
             &str,
             (
-                Option<HashMap<&str, ical_common::ParsedValue>>,
-                ical_common::ParsedValue,
+                Option<HashMap<&str, common::ParsedValue>>,
+                common::ParsedValue,
             ),
         )| {
             // Defaults
@@ -700,14 +692,14 @@ fn parse_class_query_property_content(input: &str) -> ParserResult<&str, ParsedQ
 
             if let Some(parsed_params) = parsed_params {
                 internal_where_operator = match parsed_params.get(&"OP") {
-                    Some(ical_common::ParsedValue::Single("AND")) => WhereOperator::And,
-                    Some(ical_common::ParsedValue::Single("OR")) => WhereOperator::Or,
+                    Some(common::ParsedValue::Single("AND")) => WhereOperator::And,
+                    Some(common::ParsedValue::Single("OR")) => WhereOperator::Or,
 
                     _ => WhereOperator::And,
                 };
             }
 
-            let ical_common::ParsedValue::List(parsed_classifications) = parsed_value else {
+            let common::ParsedValue::List(parsed_classifications) = parsed_value else {
                 panic!(
                     "Expected class to be a list of the following: PUBLIC, PRIVATE, and CONFIDENTIAL, received: {:#?}",
                     parsed_value
@@ -740,19 +732,19 @@ fn parse_order_to_query_property_content(input: &str) -> ParserResult<&str, Pars
         cut(context(
             "X-ORDER-BY",
             tuple((
-                ical_common::semicolon_delimeter,
+                common::semicolon_delimeter,
                 build_property_params_value_parser!(
                     "X-ORDER-BY",
-                    ("GEO", ical_common::ParsedValue::parse_lat_long),
+                    ("GEO", common::ParsedValue::parse_lat_long),
                 ),
-                ical_common::colon_delimeter,
+                common::colon_delimeter,
                 map(
                     alt((
                         tag("GEO-DIST-DTSTART"),
                         tag("DTSTART-GEO-DIST"),
                         tag("DTSTART"),
                     )),
-                    |value| ical_common::ParsedValue::Single(value),
+                    |value| common::ParsedValue::Single(value),
                 ),
             )),
         )),
@@ -762,13 +754,13 @@ fn parse_order_to_query_property_content(input: &str) -> ParserResult<&str, Pars
             &str,
             (
                 &str,
-                HashMap<&str, ical_common::ParsedValue>,
+                HashMap<&str, common::ParsedValue>,
                 &str,
-                ical_common::ParsedValue,
+                common::ParsedValue,
             ),
         )| {
             let parsed_geo_point = match parsed_params.get(&"GEO") {
-                Some(ical_common::ParsedValue::LatLong(latitude, longitude)) => {
+                Some(common::ParsedValue::LatLong(latitude, longitude)) => {
                     Some(GeoPoint::new(*longitude, *latitude))
                 }
 
@@ -776,7 +768,7 @@ fn parse_order_to_query_property_content(input: &str) -> ParserResult<&str, Pars
             };
 
             let ordering_condition = match parsed_value {
-                ical_common::ParsedValue::Single("DTSTART-GEO-DIST") => {
+                common::ParsedValue::Single("DTSTART-GEO-DIST") => {
                     let Some(parsed_geo_point) = parsed_geo_point else {
                         return Err(nom::Err::Error(nom::error::VerboseError::add_context(
                             input,
@@ -788,7 +780,7 @@ fn parse_order_to_query_property_content(input: &str) -> ParserResult<&str, Pars
                     OrderingCondition::DtStartGeoDist(parsed_geo_point)
                 }
 
-                ical_common::ParsedValue::Single("GEO-DIST-DTSTART") => {
+                common::ParsedValue::Single("GEO-DIST-DTSTART") => {
                     let Some(parsed_geo_point) = parsed_geo_point else {
                         return Err(nom::Err::Error(nom::error::VerboseError::add_context(
                             input,
@@ -814,7 +806,7 @@ fn parse_operator_prefixed_where_query_property_content(
     tuple((
         terminated(
             alt((tag("AND"), tag("&&"), tag("OR"), tag("||"))),
-            ical_common::white_space,
+            common::white_space,
         ),
         context(
             "operator prefix",
@@ -878,9 +870,9 @@ fn parse_operator_prefixed_where_query_property_content(
 fn parse_group_query_property_component(input: &str) -> ParserResult<&str, ParsedQueryComponent> {
     delimited(
         delimited(
-            ical_common::white_space,
+            common::white_space,
             char('('),
-            ical_common::white_space,
+            common::white_space,
         ),
         cut(context(
             "group",
@@ -895,17 +887,17 @@ fn parse_group_query_property_component(input: &str) -> ParserResult<&str, Parse
                         parse_group_query_property_component,
                     )),
                 ),
-                opt(ical_common::white_space1),
+                opt(common::white_space1),
                 context(
                     "group subsequent properties",
                     separated_list0(
-                        ical_common::white_space1,
+                        common::white_space1,
                         parse_operator_prefixed_where_query_property_content,
                     ),
                 ),
             )),
         )),
-        terminated(ical_common::white_space, char(')')),
+        terminated(common::white_space, char(')')),
     )(input)
     .map(
         |(remaining, (initial_parsed_query_property, _seperator, parsed_query_properties))| {
@@ -1000,7 +992,7 @@ pub fn parse_query_string(input: &str) -> ParserResult<&str, Query> {
     let (remaining, query_properties) = context(
         "outer parse query string",
         separated_list1(
-            ical_common::white_space1,
+            common::white_space1,
             cut(alt((
                 parse_timezone_query_property_content,
                 parse_offset_query_property_content,
@@ -1043,9 +1035,7 @@ pub fn parse_query_string(input: &str) -> ParserResult<&str, Query> {
                 }
 
                 ParsedQueryComponent::InTimezone(parsed_timezone) => {
-                    if let rrule::Tz::Tz(timezone) = parsed_timezone {
-                        query.in_timezone = timezone.to_owned();
-                    }
+                    query.in_timezone = parsed_timezone.to_owned();
                 }
 
                 ParsedQueryComponent::Order(ordering_condition) => {
@@ -1322,12 +1312,12 @@ mod test {
 
     #[test]
     fn test_parse_with_look_ahead_parser() {
-        let mut test_parser = ical_common::parse_with_look_ahead_parser(
-            take_while1(ical_common::is_safe_char),
+        let mut test_parser = common::parse_with_look_ahead_parser(
+            take_while1(common::is_safe_char),
             recognize(tuple((
-                ical_common::white_space,
+                common::white_space,
                 tag("OR"),
-                ical_common::white_space,
+                common::white_space,
                 tag("X-CATEGORIES:"),
             ))),
         );
