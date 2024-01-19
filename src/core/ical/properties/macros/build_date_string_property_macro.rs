@@ -22,7 +22,7 @@ macro_rules! build_date_string_property {
         use crate::core::ical::parser::macros::*;
         use crate::core::ical::serializer::{
             quote_string_if_needed, serialize_timestamp_to_ical_datetime, serialize_timestamp_to_ical_date,
-            SerializableICalProperty, SerializedValue,
+            SerializableICalProperty, SerializedValue, SerializationPreferences,
         };
 
         #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
@@ -49,17 +49,17 @@ macro_rules! build_date_string_property {
         }
 
         impl SerializableICalProperty for $property_struct {
-            fn serialize_to_split_ical(&self) -> (String, Option<Vec<(String, String)>>, SerializedValue) {
+            fn serialize_to_split_ical(&self, preferences: Option<&SerializationPreferences>) -> (String, Option<Vec<(String, String)>>, SerializedValue) {
                 let mut param_key_value_pairs: Vec<(String, String)> = Vec::new();
-                let mut property_timezone = &Tz::UTC;
 
                 if let Some(value_type) = &self.value_type {
                     param_key_value_pairs.push((String::from("VALUE"), String::from(value_type)));
                 }
 
-                if let Some(timezone) = &self.timezone {
-                    param_key_value_pairs.push((String::from("TZID"), String::from(timezone.name())));
-                    property_timezone = timezone;
+                let property_timezone = preferences.and_then(|preferences| preferences.timezone).or(self.timezone).unwrap_or(Tz::UTC);
+
+                if property_timezone != Tz::UTC {
+                    param_key_value_pairs.push((String::from("TZID"), String::from(property_timezone.name())));
                 }
 
                 if let Some(x_params) = &self.x_params {
@@ -82,17 +82,7 @@ macro_rules! build_date_string_property {
                     Some(param_key_value_pairs)
                 };
 
-                let value = if self.is_date_value_type() {
-                    SerializedValue::Single(serialize_timestamp_to_ical_date(
-                            &self.utc_timestamp,
-                            property_timezone,
-                    ))
-                } else {
-                    SerializedValue::Single(serialize_timestamp_to_ical_datetime(
-                            &self.utc_timestamp,
-                            property_timezone,
-                    ))
-                };
+                let value = SerializedValue::Single(self.serialize_datestring_value(&property_timezone));
 
                 (String::from(Self::NAME), params, value)
             }
@@ -105,13 +95,12 @@ macro_rules! build_date_string_property {
                 self.value_type.as_ref().is_some_and(|value_type| value_type == &String::from("DATE"))
             }
 
-            pub fn is_date_time_value_type(&self) -> bool {
-                self.is_date_value_type() == false
-            }
-
-            pub fn to_date_time(&self) -> DateTime<Tz> {
-                // TODO: Handle this unwrap potential panic properly.
-                self.timezone.unwrap_or(Tz::UTC).timestamp_opt(self.utc_timestamp, 0).unwrap()
+            fn serialize_datestring_value(&self, timezone: &Tz) -> String {
+                if self.is_date_value_type() {
+                    serialize_timestamp_to_ical_date(&self.utc_timestamp, timezone)
+                } else {
+                    serialize_timestamp_to_ical_datetime(&self.utc_timestamp, timezone)
+                }
             }
 
             pub fn parse_ical(input: &str) -> ParserResult<&str, $property_struct> {
@@ -269,7 +258,7 @@ macro_rules! build_date_string_property {
                     )
                 );
 
-                assert_eq!(parsed_property.unwrap().1.serialize_to_ical(), input);
+                assert_eq!(parsed_property.unwrap().1.serialize_to_ical(None), input);
             }
 
             #[test]
@@ -309,7 +298,7 @@ macro_rules! build_date_string_property {
                     )
                 );
 
-                assert_eq!(parsed_property.unwrap().1.serialize_to_ical(), input);
+                assert_eq!(parsed_property.unwrap().1.serialize_to_ical(None), input);
             }
 
             #[test]
@@ -437,7 +426,7 @@ macro_rules! build_date_string_property {
                     },
                 );
 
-                let serialized_ical = parsed_property.serialize_to_ical();
+                let serialized_ical = parsed_property.serialize_to_ical(None);
 
                 assert_eq!(
                     $property_struct::parse_ical(serialized_ical.as_str())
@@ -446,6 +435,7 @@ macro_rules! build_date_string_property {
                     parsed_property
                 );
 
+                // TODO: Test with SerializationPreferences timezone...
                 assert_eq!(
                     serialized_ical,
                     String::from(
@@ -479,7 +469,7 @@ macro_rules! build_date_string_property {
                     },
                 );
 
-                let serialized_ical = parsed_property.serialize_to_ical();
+                let serialized_ical = parsed_property.serialize_to_ical(None);
 
                 assert_eq!(
                     $property_struct::parse_ical(serialized_ical.as_str())
@@ -488,6 +478,7 @@ macro_rules! build_date_string_property {
                     parsed_property
                 );
 
+                // TODO: Test with SerializationPreferences timezone...
                 assert_eq!(
                     serialized_ical,
                     String::from(

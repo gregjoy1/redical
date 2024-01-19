@@ -35,49 +35,25 @@ impl Default for EventOccurrenceOverride {
 }
 
 impl EventOccurrenceOverride {
-    pub fn get_dtstart_timestamp(&self) -> Result<Option<i64>, ParseError> {
-        if let Some(dtstart) = self.dtstart.as_ref() {
-            // TODO: properly parse this so TZID is catered to.
-            let parsed_datetime = dtstart
-                .serialize_to_ical()
-                .replace(&String::from("DTSTART:"), &String::from(""));
-
-            return match datestring_to_date(&parsed_datetime, None, "DTSTART") {
-                Ok(datetime) => Ok(Some(datetime.timestamp())),
-                Err(error) => Err(error),
-            };
-        }
-
-        Ok(None)
+    pub fn get_dtstart_timestamp(&self) -> Option<i64> {
+        self.dtstart.as_ref().and_then(|dtstart| Some(dtstart.utc_timestamp.to_owned()))
     }
 
-    pub fn get_dtend_timestamp(&self) -> Result<Option<i64>, ParseError> {
-        if let Some(dtend) = self.dtend.as_ref() {
-            // TODO: properly parse this so TZID is catered to.
-            let parsed_datetime = dtend
-                .serialize_to_ical()
-                .replace(&String::from("DTEND:"), &String::from(""));
-
-            return match datestring_to_date(&parsed_datetime, None, "DTEND") {
-                Ok(datetime) => Ok(Some(datetime.timestamp())),
-                Err(error) => Err(error),
-            };
-        }
-
-        Ok(None)
+    pub fn get_dtend_timestamp(&self) -> Option<i64> {
+        self.dtend.as_ref().and_then(|dtend| Some(dtend.utc_timestamp.to_owned()))
     }
 
-    pub fn get_duration_in_seconds(&self) -> Result<Option<i64>, ParseError> {
+    pub fn get_duration_in_seconds(&self) -> Option<i64> {
         if let Some(parsed_duration) = self.duration.as_ref() {
-            return Ok(Some(parsed_duration.get_duration_in_seconds()));
+            return Some(parsed_duration.get_duration_in_seconds());
         }
 
         match (self.get_dtstart_timestamp(), self.get_dtend_timestamp()) {
-            (Ok(Some(dtstart_timestamp)), Ok(Some(dtend_timestamp))) => {
-                Ok(Some(dtend_timestamp - dtstart_timestamp))
+            (Some(dtstart_timestamp), Some(dtend_timestamp)) => {
+                Some(dtend_timestamp - dtstart_timestamp)
             }
 
-            _ => Ok(None),
+            _ => None,
         }
     }
 

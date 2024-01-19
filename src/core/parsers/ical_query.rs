@@ -1042,8 +1042,10 @@ pub fn parse_query_string(input: &str) -> ParserResult<&str, Query> {
                     query.upper_bound_range_condition = Some(upper_bound_range_condition.clone());
                 }
 
-                ParsedQueryComponent::InTimezone(timezone) => {
-                    query.in_timezone = timezone.clone();
+                ParsedQueryComponent::InTimezone(parsed_timezone) => {
+                    if let rrule::Tz::Tz(timezone) = parsed_timezone {
+                        query.in_timezone = timezone.to_owned();
+                    }
                 }
 
                 ParsedQueryComponent::Order(ordering_condition) => {
@@ -1625,7 +1627,7 @@ mod test {
                         RangeConditionProperty::DtStart(878461200,),
                     )),
 
-                    in_timezone: rrule::Tz::Europe__Vilnius,
+                    in_timezone: chrono_tz::Tz::Europe__Vilnius,
 
                     distinct_uids: false,
 
@@ -1745,7 +1747,7 @@ mod test {
                         RangeConditionProperty::DtStart(878461200,),
                     )),
 
-                    in_timezone: rrule::Tz::Europe__Vilnius,
+                    in_timezone: chrono_tz::Tz::Europe__Vilnius,
 
                     distinct_uids: true,
 

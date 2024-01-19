@@ -2,7 +2,7 @@ use crate::core::{
     Calendar, Event, EventInstance, EventInstanceIterator, GeoPoint, IndexedConclusion,
     InvertedCalendarIndexTerm, LowerBoundFilterCondition, UpperBoundFilterCondition,
 };
-use rrule::Tz;
+use chrono_tz::Tz;
 
 use crate::core::parsers::ical_query::parse_query_string;
 use crate::core::queries::indexed_property_filters::WhereConditional;
@@ -47,7 +47,7 @@ impl Query {
                     calendar,
                     &mut query_results,
                     &where_conditional_result,
-                );
+                )?;
             }
 
             OrderingCondition::DtStartGeoDist(_geo_point) => {
@@ -55,7 +55,7 @@ impl Query {
                     calendar,
                     &mut query_results,
                     &where_conditional_result,
-                );
+                )?;
             }
 
             OrderingCondition::GeoDistDtStart(geo_point) => {
@@ -64,7 +64,7 @@ impl Query {
                     calendar,
                     &mut query_results,
                     &where_conditional_result,
-                );
+                )?;
             }
         }
 
@@ -470,7 +470,7 @@ mod test {
                     RangeConditionProperty::DtStart(878461200,),
                 )),
 
-                in_timezone: rrule::Tz::Europe__Vilnius,
+                in_timezone: chrono_tz::Tz::Europe__Vilnius,
 
                 distinct_uids: false,
 

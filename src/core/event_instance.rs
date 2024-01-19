@@ -7,13 +7,11 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 
 use crate::core::{Event, EventOccurrenceOverride, GeoPoint, IndexedConclusion, KeyValuePair};
 
-use crate::core::ical::serializer::{SerializableICalProperty, SerializableICalComponent};
+use crate::core::ical::serializer::{SerializableICalProperty, SerializableICalComponent, SerializationPreferences};
 
 use crate::core::event_occurrence_iterator::{
     EventOccurrenceIterator, LowerBoundFilterCondition, UpperBoundFilterCondition,
 };
-
-use crate::core::serializers::ical_serializer;
 
 use crate::core::event::{IndexedProperties, PassiveProperties};
 
@@ -68,12 +66,12 @@ impl EventInstance {
         event_occurrence_override: Option<&EventOccurrenceOverride>,
     ) -> i64 {
         if let Some(event_occurrence_override) = event_occurrence_override {
-            if let Ok(Some(overridden_duration)) = event_occurrence_override.get_duration_in_seconds() {
+            if let Some(overridden_duration) = event_occurrence_override.get_duration_in_seconds() {
                 return overridden_duration;
             }
         }
 
-        if let Ok(Some(event_duration)) = event.schedule_properties.get_duration_in_seconds() {
+        if let Some(event_duration) = event.schedule_properties.get_duration_in_seconds() {
             return event_duration;
         }
 
@@ -176,39 +174,39 @@ impl EventInstance {
 
 impl SerializableICalComponent for EventInstance {
     // TODO: Cater to timezone
-    fn serialize_to_ical_set(&self, timezone: &Tz) -> BTreeSet<String> {
+    fn serialize_to_ical_set(&self, preferences: Option<&SerializationPreferences>) -> BTreeSet<String> {
         let mut serializable_properties: BTreeSet<String> = BTreeSet::new();
 
-        serializable_properties.insert(self.uid.serialize_to_ical());
-        serializable_properties.insert(self.dtstart.serialize_to_ical());
-        serializable_properties.insert(self.dtend.serialize_to_ical());
-        serializable_properties.insert(self.duration.serialize_to_ical());
+        serializable_properties.insert(self.uid.serialize_to_ical(preferences));
+        serializable_properties.insert(self.dtstart.serialize_to_ical(preferences));
+        serializable_properties.insert(self.dtend.serialize_to_ical(preferences));
+        serializable_properties.insert(self.duration.serialize_to_ical(preferences));
 
         if let Some(geo_property) = &self.indexed_properties.geo {
-            serializable_properties.insert(geo_property.serialize_to_ical());
+            serializable_properties.insert(geo_property.serialize_to_ical(preferences));
         }
 
         if let Some(class_property) = &self.indexed_properties.class {
-            serializable_properties.insert(class_property.serialize_to_ical());
+            serializable_properties.insert(class_property.serialize_to_ical(preferences));
         }
 
         if let Some(related_to_properties) = &self.indexed_properties.related_to {
             for related_to_property in related_to_properties {
-                serializable_properties.insert(related_to_property.serialize_to_ical());
+                serializable_properties.insert(related_to_property.serialize_to_ical(preferences));
             }
         }
 
         if let Some(categories_properties) = &self.indexed_properties.categories {
             for categories_property in categories_properties {
-                serializable_properties.insert(categories_property.serialize_to_ical());
+                serializable_properties.insert(categories_property.serialize_to_ical(preferences));
             }
         }
 
         for passive_property in &self.passive_properties.properties {
-            serializable_properties.insert(passive_property.serialize_to_ical());
+            serializable_properties.insert(passive_property.serialize_to_ical(preferences));
         }
 
-        serializable_properties.insert(self.build_recurrence_id_from_dtstart().serialize_to_ical());
+        serializable_properties.insert(self.build_recurrence_id_from_dtstart().serialize_to_ical(preferences));
 
         serializable_properties
     }
@@ -352,13 +350,20 @@ mod test {
             }
         );
 
+        let serialization_preferences = SerializationPreferences {
+            timezone: Some(Tz::Europe__London),
+            distance_unit: None,
+        };
+
         assert_eq!(
-            event_instance.serialize_to_ical(&Tz::Europe__London),
+            event_instance.serialize_to_ical(Some(&serialization_preferences)),
             vec![
                 String::from("CATEGORIES:CATEGORY THREE,CATEGORY_ONE,CATEGORY_TWO"),
+                String::from("CLASS:PRIVATE"),
                 String::from("DESCRIPTION:Event description text."),
                 String::from("DTEND;TZID=Europe/London:19700101T010240"),
                 String::from("DTSTART;TZID=Europe/London:19700101T010140"),
+                String::from("DURATION:PT1M"),
                 String::from("GEO:48.85299;2.36885"),
                 String::from("LOCATION:Event address text."),
                 String::from("RECURRENCE-ID;VALUE=DATE-TIME:19700101T000140Z"),
@@ -440,7 +445,7 @@ mod test {
         );
 
         assert_eq!(
-            event_instance.serialize_to_ical(&Tz::UTC),
+            event_instance.serialize_to_ical(None),
             vec![
                 String::from("CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE"),
                 String::from("DESCRIPTION:Event description text."),
@@ -572,35 +577,35 @@ mod test {
         assert_eq!(
             event_instance_iterator
                 .next()
-                .and_then(|event_instance| Some(event_instance.serialize_to_ical(&Tz::UTC))),
+                .and_then(|event_instance| Some(event_instance.serialize_to_ical(None))),
             Some(expected_event_instances_ical[&1609871400].clone())
         );
 
         assert_eq!(
             event_instance_iterator
                 .next()
-                .and_then(|event_instance| Some(event_instance.serialize_to_ical(&Tz::UTC))),
+                .and_then(|event_instance| Some(event_instance.serialize_to_ical(None))),
             Some(expected_event_instances_ical[&1610476200].clone())
         );
 
         assert_eq!(
             event_instance_iterator
                 .next()
-                .and_then(|event_instance| Some(event_instance.serialize_to_ical(&Tz::UTC))),
+                .and_then(|event_instance| Some(event_instance.serialize_to_ical(None))),
             Some(expected_event_instances_ical[&1611081000].clone())
         );
 
         assert_eq!(
             event_instance_iterator
                 .next()
-                .and_then(|event_instance| Some(event_instance.serialize_to_ical(&Tz::UTC))),
+                .and_then(|event_instance| Some(event_instance.serialize_to_ical(None))),
             Some(expected_event_instances_ical[&1611685800].clone())
         );
 
         assert_eq!(
             event_instance_iterator
                 .next()
-                .and_then(|event_instance| Some(event_instance.serialize_to_ical(&Tz::UTC))),
+                .and_then(|event_instance| Some(event_instance.serialize_to_ical(None))),
             Some(expected_event_instances_ical[&1612290600].clone())
         );
 
@@ -619,35 +624,35 @@ mod test {
         assert_eq!(
             event_instance_iterator
                 .next()
-                .and_then(|event_instance| Some(event_instance.serialize_to_ical(&Tz::UTC))),
+                .and_then(|event_instance| Some(event_instance.serialize_to_ical(None))),
             Some(expected_event_instances_ical[&1609871400].clone())
         );
 
         assert_eq!(
             event_instance_iterator
                 .next()
-                .and_then(|event_instance| Some(event_instance.serialize_to_ical(&Tz::UTC))),
+                .and_then(|event_instance| Some(event_instance.serialize_to_ical(None))),
             Some(expected_event_instances_ical[&1610476200].clone())
         );
 
         assert_eq!(
             event_instance_iterator
                 .next()
-                .and_then(|event_instance| Some(event_instance.serialize_to_ical(&Tz::UTC))),
+                .and_then(|event_instance| Some(event_instance.serialize_to_ical(None))),
             Some(expected_event_instances_ical[&1611081000].clone())
         );
 
         assert_eq!(
             event_instance_iterator
                 .next()
-                .and_then(|event_instance| Some(event_instance.serialize_to_ical(&Tz::UTC))),
+                .and_then(|event_instance| Some(event_instance.serialize_to_ical(None))),
             Some(expected_event_instances_ical[&1611685800].clone())
         );
 
         assert_eq!(
             event_instance_iterator
                 .next()
-                .and_then(|event_instance| Some(event_instance.serialize_to_ical(&Tz::UTC))),
+                .and_then(|event_instance| Some(event_instance.serialize_to_ical(None))),
             Some(expected_event_instances_ical[&1612290600].clone())
         );
 
@@ -668,14 +673,14 @@ mod test {
         assert_eq!(
             event_instance_iterator
                 .next()
-                .and_then(|event_instance| Some(event_instance.serialize_to_ical(&Tz::UTC))),
+                .and_then(|event_instance| Some(event_instance.serialize_to_ical(None))),
             Some(expected_event_instances_ical[&1610476200].clone())
         );
 
         assert_eq!(
             event_instance_iterator
                 .next()
-                .and_then(|event_instance| Some(event_instance.serialize_to_ical(&Tz::UTC))),
+                .and_then(|event_instance| Some(event_instance.serialize_to_ical(None))),
             Some(expected_event_instances_ical[&1611685800].clone())
         );
 
@@ -710,21 +715,21 @@ mod test {
         assert_eq!(
             event_instance_iterator
                 .next()
-                .and_then(|event_instance| Some(event_instance.serialize_to_ical(&Tz::UTC))),
+                .and_then(|event_instance| Some(event_instance.serialize_to_ical(None))),
             Some(expected_event_instances_ical[&1609871400].clone())
         );
 
         assert_eq!(
             event_instance_iterator
                 .next()
-                .and_then(|event_instance| Some(event_instance.serialize_to_ical(&Tz::UTC))),
+                .and_then(|event_instance| Some(event_instance.serialize_to_ical(None))),
             Some(expected_event_instances_ical[&1611081000].clone())
         );
 
         assert_eq!(
             event_instance_iterator
                 .next()
-                .and_then(|event_instance| Some(event_instance.serialize_to_ical(&Tz::UTC))),
+                .and_then(|event_instance| Some(event_instance.serialize_to_ical(None))),
             Some(expected_event_instances_ical[&1612290600].clone())
         );
 

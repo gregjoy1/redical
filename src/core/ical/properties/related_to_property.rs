@@ -10,12 +10,14 @@ use nom::{
     sequence::{preceded, separated_pair, tuple},
 };
 
+use crate::core::utils::KeyValuePair;
+
 use crate::core::ical::parser::common;
 use crate::core::ical::parser::common::ParserResult;
 use crate::core::ical::parser::macros::*;
 use crate::core::ical::parser::properties;
 use crate::core::ical::serializer::{
-    quote_string_if_needed, SerializableICalProperty, SerializedValue,
+    quote_string_if_needed, SerializableICalProperty, SerializedValue, SerializationPreferences,
 };
 
 use serde::{Deserialize, Serialize};
@@ -30,7 +32,7 @@ pub struct RelatedToProperty {
 implement_property_ord_partial_ord_and_hash_traits!(RelatedToProperty);
 
 impl SerializableICalProperty for RelatedToProperty {
-    fn serialize_to_split_ical(&self) -> (String, Option<Vec<(String, String)>>, SerializedValue) {
+    fn serialize_to_split_ical(&self, _preferences: Option<&SerializationPreferences>) -> (String, Option<Vec<(String, String)>>, SerializedValue) {
         let mut param_key_value_pairs: Vec<(String, String)> = Vec::new();
 
         if let Some(reltype) = &self.reltype {
@@ -70,6 +72,10 @@ impl SerializableICalProperty for RelatedToProperty {
 impl RelatedToProperty {
     const NAME: &'static str = "RELATED-TO";
     const DEFAULT_RELTYPE: &'static str = "PARENT";
+
+    pub fn to_key_value_pair(&self) -> KeyValuePair {
+        KeyValuePair::new(self.get_reltype(), self.uid.clone())
+    }
 
     pub fn get_reltype(&self) -> String {
         self.reltype.clone().unwrap_or(String::from(Self::DEFAULT_RELTYPE))
@@ -268,7 +274,7 @@ mod test {
             },
         );
 
-        let serialized_ical = parsed_categories_property.serialize_to_ical();
+        let serialized_ical = parsed_categories_property.serialize_to_ical(None);
 
         assert_eq!(
             RelatedToProperty::parse_ical(serialized_ical.as_str())

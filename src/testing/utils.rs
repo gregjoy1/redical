@@ -20,7 +20,7 @@ pub fn build_event_and_overrides_from_ical(
 
         assert!(event
             .override_occurrence(
-                parsed_event_occurrence_override.get_dtstart_timestamp().unwrap().unwrap(),
+                parsed_event_occurrence_override.get_dtstart_timestamp().unwrap(),
                 &parsed_event_occurrence_override,
             )
             .is_ok());

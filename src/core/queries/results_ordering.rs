@@ -1,8 +1,9 @@
 use std::cmp::Ordering;
 use std::collections::BTreeSet;
 
-use chrono::TimeZone;
 use chrono_tz::Tz;
+
+use crate::core::ical::serializer::{DistanceUnit, SerializationPreferences};
 
 use geo::HaversineDistance;
 
@@ -75,8 +76,12 @@ pub enum QueryResultOrdering {
 }
 
 impl SerializableICalComponent for QueryResultOrdering {
-    fn serialize_to_ical_set(&self, timezone: &Tz) -> BTreeSet<String> {
-        let timezone = rrule::Tz::Tz(timezone.to_owned());
+    fn serialize_to_ical_set(&self, preferences: Option<&SerializationPreferences>) -> BTreeSet<String> {
+        let timezone = if let Some(preferences) = preferences {
+            rrule::Tz::Tz(preferences.get_timezone())
+        } else {
+            rrule::Tz::UTC
+        };
 
         let mut serialized_ical_set = BTreeSet::new();
 

@@ -21,7 +21,7 @@ macro_rules! build_rrule_property {
         use crate::core::ical::parser::macros::*;
         use crate::core::ical::serializer::{
             quote_string_if_needed, serialize_timestamp_to_ical_datetime, SerializableICalProperty,
-            SerializedValue,
+            SerializedValue, SerializationPreferences,
         };
 
         #[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone)]
@@ -48,7 +48,7 @@ macro_rules! build_rrule_property {
         implement_property_ord_partial_ord_and_hash_traits!($property_struct);
 
         impl SerializableICalProperty for $property_struct {
-            fn serialize_to_split_ical(&self) -> (String, Option<Vec<(String, String)>>, SerializedValue) {
+            fn serialize_to_split_ical(&self, preferences: Option<&SerializationPreferences>) -> (String, Option<Vec<(String, String)>>, SerializedValue) {
                 let mut param_key_value_pairs: Vec<(String, String)> = Vec::new();
 
                 if let Some(x_params) = &self.x_params {
@@ -95,11 +95,13 @@ macro_rules! build_rrule_property {
                 }
 
                 if let Some(until_utc_timestamp) = self.until_utc_timestamp {
+                    let until_timezone = preferences.and_then(|preferences| preferences.timezone.clone()).unwrap_or(Tz::UTC);
+
                     values.push((
                         String::from("UNTIL"),
                         SerializedValue::Single(serialize_timestamp_to_ical_datetime(
                             &until_utc_timestamp,
-                            &Tz::UTC,
+                            &until_timezone,
                         )),
                     ));
                 }
@@ -813,7 +815,7 @@ macro_rules! build_rrule_property {
                     },
                 );
 
-                let serialized_ical = parsed_property.serialize_to_ical();
+                let serialized_ical = parsed_property.serialize_to_ical(None);
 
                 assert_eq!(
                     $property_struct::parse_ical(serialized_ical.as_str())

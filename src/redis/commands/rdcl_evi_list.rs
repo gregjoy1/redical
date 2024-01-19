@@ -39,7 +39,7 @@ pub fn redical_event_instance_list(ctx: &Context, args: Vec<RedisString>) -> Red
                 .map(|event_instance| {
                     RedisValue::Array(
                         event_instance
-                            .serialize_to_ical(&chrono_tz::Tz::UTC)
+                            .serialize_to_ical(None)
                             .iter()
                             .map(|ical_part| RedisValue::SimpleString(ical_part.to_owned()))
                             .collect(),

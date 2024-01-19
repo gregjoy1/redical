@@ -13,7 +13,7 @@ use std::str::FromStr;
 
 use crate::core::ical::parser::common::{white_space1, ParserResult};
 use crate::core::ical::properties::*;
-use crate::core::ical::serializer::{SerializableICalProperty, SerializedValue};
+use crate::core::ical::serializer::{SerializableICalProperty, SerializedValue, SerializationPreferences};
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone, Ord, PartialOrd)]
 pub enum Property {
@@ -89,26 +89,26 @@ pub enum Property {
 }
 
 impl SerializableICalProperty for Property {
-    fn serialize_to_split_ical(&self) -> (String, Option<Vec<(String, String)>>, SerializedValue) {
+    fn serialize_to_split_ical(&self, preferences: Option<&SerializationPreferences>) -> (String, Option<Vec<(String, String)>>, SerializedValue) {
         match self {
-            Self::Resources(property) => property.serialize_to_split_ical(),
-            Self::Categories(property) => property.serialize_to_split_ical(),
-            Self::Class(property) => property.serialize_to_split_ical(),
-            Self::Geo(property) => property.serialize_to_split_ical(),
-            Self::Description(property) => property.serialize_to_split_ical(),
-            Self::RecurrenceID(property) => property.serialize_to_split_ical(),
-            Self::DTEnd(property) => property.serialize_to_split_ical(),
-            Self::DTStart(property) => property.serialize_to_split_ical(),
-            Self::Duration(property) => property.serialize_to_split_ical(),
-            Self::ExDate(property) => property.serialize_to_split_ical(),
-            Self::ExRule(property) => property.serialize_to_split_ical(),
-            Self::RRule(property) => property.serialize_to_split_ical(),
-            Self::Location(property) => property.serialize_to_split_ical(),
-            Self::RDate(property) => property.serialize_to_split_ical(),
-            Self::RelatedTo(property) => property.serialize_to_split_ical(),
-            Self::Summary(property) => property.serialize_to_split_ical(),
-            Self::UID(property) => property.serialize_to_split_ical(),
-            Self::X(property) => property.serialize_to_split_ical(),
+            Self::Resources(property) => property.serialize_to_split_ical(preferences),
+            Self::Categories(property) => property.serialize_to_split_ical(preferences),
+            Self::Class(property) => property.serialize_to_split_ical(preferences),
+            Self::Geo(property) => property.serialize_to_split_ical(preferences),
+            Self::Description(property) => property.serialize_to_split_ical(preferences),
+            Self::RecurrenceID(property) => property.serialize_to_split_ical(preferences),
+            Self::DTEnd(property) => property.serialize_to_split_ical(preferences),
+            Self::DTStart(property) => property.serialize_to_split_ical(preferences),
+            Self::Duration(property) => property.serialize_to_split_ical(preferences),
+            Self::ExDate(property) => property.serialize_to_split_ical(preferences),
+            Self::ExRule(property) => property.serialize_to_split_ical(preferences),
+            Self::RRule(property) => property.serialize_to_split_ical(preferences),
+            Self::Location(property) => property.serialize_to_split_ical(preferences),
+            Self::RDate(property) => property.serialize_to_split_ical(preferences),
+            Self::RelatedTo(property) => property.serialize_to_split_ical(preferences),
+            Self::Summary(property) => property.serialize_to_split_ical(preferences),
+            Self::UID(property) => property.serialize_to_split_ical(preferences),
+            Self::X(property) => property.serialize_to_split_ical(preferences),
         }
     }
 }

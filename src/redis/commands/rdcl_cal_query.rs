@@ -1,7 +1,7 @@
 use redis_module::{Context, NextArg, RedisError, RedisResult, RedisString, RedisValue};
 
 use crate::core::queries::query::Query;
-use crate::core::ical::serializer::SerializableICalComponent;
+use crate::core::ical::serializer::{SerializableICalComponent, SerializationPreferences};
 use crate::core::Calendar;
 use crate::redis::calendar_data_type::CALENDAR_DATA_TYPE;
 
@@ -53,17 +53,13 @@ pub fn redical_calendar_query(ctx: &Context, args: Vec<RedisString>) -> RedisRes
         .results
         .iter()
         .map(|query_result| {
-            // TODO: Update to chrono_tz::Tz
-            let timezone = match parsed_query.in_timezone {
-                rrule::Tz::Tz(timezone) => timezone,
-                rrule::Tz::Local(_timezone) => chrono_tz::Tz::UTC,
-            };
+            let serialization_preferences = SerializationPreferences::from(&parsed_query);
 
             RedisValue::Array(vec![
                 RedisValue::Array(
                     query_result
                         .result_ordering
-                        .serialize_to_ical(&timezone)
+                        .serialize_to_ical(Some(&serialization_preferences))
                         .iter()
                         .map(|ical_part| RedisValue::SimpleString(ical_part.to_owned()))
                         .collect(),
@@ -71,7 +67,7 @@ pub fn redical_calendar_query(ctx: &Context, args: Vec<RedisString>) -> RedisRes
                 RedisValue::Array(
                     query_result
                         .event_instance
-                        .serialize_to_ical(&timezone)
+                        .serialize_to_ical(Some(&serialization_preferences))
                         .iter()
                         .map(|ical_part| RedisValue::SimpleString(ical_part.to_owned()))
                         .collect(),

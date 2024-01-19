@@ -100,13 +100,13 @@ impl EventDiff {
         let original_passive_properties = Some(
             original_event
                 .passive_properties
-                .extract_properties_key_value_pairs(),
+                .extract_properties_serialized_ical_key_value_pairs(),
         );
 
         let updated_passive_properties = Some(
             updated_event
                 .passive_properties
-                .extract_properties_key_value_pairs(),
+                .extract_properties_serialized_ical_key_value_pairs(),
         );
 
         Some(UpdatedSetMembers::new(
@@ -141,27 +141,27 @@ impl SchedulePropertiesDiff {
 
         SchedulePropertiesDiff {
             rrule: Self::build_updated_attribute(
-                &original_event_schedule_properties.extract_rrule_key_value_pair(),
-                &updated_event_schedule_properties.extract_rrule_key_value_pair(),
+                &original_event_schedule_properties.extract_serialized_rrule_ical_key_value_pair(),
+                &updated_event_schedule_properties.extract_serialized_rrule_ical_key_value_pair(),
             ),
             exrule: Self::build_updated_attribute(
-                &original_event_schedule_properties.extract_exrule_key_value_pair(),
-                &updated_event_schedule_properties.extract_exrule_key_value_pair(),
+                &original_event_schedule_properties.extract_serialized_exrule_ical_key_value_pair(),
+                &updated_event_schedule_properties.extract_serialized_exrule_ical_key_value_pair(),
             ),
             rdate: Self::build_updated_set_members(
                 original_event_schedule_properties
-                    .extract_rdates_key_value_pairs()
+                    .extract_serialized_rdates_ical_key_value_pairs()
                     .as_ref(),
                 updated_event_schedule_properties
-                    .extract_rdates_key_value_pairs()
+                    .extract_serialized_rdates_ical_key_value_pairs()
                     .as_ref(),
             ),
             exdate: Self::build_updated_set_members(
                 original_event_schedule_properties
-                    .extract_exdates_key_value_pairs()
+                    .extract_serialized_exdates_ical_key_value_pairs()
                     .as_ref(),
                 updated_event_schedule_properties
-                    .extract_exdates_key_value_pairs()
+                    .extract_serialized_exdates_ical_key_value_pairs()
                     .as_ref(),
             ),
             duration: Self::build_updated_attribute(
@@ -169,12 +169,12 @@ impl SchedulePropertiesDiff {
                 &updated_event_schedule_properties.duration,
             ),
             dtstart: Self::build_updated_attribute(
-                &original_event_schedule_properties.extract_dtstart_key_value_pair(),
-                &updated_event_schedule_properties.extract_dtstart_key_value_pair(),
+                &original_event_schedule_properties.extract_serialized_dtstart_ical_key_value_pair(),
+                &updated_event_schedule_properties.extract_serialized_dtstart_ical_key_value_pair(),
             ),
             dtend: Self::build_updated_attribute(
-                &original_event_schedule_properties.extract_dtend_key_value_pair(),
-                &updated_event_schedule_properties.extract_dtend_key_value_pair(),
+                &original_event_schedule_properties.extract_serialized_dtend_ical_key_value_pair(),
+                &updated_event_schedule_properties.extract_serialized_dtend_ical_key_value_pair(),
             ),
         }
     }
@@ -439,12 +439,12 @@ mod test {
                 indexed_related_to: Some(UpdatedSetMembers {
                     removed: HashSet::from([
                         KeyValuePair::new(
-                            String::from("RELATED-TO"),
-                            String::from(";RELTYPE=X-IDX-CAL:indexed_calendar_UID")
+                            String::from("X-IDX-CAL"),
+                            String::from("indexed_calendar_UID")
                         ),
                         KeyValuePair::new(
-                            String::from("RELATED-TO"),
-                            String::from(";RELTYPE=PARENT:another_event_UID")
+                            String::from("PARENT"),
+                            String::from("another_event_UID")
                         ),
                     ]),
                     maintained: HashSet::new(),
@@ -512,12 +512,12 @@ mod test {
                 indexed_related_to: Some(UpdatedSetMembers {
                     removed: HashSet::from([
                         KeyValuePair::new(
-                            String::from("RELATED-TO"),
-                            String::from(";RELTYPE=X-IDX-CAL:indexed_calendar_UID")
+                            String::from("X-IDX-CAL"),
+                            String::from("indexed_calendar_UID")
                         ),
                         KeyValuePair::new(
-                            String::from("RELATED-TO"),
-                            String::from(";RELTYPE=PARENT:another_event_UID")
+                            String::from("PARENT"),
+                            String::from("another_event_UID")
                         ),
                     ]),
                     maintained: HashSet::new(),

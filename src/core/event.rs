@@ -162,58 +162,58 @@ impl ScheduleProperties {
         }
     }
 
-    pub fn extract_rrule_key_value_pair(&self) -> Option<KeyValuePair> {
+    pub fn extract_serialized_rrule_ical_key_value_pair(&self) -> Option<KeyValuePair> {
         self.rrule
             .as_ref()
-            .and_then(|property| Some(property.to_key_value_pair()))
+            .and_then(|property| Some(property.serialize_to_ical_key_value_pair(None)))
     }
 
-    pub fn extract_exrule_key_value_pair(&self) -> Option<KeyValuePair> {
+    pub fn extract_serialized_exrule_ical_key_value_pair(&self) -> Option<KeyValuePair> {
         self.exrule
             .as_ref()
-            .and_then(|property| Some(property.to_key_value_pair()))
+            .and_then(|property| Some(property.serialize_to_ical_key_value_pair(None)))
     }
 
-    pub fn extract_rdates_key_value_pairs(&self) -> Option<HashSet<KeyValuePair>> {
+    pub fn extract_serialized_rdates_ical_key_value_pairs(&self) -> Option<HashSet<KeyValuePair>> {
         self.rdates.as_ref().and_then(|properties| {
             let mut key_value_pairs = HashSet::new();
 
             for property in properties {
-                key_value_pairs.insert(property.to_key_value_pair());
+                key_value_pairs.insert(property.serialize_to_ical_key_value_pair(None));
             }
 
             Some(key_value_pairs)
         })
     }
 
-    pub fn extract_exdates_key_value_pairs(&self) -> Option<HashSet<KeyValuePair>> {
+    pub fn extract_serialized_exdates_ical_key_value_pairs(&self) -> Option<HashSet<KeyValuePair>> {
         self.exdates.as_ref().and_then(|properties| {
             let mut key_value_pairs = HashSet::new();
 
             for property in properties {
-                key_value_pairs.insert(property.to_key_value_pair());
+                key_value_pairs.insert(property.serialize_to_ical_key_value_pair(None));
             }
 
             Some(key_value_pairs)
         })
     }
 
-    pub fn extract_duration_key_value_pair(&self) -> Option<KeyValuePair> {
+    pub fn extract_serialized_duration_ical_key_value_pair(&self) -> Option<KeyValuePair> {
         self.duration
             .as_ref()
-            .and_then(|property| Some(property.to_key_value_pair()))
+            .and_then(|property| Some(property.serialize_to_ical_key_value_pair(None)))
     }
 
-    pub fn extract_dtstart_key_value_pair(&self) -> Option<KeyValuePair> {
+    pub fn extract_serialized_dtstart_ical_key_value_pair(&self) -> Option<KeyValuePair> {
         self.dtstart
             .as_ref()
-            .and_then(|property| Some(property.to_key_value_pair()))
+            .and_then(|property| Some(property.serialize_to_ical_key_value_pair(None)))
     }
 
-    pub fn extract_dtend_key_value_pair(&self) -> Option<KeyValuePair> {
+    pub fn extract_serialized_dtend_ical_key_value_pair(&self) -> Option<KeyValuePair> {
         self.dtend
             .as_ref()
-            .and_then(|property| Some(property.to_key_value_pair()))
+            .and_then(|property| Some(property.serialize_to_ical_key_value_pair(None)))
     }
 
     pub fn insert(&mut self, property: Property) -> Result<&Self, String> {
@@ -256,20 +256,20 @@ impl ScheduleProperties {
         if let Some(rrule) = &self.rrule {
             is_missing_rules = false;
 
-            ical_parts.push(rrule.serialize_to_ical());
+            ical_parts.push(rrule.serialize_to_ical(None));
         }
 
         if let Some(exrule) = &self.exrule {
             is_missing_rules = false;
 
-            ical_parts.push(exrule.serialize_to_ical());
+            ical_parts.push(exrule.serialize_to_ical(None));
         }
 
         if let Some(rdatesss) = &self.rdates {
             rdatesss.iter().for_each(|rdates| {
                 is_missing_rules = false;
 
-                ical_parts.push(rdates.serialize_to_ical());
+                ical_parts.push(rdates.serialize_to_ical(None));
             });
         }
 
@@ -277,12 +277,12 @@ impl ScheduleProperties {
             exdatesss.iter().for_each(|exdates| {
                 is_missing_rules = false;
 
-                ical_parts.push(exdates.serialize_to_ical());
+                ical_parts.push(exdates.serialize_to_ical(None));
             });
         }
 
         if let Some(dtstart) = &self.dtstart {
-            ical_parts.push(dtstart.serialize_to_ical());
+            ical_parts.push(dtstart.serialize_to_ical(None));
 
             // If parsed ical does not contain any RRULE or RDATE properties, we need to
             // artifically create them based on the specified DTSTART properties so that the
@@ -305,49 +305,25 @@ impl ScheduleProperties {
         ical_parts.join("\n").parse::<RRuleSet>()
     }
 
-    pub fn get_dtstart_timestamp(&self) -> Result<Option<i64>, ParseError> {
-        if let Some(dtstart) = self.dtstart.as_ref() {
-            // TODO: properly parse this so TZID is catered to.
-            let parsed_datetime = dtstart
-                .serialize_to_ical()
-                .replace(&String::from("DTSTART:"), &String::from(""));
-
-            return match datestring_to_date(&parsed_datetime, None, "DTSTART") {
-                Ok(datetime) => Ok(Some(datetime.timestamp())),
-                Err(error) => Err(error),
-            };
-        }
-
-        Ok(None)
+    pub fn get_dtstart_timestamp(&self) -> Option<i64> {
+        self.dtstart.as_ref().and_then(|dtstart| Some(dtstart.utc_timestamp.to_owned()))
     }
 
-    pub fn get_dtend_timestamp(&self) -> Result<Option<i64>, ParseError> {
-        if let Some(dtend) = self.dtend.as_ref() {
-            // TODO: properly parse this so TZID is catered to.
-            let parsed_datetime = dtend
-                .serialize_to_ical()
-                .replace(&String::from("DTEND:"), &String::from(""));
-
-            return match datestring_to_date(&parsed_datetime, None, "DTEND") {
-                Ok(datetime) => Ok(Some(datetime.timestamp())),
-                Err(error) => Err(error),
-            };
-        }
-
-        Ok(None)
+    pub fn get_dtend_timestamp(&self) -> Option<i64> {
+        self.dtend.as_ref().and_then(|dtend| Some(dtend.utc_timestamp.to_owned()))
     }
 
-    pub fn get_duration_in_seconds(&self) -> Result<Option<i64>, ParseError> {
+    pub fn get_duration_in_seconds(&self) -> Option<i64> {
         if let Some(parsed_duration) = self.duration.as_ref() {
-            return Ok(Some(parsed_duration.get_duration_in_seconds()));
+            return Some(parsed_duration.get_duration_in_seconds());
         }
 
         match (self.get_dtstart_timestamp(), self.get_dtend_timestamp()) {
-            (Ok(Some(dtstart_timestamp)), Ok(Some(dtend_timestamp))) => {
-                Ok(Some(dtend_timestamp - dtstart_timestamp))
+            (Some(dtstart_timestamp), Some(dtend_timestamp)) => {
+                Some(dtend_timestamp - dtstart_timestamp)
             }
 
-            _ => Ok(None),
+            _ => None,
         }
     }
 
@@ -457,7 +433,7 @@ impl IndexedProperties {
             _ => {
                 return Err(format!(
                     "Expected indexable property (CATEGORIES, RELATED_TO), received: {}",
-                    property.serialize_to_ical()
+                    property.serialize_to_ical(None)
                 ));
             }
         };
@@ -478,11 +454,11 @@ impl PassiveProperties {
         }
     }
 
-    pub fn extract_properties_key_value_pairs(&self) -> HashSet<KeyValuePair> {
+    pub fn extract_properties_serialized_ical_key_value_pairs(&self) -> HashSet<KeyValuePair> {
         let mut key_value_pairs = HashSet::new();
 
         for property in &self.properties {
-            key_value_pairs.insert(property.to_key_value_pair());
+            key_value_pairs.insert(property.serialize_to_ical_key_value_pair(None));
         }
 
         key_value_pairs
@@ -503,7 +479,7 @@ impl PassiveProperties {
             | Property::Duration(_) => {
                 return Err(format!(
                     "Expected passive property, received: {}",
-                    property.serialize_to_ical()
+                    property.serialize_to_ical(None)
                 ));
             }
 

@@ -5,7 +5,7 @@ use chrono_tz::Tz;
 
 use crate::core::ical::properties::Property;
 
-use crate::core::ical::parser::common::ParserResult;
+use crate::core::queries::query::Query;
 use crate::core::utils::KeyValuePair;
 
 mod serialized_value;
@@ -54,19 +54,53 @@ where
     format!(r#""{value}""#)
 }
 
+// TODO: Consider moving this enum into utils for wider use
+#[derive(Debug, Eq, PartialEq, Clone)]
+pub enum DistanceUnit {
+    Kilometers,
+    Miles,
+}
+
+#[derive(Debug, Eq, PartialEq, Clone)]
+pub struct SerializationPreferences {
+    pub timezone: Option<Tz>,
+    pub distance_unit: Option<DistanceUnit>,
+}
+
+impl SerializationPreferences {
+    // Get the specified timezone - falling back to UTC
+    pub fn get_timezone(&self) -> Tz {
+        self.timezone.clone().unwrap_or(Tz::UTC)
+    }
+
+    // Get the specified distance unit - falling back to Kilometers
+    pub fn get_distance_unit(&self) -> DistanceUnit {
+        self.distance_unit.clone().unwrap_or(DistanceUnit::Kilometers)
+    }
+}
+
+impl From<&Query> for SerializationPreferences {
+    fn from(query: &Query) -> Self {
+        SerializationPreferences {
+            timezone: Some(query.in_timezone),
+            distance_unit: None,
+        }
+    }
+}
+
 pub trait SerializableICalComponent {
     // TODO: Wire up timezone...
-    fn serialize_to_ical(&self, timezone: &Tz) -> Vec<String> {
-        self.serialize_to_ical_set(timezone).into_iter().collect()
+    fn serialize_to_ical(&self, preferences: Option<&SerializationPreferences>) -> Vec<String> {
+        self.serialize_to_ical_set(preferences).into_iter().collect()
     }
 
     // TODO: Wire up timezone...
-    fn serialize_to_ical_set(&self, timezone: &Tz) -> BTreeSet<String>;
+    fn serialize_to_ical_set(&self, preferences: Option<&SerializationPreferences>) -> BTreeSet<String>;
 }
 
 pub trait SerializableICalProperty {
-    fn to_key_value_pair(&self) -> KeyValuePair {
-        let (name, params, value) = self.serialize_to_split_ical();
+    fn serialize_to_ical_key_value_pair(&self, preferences: Option<&SerializationPreferences>) -> KeyValuePair {
+        let (name, params, value) = self.serialize_to_split_ical(preferences);
 
         let mut serialized_property = String::new();
 
@@ -89,11 +123,11 @@ pub trait SerializableICalProperty {
         KeyValuePair::new(name, serialized_property)
     }
 
-    fn serialize_to_ical(&self) -> String {
-        self.to_key_value_pair().to_string()
+    fn serialize_to_ical(&self, preferences: Option<&SerializationPreferences>) -> String {
+        self.serialize_to_ical_key_value_pair(preferences).to_string()
     }
 
-    fn serialize_to_split_ical(&self) -> (String, Option<Vec<(String, String)>>, SerializedValue);
+    fn serialize_to_split_ical(&self, preferences: Option<&SerializationPreferences>) -> (String, Option<Vec<(String, String)>>, SerializedValue);
 }
 
 #[cfg(test)]
