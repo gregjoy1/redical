@@ -16,7 +16,7 @@ pub fn build_event_and_overrides_from_ical(
     }
 
     for override_ical_parts in event_overrides {
-        let parsed_event_occurrence_override = EventOccurrenceOverride::parse_ical(override_ical_parts.join(" ").as_str()).unwrap();
+        let parsed_event_occurrence_override = build_event_override_from_ical(override_ical_parts);
 
         assert!(event
             .override_occurrence(
@@ -30,4 +30,8 @@ pub fn build_event_and_overrides_from_ical(
     assert!(event.rebuild_indexed_related_to().is_ok());
 
     event
+}
+
+pub fn build_event_override_from_ical(event_override_ical_parts: Vec<&str>) -> EventOccurrenceOverride {
+    EventOccurrenceOverride::parse_ical(event_override_ical_parts.join(" ").as_str()).unwrap()
 }
