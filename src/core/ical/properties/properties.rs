@@ -38,7 +38,6 @@ pub enum Property {
     // TODO: Implement "ATTENDEE"
     // TODO: Implement "CONTACT"
     // TODO: Implement "ORGANIZER"
-    // TODO: Implement "RECURRENCE-ID"
     // TODO: Implement "URL"
     // TODO: Implement "ACTION"
     // TODO: Implement "REPEAT"
@@ -69,23 +68,24 @@ pub enum Property {
     // TODO: Implement "CONCEPT"
     // TODO: Implement "LINK"
     // TODO: Implement "REFID"
-    Resources(ResourcesProperty),     //  "RESOURCES"
-    Categories(CategoriesProperty),   //  "CATEGORIES"
-    Class(ClassProperty),             //  "CLASS"
-    Geo(GeoProperty),                 //  "GEO"
-    Description(DescriptionProperty), //  "DESCRIPTION"
-    DTEnd(DTEndProperty),             //  "DTEND"
-    DTStart(DTStartProperty),         //  "DTSTART"
-    Duration(DurationProperty),       //  "DURATION"
-    ExDate(ExDateProperty),           //  "EXDATE"
-    ExRule(ExRuleProperty),           //  "EXRULE"
-    RRule(RRuleProperty),             //  "RRULE"
-    Location(LocationProperty),       //  "LOCATION"
-    RDate(RDateProperty),             //  "RDATE"
-    RelatedTo(RelatedToProperty),     //  "RELATED-TO"
-    Summary(SummaryProperty),         //  "SUMMARY"
-    UID(UIDProperty),                 //  "UID"
-    X(XProperty),                     //  "X-*"
+    Resources(ResourcesProperty),       //  "RESOURCES"
+    Categories(CategoriesProperty),     //  "CATEGORIES"
+    Class(ClassProperty),               //  "CLASS"
+    Geo(GeoProperty),                   //  "GEO"
+    Description(DescriptionProperty),   //  "DESCRIPTION"
+    RecurrenceID(RecurrenceIDProperty), // "RECURRENCE-ID"
+    DTEnd(DTEndProperty),               //  "DTEND"
+    DTStart(DTStartProperty),           //  "DTSTART"
+    Duration(DurationProperty),         //  "DURATION"
+    ExDate(ExDateProperty),             //  "EXDATE"
+    ExRule(ExRuleProperty),             //  "EXRULE"
+    RRule(RRuleProperty),               //  "RRULE"
+    Location(LocationProperty),         //  "LOCATION"
+    RDate(RDateProperty),               //  "RDATE"
+    RelatedTo(RelatedToProperty),       //  "RELATED-TO"
+    Summary(SummaryProperty),           //  "SUMMARY"
+    UID(UIDProperty),                   //  "UID"
+    X(XProperty),                       //  "X-*"
 }
 
 impl SerializableICalProperty for Property {
@@ -96,6 +96,7 @@ impl SerializableICalProperty for Property {
             Self::Class(property) => property.serialize_to_split_ical(),
             Self::Geo(property) => property.serialize_to_split_ical(),
             Self::Description(property) => property.serialize_to_split_ical(),
+            Self::RecurrenceID(property) => property.serialize_to_split_ical(),
             Self::DTEnd(property) => property.serialize_to_split_ical(),
             Self::DTStart(property) => property.serialize_to_split_ical(),
             Self::Duration(property) => property.serialize_to_split_ical(),
@@ -123,23 +124,24 @@ impl Property {
         context(
             "property",
             alt((
-                map(ResourcesProperty::parse_ical, Self::Resources), //  "RESOURCES"
-                map(CategoriesProperty::parse_ical, Self::Categories), //  "CATEGORIES"
-                map(ClassProperty::parse_ical, Self::Class),         //  "CLASS"
-                map(GeoProperty::parse_ical, Self::Geo),             //  "GEO"
-                map(DescriptionProperty::parse_ical, Self::Description), //  "DESCRIPTION"
-                map(DTEndProperty::parse_ical, Self::DTEnd),         //  "DTEND"
-                map(DTStartProperty::parse_ical, Self::DTStart),     //  "DTSTART"
-                map(DurationProperty::parse_ical, Self::Duration),   //  "DURATION"
-                map(ExDateProperty::parse_ical, Self::ExDate),       //  "EXDATE"
-                map(ExRuleProperty::parse_ical, Self::ExRule),       //  "EXRULE"
-                map(RRuleProperty::parse_ical, Self::RRule),         //  "RRULE"
-                map(LocationProperty::parse_ical, Self::Location),   //  "LOCATION"
-                map(RDateProperty::parse_ical, Self::RDate),         //  "RDATE"
-                map(RelatedToProperty::parse_ical, Self::RelatedTo), //  "RELATED-TO"
-                map(SummaryProperty::parse_ical, Self::Summary),     //  "SUMMARY"
-                map(UIDProperty::parse_ical, Self::UID),             //  "UID"
-                map(XProperty::parse_ical, Self::X),                 //  "X-*"
+                map(ResourcesProperty::parse_ical, Self::Resources),       //  "RESOURCES"
+                map(CategoriesProperty::parse_ical, Self::Categories),     //  "CATEGORIES"
+                map(ClassProperty::parse_ical, Self::Class),               //  "CLASS"
+                map(GeoProperty::parse_ical, Self::Geo),                   //  "GEO"
+                map(DescriptionProperty::parse_ical, Self::Description),   //  "DESCRIPTION"
+                map(RecurrenceIDProperty::parse_ical, Self::RecurrenceID), //  "RECURRENCE-ID"
+                map(DTEndProperty::parse_ical, Self::DTEnd),               //  "DTEND"
+                map(DTStartProperty::parse_ical, Self::DTStart),           //  "DTSTART"
+                map(DurationProperty::parse_ical, Self::Duration),         //  "DURATION"
+                map(ExDateProperty::parse_ical, Self::ExDate),             //  "EXDATE"
+                map(ExRuleProperty::parse_ical, Self::ExRule),             //  "EXRULE"
+                map(RRuleProperty::parse_ical, Self::RRule),               //  "RRULE"
+                map(LocationProperty::parse_ical, Self::Location),         //  "LOCATION"
+                map(RDateProperty::parse_ical, Self::RDate),               //  "RDATE"
+                map(RelatedToProperty::parse_ical, Self::RelatedTo),       //  "RELATED-TO"
+                map(SummaryProperty::parse_ical, Self::Summary),           //  "SUMMARY"
+                map(UIDProperty::parse_ical, Self::UID),                   //  "UID"
+                map(XProperty::parse_ical, Self::X),                       //  "X-*"
             )),
         )(input)
     }
@@ -182,6 +184,7 @@ mod test {
             "X-PROPERTY:Experimental property text.",
             "RESOURCES:APPOINTMENT",
             "CLASS:PUBLIC",
+            "RECURRENCE-ID:20201231T183000Z",
             "DTEND:20201231T183000Z",
             "DTSTART:20201231T183000Z",
             "EXDATE:20201231T183000Z",
@@ -240,6 +243,11 @@ mod test {
         assert!(matches!(
             parsed_properties_iter.next(),
             Some(Property::Class(_))
+        ));
+
+        assert!(matches!(
+            parsed_properties_iter.next(),
+            Some(Property::RecurrenceID(_))
         ));
 
         assert!(matches!(

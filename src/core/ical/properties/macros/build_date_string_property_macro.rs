@@ -4,6 +4,7 @@ macro_rules! build_date_string_property {
         use serde::{Deserialize, Serialize};
         use std::collections::HashMap;
 
+        use chrono::{DateTime, TimeZone};
         use chrono_tz::Tz;
 
         use nom::{
@@ -20,29 +21,14 @@ macro_rules! build_date_string_property {
         use crate::core::ical::parser::common::ParserResult;
         use crate::core::ical::parser::macros::*;
         use crate::core::ical::serializer::{
-            quote_string_if_needed, serialize_timestamp_to_ical_datetime, SerializableICalProperty,
-            SerializedValue,
+            quote_string_if_needed, serialize_timestamp_to_ical_datetime, serialize_timestamp_to_ical_date,
+            SerializableICalProperty, SerializedValue,
         };
-
-        #[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone)]
-        pub enum ValueType {
-            DateTime,
-            Date,
-        }
-
-        impl ToString for ValueType {
-            fn to_string(&self) -> String {
-                match self {
-                    ValueType::DateTime => String::from("DATE-TIME"),
-                    ValueType::Date => String::from("DATE"),
-                }
-            }
-        }
 
         #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
         pub struct $property_struct {
             pub timezone: Option<Tz>,
-            pub value_type: Option<ValueType>,
+            pub value_type: Option<String>,
             pub utc_timestamp: i64,
             pub x_params: Option<HashMap<String, Vec<String>>>,
         }
@@ -68,7 +54,7 @@ macro_rules! build_date_string_property {
                 let mut property_timezone = &Tz::UTC;
 
                 if let Some(value_type) = &self.value_type {
-                    param_key_value_pairs.push((String::from("VALUE"), value_type.to_string()));
+                    param_key_value_pairs.push((String::from("VALUE"), String::from(value_type)));
                 }
 
                 if let Some(timezone) = &self.timezone {
@@ -96,10 +82,17 @@ macro_rules! build_date_string_property {
                     Some(param_key_value_pairs)
                 };
 
-                let value = SerializedValue::Single(serialize_timestamp_to_ical_datetime(
-                    &self.utc_timestamp,
-                    property_timezone,
-                ));
+                let value = if self.is_date_value_type() {
+                    SerializedValue::Single(serialize_timestamp_to_ical_date(
+                            &self.utc_timestamp,
+                            property_timezone,
+                    ))
+                } else {
+                    SerializedValue::Single(serialize_timestamp_to_ical_datetime(
+                            &self.utc_timestamp,
+                            property_timezone,
+                    ))
+                };
 
                 (String::from(Self::NAME), params, value)
             }
@@ -107,6 +100,19 @@ macro_rules! build_date_string_property {
 
         impl $property_struct {
             const NAME: &'static str = $property_name;
+
+            pub fn is_date_value_type(&self) -> bool {
+                self.value_type.as_ref().is_some_and(|value_type| value_type == &String::from("DATE"))
+            }
+
+            pub fn is_date_time_value_type(&self) -> bool {
+                self.is_date_value_type() == false
+            }
+
+            pub fn to_date_time(&self) -> DateTime<Tz> {
+                // TODO: Handle this unwrap potential panic properly.
+                self.timezone.unwrap_or(Tz::UTC).timestamp_opt(self.utc_timestamp, 0).unwrap()
+            }
 
             pub fn parse_ical(input: &str) -> ParserResult<&str, $property_struct> {
                 preceded(
@@ -136,7 +142,7 @@ macro_rules! build_date_string_property {
                             common::ParsedValue,
                         ),
                     )| {
-                        let mut value_type: Option<ValueType> = None;
+                        let mut value_type: Option<String> = None;
                         let mut timezone: Option<Tz> = None;
                         let mut x_params: Option<HashMap<String, Vec<String>>> = None;
 
@@ -144,11 +150,7 @@ macro_rules! build_date_string_property {
                             for (key, value) in parsed_params {
                                 match key {
                                     "VALUE" => {
-                                        value_type = match value.expect_single() {
-                                            "DATE-TIME" => Some(ValueType::DateTime),
-                                            "DATE" => Some(ValueType::Date),
-                                            _ => None,
-                                        };
+                                        value_type = Some(String::from(value.expect_single()));
                                     }
 
                                     "TZID" => {
@@ -189,31 +191,27 @@ macro_rules! build_date_string_property {
                             }
                         };
 
-                        match value_type {
-                            Some(ValueType::DateTime) if parsed_date_string.time.is_none() => {
-                                return Err(nom::Err::Error(VerboseError {
-                                    errors: vec![(
-                                        input,
-                                        VerboseErrorKind::Context(
-                                            "expected parsed DATE-TIME value, received DATE",
-                                        ),
-                                    )],
-                                }));
-                            }
+                        if value_type.as_ref().is_some_and(|value_type| value_type == &String::from("DATE-TIME") && parsed_date_string.time.is_none()) {
+                            return Err(nom::Err::Error(VerboseError {
+                                errors: vec![(
+                                    input,
+                                    VerboseErrorKind::Context(
+                                        "expected parsed DATE-TIME value, received DATE",
+                                    ),
+                                )],
+                            }));
+                        }
 
-                            Some(ValueType::Date) if parsed_date_string.time.is_some() => {
-                                return Err(nom::Err::Error(VerboseError {
-                                    errors: vec![(
-                                        input,
-                                        VerboseErrorKind::Context(
-                                            "expected parsed DATE value, received DATE-TIME",
-                                        ),
-                                    )],
-                                }));
-                            }
-
-                            _ => {}
-                        };
+                        if value_type.as_ref().is_some_and(|value_type| value_type == &String::from("DATE") && parsed_date_string.time.is_some()) {
+                            return Err(nom::Err::Error(VerboseError {
+                                errors: vec![(
+                                    input,
+                                    VerboseErrorKind::Context(
+                                        "expected parsed DATE value, received DATE-TIME",
+                                    ),
+                                )],
+                            }));
+                        }
 
                         let parsed_property = $property_struct {
                             value_type,
@@ -252,6 +250,29 @@ macro_rules! build_date_string_property {
             }
 
             #[test]
+            fn test_parse_ical_with_valid_date_value_type() {
+                let input = concat!($property_name, ";VALUE=DATE:20201231");
+                let parsed_property = $property_struct::parse_ical(input);
+
+                assert_eq!(
+                    parsed_property,
+                    Ok(
+                        (
+                            "",
+                            $property_struct {
+                                value_type: Some(String::from("DATE")),
+                                timezone: None,
+                                utc_timestamp: 1609372800,
+                                x_params: None,
+                            },
+                        )
+                    )
+                );
+
+                assert_eq!(parsed_property.unwrap().1.serialize_to_ical(), input);
+            }
+
+            #[test]
             fn test_parse_ical_with_invalid_date_time_value_type() {
                 let input = concat!($property_name, ";VALUE=DATE-TIME:20201231");
                 let parsed_property = $property_struct::parse_ical(input);
@@ -266,6 +287,29 @@ macro_rules! build_date_string_property {
                     nom::error::convert_error(input, error),
                     format!("0: at line 1, in expected parsed DATE-TIME value, received DATE:\n{property_name};VALUE=DATE-TIME:20201231\n^\n\n", property_name = $property_name),
                 );
+            }
+
+            #[test]
+            fn test_parse_ical_with_valid_date_time_value_type() {
+                let input = concat!($property_name, ";VALUE=DATE-TIME:20201231T183000Z");
+                let parsed_property = $property_struct::parse_ical(input);
+
+                assert_eq!(
+                    parsed_property,
+                    Ok(
+                        (
+                            "",
+                            $property_struct {
+                                value_type: Some(String::from("DATE-TIME")),
+                                timezone: None,
+                                utc_timestamp: 1609439400,
+                                x_params: None,
+                            },
+                        )
+                    )
+                );
+
+                assert_eq!(parsed_property.unwrap().1.serialize_to_ical(), input);
             }
 
             #[test]
@@ -323,7 +367,7 @@ macro_rules! build_date_string_property {
                     Ok((
                         "",
                         $property_struct {
-                            value_type: Some(ValueType::DateTime),
+                            value_type: Some(String::from("DATE-TIME")),
                             timezone: Some(Tz::Europe__London),
                             utc_timestamp: 1609439400,
                             x_params: Some(HashMap::from([
@@ -350,7 +394,7 @@ macro_rules! build_date_string_property {
                     Ok((
                         " SUMMARY:Summary text.",
                         $property_struct {
-                            value_type: Some(ValueType::DateTime),
+                            value_type: Some(String::from("DATE-TIME")),
                             timezone: Some(Tz::Europe__London),
                             utc_timestamp: 1609439400,
                             x_params: Some(HashMap::from([
@@ -377,7 +421,7 @@ macro_rules! build_date_string_property {
                 assert_eq!(
                     parsed_property,
                     $property_struct {
-                        value_type: Some(ValueType::DateTime),
+                        value_type: Some(String::from("DATE-TIME")),
                         timezone: Some(Tz::Europe__London),
                         utc_timestamp: 1609439400,
                         x_params: Some(HashMap::from([
@@ -419,7 +463,7 @@ macro_rules! build_date_string_property {
                 assert_eq!(
                     parsed_property,
                     $property_struct {
-                        value_type: Some(ValueType::DateTime),
+                        value_type: Some(String::from("DATE-TIME")),
                         timezone: None,
                         utc_timestamp: 1609439400,
                         x_params: Some(HashMap::from([

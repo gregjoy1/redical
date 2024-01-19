@@ -18,7 +18,7 @@ use crate::core::serializers::ical_serializer;
 use crate::core::event::{IndexedProperties, PassiveProperties};
 
 use crate::core::ical::properties::{
-    UIDProperty, DTEndProperty, DTStartProperty, DurationProperty, GeoProperty, CategoriesProperty, RelatedToProperty, ClassProperty, Property
+    RecurrenceIDProperty, UIDProperty, DTEndProperty, DTStartProperty, DurationProperty, GeoProperty, CategoriesProperty, RelatedToProperty, ClassProperty, Property
 };
 
 #[derive(Debug, Eq, PartialEq, Clone)]
@@ -162,6 +162,16 @@ impl EventInstance {
 
         event.indexed_properties.class.to_owned()
     }
+
+    // Copy the contents of the DTStartProperty into RecurrenceIDProperty as it serves
+    // essentially the same purpose.
+    //
+    // TODO: Verify that reckless assertion above:
+    //       - https://icalendar.org/iCalendar-RFC-5545/3-8-4-4-recurrence-id.html
+    fn build_recurrence_id_from_dtstart(&self) -> RecurrenceIDProperty {
+        RecurrenceIDProperty::from(&self.dtstart)
+    }
+
 }
 
 impl SerializableICalComponent for EventInstance {
@@ -198,14 +208,7 @@ impl SerializableICalComponent for EventInstance {
             serializable_properties.insert(passive_property.serialize_to_ical());
         }
 
-        // TODO
-        // serialized_ical_set.insert(KeyValuePair::new(
-        //     String::from("RECURRENCE-ID"),
-        //     format!(
-        //         ";VALUE=DATE-TIME:{}",
-        //         ical_serializer::serialize_timestamp_to_ical_utc_datetime(&self.dtstart_timestamp)
-        //     ),
-        // ));
+        serializable_properties.insert(self.build_recurrence_id_from_dtstart().serialize_to_ical());
 
         serializable_properties
     }
@@ -443,6 +446,7 @@ mod test {
                 String::from("DESCRIPTION:Event description text."),
                 String::from("DTEND:20201231T183100Z"),
                 String::from("DTSTART:20201231T183000Z"),
+                String::from("DURATION:PT1M"),
                 String::from("LOCATION:Overridden Event address text."),
                 String::from("RECURRENCE-ID;VALUE=DATE-TIME:20201231T183000Z"),
                 String::from("RELATED-TO;RELTYPE=CHILD:ChildUID"),
@@ -497,6 +501,7 @@ mod test {
                     String::from("DESCRIPTION:OVERRIDDEN description text."),
                     String::from("DTEND:20210105T190000Z"),
                     String::from("DTSTART:20210105T183000Z"),
+                    String::from("DURATION:PT30M"),
                     String::from("RECURRENCE-ID;VALUE=DATE-TIME:20210105T183000Z"),
                     String::from("RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUID"),
                     String::from("UID:event_UID"),
@@ -509,6 +514,7 @@ mod test {
                     String::from("DESCRIPTION:BASE description text."),
                     String::from("DTEND:20210112T190000Z"),
                     String::from("DTSTART:20210112T183000Z"),
+                    String::from("DURATION:PT30M"),
                     String::from("RECURRENCE-ID;VALUE=DATE-TIME:20210112T183000Z"),
                     String::from("RELATED-TO;RELTYPE=CHILD:BASE_ChildUID"),
                     String::from("RELATED-TO;RELTYPE=CHILD:OVERRIDDEN_ChildUID"),
@@ -522,6 +528,7 @@ mod test {
                     String::from("DESCRIPTION:BASE description text."),
                     String::from("DTEND:20210119T190000Z"),
                     String::from("DTSTART:20210119T183000Z"),
+                    String::from("DURATION:PT30M"),
                     String::from("RECURRENCE-ID;VALUE=DATE-TIME:20210119T183000Z"),
                     String::from("RELATED-TO;RELTYPE=CHILD:BASE_ChildUID"),
                     String::from("RELATED-TO;RELTYPE=PARENT:BASE_ParentdUID"),
@@ -535,6 +542,7 @@ mod test {
                     String::from("DESCRIPTION:OVERRIDDEN description text."),
                     String::from("DTEND:20210126T190000Z"),
                     String::from("DTSTART:20210126T183000Z"),
+                    String::from("DURATION:PT30M"),
                     String::from("RECURRENCE-ID;VALUE=DATE-TIME:20210126T183000Z"),
                     String::from("RELATED-TO;RELTYPE=CHILD:OVERRIDDEN_ChildUID"),
                     String::from("RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUID"),
@@ -548,6 +556,7 @@ mod test {
                     String::from("DESCRIPTION:BASE description text."),
                     String::from("DTEND:20210202T190000Z"),
                     String::from("DTSTART:20210202T183000Z"),
+                    String::from("DURATION:PT30M"),
                     String::from("RECURRENCE-ID;VALUE=DATE-TIME:20210202T183000Z"),
                     String::from("RELATED-TO;RELTYPE=CHILD:BASE_ChildUID"),
                     String::from("RELATED-TO;RELTYPE=PARENT:BASE_ParentdUID"),

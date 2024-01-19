@@ -29,6 +29,15 @@ pub fn serialize_timestamp_to_ical_datetime(utc_timestamp: &i64, timezone: &Tz) 
     format!("{}{}", serialized_datetime, timezone_postfix)
 }
 
+/// Generates an iCalendar date-time string format with the prefix symbols.
+/// Like: `:19970714``
+/// ref: <https://tools.ietf.org/html/rfc5545#section-3.3.5>
+pub fn serialize_timestamp_to_ical_date(utc_timestamp: &i64, timezone: &Tz) -> String {
+    let local_datetime = timezone.timestamp_opt(utc_timestamp.clone(), 0).unwrap();
+
+    local_datetime.format("%Y%m%d").to_string()
+}
+
 pub fn quote_string_if_needed<'a, F>(value: &'a String, mut no_quote_parser: F) -> String
 where
     F: nom::Parser<&'a str, &'a str, nom::error::VerboseError<&'a str>>,

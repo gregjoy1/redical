@@ -31,6 +31,9 @@ pub use resources_property::ResourcesProperty;
 mod summary_property;
 pub use summary_property::SummaryProperty;
 
+mod recurrence_id_property;
+pub use recurrence_id_property::RecurrenceIDProperty;
+
 mod dtend_property;
 pub use dtend_property::DTEndProperty;
 
