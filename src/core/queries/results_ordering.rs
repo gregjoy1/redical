@@ -3,14 +3,14 @@ use std::collections::BTreeSet;
 
 use chrono_tz::Tz;
 
-use crate::core::ical::serializer::{DistanceUnit, SerializationPreferences};
+use crate::core::ical::serializer::{DistanceUnit, SerializationPreferences, SerializableICalComponent, SerializableICalProperty};
 
 use geo::HaversineDistance;
 
 use crate::core::{EventInstance, GeoDistance, GeoPoint, KeyValuePair};
 
-use crate::core::serializers::ical_serializer;
-use crate::core::ical::serializer::SerializableICalComponent;
+use crate::core::ical::properties::{DTStartProperty, XProperty};
+
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum OrderingCondition {
@@ -87,32 +87,69 @@ impl SerializableICalComponent for QueryResultOrdering {
 
         match self {
             QueryResultOrdering::DtStart(dtstart_timestamp) => {
-                serialized_ical_set.insert(ical_serializer::serialize_dtstart_timestamp_to_ical(
-                    dtstart_timestamp,
-                    &timezone,
-                ).to_string());
+                let dtstart_property = DTStartProperty {
+                    timezone: None,
+                    value_type: None,
+                    utc_timestamp: dtstart_timestamp.to_owned(),
+                    x_params: None,
+                };
+
+                serialized_ical_set.insert(dtstart_property.serialize_to_ical(preferences));
             }
 
             QueryResultOrdering::DtStartGeoDist(dtstart_timestamp, geo_distance) => {
-                serialized_ical_set.insert(ical_serializer::serialize_dtstart_timestamp_to_ical(
-                    dtstart_timestamp,
-                    &timezone,
-                ).to_string());
+                let dtstart_property = DTStartProperty {
+                    timezone: None,
+                    value_type: None,
+                    utc_timestamp: dtstart_timestamp.to_owned(),
+                    x_params: None,
+                };
+
+                serialized_ical_set.insert(dtstart_property.serialize_to_ical(preferences));
 
                 if let Some(geo_distance) = geo_distance {
-                    serialized_ical_set.insert(format!("X-GEO-DIST:{}", geo_distance.to_string()));
+                    let geo_distance = match preferences.cloned().and_then(|preferences| preferences.distance_unit).unwrap_or(DistanceUnit::Kilometers) {
+                        DistanceUnit::Kilometers => geo_distance.to_kilometers(),
+                        DistanceUnit::Miles => geo_distance.to_miles(),
+                    };
+
+                    let x_geo_dist_property = XProperty {
+                        language: None,
+                        name: String::from("X-GEO-DIST"),
+                        value: geo_distance.to_string(),
+                        x_params: None,
+                    };
+
+                    serialized_ical_set.insert(x_geo_dist_property.serialize_to_ical(preferences));
                 }
             }
 
             QueryResultOrdering::GeoDistDtStart(geo_distance, dtstart_timestamp) => {
-                serialized_ical_set.insert(ical_serializer::serialize_dtstart_timestamp_to_ical(
-                    dtstart_timestamp,
-                    &timezone,
-                ).to_string());
-
                 if let Some(geo_distance) = geo_distance {
-                    serialized_ical_set.insert(format!("X-GEO-DIST:{}", geo_distance.to_string()));
+                    let geo_distance = match preferences.cloned().and_then(|preferences| preferences.distance_unit).unwrap_or(DistanceUnit::Kilometers) {
+                        DistanceUnit::Kilometers => geo_distance.to_kilometers(),
+                        DistanceUnit::Miles => geo_distance.to_miles(),
+                    };
+
+                    let x_geo_dist_property = XProperty {
+                        language: None,
+                        name: String::from("X-GEO-DIST"),
+                        value: geo_distance.to_string(),
+                        x_params: None,
+                    };
+
+                    serialized_ical_set.insert(x_geo_dist_property.serialize_to_ical(preferences));
                 }
+
+                let dtstart_property = DTStartProperty {
+                    timezone: None,
+                    value_type: None,
+                    utc_timestamp: dtstart_timestamp.to_owned(),
+                    x_params: None,
+                };
+
+                serialized_ical_set.insert(dtstart_property.serialize_to_ical(preferences));
+
             }
         }
 
