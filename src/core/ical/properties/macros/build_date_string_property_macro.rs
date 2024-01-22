@@ -220,6 +220,7 @@ macro_rules! build_date_string_property {
 
             use super::*;
             use pretty_assertions_sorted::assert_eq;
+            use crate::core::ical::parser::error::convert_error;
 
             #[test]
             fn test_parse_ical_with_invalid_date_value_type() {
@@ -233,8 +234,8 @@ macro_rules! build_date_string_property {
                 };
 
                 assert_eq!(
-                    nom::error::convert_error(input, error),
-                    format!("0: at line 1, in expected parsed DATE value, received DATE-TIME:\n{property_name};VALUE=DATE:20201231T183000Z\n^\n\n", property_name = $property_name),
+                    convert_error(input, error),
+                    format!("[0]: expected parsed DATE value, received DATE-TIME at '{property_name};VALUE=DATE:20201231T183000Z' ", property_name = $property_name),
                 );
             }
 
@@ -273,8 +274,8 @@ macro_rules! build_date_string_property {
                 };
 
                 assert_eq!(
-                    nom::error::convert_error(input, error),
-                    format!("0: at line 1, in expected parsed DATE-TIME value, received DATE:\n{property_name};VALUE=DATE-TIME:20201231\n^\n\n", property_name = $property_name),
+                    convert_error(input, error),
+                    format!("[0]: expected parsed DATE-TIME value, received DATE at '{property_name};VALUE=DATE-TIME:20201231' ", property_name = $property_name),
                 );
             }
 

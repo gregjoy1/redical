@@ -4,12 +4,14 @@ use nom::{
     branch::alt,
     bytes::complete::tag,
     combinator::{map, opt, all_consuming},
-    error::{context, convert_error},
+    error::context,
     multi::separated_list1,
     sequence::terminated,
 };
 
 use std::str::FromStr;
+
+use crate::core::ical::parser::error::convert_error;
 
 use crate::core::ical::parser::common::{white_space1, ParserResult};
 use crate::core::ical::properties::*;

@@ -50,7 +50,7 @@ pub fn redical_event_override_set(ctx: &Context, args: Vec<RedisString>) -> Redi
 
     if event.is_none() {
         return Err(RedisError::String(
-            "No event with UID: '{event_uid}' found".to_string(),
+            format!("No event with UID: '{}' found", event_uid)
         ));
     }
 

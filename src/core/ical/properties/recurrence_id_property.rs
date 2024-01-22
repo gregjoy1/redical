@@ -249,10 +249,11 @@ mod test {
 
     use super::*;
     use pretty_assertions_sorted::assert_eq;
+    use crate::core::ical::parser::error::convert_error;
 
     #[test]
     fn test_parse_ical_with_invalid_date_value_type() {
-        let input = concat!("RECURRENCE-ID", ";VALUE=DATE:20201231T183000Z");
+        let input = "RECURRENCE-ID;VALUE=DATE:20201231T183000Z";
         let parsed_property = RecurrenceIDProperty::parse_ical(input);
 
         assert!(parsed_property.is_err());
@@ -262,14 +263,14 @@ mod test {
         };
 
         assert_eq!(
-            nom::error::convert_error(input, error),
-            format!("0: at line 1, in expected parsed DATE value, received DATE-TIME:\n{property_name};VALUE=DATE:20201231T183000Z\n^\n\n", property_name = "RECURRENCE-ID"),
+            convert_error(input, error),
+            String::from("[0]: expected parsed DATE value, received DATE-TIME at 'RECURRENCE-ID;VALUE=DATE:20201231T183000Z' "),
         );
     }
 
     #[test]
     fn test_parse_ical_with_valid_date_value_type() {
-        let input = concat!("RECURRENCE-ID", ";VALUE=DATE:20201231");
+        let input = "RECURRENCE-ID;VALUE=DATE:20201231";
         let parsed_property = RecurrenceIDProperty::parse_ical(input);
 
         assert_eq!(
@@ -292,7 +293,7 @@ mod test {
 
     #[test]
     fn test_parse_ical_with_invalid_date_time_value_type() {
-        let input = concat!("RECURRENCE-ID", ";VALUE=DATE-TIME:20201231");
+        let input = "RECURRENCE-ID;VALUE=DATE-TIME:20201231";
         let parsed_property = RecurrenceIDProperty::parse_ical(input);
 
         assert!(parsed_property.is_err());
@@ -302,14 +303,14 @@ mod test {
         };
 
         assert_eq!(
-            nom::error::convert_error(input, error),
-            format!("0: at line 1, in expected parsed DATE-TIME value, received DATE:\n{property_name};VALUE=DATE-TIME:20201231\n^\n\n", property_name = "RECURRENCE-ID"),
+            convert_error(input, error),
+            String::from("[0]: expected parsed DATE-TIME value, received DATE at 'RECURRENCE-ID;VALUE=DATE-TIME:20201231' "),
         );
     }
 
     #[test]
     fn test_parse_ical_with_valid_date_time_value_type() {
-        let input = concat!("RECURRENCE-ID", ";VALUE=DATE-TIME:20201231T183000Z");
+        let input = "RECURRENCE-ID;VALUE=DATE-TIME:20201231T183000Z";
         let parsed_property = RecurrenceIDProperty::parse_ical(input);
 
         assert_eq!(
@@ -332,7 +333,7 @@ mod test {
 
     #[test]
     fn test_parse_ical_with_invalid_date_string() {
-        let input = concat!("RECURRENCE-ID", ":20201231ZZZZ");
+        let input = "RECURRENCE-ID:20201231ZZZZ";
         let parsed_property = RecurrenceIDProperty::parse_ical(input);
 
         assert_eq!(
@@ -363,7 +364,7 @@ mod test {
     #[test]
     fn test_parse_ical_minimal() {
         assert_eq!(
-            RecurrenceIDProperty::parse_ical(concat!("RECURRENCE-ID", ":20201231T183000Z")),
+            RecurrenceIDProperty::parse_ical("RECURRENCE-ID:20201231T183000Z"),
             Ok((
                 "",
                 RecurrenceIDProperty {
