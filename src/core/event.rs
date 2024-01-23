@@ -10,9 +10,9 @@ use crate::core::ical::properties::{
     RRuleProperty, RelatedToProperty, UIDProperty,
 };
 
-use crate::core::ical::serializer::SerializableICalProperty;
-
-use crate::core::ical::parser::datetime::{datestring_to_date, ParseError};
+use crate::core::ical::serializer::{
+    SerializableICalComponent, SerializableICalProperty, SerializationPreferences,
+};
 
 use crate::core::event_occurrence_override::EventOccurrenceOverride;
 
@@ -667,6 +667,75 @@ impl Event {
         }
 
         Ok(self)
+    }
+}
+
+impl SerializableICalComponent for Event {
+    fn serialize_to_ical_set(
+        &self,
+        preferences: Option<&SerializationPreferences>,
+    ) -> BTreeSet<String> {
+        let mut serializable_properties: BTreeSet<String> = BTreeSet::new();
+
+        serializable_properties.insert(self.uid.serialize_to_ical(preferences));
+
+        if let Some(rrule_property) = &self.schedule_properties.rrule {
+            serializable_properties.insert(rrule_property.serialize_to_ical(preferences));
+        }
+
+        if let Some(exrule_property) = &self.schedule_properties.exrule {
+            serializable_properties.insert(exrule_property.serialize_to_ical(preferences));
+        }
+
+        if let Some(rdates_properties) = &self.schedule_properties.rdates {
+            for rdate_property in rdates_properties {
+                serializable_properties.insert(rdate_property.serialize_to_ical(preferences));
+            }
+        }
+
+        if let Some(exdates_properties) = &self.schedule_properties.exdates {
+            for exdate_property in exdates_properties {
+                serializable_properties.insert(exdate_property.serialize_to_ical(preferences));
+            }
+        }
+
+        if let Some(duration_property) = &self.schedule_properties.duration {
+            serializable_properties.insert(duration_property.serialize_to_ical(preferences));
+        }
+
+        if let Some(dtstart_property) = &self.schedule_properties.dtstart {
+            serializable_properties.insert(dtstart_property.serialize_to_ical(preferences));
+        }
+
+        if let Some(dtend_property) = &self.schedule_properties.dtend {
+            serializable_properties.insert(dtend_property.serialize_to_ical(preferences));
+        }
+
+        if let Some(geo_property) = &self.indexed_properties.geo {
+            serializable_properties.insert(geo_property.serialize_to_ical(preferences));
+        }
+
+        if let Some(class_property) = &self.indexed_properties.class {
+            serializable_properties.insert(class_property.serialize_to_ical(preferences));
+        }
+
+        if let Some(related_to_properties) = &self.indexed_properties.related_to {
+            for related_to_property in related_to_properties {
+                serializable_properties.insert(related_to_property.serialize_to_ical(preferences));
+            }
+        }
+
+        if let Some(categories_properties) = &self.indexed_properties.categories {
+            for categories_property in categories_properties {
+                serializable_properties.insert(categories_property.serialize_to_ical(preferences));
+            }
+        }
+
+        for passive_property in &self.passive_properties.properties {
+            serializable_properties.insert(passive_property.serialize_to_ical(preferences));
+        }
+
+        serializable_properties
     }
 }
 

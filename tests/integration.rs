@@ -175,7 +175,7 @@ mod integration {
 
             let fixture_event_ical = get_event_fixture_ical(fixture_event_uid)?;
 
-            let _result: Vec<String> = redis::cmd("rdcl.evt_set")
+            let result: Vec<String> = redis::cmd("rdcl.evt_set")
                 .arg("TEST_CALENDAR_UID")
                 .arg(fixture_event_uid)
                 .arg(fixture_event_ical)
@@ -188,8 +188,9 @@ mod integration {
                 })?;
 
             // TODO: Test output
+            dbg!(result);
 
-            if let Some(_) = redis::cmd("rdcl.evt_get")
+            if let Some(event_get) = redis::cmd("rdcl.evt_get")
                 .arg("TEST_CALENDAR_UID")
                 .arg(fixture_event_uid)
                 .query::<Option<String>>(connection)
@@ -201,6 +202,7 @@ mod integration {
                 })?
             {
                 // TODO: Test output
+                dbg!(event_get);
             } else {
                 return Err(anyhow::Error::msg("Expected get event to return Some")
                     .context(format!(r#"Expected "{}" to exist"#, fixture_event_uid)));

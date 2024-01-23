@@ -197,7 +197,6 @@ impl EventInstance {
 }
 
 impl SerializableICalComponent for EventInstance {
-    // TODO: Cater to timezone
     fn serialize_to_ical_set(
         &self,
         preferences: Option<&SerializationPreferences>,

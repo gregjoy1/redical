@@ -1,9 +1,11 @@
-use redis_module::{Context, NextArg, RedisError, RedisResult, RedisString};
+use redis_module::{Context, NextArg, RedisError, RedisResult, RedisString, RedisValue};
 
 use crate::core::{
     rebase_overrides, Calendar, CalendarIndexUpdater, Event, EventDiff, InvertedEventIndex,
 };
 use crate::redis::calendar_data_type::CALENDAR_DATA_TYPE;
+
+use crate::core::ical::serializer::SerializableICalComponent;
 
 pub fn redical_event_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     // TODO: Add option to "rebase" overrides against changes, i.e. add/remove all
@@ -134,9 +136,18 @@ pub fn redical_event_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
         .update_indexed_class(&updated_event_class_diff)
         .map_err(|error| RedisError::String(error.to_string()))?;
 
+    let serialized_event_ical = event.serialize_to_ical(None);
+
     calendar.events.insert(String::from(event_uid), event);
 
     calendar_key.set_value(&CALENDAR_DATA_TYPE, calendar.clone())?;
 
-    Ok(other.into())
+    Ok(
+        RedisValue::Array(
+            serialized_event_ical
+                .iter()
+                .map(|ical_part| RedisValue::SimpleString(ical_part.to_owned()))
+                .collect(),
+        )
+    )
 }
