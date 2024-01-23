@@ -217,7 +217,10 @@ where
         }
 
         for (timestamp, event_override) in event.overrides.iter() {
-            if let Some(override_categories_set) = &event_override.indexed_properties.extract_all_category_strings() {
+            if let Some(override_categories_set) = &event_override
+                .indexed_properties
+                .extract_all_category_strings()
+            {
                 indexed_categories.insert_override(timestamp.clone(), &override_categories_set);
             }
         }
@@ -237,7 +240,10 @@ where
         }
 
         for (timestamp, event_override) in event.overrides.iter() {
-            if let Some(override_related_to_set) = &event_override.indexed_properties.extract_all_related_to_key_value_pairs() {
+            if let Some(override_related_to_set) = &event_override
+                .indexed_properties
+                .extract_all_related_to_key_value_pairs()
+            {
                 indexed_related_to.insert_override(timestamp.clone(), &override_related_to_set);
             }
         }

@@ -272,8 +272,7 @@ use chrono::{NaiveDate, TimeZone};
 
 /// Attempts to convert a `str` to a `chrono_tz::Tz`.
 pub(crate) fn parse_timezone(tz: &str) -> Result<chrono_tz::Tz, ParseError> {
-    chrono_tz::Tz::from_str(tz)
-        .map_err(|_| ParseError::InvalidTimezone(tz.into()))
+    chrono_tz::Tz::from_str(tz).map_err(|_| ParseError::InvalidTimezone(tz.into()))
 }
 
 /// Convert a datetime string and a timezone to a `chrono::DateTime<Tz>`.

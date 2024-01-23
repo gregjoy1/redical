@@ -7,7 +7,9 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 
 use crate::core::{Event, EventOccurrenceOverride, GeoPoint, IndexedConclusion, KeyValuePair};
 
-use crate::core::ical::serializer::{SerializableICalProperty, SerializableICalComponent, SerializationPreferences};
+use crate::core::ical::serializer::{
+    SerializableICalComponent, SerializableICalProperty, SerializationPreferences,
+};
 
 use crate::core::event_occurrence_iterator::{
     EventOccurrenceIterator, LowerBoundFilterCondition, UpperBoundFilterCondition,
@@ -16,7 +18,8 @@ use crate::core::event_occurrence_iterator::{
 use crate::core::event::{IndexedProperties, PassiveProperties};
 
 use crate::core::ical::properties::{
-    RecurrenceIDProperty, UIDProperty, DTEndProperty, DTStartProperty, DurationProperty, GeoProperty, CategoriesProperty, RelatedToProperty, ClassProperty, Property
+    CategoriesProperty, ClassProperty, DTEndProperty, DTStartProperty, DurationProperty,
+    GeoProperty, Property, RecurrenceIDProperty, RelatedToProperty, UIDProperty,
 };
 
 #[derive(Debug, Eq, PartialEq, Clone)]
@@ -39,7 +42,8 @@ impl EventInstance {
         EventInstance {
             uid: event.uid.clone(),
             dtstart: dtstart_timestamp.clone().into(),
-            dtend: Self::get_dtend_timestamp(dtstart_timestamp, event, event_occurrence_override).into(),
+            dtend: Self::get_dtend_timestamp(dtstart_timestamp, event, event_occurrence_override)
+                .into(),
             duration: Self::get_duration_in_seconds(event, event_occurrence_override).into(),
             indexed_properties: IndexedProperties {
                 geo: Self::get_geo(event, event_occurrence_override),
@@ -96,8 +100,15 @@ impl EventInstance {
         event_occurrence_override: Option<&EventOccurrenceOverride>,
     ) -> Option<HashSet<CategoriesProperty>> {
         if let Some(event_occurrence_override) = event_occurrence_override {
-            if event_occurrence_override.indexed_properties.categories.is_some() {
-                return event_occurrence_override.indexed_properties.categories.to_owned();
+            if event_occurrence_override
+                .indexed_properties
+                .categories
+                .is_some()
+            {
+                return event_occurrence_override
+                    .indexed_properties
+                    .categories
+                    .to_owned();
             }
         }
 
@@ -109,8 +120,15 @@ impl EventInstance {
         event_occurrence_override: Option<&EventOccurrenceOverride>,
     ) -> Option<HashSet<RelatedToProperty>> {
         if let Some(event_occurrence_override) = event_occurrence_override {
-            if event_occurrence_override.indexed_properties.related_to.is_some() {
-                return event_occurrence_override.indexed_properties.related_to.to_owned();
+            if event_occurrence_override
+                .indexed_properties
+                .related_to
+                .is_some()
+            {
+                return event_occurrence_override
+                    .indexed_properties
+                    .related_to
+                    .to_owned();
             }
         }
 
@@ -140,7 +158,11 @@ impl EventInstance {
         // If not found:
         //  Add the base event property
         for base_passive_property in &event.passive_properties.properties {
-            if passive_properties.iter().find(|passive_property| passive_property.property_name_eq(base_passive_property)).is_none() {
+            if passive_properties
+                .iter()
+                .find(|passive_property| passive_property.property_name_eq(base_passive_property))
+                .is_none()
+            {
                 passive_properties.insert(base_passive_property.to_owned());
             }
         }
@@ -154,7 +176,10 @@ impl EventInstance {
     ) -> Option<ClassProperty> {
         if let Some(event_occurrence_override) = event_occurrence_override {
             if event_occurrence_override.indexed_properties.class.is_some() {
-                return event_occurrence_override.indexed_properties.class.to_owned();
+                return event_occurrence_override
+                    .indexed_properties
+                    .class
+                    .to_owned();
             }
         }
 
@@ -169,12 +194,14 @@ impl EventInstance {
     fn build_recurrence_id_from_dtstart(&self) -> RecurrenceIDProperty {
         RecurrenceIDProperty::from(&self.dtstart)
     }
-
 }
 
 impl SerializableICalComponent for EventInstance {
     // TODO: Cater to timezone
-    fn serialize_to_ical_set(&self, preferences: Option<&SerializationPreferences>) -> BTreeSet<String> {
+    fn serialize_to_ical_set(
+        &self,
+        preferences: Option<&SerializationPreferences>,
+    ) -> BTreeSet<String> {
         let mut serializable_properties: BTreeSet<String> = BTreeSet::new();
 
         serializable_properties.insert(self.uid.serialize_to_ical(preferences));
@@ -206,7 +233,10 @@ impl SerializableICalComponent for EventInstance {
             serializable_properties.insert(passive_property.serialize_to_ical(preferences));
         }
 
-        serializable_properties.insert(self.build_recurrence_id_from_dtstart().serialize_to_ical(preferences));
+        serializable_properties.insert(
+            self.build_recurrence_id_from_dtstart()
+                .serialize_to_ical(preferences),
+        );
 
         serializable_properties
     }
@@ -214,11 +244,15 @@ impl SerializableICalComponent for EventInstance {
 
 impl PartialOrd for EventInstance {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        let dtstart_timestamp_comparison =
-            self.dtstart.utc_timestamp.partial_cmp(&other.dtstart.utc_timestamp);
+        let dtstart_timestamp_comparison = self
+            .dtstart
+            .utc_timestamp
+            .partial_cmp(&other.dtstart.utc_timestamp);
 
         if dtstart_timestamp_comparison.is_some_and(|comparison| comparison.is_eq()) {
-            self.dtend.utc_timestamp.partial_cmp(&other.dtend.utc_timestamp)
+            self.dtend
+                .utc_timestamp
+                .partial_cmp(&other.dtend.utc_timestamp)
         } else {
             dtstart_timestamp_comparison
         }
@@ -227,7 +261,8 @@ impl PartialOrd for EventInstance {
 
 impl Ord for EventInstance {
     fn cmp(&self, other: &Self) -> Ordering {
-        let dtstart_timestamp_comparison = self.dtstart.utc_timestamp.cmp(&other.dtstart.utc_timestamp);
+        let dtstart_timestamp_comparison =
+            self.dtstart.utc_timestamp.cmp(&other.dtstart.utc_timestamp);
 
         if dtstart_timestamp_comparison.is_eq() {
             self.dtend.utc_timestamp.cmp(&other.dtend.utc_timestamp)
@@ -328,23 +363,51 @@ mod test {
                 duration: build_property_from_ical!(DurationProperty, "DURATION:PT1M"),
                 indexed_properties: IndexedProperties {
                     class: Some(build_property_from_ical!(ClassProperty, "CLASS:PRIVATE")),
-                    geo: Some(build_property_from_ical!(GeoProperty, "GEO:48.85299;2.36885")),
-                    categories: Some(HashSet::from([
-                            build_property_from_ical!(CategoriesProperty, "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,CATEGORY THREE"),
-                    ])),
+                    geo: Some(build_property_from_ical!(
+                        GeoProperty,
+                        "GEO:48.85299;2.36885"
+                    )),
+                    categories: Some(HashSet::from([build_property_from_ical!(
+                        CategoriesProperty,
+                        "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,CATEGORY THREE"
+                    ),])),
                     related_to: Some(HashSet::from([
-                            build_property_from_ical!(RelatedToProperty, "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_One"),
-                            build_property_from_ical!(RelatedToProperty, "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Two"),
-                            build_property_from_ical!(RelatedToProperty, "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Three"),
-                            build_property_from_ical!(RelatedToProperty, "RELATED-TO;RELTYPE=PARENT:ParentUID_One"),
-                            build_property_from_ical!(RelatedToProperty, "RELATED-TO;RELTYPE=PARENT:ParentUID_Two"),
-                            build_property_from_ical!(RelatedToProperty, "RELATED-TO;RELTYPE=CHILD:ChildUID"),
+                        build_property_from_ical!(
+                            RelatedToProperty,
+                            "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_One"
+                        ),
+                        build_property_from_ical!(
+                            RelatedToProperty,
+                            "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Two"
+                        ),
+                        build_property_from_ical!(
+                            RelatedToProperty,
+                            "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Three"
+                        ),
+                        build_property_from_ical!(
+                            RelatedToProperty,
+                            "RELATED-TO;RELTYPE=PARENT:ParentUID_One"
+                        ),
+                        build_property_from_ical!(
+                            RelatedToProperty,
+                            "RELATED-TO;RELTYPE=PARENT:ParentUID_Two"
+                        ),
+                        build_property_from_ical!(
+                            RelatedToProperty,
+                            "RELATED-TO;RELTYPE=CHILD:ChildUID"
+                        ),
                     ])),
                 },
                 passive_properties: PassiveProperties {
                     properties: BTreeSet::from([
-                                    Property::Description(build_property_from_ical!(DescriptionProperty, "DESCRIPTION:Event description text.")),
-                                    Property::Location(build_property_from_ical!(LocationProperty, "LOCATION:Event address text.")),
+                        Property::Description(build_property_from_ical!(
+                            DescriptionProperty,
+                            "DESCRIPTION:Event description text."
+                        )),
+                        Property::Location(build_property_from_ical!(
+                            LocationProperty,
+                            "LOCATION:Event address text."
+                        )),
                     ])
                 },
             }
@@ -395,17 +458,15 @@ mod test {
                 "DESCRIPTION:Event description text.",
                 "LOCATION:Event address text.",
             ],
-            vec![
-                vec![
-                    "LOCATION:Overridden Event address text.",
-                    "CATEGORIES:CATEGORY_ONE,CATEGORY_FOUR",
-                    "DTSTART:20201231T183000Z",
-                    "RELATED-TO;RELTYPE=CHILD:ChildUID",
-                    "RELATED-TO;RELTYPE=PARENT:ParentUID_Three",
-                    "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_One",
-                    "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Four",
-                ],
-            ],
+            vec![vec![
+                "LOCATION:Overridden Event address text.",
+                "CATEGORIES:CATEGORY_ONE,CATEGORY_FOUR",
+                "DTSTART:20201231T183000Z",
+                "RELATED-TO;RELTYPE=CHILD:ChildUID",
+                "RELATED-TO;RELTYPE=PARENT:ParentUID_Three",
+                "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_One",
+                "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Four",
+            ]],
         );
 
         let Some(event_occurrence_override) = event.overrides.get(&1609439400) else {
@@ -425,20 +486,39 @@ mod test {
                 indexed_properties: IndexedProperties {
                     class: None,
                     geo: None,
-                    categories: Some(HashSet::from([
-                            build_property_from_ical!(CategoriesProperty, "CATEGORIES:CATEGORY_ONE,CATEGORY_FOUR"),
-                    ])),
+                    categories: Some(HashSet::from([build_property_from_ical!(
+                        CategoriesProperty,
+                        "CATEGORIES:CATEGORY_ONE,CATEGORY_FOUR"
+                    ),])),
                     related_to: Some(HashSet::from([
-                            build_property_from_ical!(RelatedToProperty, "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_One"),
-                            build_property_from_ical!(RelatedToProperty, "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Four"),
-                            build_property_from_ical!(RelatedToProperty, "RELATED-TO;RELTYPE=PARENT:ParentUID_Three"),
-                            build_property_from_ical!(RelatedToProperty, "RELATED-TO;RELTYPE=CHILD:ChildUID"),
+                        build_property_from_ical!(
+                            RelatedToProperty,
+                            "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_One"
+                        ),
+                        build_property_from_ical!(
+                            RelatedToProperty,
+                            "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Four"
+                        ),
+                        build_property_from_ical!(
+                            RelatedToProperty,
+                            "RELATED-TO;RELTYPE=PARENT:ParentUID_Three"
+                        ),
+                        build_property_from_ical!(
+                            RelatedToProperty,
+                            "RELATED-TO;RELTYPE=CHILD:ChildUID"
+                        ),
                     ])),
                 },
                 passive_properties: PassiveProperties {
                     properties: BTreeSet::from([
-                                    Property::Description(build_property_from_ical!(DescriptionProperty, "DESCRIPTION:Event description text.")),
-                                    Property::Location(build_property_from_ical!(LocationProperty, "LOCATION:Overridden Event address text.")),
+                        Property::Description(build_property_from_ical!(
+                            DescriptionProperty,
+                            "DESCRIPTION:Event description text."
+                        )),
+                        Property::Location(build_property_from_ical!(
+                            LocationProperty,
+                            "LOCATION:Overridden Event address text."
+                        )),
                     ])
                 },
             }

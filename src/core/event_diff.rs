@@ -169,7 +169,8 @@ impl SchedulePropertiesDiff {
                 &updated_event_schedule_properties.duration,
             ),
             dtstart: Self::build_updated_attribute(
-                &original_event_schedule_properties.extract_serialized_dtstart_ical_key_value_pair(),
+                &original_event_schedule_properties
+                    .extract_serialized_dtstart_ical_key_value_pair(),
                 &updated_event_schedule_properties.extract_serialized_dtstart_ical_key_value_pair(),
             ),
             dtend: Self::build_updated_attribute(
@@ -217,9 +218,9 @@ mod test {
     use std::collections::{BTreeMap, BTreeSet, HashSet};
 
     use crate::core::ical::properties::{
-        CategoriesProperty, ClassProperty, DTStartProperty, DescriptionProperty,
-        DurationProperty, ExDateProperty, ExRuleProperty, GeoProperty, Property, RDateProperty,
-        RRuleProperty, RelatedToProperty,
+        CategoriesProperty, ClassProperty, DTStartProperty, DescriptionProperty, DurationProperty,
+        ExDateProperty, ExRuleProperty, GeoProperty, Property, RDateProperty, RRuleProperty,
+        RelatedToProperty,
     };
 
     use crate::core::{IndexedProperties, KeyValuePair, PassiveProperties, ScheduleProperties};

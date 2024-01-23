@@ -9,7 +9,7 @@ use crate::core::ical::serializer::SerializableICalProperty;
 use crate::core::ical::parser::datetime::{datestring_to_date, ParseError};
 
 use crate::core::ical::properties::{
-    DTEndProperty, DTStartProperty, DurationProperty, Properties, Property
+    DTEndProperty, DTStartProperty, DurationProperty, Properties, Property,
 };
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
@@ -36,11 +36,15 @@ impl Default for EventOccurrenceOverride {
 
 impl EventOccurrenceOverride {
     pub fn get_dtstart_timestamp(&self) -> Option<i64> {
-        self.dtstart.as_ref().and_then(|dtstart| Some(dtstart.utc_timestamp.to_owned()))
+        self.dtstart
+            .as_ref()
+            .and_then(|dtstart| Some(dtstart.utc_timestamp.to_owned()))
     }
 
     pub fn get_dtend_timestamp(&self) -> Option<i64> {
-        self.dtend.as_ref().and_then(|dtend| Some(dtend.utc_timestamp.to_owned()))
+        self.dtend
+            .as_ref()
+            .and_then(|dtend| Some(dtend.utc_timestamp.to_owned()))
     }
 
     pub fn get_duration_in_seconds(&self) -> Option<i64> {
@@ -71,19 +75,27 @@ impl EventOccurrenceOverride {
                     }
 
                     Property::RRule(_) => {
-                        return Err(String::from("Event occurrence override does not expect an RRULE property"));
-                    },
+                        return Err(String::from(
+                            "Event occurrence override does not expect an RRULE property",
+                        ));
+                    }
 
                     Property::ExRule(_) => {
-                        return Err(String::from("Event occurrence override does not expect an EXRULE property"));
-                    },
+                        return Err(String::from(
+                            "Event occurrence override does not expect an EXRULE property",
+                        ));
+                    }
 
                     Property::RDate(_) => {
-                        return Err(String::from("Event occurrence override does not expect an RDATE property"));
-                    },
+                        return Err(String::from(
+                            "Event occurrence override does not expect an RDATE property",
+                        ));
+                    }
 
                     Property::ExDate(_) => {
-                        return Err(String::from("Event occurrence override does not expect an EXDATE property"));
+                        return Err(String::from(
+                            "Event occurrence override does not expect an EXDATE property",
+                        ));
                     }
 
                     Property::DTStart(dtstart_property) => {
@@ -105,7 +117,9 @@ impl EventOccurrenceOverride {
             }
 
             if new_override.dtstart.is_none() {
-                return Err(String::from("Event occurrence override requires a DTSTART property"));
+                return Err(String::from(
+                    "Event occurrence override requires a DTSTART property",
+                ));
             }
 
             Ok(new_override)
@@ -117,7 +131,7 @@ impl EventOccurrenceOverride {
 mod test {
     use super::*;
 
-    use std::collections::{HashSet, BTreeSet};
+    use std::collections::{BTreeSet, HashSet};
 
     use crate::core::ical::properties::{
         CategoriesProperty, ClassProperty, DescriptionProperty, Property,

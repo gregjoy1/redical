@@ -20,7 +20,9 @@ pub fn build_event_and_overrides_from_ical(
 
         assert!(event
             .override_occurrence(
-                parsed_event_occurrence_override.get_dtstart_timestamp().unwrap(),
+                parsed_event_occurrence_override
+                    .get_dtstart_timestamp()
+                    .unwrap(),
                 &parsed_event_occurrence_override,
             )
             .is_ok());
@@ -32,6 +34,8 @@ pub fn build_event_and_overrides_from_ical(
     event
 }
 
-pub fn build_event_override_from_ical(event_override_ical_parts: Vec<&str>) -> EventOccurrenceOverride {
+pub fn build_event_override_from_ical(
+    event_override_ical_parts: Vec<&str>,
+) -> EventOccurrenceOverride {
     EventOccurrenceOverride::parse_ical(event_override_ical_parts.join(" ").as_str()).unwrap()
 }

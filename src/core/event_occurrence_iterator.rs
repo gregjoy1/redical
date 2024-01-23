@@ -83,9 +83,7 @@ impl<'a> EventOccurrenceIterator<'a> {
             None => None,
         };
 
-        let base_duration = schedule_properties
-            .get_duration_in_seconds()
-            .unwrap_or(0);
+        let base_duration = schedule_properties.get_duration_in_seconds().unwrap_or(0);
 
         let count = 0usize;
         let is_ended = false;
@@ -375,13 +373,22 @@ mod test {
 
     fn build_schedule_properties() -> ScheduleProperties {
         let mut schedule_properties = ScheduleProperties {
-            rrule: Some(build_property_from_ical!(RRuleProperty, "RRULE:FREQ=SECONDLY;COUNT=10;INTERVAL=100")),
+            rrule: Some(build_property_from_ical!(
+                RRuleProperty,
+                "RRULE:FREQ=SECONDLY;COUNT=10;INTERVAL=100"
+            )),
             exrule: None,
             rdates: None,
             exdates: None,
             duration: None,
-            dtstart: Some(build_property_from_ical!(DTStartProperty, "DTSTART:19700101T000000Z")),
-            dtend: Some(build_property_from_ical!(DTEndProperty, "DTEND:19700101T000005Z")),
+            dtstart: Some(build_property_from_ical!(
+                DTStartProperty,
+                "DTSTART:19700101T000000Z"
+            )),
+            dtend: Some(build_property_from_ical!(
+                DTEndProperty,
+                "DTEND:19700101T000005Z"
+            )),
             parsed_rrule_set: None,
         };
 
@@ -400,7 +407,10 @@ mod test {
             },
             passive_properties: PassiveProperties::new(),
             duration: None,
-            dtstart: Some(build_property_from_ical!(DTStartProperty, "DTSTART:19700101T000500Z")),
+            dtstart: Some(build_property_from_ical!(
+                DTStartProperty,
+                "DTSTART:19700101T000500Z"
+            )),
             dtend: None,
         }
     }
@@ -415,8 +425,14 @@ mod test {
             },
             passive_properties: PassiveProperties::new(),
             duration: None,
-            dtstart: Some(build_property_from_ical!(DTStartProperty, "DTSTART:19700101T000820Z")),
-            dtend: Some(build_property_from_ical!(DTEndProperty, "DTEND:19700101T000830Z")),
+            dtstart: Some(build_property_from_ical!(
+                DTStartProperty,
+                "DTSTART:19700101T000820Z"
+            )),
+            dtend: Some(build_property_from_ical!(
+                DTEndProperty,
+                "DTEND:19700101T000830Z"
+            )),
         }
     }
 
@@ -430,7 +446,10 @@ mod test {
             },
             passive_properties: PassiveProperties::new(),
             duration: None,
-            dtstart: Some(build_property_from_ical!(DTStartProperty, "DTSTART:19700101T001140Z")),
+            dtstart: Some(build_property_from_ical!(
+                DTStartProperty,
+                "DTSTART:19700101T001140Z"
+            )),
             dtend: None,
         }
     }
@@ -445,8 +464,14 @@ mod test {
             },
             passive_properties: PassiveProperties::new(),
             duration: None,
-            dtstart: Some(build_property_from_ical!(DTStartProperty, "DTSTART:19700101T001500Z")),
-            dtend: Some(build_property_from_ical!(DTEndProperty, "DTEND:19700101T001515Z")),
+            dtstart: Some(build_property_from_ical!(
+                DTStartProperty,
+                "DTSTART:19700101T001500Z"
+            )),
+            dtend: Some(build_property_from_ical!(
+                DTEndProperty,
+                "DTEND:19700101T001515Z"
+            )),
         }
     }
 
@@ -762,13 +787,22 @@ mod test {
     fn test_event_occurrence_iterator_handle_expensive_runaway_indexed_conclusion_exclude_exceptions(
     ) {
         let mut schedule_properties = ScheduleProperties {
-            rrule: Some(build_property_from_ical!(RRuleProperty, "RRULE:FREQ=SECONDLY;INTERVAL=100")),
+            rrule: Some(build_property_from_ical!(
+                RRuleProperty,
+                "RRULE:FREQ=SECONDLY;INTERVAL=100"
+            )),
             exrule: None,
             rdates: None,
             exdates: None,
             duration: None,
-            dtstart: Some(build_property_from_ical!(DTStartProperty, "DTSTART:19700101T000000Z")),
-            dtend: Some(build_property_from_ical!(DTEndProperty, "DTEND:19700101T000005Z")),
+            dtstart: Some(build_property_from_ical!(
+                DTStartProperty,
+                "DTSTART:19700101T000000Z"
+            )),
+            dtend: Some(build_property_from_ical!(
+                DTEndProperty,
+                "DTEND:19700101T000005Z"
+            )),
             parsed_rrule_set: None,
         };
 

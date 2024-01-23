@@ -42,10 +42,7 @@ fn look_ahead_property_parser(input: &str) -> ParserResult<&str, &str> {
             common::white_space1,
             tag("X-RELATED-TO"),
             // common::name,
-            alt((
-                common::colon_delimeter,
-                common::semicolon_delimeter,
-            )),
+            alt((common::colon_delimeter, common::semicolon_delimeter)),
         ))),
         common::look_ahead_property_parser,
     ))(input)
@@ -53,9 +50,7 @@ fn look_ahead_property_parser(input: &str) -> ParserResult<&str, &str> {
 
 // paramtext     = *SAFE-CHAR
 fn param_text(input: &str) -> ParserResult<&str, &str> {
-    common::parse_with_look_ahead_parser(common::param_text, look_ahead_property_parser)(
-        input,
-    )
+    common::parse_with_look_ahead_parser(common::param_text, look_ahead_property_parser)(input)
 }
 
 pub fn values(input: &str) -> ParserResult<&str, Vec<&str>> {
@@ -169,10 +164,7 @@ fn parse_timezone_query_property_content(input: &str) -> ParserResult<&str, Pars
         tag("X-TZID"),
         cut(context(
             "X-TZID",
-            tuple((
-                common::colon_delimeter,
-                common::ParsedValue::parse_timezone,
-            )),
+            tuple((common::colon_delimeter, common::ParsedValue::parse_timezone)),
         )),
     )(input)
     .map(|(remaining, (_colon_delimeter, parsed_value))| {
@@ -186,10 +178,7 @@ fn parse_timezone_query_property_content(input: &str) -> ParserResult<&str, Pars
 fn parse_limit_query_property_content(input: &str) -> ParserResult<&str, ParsedQueryComponent> {
     preceded(
         tag("X-LIMIT"),
-        cut(context(
-            "X-LIMIT",
-            tuple((common::colon_delimeter, digit1)),
-        )),
+        cut(context("X-LIMIT", tuple((common::colon_delimeter, digit1)))),
     )(input)
     .map(|(remaining, (_colon_delimeter, parsed_value))| {
         let Ok(limit) = str::parse(parsed_value) else {
@@ -266,10 +255,7 @@ fn parse_from_query_property_content(input: &str) -> ParserResult<&str, ParsedQu
                         })
                     ),
                     ("TZID", common::ParsedValue::parse_timezone),
-                    (
-                        "UID",
-                        common::ParsedValue::parse_single(parse_single_value)
-                    ),
+                    ("UID", common::ParsedValue::parse_single(parse_single_value)),
                 ),
                 common::colon_delimeter,
                 common::ParsedValue::parse_date_string,
@@ -290,7 +276,10 @@ fn parse_from_query_property_content(input: &str) -> ParserResult<&str, ParsedQu
                 panic!("Expected parsed date string, received: {:#?}", parsed_value);
             };
 
-            let parsed_timezone = parsed_params.get(&"TZID").and_then(|parsed_value| Some(parsed_value.expect_timezone())).unwrap_or(Tz::UTC);
+            let parsed_timezone = parsed_params
+                .get(&"TZID")
+                .and_then(|parsed_value| Some(parsed_value.expect_timezone()))
+                .unwrap_or(Tz::UTC);
 
             let datetime_timestamp = parsed_date_string
                 .to_date(Some(parsed_timezone.into()), "X-FROM")
@@ -381,7 +370,10 @@ fn parse_until_query_property_content(input: &str) -> ParserResult<&str, ParsedQ
                 panic!("Expected parsed date string, received: {:#?}", parsed_value);
             };
 
-            let parsed_timezone = parsed_params.get(&"TZID").and_then(|parsed_value| Some(parsed_value.expect_timezone())).unwrap_or(Tz::UTC);
+            let parsed_timezone = parsed_params
+                .get(&"TZID")
+                .and_then(|parsed_value| Some(parsed_value.expect_timezone()))
+                .unwrap_or(Tz::UTC);
 
             let datetime_timestamp = parsed_date_string
                 .to_date(Some(parsed_timezone.into()), "X-FROM")
@@ -869,11 +861,7 @@ fn parse_operator_prefixed_where_query_property_content(
 
 fn parse_group_query_property_component(input: &str) -> ParserResult<&str, ParsedQueryComponent> {
     delimited(
-        delimited(
-            common::white_space,
-            char('('),
-            common::white_space,
-        ),
+        delimited(common::white_space, char('('), common::white_space),
         cut(context(
             "group",
             tuple((

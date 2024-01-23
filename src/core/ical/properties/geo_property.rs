@@ -15,7 +15,7 @@ use crate::core::ical::parser::common;
 use crate::core::ical::parser::common::ParserResult;
 use crate::core::ical::parser::macros::*;
 use crate::core::ical::serializer::{
-    quote_string_if_needed, SerializableICalProperty, SerializedValue, SerializationPreferences,
+    quote_string_if_needed, SerializableICalProperty, SerializationPreferences, SerializedValue,
 };
 
 use serde::{Deserialize, Serialize};
@@ -40,7 +40,10 @@ impl Eq for GeoProperty {}
 implement_property_ord_partial_ord_and_hash_traits!(GeoProperty);
 
 impl SerializableICalProperty for GeoProperty {
-    fn serialize_to_split_ical(&self, _preferences: Option<&SerializationPreferences>) -> (String, Option<Vec<(String, String)>>, SerializedValue) {
+    fn serialize_to_split_ical(
+        &self,
+        _preferences: Option<&SerializationPreferences>,
+    ) -> (String, Option<Vec<(String, String)>>, SerializedValue) {
         let mut param_key_value_pairs: Vec<(String, String)> = Vec::new();
 
         if let Some(x_params) = &self.x_params {

@@ -115,7 +115,8 @@ pub fn redical_event_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
         event.indexed_class.as_ref(),
     );
 
-    let mut calendar_index_updater = CalendarIndexUpdater::new(event.uid.clone().into(), &mut calendar);
+    let mut calendar_index_updater =
+        CalendarIndexUpdater::new(event.uid.clone().into(), &mut calendar);
 
     calendar_index_updater
         .update_indexed_categories(&updated_event_categories_diff)

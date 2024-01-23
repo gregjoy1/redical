@@ -306,11 +306,15 @@ impl ScheduleProperties {
     }
 
     pub fn get_dtstart_timestamp(&self) -> Option<i64> {
-        self.dtstart.as_ref().and_then(|dtstart| Some(dtstart.utc_timestamp.to_owned()))
+        self.dtstart
+            .as_ref()
+            .and_then(|dtstart| Some(dtstart.utc_timestamp.to_owned()))
     }
 
     pub fn get_dtend_timestamp(&self) -> Option<i64> {
-        self.dtend.as_ref().and_then(|dtend| Some(dtend.utc_timestamp.to_owned()))
+        self.dtend
+            .as_ref()
+            .and_then(|dtend| Some(dtend.utc_timestamp.to_owned()))
     }
 
     pub fn get_duration_in_seconds(&self) -> Option<i64> {
@@ -385,11 +389,12 @@ impl IndexedProperties {
             let mut related_to_map = HashMap::new();
 
             for related_to_property in related_to_properties {
-                related_to_map.entry(related_to_property.get_reltype())
-                              .and_modify(|uid_set: &mut HashSet<String>| {
-                                  uid_set.insert(related_to_property.uid.clone());
-                              })
-                              .or_insert(HashSet::from([related_to_property.uid.clone()]));
+                related_to_map
+                    .entry(related_to_property.get_reltype())
+                    .and_modify(|uid_set: &mut HashSet<String>| {
+                        uid_set.insert(related_to_property.uid.clone());
+                    })
+                    .or_insert(HashSet::from([related_to_property.uid.clone()]));
             }
 
             Some(related_to_map)
@@ -597,7 +602,10 @@ impl Event {
             .insert(timestamp, event_occurrence_override.clone());
 
         if let Some(ref mut indexed_categories) = self.indexed_categories {
-            if let Some(overridden_categories) = &event_occurrence_override.indexed_properties.extract_all_category_strings() {
+            if let Some(overridden_categories) = &event_occurrence_override
+                .indexed_properties
+                .extract_all_category_strings()
+            {
                 indexed_categories.insert_override(timestamp, overridden_categories);
             }
         } else {
@@ -605,8 +613,9 @@ impl Event {
         }
 
         if let Some(ref mut indexed_related_to) = self.indexed_related_to {
-            if let Some(overridden_related_to_set) =
-                &event_occurrence_override.indexed_properties.extract_all_related_to_key_value_pairs()
+            if let Some(overridden_related_to_set) = &event_occurrence_override
+                .indexed_properties
+                .extract_all_related_to_key_value_pairs()
             {
                 indexed_related_to.insert_override(timestamp, overridden_related_to_set);
             }
@@ -615,7 +624,10 @@ impl Event {
         }
 
         if let Some(ref mut indexed_geo) = self.indexed_geo {
-            if let Some(overridden_geo) = &event_occurrence_override.indexed_properties.extract_geo_point() {
+            if let Some(overridden_geo) = &event_occurrence_override
+                .indexed_properties
+                .extract_geo_point()
+            {
                 indexed_geo.insert_override(timestamp, &HashSet::from([overridden_geo.clone()]));
             }
         } else {
@@ -623,7 +635,9 @@ impl Event {
         }
 
         if let Some(ref mut indexed_class) = self.indexed_class {
-            if let Some(overridden_class) = &event_occurrence_override.indexed_properties.extract_class() {
+            if let Some(overridden_class) =
+                &event_occurrence_override.indexed_properties.extract_class()
+            {
                 indexed_class
                     .insert_override(timestamp, &HashSet::from([overridden_class.clone()]));
             }
@@ -708,7 +722,10 @@ mod test {
                         indexed_properties: IndexedProperties {
                             geo: None,
                             related_to: None,
-                            categories: Some(HashSet::from([build_property_from_ical!(CategoriesProperty, "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,CATEGORY_THREE,CATEGORY_FOUR")])),
+                            categories: Some(HashSet::from([build_property_from_ical!(
+                                CategoriesProperty,
+                                "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,CATEGORY_THREE,CATEGORY_FOUR"
+                            )])),
                             class: None,
                         },
                         passive_properties: PassiveProperties::new(),
@@ -724,7 +741,10 @@ mod test {
                         indexed_properties: IndexedProperties {
                             geo: None,
                             related_to: None,
-                            categories: Some(HashSet::from([build_property_from_ical!(CategoriesProperty, "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO")])),
+                            categories: Some(HashSet::from([build_property_from_ical!(
+                                CategoriesProperty,
+                                "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO"
+                            )])),
                             class: None,
                         },
                         passive_properties: PassiveProperties::new(),
@@ -767,7 +787,10 @@ mod test {
                         indexed_properties: IndexedProperties {
                             geo: None,
                             related_to: None,
-                            categories: Some(HashSet::from([build_property_from_ical!(CategoriesProperty, "CATEGORIES:CATEGORY_FOUR")])),
+                            categories: Some(HashSet::from([build_property_from_ical!(
+                                CategoriesProperty,
+                                "CATEGORIES:CATEGORY_FOUR"
+                            )])),
                             class: None,
                         },
                         passive_properties: PassiveProperties::new(),
@@ -1206,10 +1229,7 @@ mod test {
                             RelatedToProperty,
                             "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Two"
                         ),
-                        build_property_from_ical!(
-                            RelatedToProperty,
-                            "RELATED-TO:ParentUID_One"
-                        ),
+                        build_property_from_ical!(RelatedToProperty, "RELATED-TO:ParentUID_One"),
                         build_property_from_ical!(
                             RelatedToProperty,
                             "RELATED-TO;RELTYPE=PARENT:ParentUID_Two"

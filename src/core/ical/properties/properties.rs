@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use nom::{
     branch::alt,
     bytes::complete::tag,
-    combinator::{map, opt, all_consuming},
+    combinator::{all_consuming, map, opt},
     error::context,
     multi::separated_list1,
     sequence::terminated,
@@ -15,7 +15,9 @@ use crate::core::ical::parser::error::convert_error;
 
 use crate::core::ical::parser::common::{white_space1, ParserResult};
 use crate::core::ical::properties::*;
-use crate::core::ical::serializer::{SerializableICalProperty, SerializedValue, SerializationPreferences};
+use crate::core::ical::serializer::{
+    SerializableICalProperty, SerializationPreferences, SerializedValue,
+};
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone, Ord, PartialOrd)]
 pub enum Property {
@@ -91,7 +93,10 @@ pub enum Property {
 }
 
 impl SerializableICalProperty for Property {
-    fn serialize_to_split_ical(&self, preferences: Option<&SerializationPreferences>) -> (String, Option<Vec<(String, String)>>, SerializedValue) {
+    fn serialize_to_split_ical(
+        &self,
+        preferences: Option<&SerializationPreferences>,
+    ) -> (String, Option<Vec<(String, String)>>, SerializedValue) {
         match self {
             Self::Resources(property) => property.serialize_to_split_ical(preferences),
             Self::Categories(property) => property.serialize_to_split_ical(preferences),
@@ -126,24 +131,24 @@ impl Property {
         context(
             "property",
             alt((
-                map(ResourcesProperty::parse_ical, Self::Resources),       //  "RESOURCES"
-                map(CategoriesProperty::parse_ical, Self::Categories),     //  "CATEGORIES"
-                map(ClassProperty::parse_ical, Self::Class),               //  "CLASS"
-                map(GeoProperty::parse_ical, Self::Geo),                   //  "GEO"
-                map(DescriptionProperty::parse_ical, Self::Description),   //  "DESCRIPTION"
+                map(ResourcesProperty::parse_ical, Self::Resources), //  "RESOURCES"
+                map(CategoriesProperty::parse_ical, Self::Categories), //  "CATEGORIES"
+                map(ClassProperty::parse_ical, Self::Class),         //  "CLASS"
+                map(GeoProperty::parse_ical, Self::Geo),             //  "GEO"
+                map(DescriptionProperty::parse_ical, Self::Description), //  "DESCRIPTION"
                 map(RecurrenceIDProperty::parse_ical, Self::RecurrenceID), //  "RECURRENCE-ID"
-                map(DTEndProperty::parse_ical, Self::DTEnd),               //  "DTEND"
-                map(DTStartProperty::parse_ical, Self::DTStart),           //  "DTSTART"
-                map(DurationProperty::parse_ical, Self::Duration),         //  "DURATION"
-                map(ExDateProperty::parse_ical, Self::ExDate),             //  "EXDATE"
-                map(ExRuleProperty::parse_ical, Self::ExRule),             //  "EXRULE"
-                map(RRuleProperty::parse_ical, Self::RRule),               //  "RRULE"
-                map(LocationProperty::parse_ical, Self::Location),         //  "LOCATION"
-                map(RDateProperty::parse_ical, Self::RDate),               //  "RDATE"
-                map(RelatedToProperty::parse_ical, Self::RelatedTo),       //  "RELATED-TO"
-                map(SummaryProperty::parse_ical, Self::Summary),           //  "SUMMARY"
-                map(UIDProperty::parse_ical, Self::UID),                   //  "UID"
-                map(XProperty::parse_ical, Self::X),                       //  "X-*"
+                map(DTEndProperty::parse_ical, Self::DTEnd),         //  "DTEND"
+                map(DTStartProperty::parse_ical, Self::DTStart),     //  "DTSTART"
+                map(DurationProperty::parse_ical, Self::Duration),   //  "DURATION"
+                map(ExDateProperty::parse_ical, Self::ExDate),       //  "EXDATE"
+                map(ExRuleProperty::parse_ical, Self::ExRule),       //  "EXRULE"
+                map(RRuleProperty::parse_ical, Self::RRule),         //  "RRULE"
+                map(LocationProperty::parse_ical, Self::Location),   //  "LOCATION"
+                map(RDateProperty::parse_ical, Self::RDate),         //  "RDATE"
+                map(RelatedToProperty::parse_ical, Self::RelatedTo), //  "RELATED-TO"
+                map(SummaryProperty::parse_ical, Self::Summary),     //  "SUMMARY"
+                map(UIDProperty::parse_ical, Self::UID),             //  "UID"
+                map(XProperty::parse_ical, Self::X),                 //  "X-*"
             )),
         )(input)
     }
@@ -156,7 +161,8 @@ impl FromStr for Properties {
     type Err = String;
 
     fn from_str(input: &str) -> Result<Self, Self::Err> {
-        let parsed_properties = all_consuming(separated_list1(white_space1, Property::parse_ical))(input);
+        let parsed_properties =
+            all_consuming(separated_list1(white_space1, Property::parse_ical))(input);
 
         match parsed_properties {
             Ok((_remaining, properties)) => Ok(Properties(properties)),

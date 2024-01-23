@@ -3,14 +3,15 @@ use std::collections::BTreeSet;
 
 use chrono_tz::Tz;
 
-use crate::core::ical::serializer::{DistanceUnit, SerializationPreferences, SerializableICalComponent, SerializableICalProperty};
+use crate::core::ical::serializer::{
+    DistanceUnit, SerializableICalComponent, SerializableICalProperty, SerializationPreferences,
+};
 
 use geo::HaversineDistance;
 
 use crate::core::{EventInstance, GeoDistance, GeoPoint, KeyValuePair};
 
 use crate::core::ical::properties::{DTStartProperty, XProperty};
-
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum OrderingCondition {
@@ -76,7 +77,10 @@ pub enum QueryResultOrdering {
 }
 
 impl SerializableICalComponent for QueryResultOrdering {
-    fn serialize_to_ical_set(&self, preferences: Option<&SerializationPreferences>) -> BTreeSet<String> {
+    fn serialize_to_ical_set(
+        &self,
+        preferences: Option<&SerializationPreferences>,
+    ) -> BTreeSet<String> {
         let timezone = if let Some(preferences) = preferences {
             rrule::Tz::Tz(preferences.get_timezone())
         } else {
@@ -108,7 +112,11 @@ impl SerializableICalComponent for QueryResultOrdering {
                 serialized_ical_set.insert(dtstart_property.serialize_to_ical(preferences));
 
                 if let Some(geo_distance) = geo_distance {
-                    let geo_distance = match preferences.cloned().and_then(|preferences| preferences.distance_unit).unwrap_or(DistanceUnit::Kilometers) {
+                    let geo_distance = match preferences
+                        .cloned()
+                        .and_then(|preferences| preferences.distance_unit)
+                        .unwrap_or(DistanceUnit::Kilometers)
+                    {
                         DistanceUnit::Kilometers => geo_distance.to_kilometers(),
                         DistanceUnit::Miles => geo_distance.to_miles(),
                     };
@@ -126,7 +134,11 @@ impl SerializableICalComponent for QueryResultOrdering {
 
             QueryResultOrdering::GeoDistDtStart(geo_distance, dtstart_timestamp) => {
                 if let Some(geo_distance) = geo_distance {
-                    let geo_distance = match preferences.cloned().and_then(|preferences| preferences.distance_unit).unwrap_or(DistanceUnit::Kilometers) {
+                    let geo_distance = match preferences
+                        .cloned()
+                        .and_then(|preferences| preferences.distance_unit)
+                        .unwrap_or(DistanceUnit::Kilometers)
+                    {
                         DistanceUnit::Kilometers => geo_distance.to_kilometers(),
                         DistanceUnit::Miles => geo_distance.to_miles(),
                     };
@@ -149,7 +161,6 @@ impl SerializableICalComponent for QueryResultOrdering {
                 };
 
                 serialized_ical_set.insert(dtstart_property.serialize_to_ical(preferences));
-
             }
         }
 

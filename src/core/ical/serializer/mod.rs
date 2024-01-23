@@ -75,7 +75,9 @@ impl SerializationPreferences {
 
     // Get the specified distance unit - falling back to Kilometers
     pub fn get_distance_unit(&self) -> DistanceUnit {
-        self.distance_unit.clone().unwrap_or(DistanceUnit::Kilometers)
+        self.distance_unit
+            .clone()
+            .unwrap_or(DistanceUnit::Kilometers)
     }
 }
 
@@ -91,15 +93,23 @@ impl From<&Query> for SerializationPreferences {
 pub trait SerializableICalComponent {
     // TODO: Wire up timezone...
     fn serialize_to_ical(&self, preferences: Option<&SerializationPreferences>) -> Vec<String> {
-        self.serialize_to_ical_set(preferences).into_iter().collect()
+        self.serialize_to_ical_set(preferences)
+            .into_iter()
+            .collect()
     }
 
     // TODO: Wire up timezone...
-    fn serialize_to_ical_set(&self, preferences: Option<&SerializationPreferences>) -> BTreeSet<String>;
+    fn serialize_to_ical_set(
+        &self,
+        preferences: Option<&SerializationPreferences>,
+    ) -> BTreeSet<String>;
 }
 
 pub trait SerializableICalProperty {
-    fn serialize_to_ical_key_value_pair(&self, preferences: Option<&SerializationPreferences>) -> KeyValuePair {
+    fn serialize_to_ical_key_value_pair(
+        &self,
+        preferences: Option<&SerializationPreferences>,
+    ) -> KeyValuePair {
         let (name, params, value) = self.serialize_to_split_ical(preferences);
 
         let mut serialized_property = String::new();
@@ -124,10 +134,14 @@ pub trait SerializableICalProperty {
     }
 
     fn serialize_to_ical(&self, preferences: Option<&SerializationPreferences>) -> String {
-        self.serialize_to_ical_key_value_pair(preferences).to_string()
+        self.serialize_to_ical_key_value_pair(preferences)
+            .to_string()
     }
 
-    fn serialize_to_split_ical(&self, preferences: Option<&SerializationPreferences>) -> (String, Option<Vec<(String, String)>>, SerializedValue);
+    fn serialize_to_split_ical(
+        &self,
+        preferences: Option<&SerializationPreferences>,
+    ) -> (String, Option<Vec<(String, String)>>, SerializedValue);
 }
 
 #[cfg(test)]

@@ -83,7 +83,9 @@ impl QueryResults {
         if self
             .distinct_uid_lookup
             .as_ref()
-            .is_some_and(|distinct_uid_lookup| distinct_uid_lookup.contains(&event_instance.uid.uid))
+            .is_some_and(|distinct_uid_lookup| {
+                distinct_uid_lookup.contains(&event_instance.uid.uid)
+            })
         {
             return false;
         }
@@ -141,7 +143,8 @@ mod test {
     use crate::testing::macros::build_property_from_ical;
 
     use crate::core::ical::properties::{
-        UIDProperty, DTEndProperty, DTStartProperty, DurationProperty, GeoProperty, CategoriesProperty, RelatedToProperty, ClassProperty, Property, DescriptionProperty, LocationProperty,
+        CategoriesProperty, ClassProperty, DTEndProperty, DTStartProperty, DescriptionProperty,
+        DurationProperty, GeoProperty, LocationProperty, Property, RelatedToProperty, UIDProperty,
     };
 
     fn build_event_instance_one() -> EventInstance {
@@ -163,7 +166,10 @@ mod test {
             duration: build_property_from_ical!(DurationProperty, "DURATION:PT10S"),
             indexed_properties: IndexedProperties {
                 class: None,
-                geo: Some(build_property_from_ical!(GeoProperty, "GEO:51.899779;-2.0760367")), // Cheltenham
+                geo: Some(build_property_from_ical!(
+                    GeoProperty,
+                    "GEO:51.899779;-2.0760367"
+                )), // Cheltenham
                 categories: None,
                 related_to: None,
             },
@@ -179,7 +185,10 @@ mod test {
             duration: build_property_from_ical!(DurationProperty, "DURATION:PT10S"),
             indexed_properties: IndexedProperties {
                 class: None,
-                geo: Some(build_property_from_ical!(GeoProperty, "GEO:51.7504163;-1.2475878")), // Oxford
+                geo: Some(build_property_from_ical!(
+                    GeoProperty,
+                    "GEO:51.7504163;-1.2475878"
+                )), // Oxford
                 categories: None,
                 related_to: None,
             },
@@ -195,7 +204,10 @@ mod test {
             duration: build_property_from_ical!(DurationProperty, "DURATION:PT10S"),
             indexed_properties: IndexedProperties {
                 class: None,
-                geo: Some(build_property_from_ical!(GeoProperty, "GEO:51.4517446;-1.004574")), // Reading
+                geo: Some(build_property_from_ical!(
+                    GeoProperty,
+                    "GEO:51.4517446;-1.004574"
+                )), // Reading
                 categories: None,
                 related_to: None,
             },

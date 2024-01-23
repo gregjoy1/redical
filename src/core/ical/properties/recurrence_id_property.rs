@@ -29,8 +29,8 @@ use crate::core::ical::parser::common;
 use crate::core::ical::parser::common::ParserResult;
 use crate::core::ical::parser::macros::*;
 use crate::core::ical::serializer::{
-    quote_string_if_needed, serialize_timestamp_to_ical_datetime, serialize_timestamp_to_ical_date,
-    SerializableICalProperty, SerializedValue, SerializationPreferences,
+    quote_string_if_needed, serialize_timestamp_to_ical_date, serialize_timestamp_to_ical_datetime,
+    SerializableICalProperty, SerializationPreferences, SerializedValue,
 };
 
 use crate::core::ical::properties::DTStartProperty;
@@ -84,7 +84,10 @@ impl From<i64> for RecurrenceIDProperty {
 }
 
 impl SerializableICalProperty for RecurrenceIDProperty {
-    fn serialize_to_split_ical(&self, _preferences: Option<&SerializationPreferences>) -> (String, Option<Vec<(String, String)>>, SerializedValue) {
+    fn serialize_to_split_ical(
+        &self,
+        _preferences: Option<&SerializationPreferences>,
+    ) -> (String, Option<Vec<(String, String)>>, SerializedValue) {
         let mut param_key_value_pairs: Vec<(String, String)> = Vec::new();
 
         if let Some(value_type) = &self.value_type {
@@ -121,7 +124,9 @@ impl RecurrenceIDProperty {
     const NAME: &'static str = "RECURRENCE-ID";
 
     pub fn is_date_value_type(&self) -> bool {
-        self.value_type.as_ref().is_some_and(|value_type| value_type == &String::from("DATE"))
+        self.value_type
+            .as_ref()
+            .is_some_and(|value_type| value_type == &String::from("DATE"))
     }
 
     fn serialize_datestring_value(&self, timezone: &Tz) -> String {
@@ -176,11 +181,8 @@ impl RecurrenceIDProperty {
                             }
 
                             _ => {
-                                let parsed_x_param_value = value
-                                    .expect_list()
-                                    .into_iter()
-                                    .map(String::from)
-                                    .collect();
+                                let parsed_x_param_value =
+                                    value.expect_list().into_iter().map(String::from).collect();
 
                                 x_params
                                     .get_or_insert(HashMap::new())
@@ -209,7 +211,9 @@ impl RecurrenceIDProperty {
                     }
                 };
 
-                if value_type.as_ref().is_some_and(|value_type| value_type == &String::from("DATE-TIME") && parsed_date_string.time.is_none()) {
+                if value_type.as_ref().is_some_and(|value_type| {
+                    value_type == &String::from("DATE-TIME") && parsed_date_string.time.is_none()
+                }) {
                     return Err(nom::Err::Error(VerboseError {
                         errors: vec![(
                             input,
@@ -220,7 +224,9 @@ impl RecurrenceIDProperty {
                     }));
                 }
 
-                if value_type.as_ref().is_some_and(|value_type| value_type == &String::from("DATE") && parsed_date_string.time.is_some()) {
+                if value_type.as_ref().is_some_and(|value_type| {
+                    value_type == &String::from("DATE") && parsed_date_string.time.is_some()
+                }) {
                     return Err(nom::Err::Error(VerboseError {
                         errors: vec![(
                             input,
@@ -248,8 +254,8 @@ impl RecurrenceIDProperty {
 mod test {
 
     use super::*;
-    use pretty_assertions_sorted::assert_eq;
     use crate::core::ical::parser::error::convert_error;
+    use pretty_assertions_sorted::assert_eq;
 
     #[test]
     fn test_parse_ical_with_invalid_date_value_type() {
@@ -275,17 +281,15 @@ mod test {
 
         assert_eq!(
             parsed_property,
-            Ok(
-                (
-                    "",
-                    RecurrenceIDProperty {
-                        value_type: Some(String::from("DATE")),
-                        timezone: None,
-                        utc_timestamp: 1609372800,
-                        x_params: None,
-                    },
-                )
-            )
+            Ok((
+                "",
+                RecurrenceIDProperty {
+                    value_type: Some(String::from("DATE")),
+                    timezone: None,
+                    utc_timestamp: 1609372800,
+                    x_params: None,
+                },
+            ))
         );
 
         assert_eq!(parsed_property.unwrap().1.serialize_to_ical(None), input);
@@ -315,17 +319,15 @@ mod test {
 
         assert_eq!(
             parsed_property,
-            Ok(
-                (
-                    "",
-                    RecurrenceIDProperty {
-                        value_type: Some(String::from("DATE-TIME")),
-                        timezone: None,
-                        utc_timestamp: 1609439400,
-                        x_params: None,
-                    },
-                )
-            )
+            Ok((
+                "",
+                RecurrenceIDProperty {
+                    value_type: Some(String::from("DATE-TIME")),
+                    timezone: None,
+                    utc_timestamp: 1609439400,
+                    x_params: None,
+                },
+            ))
         );
 
         assert_eq!(parsed_property.unwrap().1.serialize_to_ical(None), input);
@@ -338,26 +340,15 @@ mod test {
 
         assert_eq!(
             parsed_property,
-            Err(
-                nom::Err::Failure(
-                    VerboseError {
-                        errors: vec![
-                            (
-                                "20201231ZZZZ",
-                                VerboseErrorKind::Context(
-                                    "invalid parsed datetime value",
-                                ),
-                            ),
-                            (
-                                ":20201231ZZZZ",
-                                VerboseErrorKind::Context(
-                                    "RECURRENCE-ID",
-                                ),
-                            ),
-                        ],
-                    },
-                ),
-            )
+            Err(nom::Err::Failure(VerboseError {
+                errors: vec![
+                    (
+                        "20201231ZZZZ",
+                        VerboseErrorKind::Context("invalid parsed datetime value",),
+                    ),
+                    (":20201231ZZZZ", VerboseErrorKind::Context("RECURRENCE-ID",),),
+                ],
+            },),)
         );
     }
 

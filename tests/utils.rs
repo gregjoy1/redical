@@ -43,13 +43,26 @@ pub fn start_redis_server_with_module(module_name: &str, port: u16) -> Result<Ch
     .iter()
     .collect();
 
+    let test_config_path: PathBuf = [
+        std::env::current_dir()?,
+        PathBuf::from(format!("tests/redis_test_config.conf")),
+    ]
+    .iter()
+    .collect();
+
+    assert!(fs::metadata(&test_config_path)
+        .with_context(|| format!("Loading redis test config: {}", test_config_path.display()))?
+        .is_file());
+
     assert!(fs::metadata(&module_path)
         .with_context(|| format!("Loading redis module: {}", module_path.display()))?
         .is_file());
 
+    let test_config_path = format!("{}", test_config_path.display());
     let module_path = format!("{}", module_path.display());
 
     let args = &[
+        test_config_path.as_str(),
         "--port",
         &port.to_string(),
         "--loadmodule",
@@ -70,6 +83,7 @@ pub fn start_redis_server_with_module(module_name: &str, port: u16) -> Result<Ch
 // Get connection to Redis
 pub fn get_redis_connection(port: u16) -> Result<Connection> {
     let client = redis::Client::open(format!("redis://127.0.0.1:{port}/"))?;
+
     loop {
         let res = client.get_connection();
         match res {

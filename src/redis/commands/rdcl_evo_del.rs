@@ -39,9 +39,10 @@ pub fn redical_event_override_del(ctx: &Context, args: Vec<RedisString>) -> Redi
     let event = calendar.events.get_mut(&String::from(event_uid.clone()));
 
     if event.is_none() {
-        return Err(RedisError::String(
-            format!("No event with UID: '{}' found", event_uid)
-        ));
+        return Err(RedisError::String(format!(
+            "No event with UID: '{}' found",
+            event_uid
+        )));
     }
 
     let mut event = event.unwrap().to_owned();

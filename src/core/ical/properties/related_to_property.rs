@@ -17,7 +17,7 @@ use crate::core::ical::parser::common::ParserResult;
 use crate::core::ical::parser::macros::*;
 use crate::core::ical::parser::properties;
 use crate::core::ical::serializer::{
-    quote_string_if_needed, SerializableICalProperty, SerializedValue, SerializationPreferences,
+    quote_string_if_needed, SerializableICalProperty, SerializationPreferences, SerializedValue,
 };
 
 use serde::{Deserialize, Serialize};
@@ -32,7 +32,10 @@ pub struct RelatedToProperty {
 implement_property_ord_partial_ord_and_hash_traits!(RelatedToProperty);
 
 impl SerializableICalProperty for RelatedToProperty {
-    fn serialize_to_split_ical(&self, _preferences: Option<&SerializationPreferences>) -> (String, Option<Vec<(String, String)>>, SerializedValue) {
+    fn serialize_to_split_ical(
+        &self,
+        _preferences: Option<&SerializationPreferences>,
+    ) -> (String, Option<Vec<(String, String)>>, SerializedValue) {
         let mut param_key_value_pairs: Vec<(String, String)> = Vec::new();
 
         if let Some(reltype) = &self.reltype {
@@ -78,7 +81,9 @@ impl RelatedToProperty {
     }
 
     pub fn get_reltype(&self) -> String {
-        self.reltype.clone().unwrap_or(String::from(Self::DEFAULT_RELTYPE))
+        self.reltype
+            .clone()
+            .unwrap_or(String::from(Self::DEFAULT_RELTYPE))
     }
 
     // reltypeparam       = "RELTYPE" "="

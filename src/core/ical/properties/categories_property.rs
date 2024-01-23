@@ -15,7 +15,7 @@ use crate::core::ical::parser::common::ParserResult;
 use crate::core::ical::parser::macros::*;
 use crate::core::ical::parser::properties;
 use crate::core::ical::serializer::{
-    quote_string_if_needed, SerializableICalProperty, SerializedValue, SerializationPreferences,
+    quote_string_if_needed, SerializableICalProperty, SerializationPreferences, SerializedValue,
 };
 
 use serde::{Deserialize, Serialize};
@@ -30,7 +30,10 @@ pub struct CategoriesProperty {
 implement_property_ord_partial_ord_and_hash_traits!(CategoriesProperty);
 
 impl SerializableICalProperty for CategoriesProperty {
-    fn serialize_to_split_ical(&self, _preferences: Option<&SerializationPreferences>) -> (String, Option<Vec<(String, String)>>, SerializedValue) {
+    fn serialize_to_split_ical(
+        &self,
+        _preferences: Option<&SerializationPreferences>,
+    ) -> (String, Option<Vec<(String, String)>>, SerializedValue) {
         let mut param_key_value_pairs: Vec<(String, String)> = Vec::new();
 
         if let Some(language) = &self.language {
