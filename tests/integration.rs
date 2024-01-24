@@ -14,10 +14,33 @@ mod integration {
     use std::collections::HashMap;
 
     use lazy_static::lazy_static;
+    use pretty_assertions_sorted::{assert_eq, assert_eq_sorted};
 
     // Run with:
-    //  cargo test -- --include-ignored
-    //  cargo test --ignored
+    //  cargo build && cargo test -- --include-ignored
+    //  cargo build && cargo test --ignored
+
+    macro_rules! assert_matching_ical {
+        ($redis_result:ident, $(($ical_content_line:expr)),+ $(,)*) => {
+            assert_eq_sorted!(
+                $redis_result,
+                vec![
+                    $(
+                        $ical_content_line,
+                    )+
+                ],
+            );
+        }
+    }
+
+    macro_rules! assert_matching_ical_vec {
+        ($redis_result:expr, $expected_result:expr) => {
+            assert_eq_sorted!(
+                $redis_result.to_owned().sort(),
+                $expected_result.to_owned().sort(),
+            );
+        }
+    }
 
     lazy_static! {
         static ref EVENT_FIXTURES: HashMap<&'static str, Vec<&'static str>> = {
@@ -26,10 +49,11 @@ mod integration {
                     "ONLINE_EVENT_MON_WED",
                     vec![
                         "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM",
-                        "RRULE:FREQ=WEEKLY;UNTIL=20211231T170000Z;INTERVAL=1;BYDAY=MO,WE DTSTART:20201231T160000Z",
+                        "RRULE:BYDAY=MO,WE;FREQ=WEEKLY;INTERVAL=1;UNTIL=20211231T170000Z",
+                        "DTSTART:20201231T160000Z",
                         "DTEND:20201231T170000Z",
                         "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
-                        "CATEGORIES:CATEGORY_ONE,CATEGORY TWO",
+                        "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
                     ],
                 ),
                 (
@@ -96,7 +120,7 @@ mod integration {
         };
     }
 
-    fn get_event_fixture_ical(uid: &str) -> Result<String> {
+    fn get_event_fixture_ical_parts(uid: &str, include_uid: bool) -> Result<Vec<String>> {
         let Some(content_lines) = EVENT_FIXTURES.get(uid) else {
             return Err(
                 anyhow::Error::msg("Expected event fixture UID to exist").context(format!(
@@ -106,7 +130,17 @@ mod integration {
             );
         };
 
-        Ok(content_lines.join(" "))
+        let mut content_lines: Vec<String> = content_lines.to_owned().into_iter().map(String::from).collect();
+
+        if include_uid {
+            content_lines.push(format!("UID:{uid}"));
+        }
+
+        Ok(content_lines)
+    }
+
+    fn get_event_fixture_ical(uid: &str, include_uid: bool) -> Result<String> {
+        Ok(get_event_fixture_ical_parts(uid, include_uid)?.join(" "))
     }
 
     fn test_set_calendar_uid(connection: &mut Connection) -> Result<()> {
@@ -158,24 +192,11 @@ mod integration {
         ];
 
         for fixture_event_uid in fixture_event_uids {
-            if let Some(_) = redis::cmd("rdcl.evt_get")
-                .arg("TEST_CALENDAR_UID")
-                .arg(fixture_event_uid)
-                .query::<Option<String>>(connection)
-                .with_context(|| {
-                    format!(
-                        "failed to get unset fixture event UID: {} with rdcl.evt_get",
-                        fixture_event_uid
-                    )
-                })?
-            {
-                return Err(anyhow::Error::msg("Expected get event to return None")
-                    .context(format!(r#"Expected "{}" not to exist"#, fixture_event_uid)));
-            }
+            assert_eq!(redis::cmd("rdcl.evt_get").arg("TEST_CALENDAR_UID").arg(fixture_event_uid).query(connection), RedisResult::Ok(Value::Nil));
 
-            let fixture_event_ical = get_event_fixture_ical(fixture_event_uid)?;
+            let fixture_event_ical = get_event_fixture_ical(fixture_event_uid, false)?;
 
-            let result: Vec<String> = redis::cmd("rdcl.evt_set")
+            let event_set_result: Vec<String> = redis::cmd("rdcl.evt_set")
                 .arg("TEST_CALENDAR_UID")
                 .arg(fixture_event_uid)
                 .arg(fixture_event_ical)
@@ -187,27 +208,23 @@ mod integration {
                     )
                 })?;
 
-            // TODO: Test output
-            dbg!(result);
+            assert_matching_ical_vec!(event_set_result, get_event_fixture_ical_parts(fixture_event_uid, true)?);
 
-            if let Some(event_get) = redis::cmd("rdcl.evt_get")
+            let event_get_result: Vec<String> = redis::cmd("rdcl.evt_get")
                 .arg("TEST_CALENDAR_UID")
                 .arg(fixture_event_uid)
-                .query::<Option<String>>(connection)
+                .query(connection)
                 .with_context(|| {
                     format!(
                         "failed to get set fixture event UID: {} with rdcl.evt_get",
                         fixture_event_uid
                     )
-                })?
-            {
-                // TODO: Test output
-                dbg!(event_get);
-            } else {
-                return Err(anyhow::Error::msg("Expected get event to return Some")
-                    .context(format!(r#"Expected "{}" to exist"#, fixture_event_uid)));
-            }
+                })?;
+
+            assert_matching_ical_vec!(event_get_result, get_event_fixture_ical_parts(fixture_event_uid, true)?);
         }
+
+        assert_eq!(redis::cmd("rdcl.evt_get").arg("TEST_CALENDAR_UID").arg("NON_EXISTENT").query(connection), RedisResult::Ok(Value::Nil));
 
         Ok(())
     }

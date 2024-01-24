@@ -55,7 +55,7 @@ pub fn start_redis_server_with_module(module_name: &str, port: u16) -> Result<Ch
         .is_file());
 
     assert!(fs::metadata(&module_path)
-        .with_context(|| format!("Loading redis module: {}", module_path.display()))?
+        .with_context(|| format!("Loading redis module: {} (prepend `cargo build &&` to `cargo test` to ensure artifacts exist)", module_path.display()))?
         .is_file());
 
     let test_config_path = format!("{}", test_config_path.display());
