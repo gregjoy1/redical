@@ -20,28 +20,6 @@ mod integration {
     //  cargo build && cargo test -- --include-ignored
     //  cargo build && cargo test --ignored
 
-    macro_rules! assert_matching_ical {
-        ($redis_result:ident, $(($ical_content_line:expr)),+ $(,)*) => {
-            assert_eq_sorted!(
-                $redis_result,
-                vec![
-                    $(
-                        $ical_content_line,
-                    )+
-                ],
-            );
-        }
-    }
-
-    macro_rules! assert_matching_ical_vec {
-        ($redis_result:expr, $expected_result:expr) => {
-            assert_eq_sorted!(
-                $redis_result.to_owned().sort(),
-                $expected_result.to_owned().sort(),
-            );
-        }
-    }
-
     lazy_static! {
         static ref EVENT_FIXTURES: HashMap<&'static str, Vec<&'static str>> = {
             HashMap::from([
@@ -60,11 +38,11 @@ mod integration {
                     "EVENT_IN_OXFORD_MON_WED",
                     vec![
                         "SUMMARY:Event in Oxford on Mondays and Wednesdays at 5:00PM",
-                        "RRULE:FREQ=WEEKLY;COUNT=3;INTERVAL=1;BYDAY=MO,WE",
+                        "RRULE:BYDAY=MO,WE;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
                         "DTSTART:20201231T170000Z",
                         "DTEND:20201231T173000Z",
                         "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
-                        "CATEGORIES:CATEGORY_ONE,CATEGORY TWO",
+                        "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
                         "GEO:51.751365550307604;-1.2601196837753945",
                     ],
                 ),
@@ -72,7 +50,7 @@ mod integration {
                     "EVENT_IN_READING_TUE_THU",
                     vec![
                         "SUMMARY:Event in Reading on Tuesdays and Thursdays at 6:00PM",
-                        "RRULE:FREQ=WEEKLY;COUNT=3;INTERVAL=1;BYDAY=TU,TH",
+                        "RRULE:BYDAY=TU,TH;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
                         "DTSTART:20201231T180000Z",
                         "DTEND:20201231T183000Z",
                         "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
@@ -84,11 +62,11 @@ mod integration {
                     "EVENT_IN_LONDON_TUE_THU",
                     vec![
                         "SUMMARY:Event in London on Tuesdays and Thursdays at 6:30PM",
-                        "RRULE:FREQ=WEEKLY;COUNT=3;INTERVAL=1;BYDAY=TU,TH",
+                        "RRULE:BYDAY=TU,TH;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
                         "DTSTART:20201231T183000Z",
                         "DTEND:20201231T190000Z",
                         "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
-                        "CATEGORIES:CATEGORY_ONE,CATEGORY_FOUR",
+                        "CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE",
                         "GEO:51.50740017561507;-0.12698231869919185",
                     ],
                 ),
@@ -96,11 +74,11 @@ mod integration {
                     "EVENT_IN_CHELTENHAM_TUE_THU",
                     vec![
                         "SUMMARY:Event in Cheltenham on Tuesdays and Thursdays at 6:30PM",
-                        "RRULE:FREQ=WEEKLY;COUNT=3;INTERVAL=1;BYDAY=TU,TH",
+                        "RRULE:BYDAY=TU,TH;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
                         "DTSTART:20201231T183000Z",
                         "DTEND:20201231T190000Z",
                         "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
-                        "CATEGORIES:CATEGORY_ONE,CATEGORY_FOUR",
+                        "CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE",
                         "GEO:51.89936851432488;-2.078357552295971",
                     ],
                 ),
@@ -108,11 +86,11 @@ mod integration {
                     "EVENT_IN_BRISTOL_TUE_THU",
                     vec![
                         "SUMMARY:Event in Bristol on Tuesdays and Thursdays at 6:30PM",
-                        "RRULE:FREQ=WEEKLY;COUNT=3;INTERVAL=1;BYDAY=TU,TH",
+                        "RRULE:BYDAY=TU,TH;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
                         "DTSTART:20201231T183000Z",
                         "DTEND:20201231T190000Z",
                         "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
-                        "CATEGORIES:CATEGORY_ONE,CATEGORY_FOUR",
+                        "CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE",
                         "GEO:51.454481838260214;-2.588329192623361",
                     ],
                 ),
@@ -123,7 +101,7 @@ mod integration {
                         "DTSTART:20201231T183000Z",
                         "DURATION:PT1H",
                         "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
-                        "CATEGORIES:CATEGORY_ONE,CATEGORY_FOUR",
+                        "CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE",
                         "GEO:51.454481838260214;-2.588329192623361",
                         "CLASS:PRIVATE",
                     ],
@@ -132,8 +110,18 @@ mod integration {
         };
     }
 
-    fn get_event_fixture_ical_parts(uid: &str, include_uid: bool) -> Result<Vec<String>> {
-        let Some(content_lines) = EVENT_FIXTURES.get(uid) else {
+    fn list_event_fixture_ical_components(uids: Vec<&str>, include_uid: bool) -> Result<Vec<Vec<String>>> {
+        let mut ical_components = Vec::new();
+
+        for uid in uids {
+            ical_components.push(get_event_fixture_ical_properties(uid, include_uid)?);
+        }
+
+        Ok(ical_components)
+    }
+
+    fn get_event_fixture_ical_properties(uid: &str, include_uid: bool) -> Result<Vec<String>> {
+        let Some(ical_properties) = EVENT_FIXTURES.get(uid) else {
             return Err(
                 anyhow::Error::msg("Expected event fixture UID to exist").context(format!(
                     r#"Fixture event with UID "{}" does not exist"#,
@@ -142,17 +130,44 @@ mod integration {
             );
         };
 
-        let mut content_lines: Vec<String> = content_lines.to_owned().into_iter().map(String::from).collect();
+        let mut ical_properties: Vec<String> = ical_properties.to_owned().into_iter().map(String::from).collect();
 
         if include_uid {
-            content_lines.push(format!("UID:{uid}"));
+            ical_properties.push(format!("UID:{uid}"));
         }
 
-        Ok(content_lines)
+        Ok(ical_properties)
     }
 
     fn get_event_fixture_ical(uid: &str, include_uid: bool) -> Result<String> {
-        Ok(get_event_fixture_ical_parts(uid, include_uid)?.join(" "))
+        Ok(get_event_fixture_ical_properties(uid, include_uid)?.join(" "))
+    }
+
+    macro_rules! assert_matching_ical_properties {
+        ($redis_result:expr, $expected_result:expr) => {
+            assert_eq_sorted!(
+                $redis_result.to_owned().sort(),
+                $expected_result.to_owned().sort(),
+            );
+        }
+    }
+
+    macro_rules! assert_matching_ical_components {
+        ($redis_result:expr, $expected_result:expr) => {
+            // assert_eq!($redis_result.len(), $expected_result.len());
+
+            let mut actual_result: Vec<Vec<String>> = $redis_result;
+            let mut expected_result: Vec<Vec<String>> = $expected_result;
+
+            // Crudely sort multi-dimensional vec so assert only cares about presence, not order.
+            actual_result.iter_mut().for_each(|properties| properties.sort());
+            expected_result.iter_mut().for_each(|properties| properties.sort());
+
+            actual_result.sort();
+            expected_result.sort();
+
+            assert_eq_sorted!(actual_result, expected_result);
+        }
     }
 
     fn test_set_calendar(connection: &mut Connection) -> Result<()> {
@@ -193,43 +208,43 @@ mod integration {
         Ok(())
     }
 
-    fn test_set_get_fixture_event(connection: &mut Connection, fixture_event_uid: &str) -> Result<()> {
-        let fixture_event_ical = get_event_fixture_ical(fixture_event_uid, false)?;
+    fn test_set_get_event_fixture(connection: &mut Connection, event_uid: &str) -> Result<()> {
+        let event_fixture_ical = get_event_fixture_ical(event_uid, false)?;
 
-        assert_eq!(redis::cmd("rdcl.evt_get").arg("TEST_CALENDAR_UID").arg(fixture_event_uid).query(connection), RedisResult::Ok(Value::Nil));
+        assert_eq!(redis::cmd("rdcl.evt_get").arg("TEST_CALENDAR_UID").arg(event_uid).query(connection), RedisResult::Ok(Value::Nil));
 
         let event_set_result: Vec<String> = redis::cmd("rdcl.evt_set")
             .arg("TEST_CALENDAR_UID")
-            .arg(fixture_event_uid)
-            .arg(fixture_event_ical)
+            .arg(event_uid)
+            .arg(event_fixture_ical)
             .query(connection)
             .with_context(|| {
                 format!(
                     "failed to set fixture event UID: {} with rdcl.evt_set",
-                    fixture_event_uid
+                    event_uid
                 )
             })?;
 
-        assert_matching_ical_vec!(event_set_result, get_event_fixture_ical_parts(fixture_event_uid, true)?);
+        assert_matching_ical_properties!(event_set_result, get_event_fixture_ical_properties(event_uid, true)?);
 
         let event_get_result: Vec<String> = redis::cmd("rdcl.evt_get")
             .arg("TEST_CALENDAR_UID")
-            .arg(fixture_event_uid)
+            .arg(event_uid)
             .query(connection)
             .with_context(|| {
                 format!(
                     "failed to get set fixture event UID: {} with rdcl.evt_get",
-                    fixture_event_uid
+                    event_uid
                 )
             })?;
 
-        assert_matching_ical_vec!(event_get_result, get_event_fixture_ical_parts(fixture_event_uid, true)?);
+        assert_matching_ical_properties!(event_get_result, get_event_fixture_ical_properties(event_uid, true)?);
 
         Ok(())
     }
 
     fn test_set_get_events(connection: &mut Connection) -> Result<()> {
-        for fixture_event_uid in [
+        for event_uid in [
             "ONLINE_EVENT_MON_WED",
             "EVENT_IN_OXFORD_MON_WED",
             "EVENT_IN_READING_TUE_THU",
@@ -237,7 +252,7 @@ mod integration {
             "EVENT_IN_CHELTENHAM_TUE_THU",
             "EVENT_IN_BRISTOL_TUE_THU",
         ] {
-            test_set_get_fixture_event(connection, fixture_event_uid)?;
+            test_set_get_event_fixture(connection, event_uid)?;
         }
 
         assert_eq!(redis::cmd("rdcl.evt_get").arg("TEST_CALENDAR_UID").arg("NON_EXISTENT").query(connection), RedisResult::Ok(Value::Nil));
@@ -245,20 +260,44 @@ mod integration {
         Ok(())
     }
 
+    fn test_list_events(connection: &mut Connection) -> Result<()> {
+        let event_list_result: Vec<Vec<String>> = redis::cmd("rdcl.evt_list")
+            .arg("TEST_CALENDAR_UID")
+            .query(connection)
+            .context("failed to list calendar: TEST_CALENDAR_UID events with rdcl.evt_list")?;
+
+        let expected_event_list_result =
+            list_event_fixture_ical_components(
+                vec![
+                    "ONLINE_EVENT_MON_WED",
+                    "EVENT_IN_OXFORD_MON_WED",
+                    "EVENT_IN_READING_TUE_THU",
+                    "EVENT_IN_LONDON_TUE_THU",
+                    "EVENT_IN_CHELTENHAM_TUE_THU",
+                    "EVENT_IN_BRISTOL_TUE_THU",
+                ],
+                true
+            )?;
+
+        assert_matching_ical_components!(event_list_result, expected_event_list_result);
+
+        Ok(())
+    }
+
     fn test_del_event(connection: &mut Connection) -> Result<()> {
-        let fixture_event_uid = "NON_RUNNING_EVENT_TO_DELETE";
+        let event_uid = "NON_RUNNING_EVENT_TO_DELETE";
 
         // Test that rdcl.evt_del returns OK => false when calendar event not present.
-        assert_eq!(redis::cmd("rdcl.evt_del").arg("TEST_CALENDAR_UID").arg(fixture_event_uid).query(connection), RedisResult::Ok(Value::Int(0)));
+        assert_eq!(redis::cmd("rdcl.evt_del").arg("TEST_CALENDAR_UID").arg(event_uid).query(connection), RedisResult::Ok(Value::Int(0)));
 
         // Create and test presence of "NON_RUNNING_EVENT_TO_DELETE" fixture event about to be deleted.
-        test_set_get_fixture_event(connection, fixture_event_uid)?;
+        test_set_get_event_fixture(connection, event_uid)?;
 
         // Test that rdcl.evt_del returns OK => true when calendar event was present and deleted.
-        assert_eq!(redis::cmd("rdcl.evt_del").arg("TEST_CALENDAR_UID").arg(fixture_event_uid).query(connection), RedisResult::Ok(Value::Int(1)));
+        assert_eq!(redis::cmd("rdcl.evt_del").arg("TEST_CALENDAR_UID").arg(event_uid).query(connection), RedisResult::Ok(Value::Int(1)));
 
         // Test that "NON_RUNNING_EVENT_TO_DELETE" was actually deleted
-        assert_eq!(redis::cmd("rdcl.evt_get").arg("TEST_CALENDAR_UID").arg(fixture_event_uid).query(connection), RedisResult::Ok(Value::Nil));
+        assert_eq!(redis::cmd("rdcl.evt_get").arg("TEST_CALENDAR_UID").arg(event_uid).query(connection), RedisResult::Ok(Value::Nil));
 
         Ok(())
     }
@@ -274,6 +313,8 @@ mod integration {
         test_set_calendar(&mut connection)?;
 
         test_set_get_events(&mut connection)?;
+
+        test_list_events(&mut connection)?;
 
         test_del_event(&mut connection)?;
 
