@@ -15,27 +15,35 @@ pub fn redical_event_get(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     let mut args = args.into_iter().skip(1);
 
     let calendar_uid = args.next_arg()?;
-    let event_uid = args.next_arg()?;
+    let event_uid = args.next_arg()?.to_string();
 
     let calendar_key = ctx.open_key(&calendar_uid);
 
     ctx.log_debug(
-        format!("rdcl.evt_get: calendar_uid: {calendar_uid} event_uid: {event_uid}").as_str(),
+        format!("rdcl.evt_get: calendar_uid: {calendar_uid} event_uid: {event_uid}").as_str()
     );
 
-    if let Some(calendar) = calendar_key.get_value::<Calendar>(&CALENDAR_DATA_TYPE)? {
-        if let Some(event) = calendar.events.get(&String::from(event_uid.clone())) {
-            return Ok(
-                RedisValue::Array(
-                    event
-                        .serialize_to_ical(None)
-                        .iter()
-                        .map(|ical_part| RedisValue::SimpleString(ical_part.to_owned()))
-                        .collect(),
-                )
-            );
-        }
-    }
+    let Some(calendar) = calendar_key.get_value::<Calendar>(&CALENDAR_DATA_TYPE)? else {
+        return Err(RedisError::String(format!(
+            "No Calendar found on key: {calendar_uid}"
+        )));
+    };
 
-    Ok(RedisValue::Null)
+    calendar
+        .events
+        .get(&event_uid)
+        .map_or(
+            Ok(RedisValue::Null),
+            |event| {
+                Ok(
+                    RedisValue::Array(
+                        event
+                            .serialize_to_ical(None)
+                            .into_iter()
+                            .map(RedisValue::SimpleString)
+                            .collect(),
+                    )
+                )
+            },
+        )
 }
