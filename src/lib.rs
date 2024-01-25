@@ -66,7 +66,9 @@ redis_module! {
         ["rdcl.evi_list",  redis::commands::redical_event_instance_list, "", 0, 0, 0],
         ["rdcl.evo_set",   redis::commands::redical_event_override_set,  "", 0, 0, 0],
         ["rdcl.evo_del",   redis::commands::redical_event_override_del,  "", 0, 0, 0],
+        ["rdcl.evo_list",  redis::commands::redical_event_override_list, "", 0, 0, 0],
         ["rdcl.cal_set",   redis::commands::redical_calendar_set,        "", 0, 0, 0],
+        ["rdcl.cal_get",   redis::commands::redical_calendar_get,        "", 0, 0, 0],
         ["rdcl.cal_query", redis::commands::redical_calendar_query,      "", 0, 0, 0],
     ],
     event_handlers: [

@@ -121,7 +121,7 @@ mod integration {
                         ],
                         overrides: HashMap::from([
                             (
-                                "SUMMARY_CATEGORY_RELATED_OVERRIDE",
+                                "OVERRIDE_SUMMARY_CATEGORY_AND_RELATED_TO",
                                 EventOverrideFixture {
                                     date_string: "20210105T183000Z",
                                     properties: vec![
@@ -132,7 +132,7 @@ mod integration {
                                 },
                             ),
                             (
-                                "SUMMARY_GEO_OVERRIDE",
+                                "OVERRIDE_SUMMARY_AND_GEO",
                                 EventOverrideFixture {
                                     date_string: "20210107T183000Z",
                                     properties: vec![
@@ -142,7 +142,7 @@ mod integration {
                                 },
                             ),
                             (
-                                "DETACHED_SUMMARY_GEO_OVERRIDE",
+                                "DETACHED_SUMMARY_AND_GEO_OVERRIDE",
                                 EventOverrideFixture {
                                     date_string: "20210108T183000Z",
                                     properties: vec![
@@ -172,82 +172,22 @@ mod integration {
         };
     }
 
-    fn list_event_fixture_ical_components(uids: Vec<&str>, include_uid: bool) -> Result<Vec<Vec<String>>> {
-        let mut ical_components = Vec::new();
-
-        for uid in uids {
-            ical_components.push(get_event_fixture_ical_properties(uid, include_uid)?);
-        }
-
-        Ok(ical_components)
-    }
-
-    fn get_event_fixture_ical_properties(uid: &str, include_uid: bool) -> Result<Vec<String>> {
-        let Some(event_fixture) = EVENT_FIXTURES.get(uid) else {
-            return Err(
-                anyhow::Error::msg("Expected event fixture UID to exist").context(format!(
-                    r#"Fixture event with UID "{}" does not exist"#,
-                    uid
-                )),
-            );
-        };
-
-        let mut ical_properties: Vec<String> = event_fixture.properties.to_owned().into_iter().map(String::from).collect();
-
-        if include_uid {
-            ical_properties.push(format!("UID:{uid}"));
-        }
-
-        Ok(ical_properties)
-    }
-
-    fn get_event_fixture_ical(uid: &str, include_uid: bool) -> Result<String> {
-        Ok(get_event_fixture_ical_properties(uid, include_uid)?.join(" "))
-    }
-
-    fn get_event_override_fixture_ical_properties(uid: &str, date_string: &str, include_dtstart: bool) -> Result<Vec<String>> {
-        let Some(event_fixture) = EVENT_FIXTURES.get(uid) else {
-            return Err(
-                anyhow::Error::msg("Expected event fixture UID to exist").context(format!(
-                    r#"Fixture event with UID "{}" does not exist"#,
-                    uid
-                )),
-            );
-        };
-
-        let Some(event_override_fixture) = event_fixture.overrides.get(date_string) else {
-            return Err(
-                anyhow::Error::msg("Expected event override fixture for UID and date string to exist").context(format!(
-                    r#"Fixture event override for UID "{}" at DTSTART "{}" does not exist"#,
-                    uid, date_string,
-                )),
-            );
-        };
-
-        let mut ical_properties: Vec<String> = event_override_fixture.properties.to_owned().into_iter().map(String::from).collect();
-
-        if include_dtstart {
-            ical_properties.push(format!("DTSTART:{date_string}"));
-        }
-
-        Ok(ical_properties)
-    }
-
-    fn get_event_override_fixture_ical(uid: &str, date_string: &str) -> Result<String> {
-        Ok(get_event_override_fixture_ical_properties(uid, date_string, false)?.join(" "))
-    }
-
     macro_rules! assert_matching_ical_properties {
-        ($redis_result:expr, $expected_result:expr) => {
-            assert_eq_sorted!(
-                $redis_result.to_owned().sort(),
-                $expected_result.to_owned().sort(),
-            );
+        ($redis_result:expr, $expected_result:expr $(,)*) => {
+            let mut actual_result = $redis_result.to_owned();
+            let mut expected_result = $expected_result.to_owned();
+
+            assert_eq!(actual_result.len(), expected_result.len());
+
+            actual_result.sort();
+            expected_result.sort();
+
+            assert_eq_sorted!(actual_result, expected_result);
         }
     }
 
     macro_rules! assert_matching_ical_components {
-        ($redis_result:expr, $expected_result:expr) => {
+        ($redis_result:expr, $expected_result:expr $(,)*) => {
             // assert_eq!($redis_result.len(), $expected_result.len());
 
             let mut actual_result: Vec<Vec<String>> = $redis_result;
@@ -264,162 +204,309 @@ mod integration {
         }
     }
 
-    fn test_set_calendar(connection: &mut Connection) -> Result<()> {
-        let result: Vec<String> = redis::cmd("rdcl.cal_set")
-            .arg("TEST_CALENDAR_UID")
-            .query(connection)
-            .with_context(|| "failed to set initial calendar key with rdcl.cal_set")?;
+    macro_rules! assert_calendar_present {
+        ($connection:expr, $calendar_uid:expr $(,)*) => {
+            let calendar_get_result: Vec<String> = redis::cmd("rdcl.cal_get")
+                .arg($calendar_uid)
+                .query($connection)
+                .with_context(|| {
+                    format!(
+                        "failed to get calendar with UID: '{}' via rdcl.cal_get", $calendar_uid,
+                    )
+                })?;
 
-        assert_eq!(result.len(), 1);
-
-        let expected_starts_with = r#"calendar added with UID: "TEST_CALENDAR_UID""#;
-        if result[0].starts_with(expected_starts_with) == false {
-            return Err(
-                anyhow::Error::msg("Expected set calendar to return correctly").context(format!(
-                    r#"Expected "{}" to start with "{}""#,
-                    result[0], expected_starts_with
-                )),
-            );
-        }
-
-        let result: Vec<String> = redis::cmd("rdcl.cal_set")
-            .arg("TEST_CALENDAR_UID")
-            .query(connection)
-            .with_context(|| "failed to set duplicate initial calendar key with rdcl.cal_set")?;
-
-        assert_eq!(result.len(), 1);
-
-        let expected_starts_with = r#"calendar already exists with UID: "TEST_CALENDAR_UID""#;
-        if result[0].starts_with(expected_starts_with) == false {
-            return Err(
-                anyhow::Error::msg("Expected set calendar to return correctly").context(format!(
-                    r#"Expected "{}" to start with "{}""#,
-                    result[0], expected_starts_with
-                )),
-            );
-        }
-
-        Ok(())
-    }
-
-    fn test_set_get_event_fixture(connection: &mut Connection, event_uid: &str) -> Result<()> {
-        let event_fixture_ical = get_event_fixture_ical(event_uid, false)?;
-
-        assert_eq!(redis::cmd("rdcl.evt_get").arg("TEST_CALENDAR_UID").arg(event_uid).query(connection), RedisResult::Ok(Value::Nil));
-
-        let event_set_result: Vec<String> = redis::cmd("rdcl.evt_set")
-            .arg("TEST_CALENDAR_UID")
-            .arg(event_uid)
-            .arg(event_fixture_ical)
-            .query(connection)
-            .with_context(|| {
-                format!(
-                    "failed to set fixture event UID: {} with rdcl.evt_set",
-                    event_uid
-                )
-            })?;
-
-        assert_matching_ical_properties!(event_set_result, get_event_fixture_ical_properties(event_uid, true)?);
-
-        let event_get_result: Vec<String> = redis::cmd("rdcl.evt_get")
-            .arg("TEST_CALENDAR_UID")
-            .arg(event_uid)
-            .query(connection)
-            .with_context(|| {
-                format!(
-                    "failed to get set fixture event UID: {} with rdcl.evt_get",
-                    event_uid
-                )
-            })?;
-
-        assert_matching_ical_properties!(event_get_result, get_event_fixture_ical_properties(event_uid, true)?);
-
-        Ok(())
-    }
-
-    fn test_set_get_events(connection: &mut Connection) -> Result<()> {
-        for event_uid in [
-            "ONLINE_EVENT_MON_WED",
-            "EVENT_IN_OXFORD_MON_WED",
-            "EVENT_IN_READING_TUE_THU",
-            "EVENT_IN_LONDON_TUE_THU",
-            "EVENT_IN_CHELTENHAM_TUE_THU",
-            "OVERRIDDEN_EVENT_IN_BRISTOL_TUE_THU",
-        ] {
-            test_set_get_event_fixture(connection, event_uid)?;
-        }
-
-        assert_eq!(redis::cmd("rdcl.evt_get").arg("TEST_CALENDAR_UID").arg("NON_EXISTENT").query(connection), RedisResult::Ok(Value::Nil));
-
-        Ok(())
-    }
-
-    fn test_list_events(connection: &mut Connection) -> Result<()> {
-        let event_list_result: Vec<Vec<String>> = redis::cmd("rdcl.evt_list")
-            .arg("TEST_CALENDAR_UID")
-            .query(connection)
-            .context("failed to list calendar: TEST_CALENDAR_UID events with rdcl.evt_list")?;
-
-        let expected_event_list_result =
-            list_event_fixture_ical_components(
+            assert_matching_ical_properties!(
+                calendar_get_result,
                 vec![
-                    "ONLINE_EVENT_MON_WED",
-                    "EVENT_IN_OXFORD_MON_WED",
-                    "EVENT_IN_READING_TUE_THU",
-                    "EVENT_IN_LONDON_TUE_THU",
-                    "EVENT_IN_CHELTENHAM_TUE_THU",
-                    "OVERRIDDEN_EVENT_IN_BRISTOL_TUE_THU",
+                    format!("UID:{}", $calendar_uid),
                 ],
-                true
-            )?;
+            );
+        }
+    }
 
-        assert_matching_ical_components!(event_list_result, expected_event_list_result);
+    macro_rules! assert_calendar_nil {
+        ($connection:expr, $calendar_uid:expr $(,)*) => {
+            assert_eq!(redis::cmd("rdcl.cal_get").arg($calendar_uid).query($connection), RedisResult::Ok(Value::Nil));
+        }
+    }
+
+    macro_rules! set_and_assert_calendar {
+        ($connection:expr, $calendar_uid:expr $(,)*) => {
+            assert_calendar_nil!($connection, $calendar_uid);
+
+            let calendar_set_result: Vec<String> = redis::cmd("rdcl.cal_set")
+                .arg($calendar_uid)
+                .query($connection)
+                .with_context(|| {
+                    format!(r#"failed to set initial calendar UID: "{}" via rdcl.cal_set"#, $calendar_uid)
+                })?;
+
+            assert_matching_ical_properties!(
+                calendar_set_result,
+                vec![
+                    format!("UID:{}", $calendar_uid),
+                ],
+            );
+
+            assert_calendar_present!($connection, $calendar_uid);
+        }
+    }
+
+    macro_rules! assert_event_present {
+        ($connection:expr, $calendar_uid:expr, $event_uid:expr, [$($ical_property:expr),+ $(,)*] $(,)*) => {
+            let event_get_result: Vec<String> = redis::cmd("rdcl.evt_get")
+                .arg($calendar_uid)
+                .arg($event_uid)
+                .query($connection)
+                .with_context(|| {
+                    format!(
+                        "failed to get set fixture event with UID: '{}' via rdcl.evt_get", $event_uid,
+                    )
+                })?;
+
+            assert_matching_ical_properties!(
+                event_get_result,
+                vec![
+                    format!("UID:{}", $event_uid),
+                    $(
+                        String::from($ical_property),
+                    )+
+                ],
+            );
+        }
+    }
+
+    macro_rules! assert_event_nil {
+        ($connection:expr, $calendar_uid:expr, $event_uid:expr $(,)*) => {
+            assert_eq!(redis::cmd("rdcl.evt_get").arg($calendar_uid).arg($event_uid).query($connection), RedisResult::Ok(Value::Nil));
+        }
+    }
+
+    macro_rules! set_and_assert_event {
+        ($connection:expr, $calendar_uid:expr, $event_uid:expr, [$($ical_property:expr),+ $(,)*] $(,)*) => {
+            assert_event_nil!(
+                $connection,
+                $calendar_uid,
+                $event_uid,
+            );
+
+            let mut ical_properties: Vec<String> = vec![
+                $(
+                    String::from($ical_property),
+                )+
+            ];
+
+            let joined_ical_properties = ical_properties.join(" ");
+
+            let event_set_result: Vec<String> = redis::cmd("rdcl.evt_set")
+                .arg("TEST_CALENDAR_UID")
+                .arg($event_uid)
+                .arg(joined_ical_properties)
+                .query($connection)
+                .with_context(|| {
+                    format!(
+                        "failed to set fixture event with UID: '{}' via rdcl.evt_set", $event_uid,
+                    )
+                })?;
+
+            ical_properties.push(format!("UID:{}", $event_uid));
+
+            assert_matching_ical_properties!(event_set_result, ical_properties);
+
+            assert_event_present!(
+                $connection,
+                $calendar_uid, 
+                $event_uid,
+                [
+                    $(
+                        $ical_property,
+                    )+
+                ],
+            );
+        }
+    }
+
+    macro_rules! list_and_assert_matching_events {
+        ($connection:expr, $calendar_uid:expr, [] $(,)*) => {
+            let event_list_result: Vec<Vec<String>> = redis::cmd("rdcl.evt_list")
+                .arg($calendar_uid)
+                .query($connection)
+                .with_context(|| {
+                    format!(
+                        "failed to list calendar: '{}' events via rdcl.evt_list", $calendar_uid,
+                    )
+                })?;
+
+            let expected_event_list_result: Vec<Vec<String>> = vec![];
+
+            assert_eq!(event_list_result, expected_event_list_result);
+        };
+
+        ($connection:expr, $calendar_uid:expr, [$([$($ical_component_property:expr),+ $(,)*]),+ $(,)*] $(,)*) => {
+            let expected_event_list_result: Vec<Vec<String>> = vec![
+                $(
+                    vec![
+                        $(
+                            String::from($ical_component_property),
+                        )+
+                    ],
+                )+
+            ];
+
+            let event_list_result: Vec<Vec<String>> = redis::cmd("rdcl.evt_list")
+                .arg($calendar_uid)
+                .query($connection)
+                .with_context(|| {
+                    format!(
+                        "failed to list calendar: '{}' events via rdcl.evt_list", $calendar_uid,
+                    )
+                })?;
+
+            assert_matching_ical_components!(event_list_result, expected_event_list_result);
+        };
+    }
+
+    fn test_calendar_get_set_del(connection: &mut Connection) -> Result<()> {
+        let calendar_uid = "TEST_CALENDAR_UID";
+
+        set_and_assert_calendar!(connection, calendar_uid);
+
+        assert_eq!(
+            redis::cmd("DEL").arg(calendar_uid).query(connection),
+            RedisResult::Ok(Value::Int(1)),
+        );
+
+        assert_calendar_nil!(connection, calendar_uid);
 
         Ok(())
     }
 
-    fn test_del_event(connection: &mut Connection) -> Result<()> {
-        let event_uid = "NON_RUNNING_EVENT_TO_DELETE";
+    fn test_event_get_set_del_list(connection: &mut Connection) -> Result<()> {
+        set_and_assert_calendar!(connection, "TEST_CALENDAR_UID");
 
-        // Test that rdcl.evt_del returns OK => false when calendar event not present.
-        assert_eq!(redis::cmd("rdcl.evt_del").arg("TEST_CALENDAR_UID").arg(event_uid).query(connection), RedisResult::Ok(Value::Int(0)));
+        set_and_assert_event!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "ONLINE_EVENT_MON_WED",
+            [
+                "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM",
+                "RRULE:BYDAY=MO,WE;FREQ=WEEKLY;INTERVAL=1;UNTIL=20211231T170000Z",
+                "DTSTART:20201231T160000Z",
+                "DTEND:20201231T170000Z",
+                "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
+            ],
+        );
 
-        // Create and test presence of "NON_RUNNING_EVENT_TO_DELETE" fixture event about to be deleted.
-        test_set_get_event_fixture(connection, event_uid)?;
+        set_and_assert_event!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "EVENT_IN_OXFORD_MON_WED",
+            [
+                "SUMMARY:Event in Oxford on Mondays and Wednesdays at 5:00PM",
+                "RRULE:BYDAY=MO,WE;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
+                "DTSTART:20201231T170000Z",
+                "DTEND:20201231T173000Z",
+                "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
+                "GEO:51.751365550307604;-1.2601196837753945",
+            ],
+        );
+
+        list_and_assert_matching_events!(
+            connection,
+            "TEST_CALENDAR_UID",
+            [
+                [
+                    "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM",
+                    "RRULE:BYDAY=MO,WE;FREQ=WEEKLY;INTERVAL=1;UNTIL=20211231T170000Z",
+                    "DTSTART:20201231T160000Z",
+                    "DTEND:20201231T170000Z",
+                    "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                    "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
+                    "UID:ONLINE_EVENT_MON_WED",
+                ],
+                [
+                    "SUMMARY:Event in Oxford on Mondays and Wednesdays at 5:00PM",
+                    "RRULE:BYDAY=MO,WE;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
+                    "DTSTART:20201231T170000Z",
+                    "DTEND:20201231T173000Z",
+                    "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                    "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
+                    "GEO:51.751365550307604;-1.2601196837753945",
+                    "UID:EVENT_IN_OXFORD_MON_WED",
+                ],
+            ],
+        );
 
         // Test that rdcl.evt_del returns OK => true when calendar event was present and deleted.
-        assert_eq!(redis::cmd("rdcl.evt_del").arg("TEST_CALENDAR_UID").arg(event_uid).query(connection), RedisResult::Ok(Value::Int(1)));
+        assert_eq!(redis::cmd("rdcl.evt_del").arg("TEST_CALENDAR_UID").arg("ONLINE_EVENT_MON_WED").query(connection), RedisResult::Ok(Value::Int(1)));
 
-        // Test that "NON_RUNNING_EVENT_TO_DELETE" was actually deleted
-        assert_eq!(redis::cmd("rdcl.evt_get").arg("TEST_CALENDAR_UID").arg(event_uid).query(connection), RedisResult::Ok(Value::Nil));
+        list_and_assert_matching_events!(
+            connection,
+            "TEST_CALENDAR_UID",
+            [
+                [
+                    "SUMMARY:Event in Oxford on Mondays and Wednesdays at 5:00PM",
+                    "RRULE:BYDAY=MO,WE;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
+                    "DTSTART:20201231T170000Z",
+                    "DTEND:20201231T173000Z",
+                    "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                    "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
+                    "GEO:51.751365550307604;-1.2601196837753945",
+                    "UID:EVENT_IN_OXFORD_MON_WED",
+                ],
+            ],
+        );
+
+        // Test that rdcl.evt_del returns OK => true when calendar event was present and deleted.
+        assert_eq!(redis::cmd("rdcl.evt_del").arg("TEST_CALENDAR_UID").arg("EVENT_IN_OXFORD_MON_WED").query(connection), RedisResult::Ok(Value::Int(1)));
+
+        list_and_assert_matching_events!(connection, "TEST_CALENDAR_UID", []);
+
+        // Test that rdcl.evt_del returns OK => false when trying to delete calendar events that are not present.
+        assert_eq!(redis::cmd("rdcl.evt_del").arg("TEST_CALENDAR_UID").arg("ONLINE_EVENT_MON_WED").query(connection), RedisResult::Ok(Value::Int(0)));
+        assert_eq!(redis::cmd("rdcl.evt_del").arg("TEST_CALENDAR_UID").arg("EVENT_IN_OXFORD_MON_WED").query(connection), RedisResult::Ok(Value::Int(0)));
+
+        assert_event_nil!(connection, "TEST_CALENDAR_UID", "ONLINE_EVENT_MON_WED");
+        assert_event_nil!(connection, "TEST_CALENDAR_UID", "EVENT_IN_OXFORD_MON_WED");
 
         Ok(())
     }
 
-    #[test]
-    fn test_full_round_robin() -> Result<()> {
-        let port: u16 = 6479;
-        let _guards = vec![start_redis_server_with_module("redical", port)
-            .with_context(|| "failed to start redis server")?];
-        let mut connection =
-            get_redis_connection(port).with_context(|| "failed to connect to redis server")?;
+    macro_rules! run_all_integration_tests_sequentially {
+        ($($test_function:ident),+ $(,)*) => {
+            #[test]
+            fn test_all_integration_tests_sequentially() -> Result<()> {
+                let port: u16 = 6480;
+                let _guards = vec![start_redis_server_with_module("redical", port)
+                    .with_context(|| "failed to start test redis server")?];
 
-        test_set_calendar(&mut connection)?;
+                let mut connection =
+                    get_redis_connection(port).with_context(|| "failed to connect to test redis server")?;
 
-        test_set_get_events(&mut connection)?;
+                test_calendar_get_set_del(&mut connection)?;
 
-        test_list_events(&mut connection)?;
+                $(
+                    $test_function(&mut connection)?;
 
-        test_del_event(&mut connection)?;
+                    redis::cmd("FLUSHDB")
+                        .query(&mut connection)
+                        .with_context(|| {
+                            format!(
+                                "failed to cleanup with FLUSHDB after running integration test function: {}", stringify!($test_function),
+                            )
+                        })?;
+                )+
 
-        /*
-        let res: Result<Vec<i32>, RedisError> = redis::cmd("set").arg(&["key"]).query(&mut connection);
-
-        if res.is_ok() {
-            return Err(anyhow::Error::msg("Should return an error"));
+                Ok(())
+            }
         }
-        */
-
-        Ok(())
     }
+
+    run_all_integration_tests_sequentially!(
+        test_calendar_get_set_del,
+        test_event_get_set_del_list,
+    );
+
 }

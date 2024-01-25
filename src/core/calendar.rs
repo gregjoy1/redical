@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 
 use crate::core::inverted_index::{IndexedConclusion, InvertedCalendarIndex};
 
@@ -9,9 +9,15 @@ use crate::core::geo_index::{GeoPoint, GeoSpatialCalendarIndex};
 
 use crate::core::event::Event;
 
+use crate::core::ical::properties::UIDProperty;
+
+use crate::core::ical::serializer::{
+    SerializableICalComponent, SerializableICalProperty, SerializationPreferences,
+};
+
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Calendar {
-    pub uid: String,
+    pub uid: UIDProperty,
     pub events: HashMap<String, Event>,
     pub indexed_categories: InvertedCalendarIndex<String>,
     pub indexed_related_to: InvertedCalendarIndex<KeyValuePair>,
@@ -22,13 +28,26 @@ pub struct Calendar {
 impl Calendar {
     pub fn new(uid: String) -> Self {
         Calendar {
-            uid,
+            uid: uid.into(),
             events: HashMap::new(),
             indexed_categories: InvertedCalendarIndex::new(),
             indexed_related_to: InvertedCalendarIndex::new(),
             indexed_geo: GeoSpatialCalendarIndex::new(),
             indexed_class: InvertedCalendarIndex::new(),
         }
+    }
+}
+
+impl SerializableICalComponent for Calendar {
+    fn serialize_to_ical_set(
+        &self,
+        preferences: Option<&SerializationPreferences>,
+    ) -> BTreeSet<String> {
+        let mut serializable_properties: BTreeSet<String> = BTreeSet::new();
+
+        serializable_properties.insert(self.uid.serialize_to_ical(preferences));
+
+        serializable_properties
     }
 }
 

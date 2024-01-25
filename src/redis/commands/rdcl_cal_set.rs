@@ -3,6 +3,18 @@ use redis_module::{Context, NextArg, RedisError, RedisResult, RedisString, Redis
 use crate::core::Calendar;
 use crate::redis::calendar_data_type::CALENDAR_DATA_TYPE;
 
+use crate::core::ical::serializer::SerializableICalComponent;
+
+fn serialize_calendar(calendar: &Calendar) -> RedisValue {
+    RedisValue::Array(
+        calendar
+            .serialize_to_ical(None)
+            .into_iter()
+            .map(RedisValue::SimpleString)
+            .collect(),
+    )
+}
+
 pub fn redical_calendar_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     if args.len() < 1 {
         ctx.log_debug(format!("rdcl.cal_set: WrongArity: {{args.len()}}").as_str());
@@ -12,27 +24,21 @@ pub fn redical_calendar_set(ctx: &Context, args: Vec<RedisString>) -> RedisResul
 
     let mut args = args.into_iter().skip(1);
 
-    let key_name = args.next_arg()?;
+    let calendar_uid = args.next_arg()?;
 
-    let key = ctx.open_key_writable(&key_name);
+    let calendar_key = ctx.open_key_writable(&calendar_uid);
 
-    ctx.log_debug(format!("rdcl.cal_set: key: {key_name}").as_str());
+    if let Some(calendar) = calendar_key.get_value::<Calendar>(&CALENDAR_DATA_TYPE)? {
+        ctx.log_debug(format!("rdcl.cal_set: key: {calendar_uid} -- exists: {:#?}", &calendar).as_str());
 
-    match key.get_value::<Calendar>(&CALENDAR_DATA_TYPE)? {
-        Some(calendar) => Ok(RedisValue::BulkString(format!(
-            "calendar already exists with UID: {:?} - {:?}",
-            calendar.uid, calendar
-        ))),
+        return Ok(serialize_calendar(calendar));
+    };
 
-        None => {
-            let new_calendar = Calendar::new(String::from(key_name));
+    ctx.log_debug(format!("rdcl.cal_set: key: {calendar_uid}").as_str());
 
-            key.set_value(&CALENDAR_DATA_TYPE, new_calendar.clone())?;
+    let calendar = Calendar::new(calendar_uid.into());
 
-            Ok(RedisValue::BulkString(format!(
-                "calendar added with UID: {:?} - {:?}",
-                new_calendar.uid, new_calendar
-            )))
-        }
-    }
+    calendar_key.set_value(&CALENDAR_DATA_TYPE, calendar.clone())?;
+
+    Ok(serialize_calendar(&calendar))
 }

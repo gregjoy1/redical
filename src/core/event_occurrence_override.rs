@@ -1,10 +1,12 @@
+use std::collections::BTreeSet;
+
 use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 
 use crate::core::event::{IndexedProperties, PassiveProperties};
 
-use crate::core::ical::serializer::SerializableICalProperty;
+use crate::core::ical::serializer::{SerializableICalComponent, SerializableICalProperty, SerializationPreferences};
 
 use crate::core::ical::parser::datetime::{datestring_to_date, ParseError};
 
@@ -124,6 +126,53 @@ impl EventOccurrenceOverride {
 
             Ok(new_override)
         })
+    }
+}
+
+impl SerializableICalComponent for EventOccurrenceOverride {
+    fn serialize_to_ical_set(
+        &self,
+        preferences: Option<&SerializationPreferences>,
+    ) -> BTreeSet<String> {
+        let mut serializable_properties: BTreeSet<String> = BTreeSet::new();
+
+        if let Some(dtstart_property) = &self.dtstart {
+            serializable_properties.insert(dtstart_property.serialize_to_ical(preferences));
+        }
+
+        if let Some(dtend_property) = &self.dtend {
+            serializable_properties.insert(dtend_property.serialize_to_ical(preferences));
+        }
+
+        if let Some(duration_property) = &self.duration {
+            serializable_properties.insert(duration_property.serialize_to_ical(preferences));
+        }
+
+        if let Some(geo_property) = &self.indexed_properties.geo {
+            serializable_properties.insert(geo_property.serialize_to_ical(preferences));
+        }
+
+        if let Some(class_property) = &self.indexed_properties.class {
+            serializable_properties.insert(class_property.serialize_to_ical(preferences));
+        }
+
+        if let Some(related_to_properties) = &self.indexed_properties.related_to {
+            for related_to_property in related_to_properties {
+                serializable_properties.insert(related_to_property.serialize_to_ical(preferences));
+            }
+        }
+
+        if let Some(categories_properties) = &self.indexed_properties.categories {
+            for categories_property in categories_properties {
+                serializable_properties.insert(categories_property.serialize_to_ical(preferences));
+            }
+        }
+
+        for passive_property in &self.passive_properties.properties {
+            serializable_properties.insert(passive_property.serialize_to_ical(preferences));
+        }
+
+        serializable_properties
     }
 }
 
