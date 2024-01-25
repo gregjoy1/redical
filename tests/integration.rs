@@ -20,91 +20,153 @@ mod integration {
     //  cargo build && cargo test -- --include-ignored
     //  cargo build && cargo test --ignored
 
+    struct EventOverrideFixture {
+        date_string: &'static str,
+        properties: Vec<&'static str>,
+    }
+
+    struct EventFixture {
+        properties: Vec<&'static str>,
+        overrides: HashMap<&'static str, EventOverrideFixture>,
+    }
+
     lazy_static! {
-        static ref EVENT_FIXTURES: HashMap<&'static str, Vec<&'static str>> = {
+        static ref EVENT_FIXTURES: HashMap<&'static str, EventFixture> = {
             HashMap::from([
                 (
                     "ONLINE_EVENT_MON_WED",
-                    vec![
-                        "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM",
-                        "RRULE:BYDAY=MO,WE;FREQ=WEEKLY;INTERVAL=1;UNTIL=20211231T170000Z",
-                        "DTSTART:20201231T160000Z",
-                        "DTEND:20201231T170000Z",
-                        "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
-                        "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
-                    ],
+                    EventFixture {
+                        properties: vec![
+                            "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM",
+                            "RRULE:BYDAY=MO,WE;FREQ=WEEKLY;INTERVAL=1;UNTIL=20211231T170000Z",
+                            "DTSTART:20201231T160000Z",
+                            "DTEND:20201231T170000Z",
+                            "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                            "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
+                        ],
+                        overrides: HashMap::new(),
+                    },
                 ),
                 (
                     "EVENT_IN_OXFORD_MON_WED",
-                    vec![
-                        "SUMMARY:Event in Oxford on Mondays and Wednesdays at 5:00PM",
-                        "RRULE:BYDAY=MO,WE;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
-                        "DTSTART:20201231T170000Z",
-                        "DTEND:20201231T173000Z",
-                        "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
-                        "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
-                        "GEO:51.751365550307604;-1.2601196837753945",
-                    ],
+                    EventFixture {
+                        properties: vec![
+                            "SUMMARY:Event in Oxford on Mondays and Wednesdays at 5:00PM",
+                            "RRULE:BYDAY=MO,WE;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
+                            "DTSTART:20201231T170000Z",
+                            "DTEND:20201231T173000Z",
+                            "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                            "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
+                            "GEO:51.751365550307604;-1.2601196837753945",
+                        ],
+                        overrides: HashMap::new(),
+                    },
                 ),
                 (
                     "EVENT_IN_READING_TUE_THU",
-                    vec![
-                        "SUMMARY:Event in Reading on Tuesdays and Thursdays at 6:00PM",
-                        "RRULE:BYDAY=TU,TH;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
-                        "DTSTART:20201231T180000Z",
-                        "DTEND:20201231T183000Z",
-                        "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
-                        "CATEGORIES:CATEGORY_ONE,CATEGORY_THREE",
-                        "GEO:51.45442303961853;-0.9792277140273513",
-                    ],
+                    EventFixture {
+                        properties: vec![
+                            "SUMMARY:Event in Reading on Tuesdays and Thursdays at 6:00PM",
+                            "RRULE:BYDAY=TU,TH;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
+                            "DTSTART:20201231T180000Z",
+                            "DTEND:20201231T183000Z",
+                            "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                            "CATEGORIES:CATEGORY_ONE,CATEGORY_THREE",
+                            "GEO:51.45442303961853;-0.9792277140273513",
+                        ],
+                        overrides: HashMap::new(),
+                    },
                 ),
                 (
                     "EVENT_IN_LONDON_TUE_THU",
-                    vec![
-                        "SUMMARY:Event in London on Tuesdays and Thursdays at 6:30PM",
-                        "RRULE:BYDAY=TU,TH;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
-                        "DTSTART:20201231T183000Z",
-                        "DTEND:20201231T190000Z",
-                        "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
-                        "CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE",
-                        "GEO:51.50740017561507;-0.12698231869919185",
-                    ],
+                    EventFixture {
+                        properties: vec![
+                            "SUMMARY:Event in London on Tuesdays and Thursdays at 6:30PM",
+                            "RRULE:BYDAY=TU,TH;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
+                            "DTSTART:20201231T183000Z",
+                            "DTEND:20201231T190000Z",
+                            "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                            "CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE",
+                            "GEO:51.50740017561507;-0.12698231869919185",
+                        ],
+                        overrides: HashMap::new(),
+                    },
                 ),
                 (
                     "EVENT_IN_CHELTENHAM_TUE_THU",
-                    vec![
-                        "SUMMARY:Event in Cheltenham on Tuesdays and Thursdays at 6:30PM",
-                        "RRULE:BYDAY=TU,TH;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
-                        "DTSTART:20201231T183000Z",
-                        "DTEND:20201231T190000Z",
-                        "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
-                        "CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE",
-                        "GEO:51.89936851432488;-2.078357552295971",
-                    ],
+                    EventFixture {
+                        properties: vec![
+                            "SUMMARY:Event in Cheltenham on Tuesdays and Thursdays at 6:30PM",
+                            "RRULE:BYDAY=TU,TH;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
+                            "DTSTART:20201231T183000Z",
+                            "DTEND:20201231T190000Z",
+                            "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                            "CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE",
+                            "GEO:51.89936851432488;-2.078357552295971",
+                        ],
+                        overrides: HashMap::new(),
+                    },
                 ),
                 (
-                    "EVENT_IN_BRISTOL_TUE_THU",
-                    vec![
-                        "SUMMARY:Event in Bristol on Tuesdays and Thursdays at 6:30PM",
-                        "RRULE:BYDAY=TU,TH;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
-                        "DTSTART:20201231T183000Z",
-                        "DTEND:20201231T190000Z",
-                        "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
-                        "CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE",
-                        "GEO:51.454481838260214;-2.588329192623361",
-                    ],
+                    "OVERRIDDEN_EVENT_IN_BRISTOL_TUE_THU",
+                    EventFixture {
+                        properties: vec![
+                            "SUMMARY:Event in Bristol on Tuesdays and Thursdays at 6:30PM",
+                            "RRULE:BYDAY=TU,TH;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
+                            "DTSTART:20201231T183000Z",
+                            "DTEND:20201231T190000Z",
+                            "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                            "CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE",
+                            "GEO:51.454481838260214;-2.588329192623361",
+                        ],
+                        overrides: HashMap::from([
+                            (
+                                "SUMMARY_CATEGORY_RELATED_OVERRIDE",
+                                EventOverrideFixture {
+                                    date_string: "20210105T183000Z",
+                                    properties: vec![
+                                        "RELATED-TO;RELTYPE=PARENT:PARENT_UUID_OVERRIDE",
+                                        "CATEGORIES:CATEGORY_OVERRIDE",
+                                        "SUMMARY:Overridden Event in Bristol on Tuesdays and Thursdays at 6:30PM",
+                                    ]
+                                },
+                            ),
+                            (
+                                "SUMMARY_GEO_OVERRIDE",
+                                EventOverrideFixture {
+                                    date_string: "20210107T183000Z",
+                                    properties: vec![
+                                        "SUMMARY:Event in Bristol overridden to run in Cheltenham instead",
+                                        "GEO:51.89936851432488;-2.078357552295971",
+                                    ]
+                                },
+                            ),
+                            (
+                                "DETACHED_SUMMARY_GEO_OVERRIDE",
+                                EventOverrideFixture {
+                                    date_string: "20210108T183000Z",
+                                    properties: vec![
+                                        "SUMMARY:Overridden Event in Bristol with invalid DTSTART",
+                                    ]
+                                },
+                            ),
+                        ]),
+                    },
                 ),
                 (
                     "NON_RUNNING_EVENT_TO_DELETE",
-                    vec![
-                        "SUMMARY:Non-running event to delete",
-                        "DTSTART:20201231T183000Z",
-                        "DURATION:PT1H",
-                        "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
-                        "CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE",
-                        "GEO:51.454481838260214;-2.588329192623361",
-                        "CLASS:PRIVATE",
-                    ],
+                    EventFixture {
+                        properties: vec![
+                            "SUMMARY:Non-running event to delete",
+                            "DTSTART:20201231T183000Z",
+                            "DURATION:PT1H",
+                            "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                            "CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE",
+                            "GEO:51.454481838260214;-2.588329192623361",
+                            "CLASS:PRIVATE",
+                        ],
+                        overrides: HashMap::new(),
+                    },
                 ),
             ])
         };
@@ -121,7 +183,7 @@ mod integration {
     }
 
     fn get_event_fixture_ical_properties(uid: &str, include_uid: bool) -> Result<Vec<String>> {
-        let Some(ical_properties) = EVENT_FIXTURES.get(uid) else {
+        let Some(event_fixture) = EVENT_FIXTURES.get(uid) else {
             return Err(
                 anyhow::Error::msg("Expected event fixture UID to exist").context(format!(
                     r#"Fixture event with UID "{}" does not exist"#,
@@ -130,7 +192,7 @@ mod integration {
             );
         };
 
-        let mut ical_properties: Vec<String> = ical_properties.to_owned().into_iter().map(String::from).collect();
+        let mut ical_properties: Vec<String> = event_fixture.properties.to_owned().into_iter().map(String::from).collect();
 
         if include_uid {
             ical_properties.push(format!("UID:{uid}"));
@@ -141,6 +203,38 @@ mod integration {
 
     fn get_event_fixture_ical(uid: &str, include_uid: bool) -> Result<String> {
         Ok(get_event_fixture_ical_properties(uid, include_uid)?.join(" "))
+    }
+
+    fn get_event_override_fixture_ical_properties(uid: &str, date_string: &str, include_dtstart: bool) -> Result<Vec<String>> {
+        let Some(event_fixture) = EVENT_FIXTURES.get(uid) else {
+            return Err(
+                anyhow::Error::msg("Expected event fixture UID to exist").context(format!(
+                    r#"Fixture event with UID "{}" does not exist"#,
+                    uid
+                )),
+            );
+        };
+
+        let Some(event_override_fixture) = event_fixture.overrides.get(date_string) else {
+            return Err(
+                anyhow::Error::msg("Expected event override fixture for UID and date string to exist").context(format!(
+                    r#"Fixture event override for UID "{}" at DTSTART "{}" does not exist"#,
+                    uid, date_string,
+                )),
+            );
+        };
+
+        let mut ical_properties: Vec<String> = event_override_fixture.properties.to_owned().into_iter().map(String::from).collect();
+
+        if include_dtstart {
+            ical_properties.push(format!("DTSTART:{date_string}"));
+        }
+
+        Ok(ical_properties)
+    }
+
+    fn get_event_override_fixture_ical(uid: &str, date_string: &str) -> Result<String> {
+        Ok(get_event_override_fixture_ical_properties(uid, date_string, false)?.join(" "))
     }
 
     macro_rules! assert_matching_ical_properties {
@@ -250,7 +344,7 @@ mod integration {
             "EVENT_IN_READING_TUE_THU",
             "EVENT_IN_LONDON_TUE_THU",
             "EVENT_IN_CHELTENHAM_TUE_THU",
-            "EVENT_IN_BRISTOL_TUE_THU",
+            "OVERRIDDEN_EVENT_IN_BRISTOL_TUE_THU",
         ] {
             test_set_get_event_fixture(connection, event_uid)?;
         }
@@ -274,7 +368,7 @@ mod integration {
                     "EVENT_IN_READING_TUE_THU",
                     "EVENT_IN_LONDON_TUE_THU",
                     "EVENT_IN_CHELTENHAM_TUE_THU",
-                    "EVENT_IN_BRISTOL_TUE_THU",
+                    "OVERRIDDEN_EVENT_IN_BRISTOL_TUE_THU",
                 ],
                 true
             )?;
