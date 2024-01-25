@@ -297,15 +297,10 @@ where
         original: Option<&InvertedEventIndex<K>>,
         updated: Option<&InvertedEventIndex<K>>,
     ) -> UpdatedHashMapMembers<K, IndexedConclusion> {
-        UpdatedHashMapMembers::new(
-            original
-                .clone()
-                .and_then(|inverted_index| Some(inverted_index.terms.clone()))
-                .as_ref(),
-            updated
-                .and_then(|inverted_index| Some(inverted_index.terms.clone()))
-                .as_ref(),
-        )
+        let original_terms = original.and_then(|inverted_index| Some(inverted_index.terms.to_owned()));
+        let updated_terms = updated.and_then(|inverted_index| Some(inverted_index.terms.to_owned()));
+
+        UpdatedHashMapMembers::new(original_terms.as_ref(), updated_terms.as_ref())
     }
 
     fn get_currently_indexed_terms(&self) -> HashSet<K>
@@ -371,7 +366,7 @@ where
     }
 
     pub fn remove_override(&mut self, timestamp: i64) {
-        self.terms.retain(|removed_term, indexed_conclusion| {
+        self.terms.retain(|_removed_term, indexed_conclusion| {
             if indexed_conclusion.remove_exception(timestamp)
                 && indexed_conclusion.is_empty_exclude()
             {
@@ -432,7 +427,7 @@ where
         self.terms
             .entry(term)
             .and_modify(|inverted_calendar_index_term| {
-                inverted_calendar_index_term.remove_event(event_uid);
+                let _ = inverted_calendar_index_term.remove_event(event_uid);
             });
 
         Ok(self)

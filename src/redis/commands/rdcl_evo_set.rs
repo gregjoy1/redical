@@ -15,7 +15,7 @@ pub fn redical_event_override_set(ctx: &Context, args: Vec<RedisString>) -> Redi
     let mut args = args.into_iter().skip(1);
 
     let calendar_uid = args.next_arg()?;
-    let event_uid = args.next_arg()?;
+    let event_uid = args.next_arg()?.to_string();
 
     let timestamp = match datestring_to_date(args.next_arg()?.try_as_str()?, None, "") {
         Ok(datetime) => datetime.timestamp(),
@@ -36,44 +36,31 @@ pub fn redical_event_override_set(ctx: &Context, args: Vec<RedisString>) -> Redi
             .as_str(),
     );
 
-    let calendar = calendar_key.get_value::<Calendar>(&CALENDAR_DATA_TYPE)?;
-
-    if calendar.is_none() {
+    let Some(calendar) = calendar_key.get_value::<Calendar>(&CALENDAR_DATA_TYPE)? else {
         return Err(RedisError::String(format!(
-            "rdcl.evo_set: No Calendar found on key: {calendar_uid}"
+            "No Calendar found on key: {calendar_uid}"
         )));
-    }
+    };
 
-    let mut calendar = calendar.unwrap();
-
-    let event = calendar.events.get_mut(&String::from(event_uid.clone()));
-
-    if event.is_none() {
+    let Some(mut event) = calendar.events.get(&event_uid).cloned() else {
         return Err(RedisError::String(format!(
             "No event with UID: '{}' found",
             event_uid
         )));
-    }
-
-    let mut event = event.unwrap().to_owned();
-
-    let event_occurrence_override = match EventOccurrenceOverride::parse_ical(other.as_str()) {
-        Ok(event_occurrence_override) => event_occurrence_override,
-        Err(error) => return Err(RedisError::String(error)),
     };
 
-    match event.override_occurrence(timestamp, &event_occurrence_override) {
-        Err(error) => return Err(RedisError::String(error)),
-        _ => {}
-    }
+    let event_occurrence_override = EventOccurrenceOverride::parse_ical(other.as_str()).map_err(RedisError::String)?;
 
+    event.override_occurrence(timestamp, &event_occurrence_override).map_err(RedisError::String)?;
+
+    // HashMap.insert returns the old value (if present) which we can use in diffing old -> new.
     let existing_event = calendar
         .events
-        .insert(String::from(event_uid.clone()), event.to_owned());
+        .insert(event_uid.to_owned(), event.to_owned());
 
     let updated_event_categories_diff = InvertedEventIndex::diff_indexed_terms(
         existing_event
-            .clone()
+            .as_ref()
             .and_then(|existing_event| existing_event.indexed_categories.clone())
             .as_ref(),
         event.indexed_categories.as_ref(),
@@ -89,7 +76,7 @@ pub fn redical_event_override_set(ctx: &Context, args: Vec<RedisString>) -> Redi
 
     let updated_event_geo_diff = InvertedEventIndex::diff_indexed_terms(
         existing_event
-            .clone()
+            .as_ref()
             .and_then(|existing_event| existing_event.indexed_geo.clone())
             .as_ref(),
         event.indexed_geo.as_ref(),
@@ -97,13 +84,13 @@ pub fn redical_event_override_set(ctx: &Context, args: Vec<RedisString>) -> Redi
 
     let updated_event_class_diff = InvertedEventIndex::diff_indexed_terms(
         existing_event
-            .clone()
+            .as_ref()
             .and_then(|existing_event| existing_event.indexed_class.clone())
             .as_ref(),
         event.indexed_class.as_ref(),
     );
 
-    let mut calendar_index_updater = CalendarIndexUpdater::new(event.uid.into(), &mut calendar);
+    let mut calendar_index_updater = CalendarIndexUpdater::new(&event_uid, calendar);
 
     calendar_index_updater
         .update_indexed_categories(&updated_event_categories_diff)

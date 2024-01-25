@@ -39,9 +39,9 @@ pub struct CalendarIndexUpdater<'a> {
 }
 
 impl<'a> CalendarIndexUpdater<'a> {
-    pub fn new(event_uid: String, calendar: &'a mut Calendar) -> Self {
+    pub fn new(event_uid: &String, calendar: &'a mut Calendar) -> Self {
         CalendarIndexUpdater {
-            event_uid,
+            event_uid: event_uid.to_owned(),
             calendar,
         }
     }
