@@ -116,6 +116,18 @@ mod integration {
                         "GEO:51.454481838260214;-2.588329192623361",
                     ],
                 ),
+                (
+                    "NON_RUNNING_EVENT_TO_DELETE",
+                    vec![
+                        "SUMMARY:Non-running event to delete",
+                        "DTSTART:20201231T183000Z",
+                        "DURATION:PT1H",
+                        "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                        "CATEGORIES:CATEGORY_ONE,CATEGORY_FOUR",
+                        "GEO:51.454481838260214;-2.588329192623361",
+                        "CLASS:PRIVATE",
+                    ],
+                ),
             ])
         };
     }
@@ -143,7 +155,7 @@ mod integration {
         Ok(get_event_fixture_ical_parts(uid, include_uid)?.join(" "))
     }
 
-    fn test_set_calendar_uid(connection: &mut Connection) -> Result<()> {
+    fn test_set_calendar(connection: &mut Connection) -> Result<()> {
         let result: Vec<String> = redis::cmd("rdcl.cal_set")
             .arg("TEST_CALENDAR_UID")
             .query(connection)
@@ -181,50 +193,72 @@ mod integration {
         Ok(())
     }
 
+    fn test_set_get_fixture_event(connection: &mut Connection, fixture_event_uid: &str) -> Result<()> {
+        let fixture_event_ical = get_event_fixture_ical(fixture_event_uid, false)?;
+
+        assert_eq!(redis::cmd("rdcl.evt_get").arg("TEST_CALENDAR_UID").arg(fixture_event_uid).query(connection), RedisResult::Ok(Value::Nil));
+
+        let event_set_result: Vec<String> = redis::cmd("rdcl.evt_set")
+            .arg("TEST_CALENDAR_UID")
+            .arg(fixture_event_uid)
+            .arg(fixture_event_ical)
+            .query(connection)
+            .with_context(|| {
+                format!(
+                    "failed to set fixture event UID: {} with rdcl.evt_set",
+                    fixture_event_uid
+                )
+            })?;
+
+        assert_matching_ical_vec!(event_set_result, get_event_fixture_ical_parts(fixture_event_uid, true)?);
+
+        let event_get_result: Vec<String> = redis::cmd("rdcl.evt_get")
+            .arg("TEST_CALENDAR_UID")
+            .arg(fixture_event_uid)
+            .query(connection)
+            .with_context(|| {
+                format!(
+                    "failed to get set fixture event UID: {} with rdcl.evt_get",
+                    fixture_event_uid
+                )
+            })?;
+
+        assert_matching_ical_vec!(event_get_result, get_event_fixture_ical_parts(fixture_event_uid, true)?);
+
+        Ok(())
+    }
+
     fn test_set_get_events(connection: &mut Connection) -> Result<()> {
-        let fixture_event_uids = [
+        for fixture_event_uid in [
             "ONLINE_EVENT_MON_WED",
             "EVENT_IN_OXFORD_MON_WED",
             "EVENT_IN_READING_TUE_THU",
             "EVENT_IN_LONDON_TUE_THU",
             "EVENT_IN_CHELTENHAM_TUE_THU",
             "EVENT_IN_BRISTOL_TUE_THU",
-        ];
-
-        for fixture_event_uid in fixture_event_uids {
-            assert_eq!(redis::cmd("rdcl.evt_get").arg("TEST_CALENDAR_UID").arg(fixture_event_uid).query(connection), RedisResult::Ok(Value::Nil));
-
-            let fixture_event_ical = get_event_fixture_ical(fixture_event_uid, false)?;
-
-            let event_set_result: Vec<String> = redis::cmd("rdcl.evt_set")
-                .arg("TEST_CALENDAR_UID")
-                .arg(fixture_event_uid)
-                .arg(fixture_event_ical)
-                .query(connection)
-                .with_context(|| {
-                    format!(
-                        "failed to set fixture event UID: {} with rdcl.evt_set",
-                        fixture_event_uid
-                    )
-                })?;
-
-            assert_matching_ical_vec!(event_set_result, get_event_fixture_ical_parts(fixture_event_uid, true)?);
-
-            let event_get_result: Vec<String> = redis::cmd("rdcl.evt_get")
-                .arg("TEST_CALENDAR_UID")
-                .arg(fixture_event_uid)
-                .query(connection)
-                .with_context(|| {
-                    format!(
-                        "failed to get set fixture event UID: {} with rdcl.evt_get",
-                        fixture_event_uid
-                    )
-                })?;
-
-            assert_matching_ical_vec!(event_get_result, get_event_fixture_ical_parts(fixture_event_uid, true)?);
+        ] {
+            test_set_get_fixture_event(connection, fixture_event_uid)?;
         }
 
         assert_eq!(redis::cmd("rdcl.evt_get").arg("TEST_CALENDAR_UID").arg("NON_EXISTENT").query(connection), RedisResult::Ok(Value::Nil));
+
+        Ok(())
+    }
+
+    fn test_del_event(connection: &mut Connection) -> Result<()> {
+        let fixture_event_uid = "NON_RUNNING_EVENT_TO_DELETE";
+
+        // Test that rdcl.evt_del returns OK => false when calendar event not present.
+        assert_eq!(redis::cmd("rdcl.evt_del").arg("TEST_CALENDAR_UID").arg(fixture_event_uid).query(connection), RedisResult::Ok(Value::Int(0)));
+
+        // Create and test presence of "NON_RUNNING_EVENT_TO_DELETE" fixture event about to be deleted.
+        test_set_get_fixture_event(connection, fixture_event_uid)?;
+
+        // Test that rdcl.evt_del returns OK => true when calendar event was present and deleted.
+        assert_eq!(redis::cmd("rdcl.evt_del").arg("TEST_CALENDAR_UID").arg(fixture_event_uid).query(connection), RedisResult::Ok(Value::Int(1)));
+
+        // Test that "NON_RUNNING_EVENT_TO_DELETE" was actually deleted
+        assert_eq!(redis::cmd("rdcl.evt_get").arg("TEST_CALENDAR_UID").arg(fixture_event_uid).query(connection), RedisResult::Ok(Value::Nil));
 
         Ok(())
     }
@@ -237,9 +271,11 @@ mod integration {
         let mut connection =
             get_redis_connection(port).with_context(|| "failed to connect to redis server")?;
 
-        test_set_calendar_uid(&mut connection)?;
+        test_set_calendar(&mut connection)?;
 
         test_set_get_events(&mut connection)?;
+
+        test_del_event(&mut connection)?;
 
         /*
         let res: Result<Vec<i32>, RedisError> = redis::cmd("set").arg(&["key"]).query(&mut connection);
