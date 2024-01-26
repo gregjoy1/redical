@@ -1,9 +1,21 @@
-use redis_module::{Context, NextArg, NotifyEvent, RedisError, RedisResult, RedisString, Status};
+use redis_module::{Context, NextArg, NotifyEvent, RedisError, RedisResult, RedisString, Status, RedisValue};
 
 use crate::core::{Calendar, CalendarIndexUpdater, EventOccurrenceOverride, InvertedEventIndex};
 use crate::redis::calendar_data_type::CALENDAR_DATA_TYPE;
 
+use crate::core::ical::serializer::SerializableICalComponent;
+
 use crate::core::ical::parser::datetime::datestring_to_date;
+
+fn serialize_event_occurrence_override(event_occurrence_override: &EventOccurrenceOverride) -> RedisValue {
+    RedisValue::Array(
+        event_occurrence_override
+            .serialize_to_ical(None)
+            .into_iter()
+            .map(RedisValue::SimpleString)
+            .collect()
+    )
+}
 
 pub fn redical_event_override_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     if args.len() < 4 {
@@ -16,13 +28,11 @@ pub fn redical_event_override_set(ctx: &Context, args: Vec<RedisString>) -> Redi
 
     let calendar_uid = args.next_arg()?;
     let event_uid = args.next_arg()?.to_string();
+    let override_date_string = args.next_arg()?.try_as_str()?;
 
-    let timestamp = match datestring_to_date(args.next_arg()?.try_as_str()?, None, "") {
-        Ok(datetime) => datetime.timestamp(),
-        Err(error) => return Err(RedisError::String(format!("{:#?}", error))),
-    };
-
-    let calendar_key = ctx.open_key_writable(&calendar_uid);
+    if datestring_to_date(override_date_string, None, "").is_err() {
+        return Err(RedisError::String(format!("`{override_date_string}` is not a valid datetime format.")));
+    }
 
     let other: String = args
         .map(|arg| arg.try_as_str().unwrap_or(""))
@@ -32,9 +42,10 @@ pub fn redical_event_override_set(ctx: &Context, args: Vec<RedisString>) -> Redi
         .to_owned();
 
     ctx.log_debug(
-        format!("rdcl.evo_set: key: {calendar_uid} event uid: {event_uid}, other: {other}")
-            .as_str(),
+        format!("rdcl.evo_set: calendar_uid: {calendar_uid} event_uid: {event_uid} occurrence date string: {override_date_string} ical: {other}").as_str()
     );
+
+    let calendar_key = ctx.open_key_writable(&calendar_uid);
 
     let Some(calendar) = calendar_key.get_value::<Calendar>(&CALENDAR_DATA_TYPE)? else {
         return Err(RedisError::String(format!(
@@ -49,9 +60,9 @@ pub fn redical_event_override_set(ctx: &Context, args: Vec<RedisString>) -> Redi
         )));
     };
 
-    let event_occurrence_override = EventOccurrenceOverride::parse_ical(other.as_str()).map_err(RedisError::String)?;
+    let event_occurrence_override = EventOccurrenceOverride::parse_ical(override_date_string, other.as_str()).map_err(RedisError::String)?;
 
-    event.override_occurrence(timestamp, &event_occurrence_override).map_err(RedisError::String)?;
+    event.override_occurrence(&event_occurrence_override).map_err(RedisError::String)?;
 
     // HashMap.insert returns the old value (if present) which we can use in diffing old -> new.
     let existing_event = calendar
@@ -117,5 +128,5 @@ pub fn redical_event_override_set(ctx: &Context, args: Vec<RedisString>) -> Redi
         return Err(RedisError::Str("Generic error"));
     }
 
-    Ok(other.into())
+    Ok(serialize_event_occurrence_override(&event_occurrence_override))
 }

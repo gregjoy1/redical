@@ -4,7 +4,25 @@ macro_rules! assert_matching_ical_properties {
         let mut actual_result = $redis_result.to_owned();
         let mut expected_result = $expected_result.to_owned();
 
+        actual_result.sort();
+        expected_result.sort();
+
+        assert_eq_sorted!(actual_result, expected_result);
+
         assert_eq!(actual_result.len(), expected_result.len());
+    }
+}
+
+#[macro_export]
+macro_rules! assert_matching_ical_components_sorted {
+    ($redis_result:expr, $expected_result:expr $(,)*) => {
+        let mut actual_result: Vec<Vec<String>> = $redis_result;
+        let mut expected_result: Vec<Vec<String>> = $expected_result;
+
+        // Sort both components and their properties as we dont care about the order of
+        // either of these, only their overall presence.
+        actual_result.iter_mut().for_each(|properties| properties.sort());
+        expected_result.iter_mut().for_each(|properties| properties.sort());
 
         actual_result.sort();
         expected_result.sort();
@@ -16,19 +34,16 @@ macro_rules! assert_matching_ical_properties {
 #[macro_export]
 macro_rules! assert_matching_ical_components {
     ($redis_result:expr, $expected_result:expr $(,)*) => {
-        // assert_eq!($redis_result.len(), $expected_result.len());
-
         let mut actual_result: Vec<Vec<String>> = $redis_result;
         let mut expected_result: Vec<Vec<String>> = $expected_result;
 
-        // Crudely sort multi-dimensional vec so assert only cares about presence, not order.
+        // Only sort component properties as we dont care about the order of these, only
+        // their presence and order of the collection of components themselves (e.g. testing
+        // chronological lists).
         actual_result.iter_mut().for_each(|properties| properties.sort());
         expected_result.iter_mut().for_each(|properties| properties.sort());
 
-        actual_result.sort();
-        expected_result.sort();
-
-        assert_eq_sorted!(actual_result, expected_result);
+        assert_eq!(actual_result, expected_result);
     }
 }
 
@@ -153,7 +168,7 @@ macro_rules! set_and_assert_event {
             .query($connection)
             .with_context(|| {
                 format!(
-                    "failed to event with UID: '{}' via rdcl.evt_set", $event_uid,
+                    "failed to set event with UID: '{}' via rdcl.evt_set", $event_uid,
                 )
             })?;
 
@@ -235,8 +250,173 @@ macro_rules! list_and_assert_matching_events {
                 )
             })?;
 
-        assert_matching_ical_components!(event_list_result, expected_event_list_result);
+        assert_matching_ical_components_sorted!(event_list_result, expected_event_list_result);
     };
+}
+
+#[macro_export]
+macro_rules! assert_event_override_present {
+    ($connection:expr, $calendar_uid:expr, $event_uid:expr, $override_date_string:expr $(,)*) => {
+        let event_override_get_result: Vec<String> = redis::cmd("rdcl.evo_get")
+            .arg($calendar_uid)
+            .arg($event_uid)
+            .arg($override_date_string)
+            .query($connection)
+            .with_context(|| {
+                format!(
+                    "failed to get override for event with UID: '{}' at '{}' via rdcl.evt_get", $event_uid, $override_date_string,
+                )
+            })?;
+
+        assert!(event_override_get_result.len() > 0);
+    };
+
+    ($connection:expr, $calendar_uid:expr, $event_uid:expr, $override_date_string:expr, [$($ical_property:expr),+ $(,)*] $(,)*) => {
+        let event_override_get_result: Vec<String> = redis::cmd("rdcl.evo_get")
+            .arg($calendar_uid)
+            .arg($event_uid)
+            .arg($override_date_string)
+            .query($connection)
+            .with_context(|| {
+                format!(
+                    "failed to get override for event with UID: '{}' at '{}' via rdcl.evt_get", $event_uid, $override_date_string,
+                )
+            })?;
+
+        assert_matching_ical_properties!(
+            event_override_get_result,
+            vec![
+                format!("DTSTART:{}", $override_date_string),
+                $(
+                    String::from($ical_property),
+                )+
+            ],
+        );
+    };
+}
+
+#[macro_export]
+macro_rules! assert_event_override_nil {
+    ($connection:expr, $calendar_uid:expr, $event_uid:expr, $override_date_string:expr, $(,)*) => {
+        assert_eq!(redis::cmd("rdcl.evo_get").arg($calendar_uid).arg($event_uid).arg($override_date_string).query($connection), RedisResult::Ok(Value::Nil));
+    }
+}
+
+#[macro_export]
+macro_rules! set_and_assert_event_override {
+    ($connection:expr, $calendar_uid:expr, $event_uid:expr, $override_date_string:expr, [$($ical_property:expr),+ $(,)*] $(,)*) => {
+        assert_event_override_nil!(
+            $connection,
+            $calendar_uid,
+            $event_uid,
+            $override_date_string,
+        );
+
+        let mut ical_properties: Vec<String> = vec![
+            $(
+                String::from($ical_property),
+            )+
+        ];
+
+        let joined_ical_properties = ical_properties.join(" ");
+
+        let event_override_set_result: Vec<String> = redis::cmd("rdcl.evo_set")
+            .arg("TEST_CALENDAR_UID")
+            .arg($event_uid)
+            .arg($override_date_string)
+            .arg(joined_ical_properties)
+            .query($connection)
+            .with_context(|| {
+                format!(
+                    "failed to set override for event with UID: '{}' at '{}' via rdcl.evo_set", $event_uid, $override_date_string,
+                )
+            })?;
+
+        ical_properties.push(format!("DTSTART:{}", $override_date_string));
+
+        assert_matching_ical_properties!(event_override_set_result, ical_properties);
+
+        assert_event_override_present!(
+            $connection,
+            $calendar_uid, 
+            $event_uid,
+            $override_date_string,
+            [
+                $(
+                    $ical_property,
+                )+
+            ],
+        );
+    }
+}
+
+#[macro_export]
+macro_rules! list_and_assert_matching_event_overrides {
+    ($connection:expr, $calendar_uid:expr, $event_uid:expr, [] $(,)*) => {
+        let event_override_list_result: Vec<Vec<String>> = redis::cmd("rdcl.evo_list")
+            .arg($calendar_uid)
+            .arg($event_uid)
+            .query($connection)
+            .with_context(|| {
+                format!(
+                    "failed to list overrides for event UID: '{}' events via rdcl.evo_list", $event_uid,
+                )
+            })?;
+
+        let expected_event_override_list_result: Vec<Vec<String>> = vec![];
+
+        assert_eq!(event_override_list_result, expected_event_override_list_result);
+    };
+
+    ($connection:expr, $calendar_uid:expr, $event_uid:expr, [$([$($ical_component_property:expr),+ $(,)*]),+ $(,)*] $(,)*) => {
+        let expected_event_override_list_result: Vec<Vec<String>> = vec![
+            $(
+                vec![
+                    $(
+                        String::from($ical_component_property),
+                    )+
+                ],
+            )+
+        ];
+
+        let event_override_list_result: Vec<Vec<String>> = redis::cmd("rdcl.evo_list")
+            .arg($calendar_uid)
+            .arg($event_uid)
+            .query($connection)
+            .with_context(|| {
+                format!(
+                    "failed to list overrides for event UID: '{}' events via rdcl.evo_list", $event_uid,
+                )
+            })?;
+
+        assert_matching_ical_components!(event_override_list_result, expected_event_override_list_result);
+    };
+}
+
+#[macro_export]
+macro_rules! del_and_assert_event_override_deletion {
+    ($connection:expr, $calendar_uid:expr, $event_uid:expr, $override_date_string:expr, $expected_result:expr $(,)*) => {
+        let event_override_del_result =
+            redis::cmd("rdcl.evo_del")
+            .arg($calendar_uid)
+            .arg($event_uid)
+            .arg($override_date_string)
+            .query($connection);
+
+        assert_eq!(
+            event_override_del_result,
+            RedisResult::Ok(
+                Value::Int($expected_result)
+            )
+        );
+
+        assert_event_override_nil!(
+            $connection,
+            $calendar_uid,
+            $event_uid,
+            $override_date_string,
+        );
+    }
 }
 
 #[macro_export]

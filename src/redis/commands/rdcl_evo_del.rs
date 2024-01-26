@@ -1,4 +1,4 @@
-use redis_module::{Context, NextArg, NotifyEvent, RedisError, RedisResult, RedisString, Status};
+use redis_module::{Context, NextArg, NotifyEvent, RedisError, RedisResult, RedisString, Status, RedisValue};
 
 use crate::core::{Calendar, CalendarIndexUpdater, InvertedEventIndex};
 use crate::redis::calendar_data_type::CALENDAR_DATA_TYPE;
@@ -16,15 +16,18 @@ pub fn redical_event_override_del(ctx: &Context, args: Vec<RedisString>) -> Redi
 
     let calendar_uid = args.next_arg()?;
     let event_uid = args.next_arg()?.to_string();
+    let override_date_string = args.next_arg()?.try_as_str()?;
 
-    let timestamp = match datestring_to_date(args.next_arg()?.try_as_str()?, None, "") {
-        Ok(datetime) => datetime.timestamp(),
-        Err(error) => return Err(RedisError::String(format!("{:#?}", error))),
-    };
+    let override_timestamp =
+        datestring_to_date(override_date_string, None, "")
+        .map(|datetime| datetime.timestamp())
+        .map_err(|error| RedisError::String(format!("{:#?}", error)))?;
+
+    ctx.log_debug(
+        format!("rdcl.evo_del: calendar_uid: {calendar_uid} event_uid: {event_uid} occurrence date string: {override_date_string}").as_str()
+    );
 
     let calendar_key = ctx.open_key_writable(&calendar_uid);
-
-    ctx.log_debug(format!("rdcl.evo_del: key: {calendar_uid} event uid: {event_uid}").as_str());
 
     let Some(calendar) = calendar_key.get_value::<Calendar>(&CALENDAR_DATA_TYPE)? else {
         return Err(RedisError::String(format!(
@@ -39,10 +42,8 @@ pub fn redical_event_override_del(ctx: &Context, args: Vec<RedisString>) -> Redi
         )));
     };
 
-    match event.remove_occurrence_override(timestamp) {
-        Err(error) => return Err(RedisError::String(error)),
-        _ => {}
-    }
+    // Record whether the override removed actually existed for that timestamp or not.
+    let was_override_removed = event.remove_occurrence_override(override_timestamp).map_err(RedisError::String)?;
 
     // HashMap.insert returns the old value (if present) which we can use in diffing old -> new.
     let existing_event = calendar
@@ -108,5 +109,5 @@ pub fn redical_event_override_del(ctx: &Context, args: Vec<RedisString>) -> Redi
         return Err(RedisError::Str("Generic error"));
     }
 
-    Ok(timestamp.into())
+    Ok(RedisValue::Bool(was_override_removed))
 }

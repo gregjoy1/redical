@@ -595,9 +595,12 @@ impl Event {
 
     pub fn override_occurrence(
         &mut self,
-        timestamp: i64,
         event_occurrence_override: &EventOccurrenceOverride,
     ) -> Result<&Self, String> {
+        let Some(timestamp) = event_occurrence_override.get_dtstart_timestamp() else {
+            return Err(String::from("Expected event occurrence override to have dtstart defined."));
+        };
+
         self.overrides
             .insert(timestamp, event_occurrence_override.clone());
 
@@ -648,8 +651,8 @@ impl Event {
         Ok(self)
     }
 
-    pub fn remove_occurrence_override(&mut self, timestamp: i64) -> Result<&Self, String> {
-        self.overrides.remove(&timestamp);
+    pub fn remove_occurrence_override(&mut self, timestamp: i64) -> Result<bool, String> {
+        let override_removed = self.overrides.remove(&timestamp).is_some();
 
         if let Some(ref mut indexed_categories) = self.indexed_categories {
             indexed_categories.remove_override(timestamp);
@@ -666,7 +669,7 @@ impl Event {
                 Some(InvertedEventIndex::<KeyValuePair>::new_from_event_related_to(&*self));
         }
 
-        Ok(self)
+        Ok(override_removed)
     }
 }
 
@@ -1135,13 +1138,13 @@ mod test {
             passive_properties: PassiveProperties {
                 properties: BTreeSet::from([Property::Description(build_property_from_ical!(DescriptionProperty, "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas\\, NV\\, USA"))]),
             },
-            dtstart: None,
+            dtstart: Some(build_property_from_ical!(DTStartProperty, "DTSTART:20210112T183000Z")),
             dtend: None,
             duration: None,
         };
 
         assert_eq!(
-            parsed_event.override_occurrence(1610476200, &event_occurrence_override),
+            parsed_event.override_occurrence(&event_occurrence_override),
             Ok(
                 &Event {
                     uid: String::from("event_UID").into(),
@@ -1174,7 +1177,7 @@ mod test {
                                 passive_properties: PassiveProperties {
                                     properties: BTreeSet::from([Property::Description(build_property_from_ical!(DescriptionProperty, "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas\\, NV\\, USA"))]),
                                 },
-                                dtstart: None,
+                                dtstart: Some(build_property_from_ical!(DTStartProperty, "DTSTART:20210112T183000Z")),
                                 dtend: None,
                                 duration: None,
                             }
@@ -1217,9 +1220,13 @@ mod test {
             )
         );
 
+        // Assert returns Ok(true) if actually removed existing override.
+        assert_eq!(parsed_event.remove_occurrence_override(1610476200), Ok(true));
+
+        // Assert override now no longer present in the Event.
         assert_eq!(
-            parsed_event.remove_occurrence_override(1610476200),
-            Ok(&Event {
+            parsed_event,
+            Event {
                 uid: String::from("event_UID").into(),
 
                 schedule_properties: ScheduleProperties {
@@ -1256,8 +1263,11 @@ mod test {
                 indexed_class: Some(InvertedEventIndex {
                     terms: HashMap::new()
                 }),
-            })
+            }
         );
+
+        // Assert returns Ok(false) if the override did not exist and nothing was removed.
+        assert_eq!(parsed_event.remove_occurrence_override(1610476200), Ok(false));
     }
 
     #[test]

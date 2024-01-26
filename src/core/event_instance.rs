@@ -457,15 +457,19 @@ mod test {
                 "DESCRIPTION:Event description text.",
                 "LOCATION:Event address text.",
             ],
-            vec![vec![
-                "LOCATION:Overridden Event address text.",
-                "CATEGORIES:CATEGORY_ONE,CATEGORY_FOUR",
-                "DTSTART:20201231T183000Z",
-                "RELATED-TO;RELTYPE=CHILD:ChildUID",
-                "RELATED-TO;RELTYPE=PARENT:ParentUID_Three",
-                "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_One",
-                "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Four",
-            ]],
+            vec![
+                (
+                    "20201231T183000Z",
+                    vec![
+                        "LOCATION:Overridden Event address text.",
+                        "CATEGORIES:CATEGORY_ONE,CATEGORY_FOUR",
+                        "RELATED-TO;RELTYPE=CHILD:ChildUID",
+                        "RELATED-TO;RELTYPE=PARENT:ParentUID_Three",
+                        "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_One",
+                        "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Four",
+                    ]
+                ),
+            ],
         );
 
         let Some(event_occurrence_override) = event.overrides.get(&1609439400) else {
@@ -556,24 +560,30 @@ mod test {
                 "RELATED-TO;RELTYPE=CHILD:BASE_ChildUID",
             ],
             vec![
-                vec![
-                    "DESCRIPTION:OVERRIDDEN description text.",
-                    "DTSTART:20210105T183000Z",
-                    "CATEGORIES:BASE_CATEGORY_ONE,OVERRIDDEN_CATEGORY_ONE",
-                    "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUID",
-                ],
-                vec![
-                    "RELATED-TO;RELTYPE=CHILD:BASE_ChildUID",
-                    "DTSTART:20210112T183000Z",
-                    "RELATED-TO;RELTYPE=CHILD:OVERRIDDEN_ChildUID",
-                ],
-                vec![
-                    "DESCRIPTION:OVERRIDDEN description text.",
-                    "DTSTART:20210126T183000Z",
-                    "CATEGORIES:OVERRIDDEN_CATEGORY_ONE,OVERRIDDEN_CATEGORY_TWO",
-                    "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUID",
-                    "RELATED-TO;RELTYPE=CHILD:OVERRIDDEN_ChildUID",
-                ],
+                (
+                    "20210105T183000Z",
+                    vec![
+                        "DESCRIPTION:OVERRIDDEN description text.",
+                        "CATEGORIES:BASE_CATEGORY_ONE,OVERRIDDEN_CATEGORY_ONE",
+                        "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUID",
+                    ],
+                ),
+                (
+                    "20210112T183000Z",
+                    vec![
+                        "RELATED-TO;RELTYPE=CHILD:BASE_ChildUID",
+                        "RELATED-TO;RELTYPE=CHILD:OVERRIDDEN_ChildUID",
+                    ],
+                ),
+                (
+                    "20210126T183000Z",
+                    vec![
+                        "DESCRIPTION:OVERRIDDEN description text.",
+                        "CATEGORIES:OVERRIDDEN_CATEGORY_ONE,OVERRIDDEN_CATEGORY_TWO",
+                        "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUID",
+                        "RELATED-TO;RELTYPE=CHILD:OVERRIDDEN_ChildUID",
+                    ],
+                ),
             ],
         );
 

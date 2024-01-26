@@ -37,6 +37,10 @@ impl Default for EventOccurrenceOverride {
 }
 
 impl EventOccurrenceOverride {
+    pub fn set_dtstart_timestamp(&mut self, dtstart_timestamp: i64) {
+        self.dtstart = Some(dtstart_timestamp.into());
+    }
+
     pub fn get_dtstart_timestamp(&self) -> Option<i64> {
         self.dtstart
             .as_ref()
@@ -63,7 +67,7 @@ impl EventOccurrenceOverride {
         }
     }
 
-    pub fn parse_ical(input: &str) -> Result<EventOccurrenceOverride, String> {
+    pub fn parse_ical(dtstart_date_string: &str, input: &str) -> Result<EventOccurrenceOverride, String> {
         Properties::from_str(input).and_then(|Properties(parsed_properties)| {
             let mut new_override = EventOccurrenceOverride::default();
 
@@ -118,11 +122,13 @@ impl EventOccurrenceOverride {
                 }
             }
 
-            if new_override.dtstart.is_none() {
-                return Err(String::from(
-                    "Event occurrence override requires a DTSTART property",
-                ));
-            }
+            let Ok(dtstart_datetime) = datestring_to_date(dtstart_date_string, None, "DTSTART") else {
+                return Err(
+                    format!("Event occurrence override datetime: {dtstart_date_string} is not a valid datetime format.")
+                );
+            };
+
+            new_override.set_dtstart_timestamp(dtstart_datetime.timestamp());
 
             Ok(new_override)
         })
@@ -192,28 +198,44 @@ mod test {
 
     #[test]
     fn test_parse_ical() {
-        let ical_with_rrule: &str = "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas\\, NV\\, USA DTSTART:19700101T000500Z RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,\"CATEGORY THREE\"";
+        let ical_with_rrule: &str = "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas\\, NV\\, USA RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,\"CATEGORY THREE\"";
 
         assert_eq!(
-            EventOccurrenceOverride::parse_ical(ical_with_rrule),
+            EventOccurrenceOverride::parse_ical("19700101T000500Z", ical_with_rrule),
             Err(String::from(
                 "Event occurrence override does not expect an RRULE property"
             ))
         );
 
-        let ical_without_dtstart: &str = "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas\\, NV\\, USA";
+        let ical_with_different_dtstart: &str = "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas\\, NV\\, USA DTSTART:19700202T000500Z";
 
+        // Expect the DTSTART in the ical to be overridden by the date string provided to parse_ical.
         assert_eq!(
-            EventOccurrenceOverride::parse_ical(ical_without_dtstart),
-            Err(String::from(
-                "Event occurrence override requires a DTSTART property"
-            ))
+            EventOccurrenceOverride::parse_ical("19700101T000500Z", ical_with_different_dtstart),
+            Ok(
+                EventOccurrenceOverride {
+                    indexed_properties: IndexedProperties {
+                        geo: None,
+                        class: None,
+                        categories: None,
+                        related_to: None,
+                    },
+
+                    passive_properties: PassiveProperties {
+                        properties: BTreeSet::from([Property::Description(build_property_from_ical!(DescriptionProperty, "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas\\, NV\\, USA"))]),
+                    },
+
+                    duration: None,
+                    dtstart: Some(build_property_from_ical!(DTStartProperty, "DTSTART:19700101T000500Z")),
+                    dtend: None,
+                }
+            )
         );
 
-        let ical_without_rrule: &str = "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas\\, NV\\, USA DTSTART:19700101T000500Z CLASS:PRIVATE CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,\"CATEGORY THREE\"";
+        let ical_without_rrule: &str = "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas\\, NV\\, USA CLASS:PRIVATE CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,\"CATEGORY THREE\"";
 
         assert_eq!(
-            EventOccurrenceOverride::parse_ical(ical_without_rrule).unwrap(),
+            EventOccurrenceOverride::parse_ical("19700101T000500Z", ical_without_rrule).unwrap(),
             EventOccurrenceOverride {
                 indexed_properties: IndexedProperties {
                     geo: None,

@@ -258,9 +258,83 @@ mod integration {
         Ok(())
     }
 
+    fn test_event_override_get_set_del_list(connection: &mut Connection) -> Result<()> {
+        set_and_assert_calendar!(connection, "TEST_CALENDAR_UID");
+
+        set_and_assert_event!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "EVENT_IN_OXFORD_MON_WED",
+            [
+                "SUMMARY:Event in Oxford on Mondays and Wednesdays at 5:00PM",
+                "RRULE:BYDAY=MO,WE;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
+                "DTSTART:20201231T170000Z",
+                "DTEND:20201231T173000Z",
+                "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
+                "GEO:51.751365550307604;-1.2601196837753945",
+            ],
+        );
+
+        set_and_assert_event_override!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "EVENT_IN_OXFORD_MON_WED",
+            "20210102T170000Z",
+            [
+                "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY",
+                "X-SPACES-BOOKED:12",
+            ],
+        );
+
+        set_and_assert_event_override!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "EVENT_IN_OXFORD_MON_WED",
+            "20201231T170000Z",
+            [
+                "SUMMARY:Overridden event in Oxford summary text",
+                "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_PARENT_UUID",
+                "CATEGORIES:OVERRIDDEN_CATEGORY",
+            ],
+        );
+
+        list_and_assert_matching_event_overrides!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "EVENT_IN_OXFORD_MON_WED",
+            [
+                [
+                    "DTSTART:20201231T170000Z",
+                    "SUMMARY:Overridden event in Oxford summary text",
+                    "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_PARENT_UUID",
+                    "CATEGORIES:OVERRIDDEN_CATEGORY",
+                ],
+                [
+                    "DTSTART:20210102T170000Z",
+                    "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY",
+                    "X-SPACES-BOOKED:12",
+                ],
+            ],
+        );
+
+        // Test that rdcl.evt_del returns OK => 1 (true) when calendar event was present and deleted.
+        del_and_assert_event_override_deletion!(connection, "TEST_CALENDAR_UID", "EVENT_IN_OXFORD_MON_WED", "20210102T170000Z", 1);
+        del_and_assert_event_override_deletion!(connection, "TEST_CALENDAR_UID", "EVENT_IN_OXFORD_MON_WED", "20201231T170000Z", 1);
+
+        // Test that rdcl.evt_del returns OK => 0 (false) when trying to delete calendar events that are not present.
+        del_and_assert_event_override_deletion!(connection, "TEST_CALENDAR_UID", "EVENT_IN_OXFORD_MON_WED", "20210102T170000Z", 0);
+        del_and_assert_event_override_deletion!(connection, "TEST_CALENDAR_UID", "EVENT_IN_OXFORD_MON_WED", "20201231T170000Z", 0);
+
+        list_and_assert_matching_event_overrides!(connection, "TEST_CALENDAR_UID", "EVENT_IN_OXFORD_MON_WED", []);
+
+        Ok(())
+    }
+
     run_all_integration_tests_sequentially!(
         test_calendar_get_set_del,
         test_event_get_set_del_list,
+        test_event_override_get_set_del_list,
     );
 
 }

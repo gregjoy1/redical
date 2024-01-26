@@ -64,6 +64,7 @@ redis_module! {
         ["rdcl.evt_del",   redis::commands::redical_event_del,           "", 0, 0, 0],
         ["rdcl.evt_list",  redis::commands::redical_event_list,          "", 0, 0, 0],
         ["rdcl.evi_list",  redis::commands::redical_event_instance_list, "", 0, 0, 0],
+        ["rdcl.evo_get",   redis::commands::redical_event_override_get,  "", 0, 0, 0],
         ["rdcl.evo_set",   redis::commands::redical_event_override_set,  "", 0, 0, 0],
         ["rdcl.evo_del",   redis::commands::redical_event_override_del,  "", 0, 0, 0],
         ["rdcl.evo_list",  redis::commands::redical_event_override_list, "", 0, 0, 0],

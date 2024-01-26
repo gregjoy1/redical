@@ -58,6 +58,8 @@ impl SerializableICalProperty for XProperty {
 
         param_key_value_pairs.sort();
 
+        let name = self.name.to_owned();
+
         let params = if param_key_value_pairs.is_empty() {
             None
         } else {
@@ -66,7 +68,7 @@ impl SerializableICalProperty for XProperty {
 
         let value = SerializedValue::Single(self.value.clone());
 
-        (String::from(XProperty::NAME), params, value)
+        (name, params, value)
     }
 }
 
