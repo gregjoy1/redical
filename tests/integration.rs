@@ -1,10 +1,10 @@
-use crate::utils::{get_redis_connection, start_redis_server_with_module};
 use anyhow::Context;
 use anyhow::Result;
 use redis::Value;
 use redis::{Connection, RedisError, RedisResult};
 
 mod utils;
+mod macros;
 
 #[cfg(test)]
 mod integration {
@@ -172,200 +172,6 @@ mod integration {
         };
     }
 
-    macro_rules! assert_matching_ical_properties {
-        ($redis_result:expr, $expected_result:expr $(,)*) => {
-            let mut actual_result = $redis_result.to_owned();
-            let mut expected_result = $expected_result.to_owned();
-
-            assert_eq!(actual_result.len(), expected_result.len());
-
-            actual_result.sort();
-            expected_result.sort();
-
-            assert_eq_sorted!(actual_result, expected_result);
-        }
-    }
-
-    macro_rules! assert_matching_ical_components {
-        ($redis_result:expr, $expected_result:expr $(,)*) => {
-            // assert_eq!($redis_result.len(), $expected_result.len());
-
-            let mut actual_result: Vec<Vec<String>> = $redis_result;
-            let mut expected_result: Vec<Vec<String>> = $expected_result;
-
-            // Crudely sort multi-dimensional vec so assert only cares about presence, not order.
-            actual_result.iter_mut().for_each(|properties| properties.sort());
-            expected_result.iter_mut().for_each(|properties| properties.sort());
-
-            actual_result.sort();
-            expected_result.sort();
-
-            assert_eq_sorted!(actual_result, expected_result);
-        }
-    }
-
-    macro_rules! assert_calendar_present {
-        ($connection:expr, $calendar_uid:expr $(,)*) => {
-            let calendar_get_result: Vec<String> = redis::cmd("rdcl.cal_get")
-                .arg($calendar_uid)
-                .query($connection)
-                .with_context(|| {
-                    format!(
-                        "failed to get calendar with UID: '{}' via rdcl.cal_get", $calendar_uid,
-                    )
-                })?;
-
-            assert_matching_ical_properties!(
-                calendar_get_result,
-                vec![
-                    format!("UID:{}", $calendar_uid),
-                ],
-            );
-        }
-    }
-
-    macro_rules! assert_calendar_nil {
-        ($connection:expr, $calendar_uid:expr $(,)*) => {
-            assert_eq!(redis::cmd("rdcl.cal_get").arg($calendar_uid).query($connection), RedisResult::Ok(Value::Nil));
-        }
-    }
-
-    macro_rules! set_and_assert_calendar {
-        ($connection:expr, $calendar_uid:expr $(,)*) => {
-            assert_calendar_nil!($connection, $calendar_uid);
-
-            let calendar_set_result: Vec<String> = redis::cmd("rdcl.cal_set")
-                .arg($calendar_uid)
-                .query($connection)
-                .with_context(|| {
-                    format!(r#"failed to set initial calendar UID: "{}" via rdcl.cal_set"#, $calendar_uid)
-                })?;
-
-            assert_matching_ical_properties!(
-                calendar_set_result,
-                vec![
-                    format!("UID:{}", $calendar_uid),
-                ],
-            );
-
-            assert_calendar_present!($connection, $calendar_uid);
-        }
-    }
-
-    macro_rules! assert_event_present {
-        ($connection:expr, $calendar_uid:expr, $event_uid:expr, [$($ical_property:expr),+ $(,)*] $(,)*) => {
-            let event_get_result: Vec<String> = redis::cmd("rdcl.evt_get")
-                .arg($calendar_uid)
-                .arg($event_uid)
-                .query($connection)
-                .with_context(|| {
-                    format!(
-                        "failed to get set fixture event with UID: '{}' via rdcl.evt_get", $event_uid,
-                    )
-                })?;
-
-            assert_matching_ical_properties!(
-                event_get_result,
-                vec![
-                    format!("UID:{}", $event_uid),
-                    $(
-                        String::from($ical_property),
-                    )+
-                ],
-            );
-        }
-    }
-
-    macro_rules! assert_event_nil {
-        ($connection:expr, $calendar_uid:expr, $event_uid:expr $(,)*) => {
-            assert_eq!(redis::cmd("rdcl.evt_get").arg($calendar_uid).arg($event_uid).query($connection), RedisResult::Ok(Value::Nil));
-        }
-    }
-
-    macro_rules! set_and_assert_event {
-        ($connection:expr, $calendar_uid:expr, $event_uid:expr, [$($ical_property:expr),+ $(,)*] $(,)*) => {
-            assert_event_nil!(
-                $connection,
-                $calendar_uid,
-                $event_uid,
-            );
-
-            let mut ical_properties: Vec<String> = vec![
-                $(
-                    String::from($ical_property),
-                )+
-            ];
-
-            let joined_ical_properties = ical_properties.join(" ");
-
-            let event_set_result: Vec<String> = redis::cmd("rdcl.evt_set")
-                .arg("TEST_CALENDAR_UID")
-                .arg($event_uid)
-                .arg(joined_ical_properties)
-                .query($connection)
-                .with_context(|| {
-                    format!(
-                        "failed to set fixture event with UID: '{}' via rdcl.evt_set", $event_uid,
-                    )
-                })?;
-
-            ical_properties.push(format!("UID:{}", $event_uid));
-
-            assert_matching_ical_properties!(event_set_result, ical_properties);
-
-            assert_event_present!(
-                $connection,
-                $calendar_uid, 
-                $event_uid,
-                [
-                    $(
-                        $ical_property,
-                    )+
-                ],
-            );
-        }
-    }
-
-    macro_rules! list_and_assert_matching_events {
-        ($connection:expr, $calendar_uid:expr, [] $(,)*) => {
-            let event_list_result: Vec<Vec<String>> = redis::cmd("rdcl.evt_list")
-                .arg($calendar_uid)
-                .query($connection)
-                .with_context(|| {
-                    format!(
-                        "failed to list calendar: '{}' events via rdcl.evt_list", $calendar_uid,
-                    )
-                })?;
-
-            let expected_event_list_result: Vec<Vec<String>> = vec![];
-
-            assert_eq!(event_list_result, expected_event_list_result);
-        };
-
-        ($connection:expr, $calendar_uid:expr, [$([$($ical_component_property:expr),+ $(,)*]),+ $(,)*] $(,)*) => {
-            let expected_event_list_result: Vec<Vec<String>> = vec![
-                $(
-                    vec![
-                        $(
-                            String::from($ical_component_property),
-                        )+
-                    ],
-                )+
-            ];
-
-            let event_list_result: Vec<Vec<String>> = redis::cmd("rdcl.evt_list")
-                .arg($calendar_uid)
-                .query($connection)
-                .with_context(|| {
-                    format!(
-                        "failed to list calendar: '{}' events via rdcl.evt_list", $calendar_uid,
-                    )
-                })?;
-
-            assert_matching_ical_components!(event_list_result, expected_event_list_result);
-        };
-    }
-
     fn test_calendar_get_set_del(connection: &mut Connection) -> Result<()> {
         let calendar_uid = "TEST_CALENDAR_UID";
 
@@ -439,69 +245,17 @@ mod integration {
             ],
         );
 
-        // Test that rdcl.evt_del returns OK => true when calendar event was present and deleted.
-        assert_eq!(redis::cmd("rdcl.evt_del").arg("TEST_CALENDAR_UID").arg("ONLINE_EVENT_MON_WED").query(connection), RedisResult::Ok(Value::Int(1)));
+        // Test that rdcl.evt_del returns OK => 1 (true) when calendar event was present and deleted.
+        del_and_assert_event_deletion!(connection, "TEST_CALENDAR_UID", "ONLINE_EVENT_MON_WED", 1);
+        del_and_assert_event_deletion!(connection, "TEST_CALENDAR_UID", "EVENT_IN_OXFORD_MON_WED", 1);
 
-        list_and_assert_matching_events!(
-            connection,
-            "TEST_CALENDAR_UID",
-            [
-                [
-                    "SUMMARY:Event in Oxford on Mondays and Wednesdays at 5:00PM",
-                    "RRULE:BYDAY=MO,WE;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
-                    "DTSTART:20201231T170000Z",
-                    "DTEND:20201231T173000Z",
-                    "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
-                    "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
-                    "GEO:51.751365550307604;-1.2601196837753945",
-                    "UID:EVENT_IN_OXFORD_MON_WED",
-                ],
-            ],
-        );
-
-        // Test that rdcl.evt_del returns OK => true when calendar event was present and deleted.
-        assert_eq!(redis::cmd("rdcl.evt_del").arg("TEST_CALENDAR_UID").arg("EVENT_IN_OXFORD_MON_WED").query(connection), RedisResult::Ok(Value::Int(1)));
+        // Test that rdcl.evt_del returns OK => 0 (false) when trying to delete calendar events that are not present.
+        del_and_assert_event_deletion!(connection, "TEST_CALENDAR_UID", "ONLINE_EVENT_MON_WED", 0);
+        del_and_assert_event_deletion!(connection, "TEST_CALENDAR_UID", "EVENT_IN_OXFORD_MON_WED", 0);
 
         list_and_assert_matching_events!(connection, "TEST_CALENDAR_UID", []);
 
-        // Test that rdcl.evt_del returns OK => false when trying to delete calendar events that are not present.
-        assert_eq!(redis::cmd("rdcl.evt_del").arg("TEST_CALENDAR_UID").arg("ONLINE_EVENT_MON_WED").query(connection), RedisResult::Ok(Value::Int(0)));
-        assert_eq!(redis::cmd("rdcl.evt_del").arg("TEST_CALENDAR_UID").arg("EVENT_IN_OXFORD_MON_WED").query(connection), RedisResult::Ok(Value::Int(0)));
-
-        assert_event_nil!(connection, "TEST_CALENDAR_UID", "ONLINE_EVENT_MON_WED");
-        assert_event_nil!(connection, "TEST_CALENDAR_UID", "EVENT_IN_OXFORD_MON_WED");
-
         Ok(())
-    }
-
-    macro_rules! run_all_integration_tests_sequentially {
-        ($($test_function:ident),+ $(,)*) => {
-            #[test]
-            fn test_all_integration_tests_sequentially() -> Result<()> {
-                let port: u16 = 6480;
-                let _guards = vec![start_redis_server_with_module("redical", port)
-                    .with_context(|| "failed to start test redis server")?];
-
-                let mut connection =
-                    get_redis_connection(port).with_context(|| "failed to connect to test redis server")?;
-
-                test_calendar_get_set_del(&mut connection)?;
-
-                $(
-                    $test_function(&mut connection)?;
-
-                    redis::cmd("FLUSHDB")
-                        .query(&mut connection)
-                        .with_context(|| {
-                            format!(
-                                "failed to cleanup with FLUSHDB after running integration test function: {}", stringify!($test_function),
-                            )
-                        })?;
-                )+
-
-                Ok(())
-            }
-        }
     }
 
     run_all_integration_tests_sequentially!(
