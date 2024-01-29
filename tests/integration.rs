@@ -20,158 +20,6 @@ mod integration {
     //  cargo build && cargo test -- --include-ignored
     //  cargo build && cargo test --ignored
 
-    struct EventOverrideFixture {
-        date_string: &'static str,
-        properties: Vec<&'static str>,
-    }
-
-    struct EventFixture {
-        properties: Vec<&'static str>,
-        overrides: HashMap<&'static str, EventOverrideFixture>,
-    }
-
-    lazy_static! {
-        static ref EVENT_FIXTURES: HashMap<&'static str, EventFixture> = {
-            HashMap::from([
-                (
-                    "ONLINE_EVENT_MON_WED",
-                    EventFixture {
-                        properties: vec![
-                            "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM",
-                            "RRULE:BYDAY=MO,WE;FREQ=WEEKLY;INTERVAL=1;UNTIL=20211231T170000Z",
-                            "DTSTART:20201231T160000Z",
-                            "DTEND:20201231T170000Z",
-                            "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
-                            "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
-                        ],
-                        overrides: HashMap::new(),
-                    },
-                ),
-                (
-                    "EVENT_IN_OXFORD_MON_WED",
-                    EventFixture {
-                        properties: vec![
-                            "SUMMARY:Event in Oxford on Mondays and Wednesdays at 5:00PM",
-                            "RRULE:BYDAY=MO,WE;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
-                            "DTSTART:20201231T170000Z",
-                            "DTEND:20201231T173000Z",
-                            "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
-                            "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
-                            "GEO:51.751365550307604;-1.2601196837753945",
-                        ],
-                        overrides: HashMap::new(),
-                    },
-                ),
-                (
-                    "EVENT_IN_READING_TUE_THU",
-                    EventFixture {
-                        properties: vec![
-                            "SUMMARY:Event in Reading on Tuesdays and Thursdays at 6:00PM",
-                            "RRULE:BYDAY=TU,TH;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
-                            "DTSTART:20201231T180000Z",
-                            "DTEND:20201231T183000Z",
-                            "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
-                            "CATEGORIES:CATEGORY_ONE,CATEGORY_THREE",
-                            "GEO:51.45442303961853;-0.9792277140273513",
-                        ],
-                        overrides: HashMap::new(),
-                    },
-                ),
-                (
-                    "EVENT_IN_LONDON_TUE_THU",
-                    EventFixture {
-                        properties: vec![
-                            "SUMMARY:Event in London on Tuesdays and Thursdays at 6:30PM",
-                            "RRULE:BYDAY=TU,TH;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
-                            "DTSTART:20201231T183000Z",
-                            "DTEND:20201231T190000Z",
-                            "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
-                            "CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE",
-                            "GEO:51.50740017561507;-0.12698231869919185",
-                        ],
-                        overrides: HashMap::new(),
-                    },
-                ),
-                (
-                    "EVENT_IN_CHELTENHAM_TUE_THU",
-                    EventFixture {
-                        properties: vec![
-                            "SUMMARY:Event in Cheltenham on Tuesdays and Thursdays at 6:30PM",
-                            "RRULE:BYDAY=TU,TH;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
-                            "DTSTART:20201231T183000Z",
-                            "DTEND:20201231T190000Z",
-                            "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
-                            "CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE",
-                            "GEO:51.89936851432488;-2.078357552295971",
-                        ],
-                        overrides: HashMap::new(),
-                    },
-                ),
-                (
-                    "OVERRIDDEN_EVENT_IN_BRISTOL_TUE_THU",
-                    EventFixture {
-                        properties: vec![
-                            "SUMMARY:Event in Bristol on Tuesdays and Thursdays at 6:30PM",
-                            "RRULE:BYDAY=TU,TH;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
-                            "DTSTART:20201231T183000Z",
-                            "DTEND:20201231T190000Z",
-                            "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
-                            "CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE",
-                            "GEO:51.454481838260214;-2.588329192623361",
-                        ],
-                        overrides: HashMap::from([
-                            (
-                                "OVERRIDE_SUMMARY_CATEGORY_AND_RELATED_TO",
-                                EventOverrideFixture {
-                                    date_string: "20210105T183000Z",
-                                    properties: vec![
-                                        "RELATED-TO;RELTYPE=PARENT:PARENT_UUID_OVERRIDE",
-                                        "CATEGORIES:CATEGORY_OVERRIDE",
-                                        "SUMMARY:Overridden Event in Bristol on Tuesdays and Thursdays at 6:30PM",
-                                    ]
-                                },
-                            ),
-                            (
-                                "OVERRIDE_SUMMARY_AND_GEO",
-                                EventOverrideFixture {
-                                    date_string: "20210107T183000Z",
-                                    properties: vec![
-                                        "SUMMARY:Event in Bristol overridden to run in Cheltenham instead",
-                                        "GEO:51.89936851432488;-2.078357552295971",
-                                    ]
-                                },
-                            ),
-                            (
-                                "DETACHED_SUMMARY_AND_GEO_OVERRIDE",
-                                EventOverrideFixture {
-                                    date_string: "20210108T183000Z",
-                                    properties: vec![
-                                        "SUMMARY:Overridden Event in Bristol with invalid DTSTART",
-                                    ]
-                                },
-                            ),
-                        ]),
-                    },
-                ),
-                (
-                    "NON_RUNNING_EVENT_TO_DELETE",
-                    EventFixture {
-                        properties: vec![
-                            "SUMMARY:Non-running event to delete",
-                            "DTSTART:20201231T183000Z",
-                            "DURATION:PT1H",
-                            "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
-                            "CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE",
-                            "GEO:51.454481838260214;-2.588329192623361",
-                            "CLASS:PRIVATE",
-                        ],
-                        overrides: HashMap::new(),
-                    },
-                ),
-            ])
-        };
-    }
-
     fn test_calendar_get_set_del(connection: &mut Connection) -> Result<()> {
         let calendar_uid = "TEST_CALENDAR_UID";
 
@@ -502,11 +350,374 @@ mod integration {
         Ok(())
     }
 
+    fn test_calendar_query(connection: &mut Connection) -> Result<()> {
+        set_and_assert_calendar!(connection, "TEST_CALENDAR_UID");
+
+        // Assert blank results when no events exist
+        query_calendar_and_assert_matching_event_instances!(
+            connection,
+            "TEST_CALENDAR_UID",
+            [],
+            [],
+        );
+
+        set_and_assert_event!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "EVENT_IN_CHELTENHAM_TUE_THU",
+            [
+                "SUMMARY:Event in Cheltenham on Tuesdays and Thursdays at 6:30PM",
+                "RRULE:BYDAY=TU,TH;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
+                "DTSTART:20201231T183000Z",
+                "DTEND:20201231T190000Z",
+                "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                "CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE",
+                "GEO:51.89936851432488;-2.078357552295971",
+            ],
+        );
+
+        set_and_assert_event!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "OVERRIDDEN_EVENT_IN_BRISTOL_TUE_THU",
+            [
+                "SUMMARY:Event in Bristol on Tuesdays and Thursdays at 6:30PM",
+                "RRULE:BYDAY=TU,TH;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
+                "DTSTART:20201231T183000Z",
+                "DTEND:20201231T190000Z",
+                "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                "CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE",
+                "GEO:51.454481838260214;-2.588329192623361",
+            ],
+        );
+
+        set_and_assert_event_override!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "OVERRIDDEN_EVENT_IN_BRISTOL_TUE_THU",
+            "20210105T183000Z",
+            [
+                "SUMMARY:Overridden Event in Bristol on Tuesdays and Thursdays at 6:30PM",
+                "RELATED-TO;RELTYPE=PARENT:PARENT_UUID_OVERRIDE",
+                "CATEGORIES:CATEGORY_OVERRIDE",
+            ],
+        );
+
+        set_and_assert_event_override!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "OVERRIDDEN_EVENT_IN_BRISTOL_TUE_THU",
+            "20210107T183000Z",
+            [
+                "SUMMARY:Event in Bristol overridden to run in Cheltenham instead",
+                "GEO:51.89936851432488;-2.078357552295971",
+            ],
+        );
+
+        set_and_assert_event_override!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "OVERRIDDEN_EVENT_IN_BRISTOL_TUE_THU",
+            "20210108T183000Z",
+            [
+                "SUMMARY:Detatched override for Event in Bristol with invalid DTSTART",
+            ],
+        );
+
+        // Assert default query when mixing a couple of existing event (with overide) extrapolations.
+        query_calendar_and_assert_matching_event_instances!(
+            connection,
+            "TEST_CALENDAR_UID",
+            [],
+            [
+                [
+                    [
+                        "DTSTART:20201231T183000Z",
+                    ],
+                    [
+                        "CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE",
+                        "DTEND:20201231T190000Z",
+                        "DTSTART:20201231T183000Z",
+                        "DURATION:PT30M",
+                        "GEO:51.89936851432488;-2.078357552295971",
+                        "RECURRENCE-ID;VALUE=DATE-TIME:20201231T183000Z",
+                        "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                        "SUMMARY:Event in Cheltenham on Tuesdays and Thursdays at 6:30PM",
+                        "UID:EVENT_IN_CHELTENHAM_TUE_THU",
+                    ],
+                ],
+                [
+                    [
+                        "DTSTART:20201231T183000Z",
+                    ],
+                    [
+                        "CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE",
+                        "DTEND:20201231T190000Z",
+                        "DTSTART:20201231T183000Z",
+                        "DURATION:PT30M",
+                        "GEO:51.454481838260214;-2.588329192623361",
+                        "RECURRENCE-ID;VALUE=DATE-TIME:20201231T183000Z",
+                        "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                        "SUMMARY:Event in Bristol on Tuesdays and Thursdays at 6:30PM",
+                        "UID:OVERRIDDEN_EVENT_IN_BRISTOL_TUE_THU",
+                    ],
+                ],
+                [
+                    [
+                        "DTSTART:20210105T183000Z",
+                    ],
+                    [
+                        "CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE",
+                        "DTEND:20210105T190000Z",
+                        "DTSTART:20210105T183000Z",
+                        "DURATION:PT30M",
+                        "GEO:51.89936851432488;-2.078357552295971",
+                        "RECURRENCE-ID;VALUE=DATE-TIME:20210105T183000Z",
+                        "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                        "SUMMARY:Event in Cheltenham on Tuesdays and Thursdays at 6:30PM",
+                        "UID:EVENT_IN_CHELTENHAM_TUE_THU",
+                    ],
+                ],
+                [
+                    [
+                        "DTSTART:20210105T183000Z",
+                    ],
+                    [
+                        "CATEGORIES:CATEGORY_OVERRIDE",
+                        "DTEND:20210105T190000Z",
+                        "DTSTART:20210105T183000Z",
+                        "DURATION:PT30M",
+                        "GEO:51.454481838260214;-2.588329192623361",
+                        "RECURRENCE-ID;VALUE=DATE-TIME:20210105T183000Z",
+                        "RELATED-TO;RELTYPE=PARENT:PARENT_UUID_OVERRIDE",
+                        "SUMMARY:Overridden Event in Bristol on Tuesdays and Thursdays at 6:30PM",
+                        "UID:OVERRIDDEN_EVENT_IN_BRISTOL_TUE_THU",
+                    ],
+                ],
+                [
+                    [
+                        "DTSTART:20210107T183000Z",
+                    ],
+                    [
+                        "CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE",
+                        "DTEND:20210107T190000Z",
+                        "DTSTART:20210107T183000Z",
+                        "DURATION:PT30M",
+                        "GEO:51.89936851432488;-2.078357552295971",
+                        "RECURRENCE-ID;VALUE=DATE-TIME:20210107T183000Z",
+                        "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                        "SUMMARY:Event in Cheltenham on Tuesdays and Thursdays at 6:30PM",
+                        "UID:EVENT_IN_CHELTENHAM_TUE_THU",
+                    ],
+                ],
+                [
+                    [
+                        "DTSTART:20210107T183000Z",
+                    ],
+                    [
+                        "CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE",
+                        "DTEND:20210107T190000Z",
+                        "DTSTART:20210107T183000Z",
+                        "DURATION:PT30M",
+                        "GEO:51.89936851432488;-2.078357552295971",
+                        "RECURRENCE-ID;VALUE=DATE-TIME:20210107T183000Z",
+                        "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                        "SUMMARY:Event in Bristol overridden to run in Cheltenham instead",
+                        "UID:OVERRIDDEN_EVENT_IN_BRISTOL_TUE_THU",
+                    ],
+                ],
+            ],
+        );
+
+        set_and_assert_event!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "ONLINE_EVENT_MON_WED",
+            [
+                "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM",
+                "RRULE:BYDAY=MO,WE;FREQ=WEEKLY;INTERVAL=1;UNTIL=20211231T170000Z",
+                "DTSTART:20201231T160000Z",
+                "DTEND:20201231T170000Z",
+                "RELATED-TO;RELTYPE=PARENT:PARENT_UUID_ONLINE",
+                "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
+            ],
+        );
+
+        set_and_assert_event!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "EVENT_IN_OXFORD_MON_WED",
+            [
+                "SUMMARY:Event in Oxford on Mondays and Wednesdays at 5:00PM",
+                "RRULE:BYDAY=MO,WE;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
+                "DTSTART:20201231T170000Z",
+                "DTEND:20201231T173000Z",
+                "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
+                "GEO:51.751365550307604;-1.2601196837753945",
+            ],
+        );
+
+        set_and_assert_event_override!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "EVENT_IN_OXFORD_MON_WED",
+            "20210104T170000Z",
+            [
+                "SUMMARY:Overridden event in Oxford summary text",
+                "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_PARENT_UUID",
+                "CATEGORIES:OVERRIDDEN_CATEGORY",
+            ],
+        );
+
+        set_and_assert_event_override!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "EVENT_IN_OXFORD_MON_WED",
+            "20210111T170000Z",
+            [
+                "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY",
+                "X-SPACES-BOOKED:12",
+            ],
+        );
+
+        set_and_assert_event!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "EVENT_IN_READING_TUE_THU",
+            [
+                "SUMMARY:Event in Reading on Tuesdays and Thursdays at 6:00PM",
+                "RRULE:BYDAY=TU,TH;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
+                "DTSTART:20201231T180000Z",
+                "DTEND:20201231T183000Z",
+                "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                "CATEGORIES:CATEGORY_ONE,CATEGORY_THREE",
+                "GEO:51.45442303961853;-0.9792277140273513",
+            ],
+        );
+
+        set_and_assert_event!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "EVENT_IN_LONDON_TUE_THU",
+            [
+                "SUMMARY:Event in London on Tuesdays and Thursdays at 6:30PM",
+                "RRULE:BYDAY=TU,TH;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
+                "DTSTART:20201231T183000Z",
+                "DTEND:20201231T190000Z",
+                "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                "CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE",
+                "GEO:51.50740017561507;-0.12698231869919185",
+            ],
+        );
+
+        // Assert comprehensive query with more events (and overrides) added
+        query_calendar_and_assert_matching_event_instances!(
+            connection,
+            "TEST_CALENDAR_UID",
+            [
+                "X-FROM;PROP=DTSTART;OP=GT;TZID=Europe/London;UID=Event_UID:20210105T180000Z",
+                "X-UNTIL;PROP=DTSTART;OP=LTE;TZID=UTC:20210630T180000Z",
+                "(",
+                "(",
+                "X-GEO;DIST=105.5KM:51.55577390;-1.77971760",
+                "OR",
+                "X-CATEGORIES:CATEGORY_ONE",
+                "OR",
+                "X-RELATED-TO;RELTYPE=PARENT:PARENT_UID",
+                ")",
+                "AND",
+                "(",
+                "X-CATEGORIES:CATEGORY TWO",
+                "OR",
+                "X-RELATED-TO;RELTYPE=PARENT:PARENT_UUID_ONLINE",
+                ")",
+                ")",
+                "X-LIMIT:50",
+                "X-OFFSET:0",
+                "X-DISTINCT:UID",
+                "X-TZID:Europe/Vilnius",
+                "X-ORDER-BY;GEO=51.55577390;-1.77971760:DTSTART-GEO-DIST",
+            ],
+            [
+                [
+                    [
+                        "DTSTART;TZID=Europe/Vilnius:20210106T180000",
+                    ],
+                    [
+                        "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
+                        "DTEND;TZID=Europe/Vilnius:20210106T190000",
+                        "DTSTART;TZID=Europe/Vilnius:20210106T180000",
+                        "DURATION:PT1H",
+                        "RECURRENCE-ID;VALUE=DATE-TIME:20210106T160000Z",
+                        "RELATED-TO;RELTYPE=PARENT:PARENT_UUID_ONLINE",
+                        "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM",
+                        "UID:ONLINE_EVENT_MON_WED",
+                    ],
+                ],
+                [
+                    [
+                        "DTSTART;TZID=Europe/Vilnius:20210106T190000",
+                        "X-GEO-DIST:41.927336KM",
+                    ],
+                    [
+                        "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
+                        "DTEND;TZID=Europe/Vilnius:20210106T193000",
+                        "DTSTART;TZID=Europe/Vilnius:20210106T190000",
+                        "DURATION:PT30M",
+                        "GEO:51.751365550307604;-1.2601196837753945",
+                        "RECURRENCE-ID;VALUE=DATE-TIME:20210106T170000Z",
+                        "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                        "SUMMARY:Event in Oxford on Mondays and Wednesdays at 5:00PM",
+                        "UID:EVENT_IN_OXFORD_MON_WED",
+                    ],
+                ],
+            ],
+        );
+
+        //
+        // TODO: Assert bad dates
+        // query_calendar_and_assert_matching_event_instances!(
+        //     connection,
+        //     "TEST_CALENDAR_UID",
+        //     [
+        //         "X-FROM;PROP=DTSTART;OP=GT;TZID=Europe/London;UID=Event_UID:20210105T180000Z",
+        //         "X-UNTIL;PROP=DTSTART;OP=LTE;TZID=UTC:20210641T180000Z",
+        //         "(",
+        //         "(",
+        //         "X-GEO;DIST=45.5KM:51.55577390;-1.77971760",
+        //         "OR",
+        //         "X-CATEGORIES:CATEGORY_ONE",
+        //         "OR",
+        //         "X-RELATED-TO;RELTYPE=PARENT:PARENT_UID",
+        //         ")",
+        //         "AND",
+        //         "(",
+        //         "X-CATEGORIES:CATEGORY_TWO",
+        //         "OR",
+        //         "X-RELATED-TO;RELTYPE=CHILD:CHILD_UID",
+        //         ")",
+        //         ")",
+        //         "X-LIMIT:50",
+        //         "X-OFFSET:10",
+        //         "X-DISTINCT:UID",
+        //         "X-TZID:Europe/Vilnius",
+        //         "X-ORDER-BY;GEO=51.55577390;-1.77971760:DTSTART-GEO-DIST",
+        //     ],
+        //     [
+        //         ...
+        //     ],
+        // );
+
+        Ok(())
+    }
+
     run_all_integration_tests_sequentially!(
         test_calendar_get_set_del,
         test_event_get_set_del_list,
         test_event_override_get_set_del_list,
         test_event_instance_list,
+        test_calendar_query,
     );
 
 }

@@ -977,6 +977,11 @@ fn where_group_to_where_conditional(
 // parse_group_query_property_component
 
 pub fn parse_query_string(input: &str) -> ParserResult<&str, Query> {
+    // Just return the default Query (return everything) if passed empty string ("").
+    if input.is_empty() {
+        return Ok((input, Query::default()));
+    }
+
     let (remaining, query_properties) = context(
         "outer parse query string",
         separated_list1(
@@ -1520,6 +1525,14 @@ mod test {
 
     #[test]
     fn test_parse_query_string() {
+        assert_eq!(
+            parse_query_string(""),
+            Ok((
+                "",
+                Query::default(),
+            ))
+        );
+
         let query_string = [
             "X-FROM;PROP=DTSTART;OP=GT;TZID=Europe/London;UID=Event_UID:19971002T090000",
             "X-UNTIL;PROP=DTSTART;OP=LTE;TZID=UTC:19971102T090000",

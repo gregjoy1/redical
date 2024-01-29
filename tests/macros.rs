@@ -463,6 +463,124 @@ macro_rules! list_and_assert_matching_event_instances {
 }
 
 #[macro_export]
+macro_rules! query_calendar_and_assert_matching_event_instances {
+    ($connection:expr, $calendar_uid:expr, [], [$([$([$($ical_component_meta_property:expr),+ $(,)*], [$($ical_component_property:expr),+ $(,)*]),+ $(,)*]),+ $(,)*] $(,)*) => {
+        let calendar_query_result: Vec<Vec<Vec<String>>> = redis::cmd("rdcl.cal_query")
+            .arg($calendar_uid)
+            .query($connection)
+            .with_context(|| {
+                format!(
+                    "failed to query calendar with UID: '{}' events via rdcl.cal_query", $calendar_uid,
+                )
+            })?;
+
+        let expected_calendar_query_result: Vec<Vec<Vec<String>>> = vec![
+            $(
+                vec![
+                    $(
+                        vec![
+                            $(
+                                String::from($ical_component_meta_property),
+                            )+
+                        ],
+                        vec![
+                            $(
+                                String::from($ical_component_property),
+                            )+
+                        ],
+                    )+
+                ],
+            )+
+        ];
+
+        assert_eq!(calendar_query_result, expected_calendar_query_result);
+    };
+
+    ($connection:expr, $calendar_uid:expr, [], [] $(,)*) => {
+        let calendar_query_result: Vec<Vec<Vec<String>>> = redis::cmd("rdcl.cal_query")
+            .arg($calendar_uid)
+            .query($connection)
+            .with_context(|| {
+                format!(
+                    "failed to query calendar with UID: '{}' query: '' events via rdcl.cal_query",
+                    $calendar_uid
+                )
+            })?;
+
+        let expected_calendar_query_result: Vec<Vec<Vec<String>>> = vec![];
+
+        assert_eq!(calendar_query_result, expected_calendar_query_result);
+    };
+
+    ($connection:expr, $calendar_uid:expr, [$($ical_query_property:expr),+ $(,)*], [] $(,)*) => {
+        let mut ical_query_properties: Vec<String> = vec![
+            $(
+                String::from($ical_query_property),
+            )+
+        ];
+
+        let joined_ical_query_properties = ical_query_properties.join(" ");
+
+        let calendar_query_result: Vec<Vec<Vec<String>>> = redis::cmd("rdcl.cal_query")
+            .arg($calendar_uid)
+            .arg(joined_ical_query_properties)
+            .query($connection)
+            .with_context(|| {
+                format!(
+                    "failed to query calendar with UID: '{}' query: '{}' events via rdcl.cal_query",
+                    $calendar_uid,
+                    joined_ical_query_properties,
+                )
+            })?;
+
+        let expected_calendar_query_result: Vec<Vec<Vec<String>>> = vec![];
+
+        assert_eq!(calendar_query_result, expected_calendar_query_result);
+    };
+
+    ($connection:expr, $calendar_uid:expr, [$($ical_query_property:expr),+ $(,)*], [$([$([$($ical_component_meta_property:expr),+ $(,)*], [$($ical_component_property:expr),+ $(,)*]),+ $(,)*]),+ $(,)*] $(,)*) => {
+        let ical_query_properties: Vec<String> = vec![
+            $(
+                String::from($ical_query_property),
+            )+
+        ];
+
+        let joined_ical_query_properties = ical_query_properties.join(" ");
+
+        let calendar_query_result: Vec<Vec<Vec<String>>> = redis::cmd("rdcl.cal_query")
+            .arg($calendar_uid)
+            .arg(joined_ical_query_properties)
+            .query($connection)
+            .with_context(|| {
+                format!(
+                    "failed to query calendar with UID: '{}' events via rdcl.cal_query", $calendar_uid,
+                )
+            })?;
+
+        let expected_calendar_query_result: Vec<Vec<Vec<String>>> = vec![
+            $(
+                vec![
+                    $(
+                        vec![
+                            $(
+                                String::from($ical_component_meta_property),
+                            )+
+                        ],
+                        vec![
+                            $(
+                                String::from($ical_component_property),
+                            )+
+                        ],
+                    )+
+                ],
+            )+
+        ];
+
+        assert_eq!(calendar_query_result, expected_calendar_query_result);
+    };
+}
+
+#[macro_export]
 macro_rules! run_all_integration_tests_sequentially {
     ($($test_function:ident),+ $(,)*) => {
         #[test]
