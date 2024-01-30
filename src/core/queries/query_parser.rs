@@ -10,6 +10,7 @@ use nom::{
     error::{context, ContextError, ErrorKind, ParseError},
     multi::{separated_list0, separated_list1},
     sequence::{delimited, preceded, separated_pair, terminated, tuple},
+    error::{VerboseError, VerboseErrorKind},
 };
 
 use crate::core::queries::indexed_property_filters::{
@@ -53,16 +54,18 @@ fn param_text(input: &str) -> ParserResult<&str, &str> {
     common::parse_with_look_ahead_parser(common::param_text, look_ahead_property_parser)(input)
 }
 
-pub fn values(input: &str) -> ParserResult<&str, Vec<&str>> {
-    context("values", separated_list1(char(','), value))(input)
+// text       = *(TSAFE-CHAR / ":" / DQUOTE / ESCAPED-CHAR)
+//
+// ESCAPED-CHAR = "\\" / "\;" / "\," / "\N" / "\n")
+//    ; \\ encodes \, \N or \n encodes newline
+//    ; \; encodes ;, \, encodes ,
+// TSAFE-CHAR = %x20-21 / %x23-2B / %x2D-39 / %x3C-5B %x5D-7E / NON-US-ASCII
+//    ; Any character except CTLs not needed by the current
+pub fn value_text(input: &str) -> ParserResult<&str, &str> {
+    common::parse_with_look_ahead_parser(common::value_text, look_ahead_property_parser)(input)
 }
 
-// value         = *VALUE-CHAR
-fn value(input: &str) -> ParserResult<&str, &str> {
-    common::parse_with_look_ahead_parser(common::value, look_ahead_property_parser)(input)
-}
-
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum ParsedQueryComponent {
     Offset(usize),
     Limit(usize),
@@ -262,7 +265,7 @@ fn parse_from_query_property_content(input: &str) -> ParserResult<&str, ParsedQu
             )),
         )),
     )(input)
-    .map(
+    .and_then(
         |(remaining, (_semicolon_delimeter, parsed_params, _colon_delimeter, parsed_value)): (
             &str,
             (
@@ -272,34 +275,35 @@ fn parse_from_query_property_content(input: &str) -> ParserResult<&str, ParsedQu
                 common::ParsedValue,
             ),
         )| {
-            let common::ParsedValue::DateString(parsed_date_string) = parsed_value else {
-                panic!("Expected parsed date string, received: {:#?}", parsed_value);
-            };
+            let parsed_date_string = parsed_value.expect_date_string();
 
             let parsed_timezone = parsed_params
                 .get(&"TZID")
                 .and_then(|parsed_value| Some(parsed_value.expect_timezone()))
                 .unwrap_or(Tz::UTC);
 
-            let datetime_timestamp = parsed_date_string
-                .to_date(Some(parsed_timezone.into()), "X-FROM")
-                .unwrap_or_else(|error| {
-                    panic!(
-                        "Parsed date string unable to be converted to timestamp, error: {:#?}",
-                        error
-                    );
-                })
-                .timestamp();
+            let utc_timestamp = match parsed_date_string.to_date(Some(rrule::Tz::Tz(parsed_timezone)), "X-FROM") {
+                Ok(datetime) => datetime.timestamp(),
+                Err(_error) => {
+                    return Err(nom::Err::Error(VerboseError {
+                        errors: vec![(
+                            input,
+                            VerboseErrorKind::Context("parsed datetime value invalid"),
+                        )],
+                    }));
+                }
+            };
 
             let range_condition_property = match parsed_params.get(&"PROP") {
                 Some(common::ParsedValue::Single("DTSTART")) => {
-                    RangeConditionProperty::DtStart(datetime_timestamp)
-                }
-                Some(common::ParsedValue::Single("DTEND")) => {
-                    RangeConditionProperty::DtEnd(datetime_timestamp)
+                    RangeConditionProperty::DtStart(utc_timestamp)
                 }
 
-                _ => RangeConditionProperty::DtStart(datetime_timestamp),
+                Some(common::ParsedValue::Single("DTEND")) => {
+                    RangeConditionProperty::DtEnd(utc_timestamp)
+                }
+
+                _ => RangeConditionProperty::DtStart(utc_timestamp),
             };
 
             let event_uid = match parsed_params.get(&"UID") {
@@ -311,6 +315,7 @@ fn parse_from_query_property_content(input: &str) -> ParserResult<&str, ParsedQu
                 Some(common::ParsedValue::Single("GT")) => {
                     LowerBoundRangeCondition::GreaterThan(range_condition_property, event_uid)
                 }
+
                 Some(common::ParsedValue::Single("GTE")) => {
                     LowerBoundRangeCondition::GreaterEqualThan(range_condition_property, event_uid)
                 }
@@ -318,9 +323,11 @@ fn parse_from_query_property_content(input: &str) -> ParserResult<&str, ParsedQu
                 _ => LowerBoundRangeCondition::GreaterThan(range_condition_property, event_uid),
             };
 
-            (
-                remaining,
-                ParsedQueryComponent::FromDateTime(lower_bound_range_condition),
+            Ok(
+                (
+                    remaining,
+                    ParsedQueryComponent::FromDateTime(lower_bound_range_condition),
+                )
             )
         },
     )
@@ -356,7 +363,7 @@ fn parse_until_query_property_content(input: &str) -> ParserResult<&str, ParsedQ
             )),
         )),
     )(input)
-    .map(
+    .and_then(
         |(remaining, (_semicolon_delimeter, parsed_params, _colon_delimeter, parsed_value)): (
             &str,
             (
@@ -366,40 +373,42 @@ fn parse_until_query_property_content(input: &str) -> ParserResult<&str, ParsedQ
                 common::ParsedValue,
             ),
         )| {
-            let common::ParsedValue::DateString(parsed_date_string) = parsed_value else {
-                panic!("Expected parsed date string, received: {:#?}", parsed_value);
-            };
+            let parsed_date_string = parsed_value.expect_date_string();
 
             let parsed_timezone = parsed_params
                 .get(&"TZID")
                 .and_then(|parsed_value| Some(parsed_value.expect_timezone()))
                 .unwrap_or(Tz::UTC);
 
-            let datetime_timestamp = parsed_date_string
-                .to_date(Some(parsed_timezone.into()), "X-FROM")
-                .unwrap_or_else(|error| {
-                    panic!(
-                        "Parsed date string unable to be converted to timestamp, error: {:#?}",
-                        error
-                    );
-                })
-                .timestamp();
+            let utc_timestamp = match parsed_date_string.to_date(Some(rrule::Tz::Tz(parsed_timezone)), "X-FROM") {
+                Ok(datetime) => datetime.timestamp(),
+                Err(_error) => {
+                    return Err(nom::Err::Error(VerboseError {
+                        errors: vec![(
+                            input,
+                            VerboseErrorKind::Context("parsed datetime value invalid"),
+                        )],
+                    }));
+                }
+            };
 
             let range_condition_property = match parsed_params.get(&"PROP") {
                 Some(common::ParsedValue::Single("DTSTART")) => {
-                    RangeConditionProperty::DtStart(datetime_timestamp)
-                }
-                Some(common::ParsedValue::Single("DTEND")) => {
-                    RangeConditionProperty::DtEnd(datetime_timestamp)
+                    RangeConditionProperty::DtStart(utc_timestamp)
                 }
 
-                _ => RangeConditionProperty::DtStart(datetime_timestamp),
+                Some(common::ParsedValue::Single("DTEND")) => {
+                    RangeConditionProperty::DtEnd(utc_timestamp)
+                }
+
+                _ => RangeConditionProperty::DtStart(utc_timestamp),
             };
 
             let upper_bound_range_condition = match parsed_params.get(&"OP") {
                 Some(common::ParsedValue::Single("LT")) => {
                     UpperBoundRangeCondition::LessThan(range_condition_property)
                 }
+
                 Some(common::ParsedValue::Single("LTE")) => {
                     UpperBoundRangeCondition::LessEqualThan(range_condition_property)
                 }
@@ -407,9 +416,11 @@ fn parse_until_query_property_content(input: &str) -> ParserResult<&str, ParsedQ
                 _ => UpperBoundRangeCondition::LessThan(range_condition_property),
             };
 
-            (
-                remaining,
-                ParsedQueryComponent::UntilDateTime(upper_bound_range_condition),
+            Ok(
+                (
+                    remaining,
+                    ParsedQueryComponent::UntilDateTime(upper_bound_range_condition),
+                )
             )
         },
     )
@@ -438,7 +449,7 @@ fn parse_categories_query_property_content(
                 )),
                 preceded(
                     common::colon_delimeter,
-                    common::ParsedValue::parse_list(parse_list_values),
+                    common::ParsedValue::parse_list(alt((common::quoted_string, value_text))),
                 ),
             )),
         )),
@@ -463,12 +474,7 @@ fn parse_categories_query_property_content(
                 };
             }
 
-            let common::ParsedValue::List(parsed_categories) = parsed_value else {
-                panic!(
-                    "Expected categories to be a list of Strings, received: {:#?}",
-                    parsed_value
-                );
-            };
+            let parsed_categories = parsed_value.expect_list();
 
             let parsed_categories: Vec<String> =
                 parsed_categories.into_iter().map(String::from).collect();
@@ -506,7 +512,7 @@ fn parse_related_to_query_property_content(
                         ),
                         (
                             "RELTYPE",
-                            common::ParsedValue::parse_single(parse_single_value)
+                            common::ParsedValue::parse_single(crate::core::ical::properties::RelatedToProperty::reltype_param_value)
                         ),
                     ),
                 )),
@@ -544,12 +550,7 @@ fn parse_related_to_query_property_content(
                 };
             };
 
-            let common::ParsedValue::List(parsed_related_to_uids) = parsed_value else {
-                panic!(
-                    "Expected related-to UIDS to be a list of Strings, received: {:#?}",
-                    parsed_value
-                );
-            };
+            let parsed_related_to_uids = parsed_value.expect_list();
 
             let parsed_related_to_uids: Vec<String> = parsed_related_to_uids
                 .into_iter()
@@ -664,6 +665,8 @@ fn parse_class_query_property_content(input: &str) -> ParserResult<&str, ParsedQ
                                 tag("PUBLIC"),
                                 tag("PRIVATE"),
                                 tag("CONFIDENTIAL"),
+                                common::x_name,
+                                common::iana_token,
                             )
                         ),
                     ),
@@ -691,12 +694,7 @@ fn parse_class_query_property_content(input: &str) -> ParserResult<&str, ParsedQ
                 };
             }
 
-            let common::ParsedValue::List(parsed_classifications) = parsed_value else {
-                panic!(
-                    "Expected class to be a list of the following: PUBLIC, PRIVATE, and CONFIDENTIAL, received: {:#?}",
-                    parsed_value
-                );
-            };
+            let parsed_classifications = parsed_value.expect_list();
 
             let parsed_classification: Vec<String> = parsed_classifications
                 .into_iter()
@@ -1396,6 +1394,48 @@ mod test {
                 )),
                 None,
             )),
+        );
+    }
+
+    #[test]
+    fn test_invalid_x_from_date_string() {
+        assert_eq!(
+            parse_from_query_property_content("X-FROM;PROP=DTSTART;OP=GT;TZID=Europe/London:00000000T090000"),
+            Err(
+                nom::Err::Error(
+                    VerboseError {
+                        errors: vec![
+                            (
+                                "X-FROM;PROP=DTSTART;OP=GT;TZID=Europe/London:00000000T090000",
+                                VerboseErrorKind::Context(
+                                    "parsed datetime value invalid",
+                                ),
+                            ),
+                        ],
+                    },
+                ),
+            ),
+        );
+    }
+
+    #[test]
+    fn test_invalid_x_until_date_string() {
+        assert_eq!(
+            parse_until_query_property_content("X-UNTIL;PROP=DTSTART;OP=LT;TZID=Europe/London:00000000T090000"),
+            Err(
+                nom::Err::Error(
+                    VerboseError {
+                        errors: vec![
+                            (
+                                "X-UNTIL;PROP=DTSTART;OP=LT;TZID=Europe/London:00000000T090000",
+                                VerboseErrorKind::Context(
+                                    "parsed datetime value invalid",
+                                ),
+                            ),
+                        ],
+                    },
+                ),
+            ),
         );
     }
 

@@ -94,7 +94,7 @@ impl RelatedToProperty {
     //                                    ; iCalendar relationship type
     //                    / x-name)       ; A non-standard, experimental
     //                                    ; relationship type
-    fn reltype_param_value(input: &str) -> ParserResult<&str, &str> {
+    pub fn reltype_param_value(input: &str) -> ParserResult<&str, &str> {
         context(
             "reltypeparam",
             alt((
