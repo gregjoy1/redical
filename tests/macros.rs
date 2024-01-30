@@ -513,7 +513,7 @@ macro_rules! query_calendar_and_assert_matching_event_instances {
     };
 
     ($connection:expr, $calendar_uid:expr, [$($ical_query_property:expr),+ $(,)*], [] $(,)*) => {
-        let mut ical_query_properties: Vec<String> = vec![
+        let ical_query_properties: Vec<String> = vec![
             $(
                 String::from($ical_query_property),
             )+
@@ -527,9 +527,7 @@ macro_rules! query_calendar_and_assert_matching_event_instances {
             .query($connection)
             .with_context(|| {
                 format!(
-                    "failed to query calendar with UID: '{}' query: '{}' events via rdcl.cal_query",
-                    $calendar_uid,
-                    joined_ical_query_properties,
+                    "failed to query calendar with UID: '{}' events via rdcl.cal_query", $calendar_uid,
                 )
             })?;
 

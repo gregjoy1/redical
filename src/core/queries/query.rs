@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use crate::core::{
     Calendar, Event, EventInstance, EventInstanceIterator, GeoPoint, IndexedConclusion,
     InvertedCalendarIndexTerm, LowerBoundFilterCondition, UpperBoundFilterCondition,
@@ -12,6 +14,10 @@ use crate::core::queries::results_range_bounds::{
     LowerBoundRangeCondition, UpperBoundRangeCondition,
 };
 
+use crate::core::ical::parser::error::convert_error;
+
+use nom::combinator::all_consuming;
+
 use crate::core::MergedIterator;
 
 #[derive(Debug, PartialEq, Clone)]
@@ -24,6 +30,26 @@ pub struct Query {
     pub distinct_uids: bool,
     pub offset: usize,
     pub limit: usize,
+}
+
+impl FromStr for Query {
+    type Err = String;
+
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        let parsed_query = all_consuming(parse_query_string)(input.trim());
+
+        match parsed_query {
+            Ok((_remaining, query)) => Ok(query),
+
+            Err(nom::Err::Error(error)) | Err(nom::Err::Failure(error)) => {
+                Err(convert_error(input, error))
+            },
+
+            Err(error) => {
+                Err(error.to_string())
+            },
+        }
+    }
 }
 
 impl Query {
@@ -294,24 +320,6 @@ impl Query {
     }
 }
 
-impl TryFrom<&str> for Query {
-    type Error = String;
-
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        match parse_query_string(value.trim()) {
-            Ok((remaining, parsed_query)) => {
-                if remaining.is_empty() {
-                    Ok(parsed_query)
-                } else {
-                    Err(format!("Unexpected values: {remaining}"))
-                }
-            }
-
-            Err(error) => Err(error.to_string()),
-        }
-    }
-}
-
 impl Default for Query {
     fn default() -> Self {
         Query {
@@ -406,14 +414,14 @@ mod test {
     #[test]
     fn test_from_str() {
         assert_eq!(
-            Query::try_from("X-LIMIT:50 UNCONSUMED_ENDING"),
+            Query::from_str("X-LIMIT:50 UNCONSUMED_ENDING"),
             Err(
                 String::from("Parsing Failure: VerboseError { errors: [(\"UNCONSUMED_ENDING\", Char('(')), (\"UNCONSUMED_ENDING\", Nom(Alt)), (\"X-LIMIT:50 UNCONSUMED_ENDING\", Context(\"outer parse query string\"))] }")
             )
         );
 
         assert_eq!(
-            Query::try_from("INVALID"),
+            Query::from_str("INVALID"),
             Err(
                 String::from("Parsing Failure: VerboseError { errors: [(\"INVALID\", Char('(')), (\"INVALID\", Nom(Alt)), (\"INVALID\", Context(\"outer parse query string\"))] }")
             )
@@ -433,7 +441,7 @@ mod test {
         .join(" ");
 
         assert_eq!(
-            Query::try_from(query_string.as_str()),
+            Query::from_str(query_string.as_str()),
             Ok(Query {
                 where_conditional: Some(WhereConditional::Operator(
                     Box::new(WhereConditional::Group(

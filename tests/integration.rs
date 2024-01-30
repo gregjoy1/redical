@@ -675,39 +675,12 @@ mod integration {
             ],
         );
 
-        //
-        // TODO: Assert bad dates
-        // query_calendar_and_assert_matching_event_instances!(
-        //     connection,
-        //     "TEST_CALENDAR_UID",
-        //     [
-        //         "X-FROM;PROP=DTSTART;OP=GT;TZID=Europe/London;UID=Event_UID:20210105T180000Z",
-        //         "X-UNTIL;PROP=DTSTART;OP=LTE;TZID=UTC:20210641T180000Z",
-        //         "(",
-        //         "(",
-        //         "X-GEO;DIST=45.5KM:51.55577390;-1.77971760",
-        //         "OR",
-        //         "X-CATEGORIES:CATEGORY_ONE",
-        //         "OR",
-        //         "X-RELATED-TO;RELTYPE=PARENT:PARENT_UID",
-        //         ")",
-        //         "AND",
-        //         "(",
-        //         "X-CATEGORIES:CATEGORY_TWO",
-        //         "OR",
-        //         "X-RELATED-TO;RELTYPE=CHILD:CHILD_UID",
-        //         ")",
-        //         ")",
-        //         "X-LIMIT:50",
-        //         "X-OFFSET:10",
-        //         "X-DISTINCT:UID",
-        //         "X-TZID:Europe/Vilnius",
-        //         "X-ORDER-BY;GEO=51.55577390;-1.77971760:DTSTART-GEO-DIST",
-        //     ],
-        //     [
-        //         ...
-        //     ],
-        // );
+        // Assert bad date
+        let bad_query_result: Result<Vec<String>, RedisError> = redis::cmd("rdcl.cal_query").arg("TEST_CALENDAR_UID").arg("X-UNTIL;PROP=DTSTART;OP=LTE;TZID=UTC:20210641T180000Z").query(connection);
+
+        if bad_query_result.is_ok() {
+            return Err(anyhow::Error::msg("Should return an error"));
+        }
 
         Ok(())
     }
