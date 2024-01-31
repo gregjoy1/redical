@@ -536,32 +536,46 @@ impl Event {
             let mut new_event = Event::new(String::from(uid));
 
             for parsed_property in parsed_properties {
-                match parsed_property {
-                    Property::Class(_)
-                    | Property::Geo(_)
-                    | Property::Categories(_)
-                    | Property::RelatedTo(_) => {
-                        new_event.indexed_properties.insert(parsed_property)?;
-                    }
-
-                    Property::RRule(_)
-                    | Property::ExRule(_)
-                    | Property::DTStart(_)
-                    | Property::DTEnd(_)
-                    | Property::RDate(_)
-                    | Property::ExDate(_)
-                    | Property::Duration(_) => {
-                        new_event.schedule_properties.insert(parsed_property)?;
-                    }
-
-                    _ => {
-                        new_event.passive_properties.insert(parsed_property)?;
-                    }
-                }
+                new_event.insert(parsed_property)?;
             }
 
             Ok(new_event)
         })
+    }
+
+    pub fn insert(&mut self, property: Property) -> Result<&Self, String> {
+        match property {
+            Property::UID(property) => {
+                if self.uid != property {
+                    return Err(
+                        format!("Inserted event UID: {} does not match existing UID: {}", property.uid, self.uid.uid)
+                    );
+                }
+            },
+
+            Property::Class(_)
+            | Property::Geo(_)
+            | Property::Categories(_)
+            | Property::RelatedTo(_) => {
+                self.indexed_properties.insert(property)?;
+            }
+
+            Property::RRule(_)
+            | Property::ExRule(_)
+            | Property::DTStart(_)
+            | Property::DTEnd(_)
+            | Property::RDate(_)
+            | Property::ExDate(_)
+            | Property::Duration(_) => {
+                self.schedule_properties.insert(property)?;
+            }
+
+            _ => {
+                self.passive_properties.insert(property)?;
+            }
+        }
+
+        Ok(self)
     }
 
     pub fn rebuild_indexed_categories(&mut self) -> Result<&mut Self, String> {

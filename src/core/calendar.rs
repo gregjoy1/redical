@@ -9,7 +9,7 @@ use crate::core::geo_index::{GeoPoint, GeoSpatialCalendarIndex};
 
 use crate::core::event::Event;
 
-use crate::core::ical::properties::UIDProperty;
+use crate::core::ical::properties::{Property, UIDProperty};
 
 use crate::core::ical::serializer::{
     SerializableICalComponent, SerializableICalProperty, SerializationPreferences,
@@ -35,6 +35,26 @@ impl Calendar {
             indexed_geo: GeoSpatialCalendarIndex::new(),
             indexed_class: InvertedCalendarIndex::new(),
         }
+    }
+
+    pub fn insert(&mut self, property: Property) -> Result<&Self, String> {
+        match property {
+            Property::UID(property) => {
+                if self.uid != property {
+                    return Err(
+                        format!("Inserted calendar UID: {} does not match existing UID: {}", property.uid, self.uid.uid)
+                    );
+                }
+            },
+
+            _ => {
+                return Err(
+                    format!("Calendar does not expect inserted property: {}", property.serialize_to_ical(None))
+                );
+            }
+        }
+
+        Ok(self)
     }
 }
 

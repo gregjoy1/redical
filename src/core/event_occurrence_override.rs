@@ -72,54 +72,7 @@ impl EventOccurrenceOverride {
             let mut new_override = EventOccurrenceOverride::default();
 
             for parsed_property in parsed_properties {
-                match parsed_property {
-                    Property::Class(_)
-                    | Property::Geo(_)
-                    | Property::Categories(_)
-                    | Property::RelatedTo(_) => {
-                        new_override.indexed_properties.insert(parsed_property)?;
-                    }
-
-                    Property::RRule(_) => {
-                        return Err(String::from(
-                            "Event occurrence override does not expect an RRULE property",
-                        ));
-                    }
-
-                    Property::ExRule(_) => {
-                        return Err(String::from(
-                            "Event occurrence override does not expect an EXRULE property",
-                        ));
-                    }
-
-                    Property::RDate(_) => {
-                        return Err(String::from(
-                            "Event occurrence override does not expect an RDATE property",
-                        ));
-                    }
-
-                    Property::ExDate(_) => {
-                        return Err(String::from(
-                            "Event occurrence override does not expect an EXDATE property",
-                        ));
-                    }
-
-                    Property::DTStart(dtstart_property) => {
-                        new_override.dtstart = Some(dtstart_property);
-                    }
-
-                    Property::DTEnd(dtend_property) => {
-                        new_override.dtend = Some(dtend_property);
-                    }
-
-                    Property::Duration(duration_property) => {
-                        new_override.duration = Some(duration_property);
-                    }
-
-                    _ => {
-                        new_override.passive_properties.insert(parsed_property)?;
-                    }
-                }
+                new_override.insert(parsed_property)?;
             }
 
             let Ok(dtstart_datetime) = datestring_to_date(dtstart_date_string, None, "DTSTART") else {
@@ -132,6 +85,59 @@ impl EventOccurrenceOverride {
 
             Ok(new_override)
         })
+    }
+
+    pub fn insert(&mut self, property: Property) -> Result<&Self, String> {
+        match property {
+            Property::Class(_)
+            | Property::Geo(_)
+            | Property::Categories(_)
+            | Property::RelatedTo(_) => {
+                self.indexed_properties.insert(property)?;
+            }
+
+            Property::RRule(_) => {
+                return Err(String::from(
+                    "Event occurrence override does not expect an RRULE property",
+                ));
+            }
+
+            Property::ExRule(_) => {
+                return Err(String::from(
+                    "Event occurrence override does not expect an EXRULE property",
+                ));
+            }
+
+            Property::RDate(_) => {
+                return Err(String::from(
+                    "Event occurrence override does not expect an RDATE property",
+                ));
+            }
+
+            Property::ExDate(_) => {
+                return Err(String::from(
+                    "Event occurrence override does not expect an EXDATE property",
+                ));
+            }
+
+            Property::DTStart(dtstart_property) => {
+                self.dtstart = Some(dtstart_property);
+            }
+
+            Property::DTEnd(dtend_property) => {
+                self.dtend = Some(dtend_property);
+            }
+
+            Property::Duration(duration_property) => {
+                self.duration = Some(duration_property);
+            }
+
+            _ => {
+                self.passive_properties.insert(property)?;
+            }
+        }
+
+        Ok(self)
     }
 }
 

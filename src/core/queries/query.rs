@@ -416,14 +416,14 @@ mod test {
         assert_eq!(
             Query::from_str("X-LIMIT:50 UNCONSUMED_ENDING"),
             Err(
-                String::from("Parsing Failure: VerboseError { errors: [(\"UNCONSUMED_ENDING\", Char('(')), (\"UNCONSUMED_ENDING\", Nom(Alt)), (\"X-LIMIT:50 UNCONSUMED_ENDING\", Context(\"outer parse query string\"))] }")
+                String::from("[0]: where expected '(', found U at 'UNCONSUMED_ENDING' [1]: in Alt at 'UNCONSUMED_ENDING' [2]: outer parse query string at 'X-LIMIT:50 UNCONSUMED_ENDING' ")
             )
         );
 
         assert_eq!(
             Query::from_str("INVALID"),
             Err(
-                String::from("Parsing Failure: VerboseError { errors: [(\"INVALID\", Char('(')), (\"INVALID\", Nom(Alt)), (\"INVALID\", Context(\"outer parse query string\"))] }")
+                String::from("[0]: where expected '(', found I at 'INVALID' [1]: in Alt at 'INVALID' [2]: outer parse query string at 'INVALID' ")
             )
         );
 
