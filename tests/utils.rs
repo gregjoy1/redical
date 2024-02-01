@@ -17,6 +17,7 @@ impl Drop for ChildGuard {
         if let Err(e) = self.child.kill() {
             println!("Could not kill {}: {e}", self.name);
         }
+
         if let Err(e) = self.child.wait() {
             println!("Could not wait for {}: {e}", self.name);
         }
@@ -78,6 +79,23 @@ pub fn start_redis_server_with_module(module_name: &str, port: u16) -> Result<Ch
         })?;
 
     Ok(redis_server)
+}
+
+pub fn delete_existing_test_rdb_dump() -> Result<()> {
+    let test_rdb_dump_path: PathBuf = [
+        std::env::current_dir()?,
+        PathBuf::from(format!("test_dump.rdb")),
+    ]
+    .iter()
+    .collect();
+
+    if fs::metadata(&test_rdb_dump_path).is_ok() {
+        if let Err(error) = fs::remove_file(&test_rdb_dump_path) {
+            panic!("There was a problem removing test_dump.rdb from path: {}, with error: {}", test_rdb_dump_path.display(), error.to_string());
+        }
+    }
+
+    Ok(())
 }
 
 // Get connection to Redis

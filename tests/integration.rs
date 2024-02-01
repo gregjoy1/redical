@@ -685,12 +685,186 @@ mod integration {
         Ok(())
     }
 
+    fn test_rdb_save_load(connection: &mut Connection) -> Result<()> {
+        set_and_assert_calendar!(connection, "TEST_CALENDAR_UID");
+
+        set_and_assert_event!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "ONLINE_EVENT_MON_WED",
+            [
+                "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM",
+                "RRULE:BYDAY=MO,WE;FREQ=WEEKLY;INTERVAL=1;UNTIL=20211231T170000Z",
+                "DTSTART:20201231T160000Z",
+                "DTEND:20201231T170000Z",
+                "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
+            ],
+        );
+
+        set_and_assert_event!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "EVENT_IN_OXFORD_MON_WED",
+            [
+                "SUMMARY:Event in Oxford on Mondays and Wednesdays at 5:00PM",
+                "RRULE:BYDAY=MO,WE;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
+                "DTSTART:20201231T170000Z",
+                "DTEND:20201231T173000Z",
+                "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
+                "GEO:51.751365550307604;-1.2601196837753945",
+            ],
+        );
+
+        list_and_assert_matching_events!(
+            connection,
+            "TEST_CALENDAR_UID",
+            [
+                [
+                    "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM",
+                    "RRULE:BYDAY=MO,WE;FREQ=WEEKLY;INTERVAL=1;UNTIL=20211231T170000Z",
+                    "DTSTART:20201231T160000Z",
+                    "DTEND:20201231T170000Z",
+                    "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                    "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
+                    "UID:ONLINE_EVENT_MON_WED",
+                ],
+                [
+                    "SUMMARY:Event in Oxford on Mondays and Wednesdays at 5:00PM",
+                    "RRULE:BYDAY=MO,WE;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
+                    "DTSTART:20201231T170000Z",
+                    "DTEND:20201231T173000Z",
+                    "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                    "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
+                    "GEO:51.751365550307604;-1.2601196837753945",
+                    "UID:EVENT_IN_OXFORD_MON_WED",
+                ],
+            ],
+        );
+
+        set_and_assert_event_override!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "EVENT_IN_OXFORD_MON_WED",
+            "20210102T170000Z",
+            [
+                "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY",
+                "X-SPACES-BOOKED:12",
+            ],
+        );
+
+        set_and_assert_event_override!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "EVENT_IN_OXFORD_MON_WED",
+            "20201231T170000Z",
+            [
+                "SUMMARY:Overridden event in Oxford summary text",
+                "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_PARENT_UUID",
+                "CATEGORIES:OVERRIDDEN_CATEGORY",
+            ],
+        );
+
+        list_and_assert_matching_event_overrides!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "EVENT_IN_OXFORD_MON_WED",
+            [
+                [
+                    "DTSTART:20201231T170000Z",
+                    "SUMMARY:Overridden event in Oxford summary text",
+                    "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_PARENT_UUID",
+                    "CATEGORIES:OVERRIDDEN_CATEGORY",
+                ],
+                [
+                    "DTSTART:20210102T170000Z",
+                    "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY",
+                    "X-SPACES-BOOKED:12",
+                ],
+            ],
+        );
+
+        assert_eq!(redis::cmd("SAVE").query(connection), Ok(String::from("OK")));
+
+        // std::thread::sleep(std::time::Duration::from_secs(5));
+
+        redis::cmd("FLUSHDB")
+            .query(connection)
+            .with_context(|| {
+                format!(
+                    "failed to cleanup with FLUSHDB after running integration test function: {}", stringify!($test_function),
+                )
+            })?;
+
+        assert_calendar_nil!(connection, "TEST_CALENDAR_UID");
+
+        // Start another redis instance on a different port which will restore the test_dump.rdb
+        // file and allow us to test save and load.
+        let port: u16 = 6481; // Running redis port + 1
+        let _guards = vec![utils::start_redis_server_with_module("redical", port)
+            .with_context(|| "failed to start rdb dump test redis server")?];
+
+        let mut new_connection =
+            utils::get_redis_connection(port).with_context(|| "failed to connect to rdb dump test redis server")?;
+
+        assert_calendar_present!(&mut new_connection, "TEST_CALENDAR_UID");
+
+        list_and_assert_matching_events!(
+            &mut new_connection,
+            "TEST_CALENDAR_UID",
+            [
+                [
+                    "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM",
+                    "RRULE:BYDAY=MO,WE;FREQ=WEEKLY;INTERVAL=1;UNTIL=20211231T170000Z",
+                    "DTSTART:20201231T160000Z",
+                    "DTEND:20201231T170000Z",
+                    "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                    "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
+                    "UID:ONLINE_EVENT_MON_WED",
+                ],
+                [
+                    "SUMMARY:Event in Oxford on Mondays and Wednesdays at 5:00PM",
+                    "RRULE:BYDAY=MO,WE;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
+                    "DTSTART:20201231T170000Z",
+                    "DTEND:20201231T173000Z",
+                    "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                    "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
+                    "GEO:51.751365550307604;-1.2601196837753945",
+                    "UID:EVENT_IN_OXFORD_MON_WED",
+                ],
+            ],
+        );
+
+        list_and_assert_matching_event_overrides!(
+            &mut new_connection,
+            "TEST_CALENDAR_UID",
+            "EVENT_IN_OXFORD_MON_WED",
+            [
+                [
+                    "DTSTART:20201231T170000Z",
+                    "SUMMARY:Overridden event in Oxford summary text",
+                    "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_PARENT_UUID",
+                    "CATEGORIES:OVERRIDDEN_CATEGORY",
+                ],
+                [
+                    "DTSTART:20210102T170000Z",
+                    "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY",
+                    "X-SPACES-BOOKED:12",
+                ],
+            ],
+        );
+
+        Ok(())
+    }
+
     run_all_integration_tests_sequentially!(
         test_calendar_get_set_del,
         test_event_get_set_del_list,
         test_event_override_get_set_del_list,
         test_event_instance_list,
         test_calendar_query,
+        test_rdb_save_load,
     );
 
 }

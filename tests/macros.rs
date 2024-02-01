@@ -583,7 +583,9 @@ macro_rules! run_all_integration_tests_sequentially {
     ($($test_function:ident),+ $(,)*) => {
         #[test]
         fn test_all_integration_tests_sequentially() -> Result<()> {
-            use utils::{get_redis_connection, start_redis_server_with_module};
+            use utils::{get_redis_connection, start_redis_server_with_module, delete_existing_test_rdb_dump};
+
+            delete_existing_test_rdb_dump()?;
 
             let port: u16 = 6480;
             let _guards = vec![start_redis_server_with_module("redical", port)

@@ -233,11 +233,15 @@ pub extern "C" fn rdb_load(rdb: *mut raw::RedisModuleIO, _encver: c_int) -> *mut
         },
     };
 
+    println!("Calendar data type - rdb_load - UID: {:#?}", calendar.uid.uid);
+
     Box::into_raw(Box::new(calendar)).cast::<libc::c_void>()
 }
 
 pub unsafe extern "C" fn rdb_save(rdb: *mut raw::RedisModuleIO, value: *mut c_void) {
     let calendar = unsafe { &*(value as *mut Calendar) };
+
+    println!("Calendar data type - rdb_save - UID: {:#?}", calendar.uid.uid);
 
     let stored_calendar = match StoredCalendar::try_from(calendar) {
         Ok(stored_calendar) => stored_calendar,
