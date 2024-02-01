@@ -82,7 +82,7 @@ macro_rules! build_date_string_property {
                     Some(param_key_value_pairs)
                 };
 
-                let value = SerializedValue::Single(self.serialize_datestring_value(&property_timezone));
+                let value = SerializedValue::Single(self.serialize_datestring_value(Some(&property_timezone)));
 
                 (String::from(Self::NAME), params, value)
             }
@@ -95,7 +95,9 @@ macro_rules! build_date_string_property {
                 self.value_type.as_ref().is_some_and(|value_type| value_type == &String::from("DATE"))
             }
 
-            fn serialize_datestring_value(&self, timezone: &Tz) -> String {
+            pub fn serialize_datestring_value(&self, timezone: Option<&Tz>) -> String {
+                let timezone = timezone.unwrap_or(&Tz::UTC);
+
                 if self.is_date_value_type() {
                     serialize_timestamp_to_ical_date(&self.utc_timestamp, timezone)
                 } else {

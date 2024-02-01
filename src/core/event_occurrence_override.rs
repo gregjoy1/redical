@@ -83,8 +83,20 @@ impl EventOccurrenceOverride {
 
             new_override.set_dtstart_timestamp(dtstart_datetime.timestamp());
 
+            new_override.validate()?;
+
             Ok(new_override)
         })
+    }
+
+    pub fn validate(&self) -> Result<(), String> {
+        if self.dtstart.is_none() {
+            return Err(
+                String::from("Event occurrence override innvalid, expected DTSTART to be defined.")
+            );
+        }
+
+        Ok(())
     }
 
     pub fn insert(&mut self, property: Property) -> Result<&Self, String> {

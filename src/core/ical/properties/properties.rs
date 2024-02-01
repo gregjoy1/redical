@@ -92,6 +92,22 @@ pub enum Property {
     X(XProperty),                       //  "X-*"
 }
 
+impl FromStr for Property {
+    type Err = String;
+
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        all_consuming(Property::parse_ical)(input)
+            .map(|(_remaining, property)| property)
+            .map_err(|error| {
+                if let nom::Err::Error(error) = error {
+                    convert_error(input, error)
+                } else {
+                    error.to_string()
+                }
+            })
+    }
+}
+
 impl SerializableICalProperty for Property {
     fn serialize_to_split_ical(
         &self,

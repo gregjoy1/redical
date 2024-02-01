@@ -114,7 +114,7 @@ impl SerializableICalProperty for RecurrenceIDProperty {
             Some(param_key_value_pairs)
         };
 
-        let value = SerializedValue::Single(self.serialize_datestring_value(&Tz::UTC));
+        let value = SerializedValue::Single(self.serialize_datestring_value());
 
         (String::from(Self::NAME), params, value)
     }
@@ -129,11 +129,11 @@ impl RecurrenceIDProperty {
             .is_some_and(|value_type| value_type == &String::from("DATE"))
     }
 
-    fn serialize_datestring_value(&self, timezone: &Tz) -> String {
+    fn serialize_datestring_value(&self) -> String {
         if self.is_date_value_type() {
-            serialize_timestamp_to_ical_date(&self.utc_timestamp, timezone)
+            serialize_timestamp_to_ical_date(&self.utc_timestamp, &Tz::UTC)
         } else {
-            serialize_timestamp_to_ical_datetime(&self.utc_timestamp, timezone)
+            serialize_timestamp_to_ical_datetime(&self.utc_timestamp, &Tz::UTC)
         }
     }
 

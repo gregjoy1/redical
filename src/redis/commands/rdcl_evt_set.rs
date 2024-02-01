@@ -63,22 +63,7 @@ pub fn redical_event_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
             .map_err(RedisError::String)?;
     }
 
-    event
-        .schedule_properties
-        .build_parsed_rrule_set()
-        .map_err(|error| RedisError::String(error.to_string()))?;
-
-    event
-        .rebuild_indexed_categories()
-        .map_err(RedisError::String)?;
-
-    event
-        .rebuild_indexed_related_to()
-        .map_err(RedisError::String)?;
-
-    event.rebuild_indexed_geo().map_err(RedisError::String)?;
-
-    event.rebuild_indexed_class().map_err(RedisError::String)?;
+    event.rebuild_indexes().map_err(RedisError::String)?;
 
     let updated_event_categories_diff = InvertedEventIndex::diff_indexed_terms(
         existing_event

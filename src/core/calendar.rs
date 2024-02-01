@@ -56,6 +56,43 @@ impl Calendar {
 
         Ok(self)
     }
+
+    pub fn rebuild_indexes(&mut self) -> Result<bool, String> {
+        let indexed_categories = &mut self.indexed_categories;
+        let indexed_related_to = &mut self.indexed_related_to;
+        let indexed_geo = &mut self.indexed_geo;
+        let indexed_class = &mut self.indexed_class;
+
+        for event in self.events.values() {
+            let event_uid = event.uid.uid.to_owned();
+
+            if let Some(indexed_event_categories) = &event.indexed_categories {
+                for (indexed_term, indexed_conclusion) in &indexed_event_categories.terms {
+                    indexed_categories.insert(event_uid.to_owned(), indexed_term.to_owned(), indexed_conclusion)?;
+                }
+            }
+
+            if let Some(indexed_event_related_to) = &event.indexed_related_to {
+                for (indexed_term, indexed_conclusion) in &indexed_event_related_to.terms {
+                    indexed_related_to.insert(event_uid.to_owned(), indexed_term.to_owned(), indexed_conclusion)?;
+                }
+            }
+
+            if let Some(indexed_event_geo) = &event.indexed_geo {
+                for (indexed_long_lat_coord, indexed_conclusion) in &indexed_event_geo.terms {
+                    indexed_geo.insert(event_uid.to_owned(), indexed_long_lat_coord, indexed_conclusion)?;
+                }
+            }
+
+            if let Some(indexed_event_class) = &event.indexed_class {
+                for (indexed_term, indexed_conclusion) in &indexed_event_class.terms {
+                    indexed_class.insert(event_uid.to_owned(), indexed_term.to_owned(), indexed_conclusion)?;
+                }
+            }
+        }
+
+        Ok(true)
+    }
 }
 
 impl SerializableICalComponent for Calendar {
@@ -181,6 +218,7 @@ impl<'a> CalendarIndexUpdater<'a> {
 
         Ok(true)
     }
+
 
     pub fn update_indexed_class(
         &mut self,

@@ -531,6 +531,20 @@ impl Event {
         }
     }
 
+    pub fn rebuild_indexes(&mut self) -> Result<bool, String> {
+        self
+            .schedule_properties
+            .build_parsed_rrule_set()
+            .map_err(|error| error.to_string())?;
+
+        self.rebuild_indexed_categories()?;
+        self.rebuild_indexed_related_to()?;
+        self.rebuild_indexed_geo()?;
+        self.rebuild_indexed_class()?;
+
+        Ok(true)
+    }
+
     pub fn parse_ical(uid: &str, input: &str) -> Result<Event, String> {
         Properties::from_str(input).and_then(|Properties(parsed_properties)| {
             let mut new_event = Event::new(String::from(uid));
