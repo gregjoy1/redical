@@ -1,7 +1,7 @@
 use redis_module::{Context, NextArg, NotifyEvent, RedisError, RedisResult, RedisString, Status, RedisValue};
 
 use crate::core::{Calendar, CalendarIndexUpdater, InvertedEventIndex};
-use crate::redis::calendar_data_type::CALENDAR_DATA_TYPE;
+use crate::redis::datatype::CALENDAR_DATA_TYPE;
 
 pub fn redical_event_del(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     if args.len() < 2 {

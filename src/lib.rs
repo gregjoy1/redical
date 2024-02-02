@@ -6,7 +6,7 @@ mod redis;
 #[cfg(test)]
 mod testing;
 
-use redis::calendar_data_type::CALENDAR_DATA_TYPE;
+use redis::datatype::CALENDAR_DATA_TYPE;
 
 fn on_event(ctx: &Context, event_type: NotifyEvent, event: &str, key: &[u8]) {
     ctx.log_notice(

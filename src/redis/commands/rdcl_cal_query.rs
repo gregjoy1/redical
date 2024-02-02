@@ -5,7 +5,7 @@ use std::str::FromStr;
 use crate::core::ical::serializer::{SerializableICalComponent, SerializationPreferences};
 use crate::core::queries::query::Query;
 use crate::core::Calendar;
-use crate::redis::calendar_data_type::CALENDAR_DATA_TYPE;
+use crate::redis::datatype::CALENDAR_DATA_TYPE;
 
 pub fn redical_calendar_query(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     if args.len() < 2 {

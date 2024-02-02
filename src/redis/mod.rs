@@ -1,2 +1,2 @@
-pub mod calendar_data_type;
+pub mod datatype;
 pub mod commands;
