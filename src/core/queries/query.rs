@@ -429,7 +429,7 @@ mod test {
 
         let query_string = [
             " ",
-            "X-FROM;PROP=DTSTART;OP=GT;TZID=Europe/London;UID=Event_UID:19971002T090000",
+            "X-FROM;PROP=DTSTART;OP=GT;TZID=Europe/London:19971002T090000",
             "X-UNTIL;PROP=DTSTART;OP=LTE;TZID=UTC:19971102T090000",
             "X-CATEGORIES;OP=OR:CATEGORY_ONE,CATEGORY_TWO",
             "X-RELATED-TO:PARENT_UID",
@@ -475,14 +475,8 @@ mod test {
                     lat: 48.85299,
                 },),
 
-                lower_bound_range_condition: Some(LowerBoundRangeCondition::GreaterThan(
-                    RangeConditionProperty::DtStart(875779200,),
-                    Some(String::from("Event_UID")),
-                )),
-
-                upper_bound_range_condition: Some(UpperBoundRangeCondition::LessEqualThan(
-                    RangeConditionProperty::DtStart(878461200,),
-                )),
+                lower_bound_range_condition: Some(LowerBoundRangeCondition::GreaterThan(RangeConditionProperty::DtStart(875779200))),
+                upper_bound_range_condition: Some(UpperBoundRangeCondition::LessEqualThan(RangeConditionProperty::DtStart(878461200))),
 
                 in_timezone: chrono_tz::Tz::Europe__Vilnius,
 

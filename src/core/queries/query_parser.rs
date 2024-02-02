@@ -258,7 +258,6 @@ fn parse_from_query_property_content(input: &str) -> ParserResult<&str, ParsedQu
                         })
                     ),
                     ("TZID", common::ParsedValue::parse_timezone),
-                    ("UID", common::ParsedValue::parse_single(parse_single_value)),
                 ),
                 common::colon_delimeter,
                 common::ParsedValue::parse_date_string,
@@ -306,21 +305,16 @@ fn parse_from_query_property_content(input: &str) -> ParserResult<&str, ParsedQu
                 _ => RangeConditionProperty::DtStart(utc_timestamp),
             };
 
-            let event_uid = match parsed_params.get(&"UID") {
-                Some(common::ParsedValue::Single(uid)) => Some(String::from(*uid)),
-                _ => None,
-            };
-
             let lower_bound_range_condition = match parsed_params.get(&"OP") {
                 Some(common::ParsedValue::Single("GT")) => {
-                    LowerBoundRangeCondition::GreaterThan(range_condition_property, event_uid)
+                    LowerBoundRangeCondition::GreaterThan(range_condition_property)
                 }
 
                 Some(common::ParsedValue::Single("GTE")) => {
-                    LowerBoundRangeCondition::GreaterEqualThan(range_condition_property, event_uid)
+                    LowerBoundRangeCondition::GreaterEqualThan(range_condition_property)
                 }
 
-                _ => LowerBoundRangeCondition::GreaterThan(range_condition_property, event_uid),
+                _ => LowerBoundRangeCondition::GreaterThan(range_condition_property),
             };
 
             Ok(
@@ -1574,7 +1568,7 @@ mod test {
         );
 
         let query_string = [
-            "X-FROM;PROP=DTSTART;OP=GT;TZID=Europe/London;UID=Event_UID:19971002T090000",
+            "X-FROM;PROP=DTSTART;OP=GT;TZID=Europe/London:19971002T090000",
             "X-UNTIL;PROP=DTSTART;OP=LTE;TZID=UTC:19971102T090000",
             "X-CATEGORIES;OP=OR:CATEGORY_ONE,CATEGORY_TWO",
             "X-RELATED-TO:PARENT_UID",
@@ -1649,14 +1643,8 @@ mod test {
                         lat: 48.85299,
                     }),
 
-                    lower_bound_range_condition: Some(LowerBoundRangeCondition::GreaterThan(
-                        RangeConditionProperty::DtStart(875779200,),
-                        Some(String::from("Event_UID")),
-                    )),
-
-                    upper_bound_range_condition: Some(UpperBoundRangeCondition::LessEqualThan(
-                        RangeConditionProperty::DtStart(878461200,),
-                    )),
+                    lower_bound_range_condition: Some(LowerBoundRangeCondition::GreaterThan(RangeConditionProperty::DtStart(875779200))),
+                    upper_bound_range_condition: Some(UpperBoundRangeCondition::LessEqualThan(RangeConditionProperty::DtStart(878461200))),
 
                     in_timezone: chrono_tz::Tz::Europe__Vilnius,
 
@@ -1672,7 +1660,7 @@ mod test {
     #[test]
     fn test_parse_query_string_with_grouped_conditionals() {
         let query_string = [
-            "X-FROM;PROP=DTSTART;OP=GT;TZID=Europe/London;UID=Event_UID:19971002T090000",
+            "X-FROM;PROP=DTSTART;OP=GT;TZID=Europe/London:19971002T090000",
             "X-UNTIL;PROP=DTSTART;OP=LTE;TZID=UTC:19971102T090000",
             "(",
             "(",
@@ -1769,14 +1757,8 @@ mod test {
                         lat: 48.85299,
                     }),
 
-                    lower_bound_range_condition: Some(LowerBoundRangeCondition::GreaterThan(
-                        RangeConditionProperty::DtStart(875779200,),
-                        Some(String::from("Event_UID")),
-                    )),
-
-                    upper_bound_range_condition: Some(UpperBoundRangeCondition::LessEqualThan(
-                        RangeConditionProperty::DtStart(878461200,),
-                    )),
+                    lower_bound_range_condition: Some(LowerBoundRangeCondition::GreaterThan(RangeConditionProperty::DtStart(875779200))),
+                    upper_bound_range_condition: Some(UpperBoundRangeCondition::LessEqualThan(RangeConditionProperty::DtStart(878461200))),
 
                     in_timezone: chrono_tz::Tz::Europe__Vilnius,
 

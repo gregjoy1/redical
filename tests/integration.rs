@@ -616,7 +616,7 @@ mod integration {
             connection,
             "TEST_CALENDAR_UID",
             [
-                "X-FROM;PROP=DTSTART;OP=GT;TZID=Europe/London;UID=Event_UID:20210105T180000Z",
+                "X-FROM;PROP=DTSTART;OP=GT;TZID=Europe/London:20210105T180000Z",
                 "X-UNTIL;PROP=DTSTART;OP=LTE;TZID=UTC:20210630T180000Z",
                 "(",
                 "(",
