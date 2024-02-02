@@ -448,26 +448,20 @@ mod test {
                         Box::new(WhereConditional::Operator(
                             Box::new(WhereConditional::Property(
                                 WhereConditionalProperty::Categories(String::from("CATEGORY_ONE")),
-                                None,
                             )),
                             Box::new(WhereConditional::Property(
                                 WhereConditionalProperty::Categories(String::from("CATEGORY_TWO")),
-                                None,
                             )),
                             WhereOperator::Or,
-                            None,
                         )),
-                        None,
                     )),
                     Box::new(WhereConditional::Property(
                         WhereConditionalProperty::RelatedTo(KeyValuePair::new(
                             String::from("PARENT"),
                             String::from("PARENT_UID"),
                         )),
-                        None,
                     )),
                     WhereOperator::And,
-                    None,
                 )),
 
                 ordering_condition: OrderingCondition::DtStartGeoDist(GeoPoint {

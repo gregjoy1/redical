@@ -942,7 +942,6 @@ fn where_group_to_where_conditional(
                     Box::new(existing_where_conditional),
                     Box::new(new_where_conditional),
                     external_operator.clone(),
-                    None,
                 ))
             } else {
                 current_where_conditional = Some(new_where_conditional);
@@ -951,22 +950,9 @@ fn where_group_to_where_conditional(
     }
 
     current_where_conditional.and_then(|where_conditional| {
-        Some(WhereConditional::Group(Box::new(where_conditional), None))
+        Some(WhereConditional::Group(Box::new(where_conditional)))
     })
 }
-
-// parse_timezone_query_property_content
-// parse_offset_query_property_content
-// parse_limit_query_property_content
-// parse_distinct_uid_query_property_content
-// parse_from_query_property_content
-// parse_until_query_property_content
-// parse_categories_query_property_content
-// parse_related_to_query_property_content
-// parse_geo_distance_query_property_content
-// parse_class_query_property_content
-// parse_order_to_query_property_content
-// parse_group_query_property_component
 
 pub fn parse_query_string(input: &str) -> ParserResult<&str, Query> {
     // Just return the default Query (return everything) if passed empty string ("").
@@ -1044,7 +1030,6 @@ pub fn parse_query_string(input: &str) -> ParserResult<&str, Query> {
                                 Box::new(current_where_conditional),
                                 Box::new(new_where_conditional),
                                 WhereOperator::And,
-                                None,
                             )
                         } else {
                             new_where_conditional
@@ -1075,7 +1060,6 @@ pub fn parse_query_string(input: &str) -> ParserResult<&str, Query> {
                                 Box::new(current_where_conditional),
                                 Box::new(new_where_conditional),
                                 WhereOperator::And,
-                                None,
                             )
                         } else {
                             new_where_conditional
@@ -1097,7 +1081,6 @@ pub fn parse_query_string(input: &str) -> ParserResult<&str, Query> {
                                 Box::new(current_where_conditional),
                                 Box::new(new_where_conditional),
                                 WhereOperator::And,
-                                None,
                             )
                         } else {
                             new_where_conditional
@@ -1123,7 +1106,6 @@ pub fn parse_query_string(input: &str) -> ParserResult<&str, Query> {
                                 Box::new(current_where_conditional),
                                 Box::new(new_where_conditional),
                                 WhereOperator::And,
-                                None,
                             )
                         } else {
                             new_where_conditional
@@ -1145,7 +1127,6 @@ pub fn parse_query_string(input: &str) -> ParserResult<&str, Query> {
                                 Box::new(current_where_conditional),
                                 Box::new(new_where_conditional),
                                 WhereOperator::And,
-                                None,
                             )
                         } else {
                             new_where_conditional
@@ -1170,13 +1151,11 @@ fn where_categories_to_where_conditional(
 
         1 => Some(WhereConditional::Property(
             WhereConditionalProperty::Categories(categories[0].clone()),
-            None,
         )),
 
         _ => {
             let mut current_property = WhereConditional::Property(
                 WhereConditionalProperty::Categories(categories[0].clone()),
-                None,
             );
 
             for category in categories[1..].iter() {
@@ -1184,14 +1163,12 @@ fn where_categories_to_where_conditional(
                     Box::new(current_property),
                     Box::new(WhereConditional::Property(
                         WhereConditionalProperty::Categories(category.clone()),
-                        None,
                     )),
                     operator.clone(),
-                    None,
                 );
             }
 
-            Some(WhereConditional::Group(Box::new(current_property), None))
+            Some(WhereConditional::Group(Box::new(current_property)))
         }
     }
 }
@@ -1209,7 +1186,6 @@ fn where_related_to_uids_to_where_conditional(
                 reltype.clone(),
                 related_to_uids[0].clone(),
             )),
-            None,
         )),
 
         _ => {
@@ -1218,7 +1194,6 @@ fn where_related_to_uids_to_where_conditional(
                     reltype.clone(),
                     related_to_uids[0].clone(),
                 )),
-                None,
             );
 
             for related_to_uid in related_to_uids[1..].iter() {
@@ -1229,14 +1204,12 @@ fn where_related_to_uids_to_where_conditional(
                             reltype.clone(),
                             related_to_uid.clone(),
                         )),
-                        None,
                     )),
                     operator.clone(),
-                    None,
                 );
             }
 
-            Some(WhereConditional::Group(Box::new(current_property), None))
+            Some(WhereConditional::Group(Box::new(current_property)))
         }
     }
 }
@@ -1247,7 +1220,6 @@ fn where_geo_distance_to_where_conditional(
 ) -> Option<WhereConditional> {
     Some(WhereConditional::Property(
         WhereConditionalProperty::Geo(distance.clone(), long_lat.clone()),
-        None,
     ))
 }
 
@@ -1260,13 +1232,11 @@ fn where_class_to_where_conditional(
 
         1 => Some(WhereConditional::Property(
             WhereConditionalProperty::Class(classifications[0].clone()),
-            None,
         )),
 
         _ => {
             let mut current_property = WhereConditional::Property(
                 WhereConditionalProperty::Class(classifications[0].clone()),
-                None,
             );
 
             for class in classifications[1..].iter() {
@@ -1274,14 +1244,12 @@ fn where_class_to_where_conditional(
                     Box::new(current_property),
                     Box::new(WhereConditional::Property(
                         WhereConditionalProperty::Class(class.clone()),
-                        None,
                     )),
                     operator.clone(),
-                    None,
                 );
             }
 
-            Some(WhereConditional::Group(Box::new(current_property), None))
+            Some(WhereConditional::Group(Box::new(current_property)))
         }
     }
 }
@@ -1352,7 +1320,6 @@ mod test {
             where_class_to_where_conditional(&vec![String::from("PRIVATE"),], &WhereOperator::And,),
             Some(WhereConditional::Property(
                 WhereConditionalProperty::Class(String::from("PRIVATE")),
-                None,
             )),
         );
 
@@ -1370,23 +1337,17 @@ mod test {
                     Box::new(WhereConditional::Operator(
                         Box::new(WhereConditional::Property(
                             WhereConditionalProperty::Class(String::from("PUBLIC")),
-                            None,
                         )),
                         Box::new(WhereConditional::Property(
                             WhereConditionalProperty::Class(String::from("PRIVATE")),
-                            None,
                         )),
                         WhereOperator::Or,
-                        None,
                     )),
                     Box::new(WhereConditional::Property(
                         WhereConditionalProperty::Class(String::from("CONFIDENTIAL")),
-                        None,
                     )),
                     WhereOperator::Or,
-                    None,
                 )),
-                None,
             )),
         );
     }
@@ -1447,7 +1408,6 @@ mod test {
             ),
             Some(WhereConditional::Property(
                 WhereConditionalProperty::Categories(String::from("CATEGORY_ONE")),
-                None,
             )),
         );
 
@@ -1465,23 +1425,17 @@ mod test {
                     Box::new(WhereConditional::Operator(
                         Box::new(WhereConditional::Property(
                             WhereConditionalProperty::Categories(String::from("CATEGORY_ONE")),
-                            None,
                         )),
                         Box::new(WhereConditional::Property(
                             WhereConditionalProperty::Categories(String::from("CATEGORY_TWO")),
-                            None,
                         )),
                         WhereOperator::Or,
-                        None,
                     )),
                     Box::new(WhereConditional::Property(
                         WhereConditionalProperty::Categories(String::from("CATEGORY_THREE")),
-                        None,
                     )),
                     WhereOperator::Or,
-                    None,
                 )),
-                None,
             )),
         );
     }
@@ -1508,7 +1462,6 @@ mod test {
                     String::from("PARENT"),
                     String::from("PARENT_UID_ONE"),
                 )),
-                None,
             )),
         );
 
@@ -1530,29 +1483,23 @@ mod test {
                                 String::from("PARENT"),
                                 String::from("PARENT_UID_ONE"),
                             )),
-                            None,
                         )),
                         Box::new(WhereConditional::Property(
                             WhereConditionalProperty::RelatedTo(KeyValuePair::new(
                                 String::from("PARENT"),
                                 String::from("PARENT_UID_TWO"),
                             )),
-                            None,
                         )),
                         WhereOperator::Or,
-                        None,
                     )),
                     Box::new(WhereConditional::Property(
                         WhereConditionalProperty::RelatedTo(KeyValuePair::new(
                             String::from("PARENT"),
                             String::from("PARENT_UID_THREE"),
                         )),
-                        None,
                     )),
                     WhereOperator::Or,
-                    None,
                 )),
-                None,
             )),
         );
     }
@@ -1594,28 +1541,22 @@ mod test {
                                             WhereConditionalProperty::Categories(String::from(
                                                 "CATEGORY_ONE"
                                             )),
-                                            None,
                                         )),
                                         Box::new(WhereConditional::Property(
                                             WhereConditionalProperty::Categories(String::from(
                                                 "CATEGORY_TWO"
                                             )),
-                                            None,
                                         )),
                                         WhereOperator::Or,
-                                        None,
                                     )),
-                                    None,
                                 )),
                                 Box::new(WhereConditional::Property(
                                     WhereConditionalProperty::RelatedTo(KeyValuePair::new(
                                         String::from("PARENT"),
                                         String::from("PARENT_UID"),
                                     )),
-                                    None,
                                 )),
                                 WhereOperator::And,
-                                None,
                             )),
                             Box::new(WhereConditional::Property(
                                 WhereConditionalProperty::Geo(
@@ -1625,17 +1566,13 @@ mod test {
                                         lat: 48.85299,
                                     },
                                 ),
-                                None,
                             )),
                             WhereOperator::And,
-                            None,
                         )),
                         Box::new(WhereConditional::Property(
                             WhereConditionalProperty::Class(String::from(String::from("PRIVATE"),)),
-                            None,
                         )),
                         WhereOperator::And,
-                        None,
                     )),
 
                     ordering_condition: OrderingCondition::DtStartGeoDist(GeoPoint {
@@ -1703,28 +1640,22 @@ mod test {
                                                     lat: 48.85299,
                                                 },
                                             ),
-                                            None,
                                         )),
                                         Box::new(WhereConditional::Property(
                                             WhereConditionalProperty::Categories(String::from(
                                                 "CATEGORY_ONE"
                                             )),
-                                            None,
                                         )),
                                         WhereOperator::Or,
-                                        None,
                                     )),
                                     Box::new(WhereConditional::Property(
                                         WhereConditionalProperty::RelatedTo(KeyValuePair::new(
                                             String::from("PARENT"),
                                             String::from("PARENT_UID"),
                                         )),
-                                        None
                                     )),
                                     WhereOperator::Or,
-                                    None,
                                 )),
-                                None
                             )),
                             Box::new(WhereConditional::Group(
                                 Box::new(WhereConditional::Operator(
@@ -1732,24 +1663,18 @@ mod test {
                                         WhereConditionalProperty::Categories(String::from(
                                             "CATEGORY_TWO"
                                         )),
-                                        None,
                                     )),
                                     Box::new(WhereConditional::Property(
                                         WhereConditionalProperty::RelatedTo(KeyValuePair::new(
                                             String::from("CHILD"),
                                             String::from("CHILD_UID"),
                                         )),
-                                        None,
                                     )),
                                     WhereOperator::Or,
-                                    None,
                                 )),
-                                None
                             )),
                             WhereOperator::And,
-                            None,
                         )),
-                        None
                     )),
 
                     ordering_condition: OrderingCondition::DtStartGeoDist(GeoPoint {

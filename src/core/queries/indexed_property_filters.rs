@@ -36,14 +36,13 @@ impl WhereOperator {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum WhereConditional {
-    Property(WhereConditionalProperty, Option<WhereConditionalAnalysis>),
+    Property(WhereConditionalProperty),
     Operator(
         Box<WhereConditional>,
         Box<WhereConditional>,
         WhereOperator,
-        Option<WhereConditionalAnalysis>,
     ),
-    Group(Box<WhereConditional>, Option<WhereConditionalAnalysis>),
+    Group(Box<WhereConditional>),
 }
 
 impl WhereConditional {
@@ -51,13 +50,8 @@ impl WhereConditional {
         let start = std::time::Instant::now();
 
         match self {
-            WhereConditional::Property(where_conditional_property, where_conditional_analysis) => {
+            WhereConditional::Property(where_conditional_property) => {
                 let inverted_calendar_index_term = where_conditional_property.execute(calendar)?;
-
-                let _ = where_conditional_analysis.insert(WhereConditionalAnalysis {
-                    elapsed_duration: start.elapsed(),
-                    output_count: inverted_calendar_index_term.events.len(),
-                });
 
                 Ok(inverted_calendar_index_term)
             }
@@ -66,81 +60,17 @@ impl WhereConditional {
                 where_conditional_a,
                 where_conditional_b,
                 where_operator,
-                where_conditional_analysis,
             ) => {
                 let inverted_calendar_index_term =
                     where_operator.execute(where_conditional_a, where_conditional_b, calendar)?;
 
-                let _ = where_conditional_analysis.insert(WhereConditionalAnalysis {
-                    elapsed_duration: start.elapsed(),
-                    output_count: inverted_calendar_index_term.events.len(),
-                });
-
                 Ok(inverted_calendar_index_term)
             }
 
-            WhereConditional::Group(where_conditional, where_conditional_analysis) => {
+            WhereConditional::Group(where_conditional) => {
                 let inverted_calendar_index_term = where_conditional.execute(calendar)?;
 
-                let _ = where_conditional_analysis.insert(WhereConditionalAnalysis {
-                    elapsed_duration: start.elapsed(),
-                    output_count: inverted_calendar_index_term.events.len(),
-                });
-
                 Ok(inverted_calendar_index_term)
-            }
-        }
-    }
-
-    pub fn get_where_conditional_analyses(
-        &self,
-        depth: i32,
-    ) -> Result<Vec<(i32, String, WhereConditionalAnalysis)>, String> {
-        match self {
-            WhereConditional::Property(where_conditional_property, where_conditional_analysis) => {
-                let details = format!("Property: {:#?}", where_conditional_property.get_details());
-
-                if let Some(where_conditional_analysis) = where_conditional_analysis {
-                    Ok(vec![(depth, details, where_conditional_analysis.clone())])
-                } else {
-                    Err(format!("None WhereConditionalAnalysis at {details}"))
-                }
-            }
-
-            WhereConditional::Operator(
-                where_conditional_a,
-                where_conditional_b,
-                where_operator,
-                where_conditional_analysis,
-            ) => {
-                let details = format!("Operator: {:#?}", where_operator);
-
-                if let Some(where_conditional_analysis) = where_conditional_analysis {
-                    Ok(vec![
-                        vec![(depth, details, where_conditional_analysis.clone())],
-                        where_conditional_a.get_where_conditional_analyses(depth + 1)?,
-                        where_conditional_b.get_where_conditional_analyses(depth + 1)?,
-                    ]
-                    .concat())
-                } else {
-                    Err(format!("None WhereConditionalAnalysis at {details}"))
-                }
-            }
-
-            WhereConditional::Group(where_conditional, where_conditional_analysis) => {
-                if let Some(where_conditional_analysis) = where_conditional_analysis {
-                    Ok(vec![
-                        vec![(
-                            depth,
-                            String::from("Group"),
-                            where_conditional_analysis.clone(),
-                        )],
-                        where_conditional.get_where_conditional_analyses(depth + 1)?,
-                    ]
-                    .concat())
-                } else {
-                    Err(format!("None WhereConditionalAnalysis at Group"))
-                }
             }
         }
     }
@@ -328,12 +258,6 @@ impl WhereConditionalProperty {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
-pub struct WhereConditionalAnalysis {
-    elapsed_duration: Duration,
-    output_count: usize,
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
@@ -488,47 +412,32 @@ mod test {
                     Box::new(WhereConditional::Operator(
                         Box::new(WhereConditional::Property(
                             WhereConditionalProperty::Categories(String::from("CATEGORY_ONE")),
-                            None,
                         )),
                         Box::new(WhereConditional::Property(
                             WhereConditionalProperty::RelatedTo(KeyValuePair::new(
                                 String::from("PARENT"),
                                 String::from("PARENT_UID"),
                             )),
-                            None,
                         )),
                         WhereOperator::Or,
-                        None,
                     )),
-                    None,
                 )),
                 Box::new(WhereConditional::Group(
                     Box::new(WhereConditional::Operator(
                         Box::new(WhereConditional::Property(
                             WhereConditionalProperty::Categories(String::from("CATEGORY_TWO")),
-                            None,
                         )),
                         Box::new(WhereConditional::Property(
                             WhereConditionalProperty::RelatedTo(KeyValuePair::new(
                                 String::from("CHILD"),
                                 String::from("CHILD_UID"),
                             )),
-                            None,
                         )),
                         WhereOperator::Or,
-                        None,
                     )),
-                    None,
                 )),
                 WhereOperator::And,
-                None,
             )),
-            None,
-        );
-
-        assert_eq!(
-            query_where_conditional.get_where_conditional_analyses(0),
-            Err(format!("None WhereConditionalAnalysis at Group")),
         );
 
         assert_eq!(
@@ -561,85 +470,6 @@ mod test {
                     ),
                 ])
             }
-        );
-
-        let where_conditional_analyses = query_where_conditional
-            .get_where_conditional_analyses(0)
-            .unwrap();
-
-        assert_eq!(where_conditional_analyses.len(), 10);
-
-        use crate::testing::macros::assert_where_conditional_analysis;
-
-        assert_where_conditional_analysis!(
-            where_conditional_analyses,
-            0,
-            0,
-            6usize,
-            String::from("Group")
-        );
-        assert_where_conditional_analysis!(
-            where_conditional_analyses,
-            1,
-            1,
-            6usize,
-            String::from("Operator: And")
-        );
-        assert_where_conditional_analysis!(
-            where_conditional_analyses,
-            2,
-            2,
-            12usize,
-            String::from("Group")
-        );
-        assert_where_conditional_analysis!(
-            where_conditional_analyses,
-            3,
-            3,
-            12usize,
-            String::from("Operator: Or")
-        );
-        assert_where_conditional_analysis!(
-            where_conditional_analyses,
-            4,
-            4,
-            6usize,
-            String::from("Property: \"CATEGORIES:CATEGORY_ONE\"")
-        );
-        assert_where_conditional_analysis!(
-            where_conditional_analyses,
-            5,
-            4,
-            6usize,
-            String::from("Property: \"RELATED-TO;RELTYPE=PARENT:PARENT_UID\"")
-        );
-        assert_where_conditional_analysis!(
-            where_conditional_analyses,
-            6,
-            2,
-            12usize,
-            String::from("Group")
-        );
-        assert_where_conditional_analysis!(
-            where_conditional_analyses,
-            7,
-            3,
-            12usize,
-            String::from("Operator: Or")
-        );
-        assert_where_conditional_analysis!(
-            where_conditional_analyses,
-            8,
-            4,
-            6usize,
-            String::from("Property: \"CATEGORIES:CATEGORY_TWO\"")
-        );
-        assert_where_conditional_analysis!(
-            where_conditional_analyses,
-            9,
-            4,
-            6usize,
-            String::from("Property: \"RELATED-TO;RELTYPE=CHILD:CHILD_UID\"")
         );
     }
 }
