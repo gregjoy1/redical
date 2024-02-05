@@ -163,6 +163,22 @@ mod test {
     }
 
     #[test]
+    fn test_parse_ical_with_escapes() {
+        assert_eq!(
+            XProperty::parse_ical("X-PROPERTY:Experimental\\, escaped\\; property\\: text."),
+            Ok((
+                "",
+                XProperty {
+                    language: None,
+                    x_params: None,
+                    name: String::from("X-PROPERTY"),
+                    value: String::from("Experimental\\, escaped\\; property\\: text."),
+                },
+            ))
+        );
+    }
+
+    #[test]
     fn test_parse_ical_minimal() {
         assert_eq!(
             XProperty::parse_ical("X-PROPERTY:Experimental property text."),

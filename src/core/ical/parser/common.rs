@@ -483,7 +483,7 @@ pub fn param_text(input: &str) -> ParserResult<&str, &str> {
 pub fn value_text(input: &str) -> ParserResult<&str, &str> {
     context(
         "value text",
-        escaped(take_while1(is_value_text_char), '\\', one_of(r#"\;,Nn"#)),
+        escaped(take_while1(is_value_text_char), '\\', one_of(r#"\;:,Nn"#)),
     )(input)
 }
 
