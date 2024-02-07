@@ -531,12 +531,16 @@ impl Event {
         }
     }
 
-    pub fn rebuild_indexes(&mut self) -> Result<bool, String> {
+    pub fn validate(&mut self) -> Result<bool, String> {
         self
             .schedule_properties
             .build_parsed_rrule_set()
             .map_err(|error| error.to_string())?;
 
+        Ok(true)
+    }
+
+    pub fn rebuild_indexes(&mut self) -> Result<bool, String> {
         self.rebuild_indexed_categories()?;
         self.rebuild_indexed_related_to()?;
         self.rebuild_indexed_geo()?;
@@ -624,6 +628,7 @@ impl Event {
     pub fn override_occurrence(
         &mut self,
         event_occurrence_override: &EventOccurrenceOverride,
+        update_indexes: bool,
     ) -> Result<&Self, String> {
         let Some(timestamp) = event_occurrence_override.get_dtstart_timestamp() else {
             return Err(String::from("Expected event occurrence override to have dtstart defined."));
@@ -631,6 +636,11 @@ impl Event {
 
         self.overrides
             .insert(timestamp, event_occurrence_override.clone());
+
+        // Only proceed with updating the indexes of the event if required.
+        if update_indexes == false {
+            return Ok(self);
+        }
 
         if let Some(ref mut indexed_categories) = self.indexed_categories {
             if let Some(overridden_categories) = &event_occurrence_override
@@ -679,8 +689,13 @@ impl Event {
         Ok(self)
     }
 
-    pub fn remove_occurrence_override(&mut self, timestamp: i64) -> Result<bool, String> {
+    pub fn remove_occurrence_override(&mut self, timestamp: i64, update_indexes: bool) -> Result<bool, String> {
         let override_removed = self.overrides.remove(&timestamp).is_some();
+
+        // Only proceed with updating the indexes of the event if required.
+        if update_indexes == false {
+            return Ok(override_removed);
+        }
 
         if let Some(ref mut indexed_categories) = self.indexed_categories {
             indexed_categories.remove_override(timestamp);
@@ -695,6 +710,20 @@ impl Event {
         } else {
             self.indexed_related_to =
                 Some(InvertedEventIndex::<KeyValuePair>::new_from_event_related_to(&*self));
+        }
+
+        if let Some(ref mut indexed_geo) = self.indexed_geo {
+            indexed_geo.remove_override(timestamp);
+        } else {
+            self.indexed_geo =
+                Some(InvertedEventIndex::<GeoPoint>::new_from_event_geo(&*self));
+        }
+
+        if let Some(ref mut indexed_class) = self.indexed_class {
+            indexed_class.remove_override(timestamp);
+        } else {
+            self.indexed_class =
+                Some(InvertedEventIndex::<String>::new_from_event_class(&*self));
         }
 
         Ok(override_removed)
@@ -1172,7 +1201,7 @@ mod test {
         };
 
         assert_eq!(
-            parsed_event.override_occurrence(&event_occurrence_override),
+            parsed_event.override_occurrence(&event_occurrence_override, true),
             Ok(
                 &Event {
                     uid: String::from("event_UID").into(),
@@ -1249,7 +1278,7 @@ mod test {
         );
 
         // Assert returns Ok(true) if actually removed existing override.
-        assert_eq!(parsed_event.remove_occurrence_override(1610476200), Ok(true));
+        assert_eq!(parsed_event.remove_occurrence_override(1610476200, true), Ok(true));
 
         // Assert override now no longer present in the Event.
         assert_eq!(
@@ -1295,7 +1324,7 @@ mod test {
         );
 
         // Assert returns Ok(false) if the override did not exist and nothing was removed.
-        assert_eq!(parsed_event.remove_occurrence_override(1610476200), Ok(false));
+        assert_eq!(parsed_event.remove_occurrence_override(1610476200, true), Ok(false));
     }
 
     #[test]

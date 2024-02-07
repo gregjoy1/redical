@@ -44,6 +44,8 @@ pub fn redical_event_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     let mut event =
         Event::parse_ical(event_uid.as_str(), other.as_str()).map_err(RedisError::String)?;
 
+    event.validate();
+
     let existing_event =
         calendar
             .events
@@ -63,58 +65,60 @@ pub fn redical_event_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
             .map_err(RedisError::String)?;
     }
 
-    event.rebuild_indexes().map_err(RedisError::String)?;
+    if calendar.indexes_active {
+        event.rebuild_indexes().map_err(RedisError::String)?;
 
-    let updated_event_categories_diff = InvertedEventIndex::diff_indexed_terms(
-        existing_event
-            .as_ref()
-            .and_then(|existing_event| existing_event.indexed_categories.clone())
-            .as_ref(),
-        event.indexed_categories.as_ref(),
-    );
+        let updated_event_categories_diff = InvertedEventIndex::diff_indexed_terms(
+            existing_event
+                .as_ref()
+                .and_then(|existing_event| existing_event.indexed_categories.clone())
+                .as_ref(),
+            event.indexed_categories.as_ref(),
+        );
 
-    let updated_event_related_to_diff = InvertedEventIndex::diff_indexed_terms(
-        existing_event
-            .as_ref()
-            .and_then(|existing_event| existing_event.indexed_related_to.clone())
-            .as_ref(),
-        event.indexed_related_to.as_ref(),
-    );
+        let updated_event_related_to_diff = InvertedEventIndex::diff_indexed_terms(
+            existing_event
+                .as_ref()
+                .and_then(|existing_event| existing_event.indexed_related_to.clone())
+                .as_ref(),
+            event.indexed_related_to.as_ref(),
+        );
 
-    let updated_event_geo_diff = InvertedEventIndex::diff_indexed_terms(
-        existing_event
-            .as_ref()
-            .and_then(|existing_event| existing_event.indexed_geo.clone())
-            .as_ref(),
-        event.indexed_geo.as_ref(),
-    );
+        let updated_event_geo_diff = InvertedEventIndex::diff_indexed_terms(
+            existing_event
+                .as_ref()
+                .and_then(|existing_event| existing_event.indexed_geo.clone())
+                .as_ref(),
+            event.indexed_geo.as_ref(),
+        );
 
-    let updated_event_class_diff = InvertedEventIndex::diff_indexed_terms(
-        existing_event
-            .as_ref()
-            .and_then(|existing_event| existing_event.indexed_class.clone())
-            .as_ref(),
-        event.indexed_class.as_ref(),
-    );
+        let updated_event_class_diff = InvertedEventIndex::diff_indexed_terms(
+            existing_event
+                .as_ref()
+                .and_then(|existing_event| existing_event.indexed_class.clone())
+                .as_ref(),
+            event.indexed_class.as_ref(),
+        );
 
-    let mut calendar_index_updater =
-        CalendarIndexUpdater::new(&event_uid, calendar);
+        let mut calendar_index_updater =
+            CalendarIndexUpdater::new(&event_uid, calendar);
 
-    calendar_index_updater
-        .update_indexed_categories(&updated_event_categories_diff)
-        .map_err(RedisError::String)?;
+        calendar_index_updater
+            .update_indexed_categories(&updated_event_categories_diff)
+            .map_err(RedisError::String)?;
 
-    calendar_index_updater
-        .update_indexed_related_to(&updated_event_related_to_diff)
-        .map_err(RedisError::String)?;
+        calendar_index_updater
+            .update_indexed_related_to(&updated_event_related_to_diff)
+            .map_err(RedisError::String)?;
 
-    calendar_index_updater
-        .update_indexed_geo(&updated_event_geo_diff)
-        .map_err(RedisError::String)?;
+        calendar_index_updater
+            .update_indexed_geo(&updated_event_geo_diff)
+            .map_err(RedisError::String)?;
 
-    calendar_index_updater
-        .update_indexed_class(&updated_event_class_diff)
-        .map_err(RedisError::String)?;
+        calendar_index_updater
+            .update_indexed_class(&updated_event_class_diff)
+            .map_err(RedisError::String)?;
+    }
 
     let serialized_event_ical = event.serialize_to_ical(None);
 

@@ -157,8 +157,6 @@ impl TryFrom<&RDBEvent> for Event {
                  .map_err(|error| ParseRDBEntityError::OnSelf(rdb_event_uid.to_owned(), error))?;
         }
 
-        event.rebuild_indexes().map_err(|error| ParseRDBEntityError::OnSelf(rdb_event_uid.to_owned(), error))?;
-
         let parsed_event_uid = event.uid.uid.to_owned();
 
         if rdb_event_uid != parsed_event_uid {
@@ -170,13 +168,17 @@ impl TryFrom<&RDBEvent> for Event {
             );
         }
 
+        event.validate().map_err(|error| ParseRDBEntityError::OnSelf(rdb_event_uid.to_owned(), error))?;
+
         for rdb_event_occurrence_override in rdb_event.2.iter() {
             let event_occurrence_override =
                 EventOccurrenceOverride::try_from(rdb_event_occurrence_override)
                     .map_err(|error| ParseRDBEntityError::OnChild(rdb_event_uid.to_owned(), Box::new(error)))?;
 
-            event.override_occurrence(&event_occurrence_override).map_err(|error| ParseRDBEntityError::OnSelf(rdb_event_uid.to_owned(), error))?;
+            event.override_occurrence(&event_occurrence_override, false).map_err(|error| ParseRDBEntityError::OnSelf(rdb_event_uid.to_owned(), error))?;
         }
+
+        event.rebuild_indexes().map_err(|error| ParseRDBEntityError::OnSelf(rdb_event_uid.to_owned(), error))?;
 
         Ok(
             event
@@ -260,7 +262,9 @@ mod test {
                 "RRULE:FREQ=WEEKLY;UNTIL=19700101T000500Z;INTERVAL=1 CLASS:PUBLIC CATEGORIES:CATEGORY_ONE DTSTART:19700101T000500Z",
             ).unwrap();
 
-        event.override_occurrence(&event_occurrence_override).unwrap();
+        event.override_occurrence(&event_occurrence_override, true).unwrap();
+
+        event.validate().unwrap();
         event.rebuild_indexes().unwrap();
 
         let mut calendar = Calendar::new(String::from("CALENDAR_UID"));
@@ -326,7 +330,9 @@ mod test {
                 "RRULE:FREQ=WEEKLY;UNTIL=19700101T000500Z;INTERVAL=1 CLASS:PUBLIC CATEGORIES:CATEGORY_ONE DTSTART:19700101T000500Z",
             ).unwrap();
 
-        event.override_occurrence(&event_occurrence_override).unwrap();
+        event.override_occurrence(&event_occurrence_override, true).unwrap();
+
+        event.validate().unwrap();
         event.rebuild_indexes().unwrap();
 
         let mut calendar = Calendar::new(String::from("CALENDAR_UID"));

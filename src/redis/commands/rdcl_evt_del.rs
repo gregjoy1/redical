@@ -27,47 +27,49 @@ pub fn redical_event_del(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
         )));
     };
 
-    let Some(existing_event) = calendar.events.get_mut(&event_uid) else {
-        return Ok(RedisValue::Bool(false));
-    };
+    if calendar.indexes_active {
+        let Some(existing_event) = calendar.events.get_mut(&event_uid) else {
+            return Ok(RedisValue::Bool(false));
+        };
 
-    let updated_event_categories_diff = InvertedEventIndex::diff_indexed_terms(
-        existing_event.indexed_categories.as_ref(),
-        None,
-    );
+        let updated_event_categories_diff = InvertedEventIndex::diff_indexed_terms(
+            existing_event.indexed_categories.as_ref(),
+            None,
+        );
 
-    let updated_event_related_to_diff = InvertedEventIndex::diff_indexed_terms(
-        existing_event.indexed_related_to.as_ref(),
-        None,
-    );
+        let updated_event_related_to_diff = InvertedEventIndex::diff_indexed_terms(
+            existing_event.indexed_related_to.as_ref(),
+            None,
+        );
 
-    let updated_event_geo_diff = InvertedEventIndex::diff_indexed_terms(
-        existing_event.indexed_geo.as_ref(),
-        None,
-    );
+        let updated_event_geo_diff = InvertedEventIndex::diff_indexed_terms(
+            existing_event.indexed_geo.as_ref(),
+            None,
+        );
 
-    let updated_event_class_diff = InvertedEventIndex::diff_indexed_terms(
-        existing_event.indexed_class.as_ref(),
-        None,
-    );
+        let updated_event_class_diff = InvertedEventIndex::diff_indexed_terms(
+            existing_event.indexed_class.as_ref(),
+            None,
+        );
 
-    let mut calendar_index_updater = CalendarIndexUpdater::new(&event_uid, calendar);
+        let mut calendar_index_updater = CalendarIndexUpdater::new(&event_uid, calendar);
 
-    calendar_index_updater
-        .update_indexed_categories(&updated_event_categories_diff)
-        .map_err(|error| RedisError::String(error.to_string()))?;
+        calendar_index_updater
+            .update_indexed_categories(&updated_event_categories_diff)
+            .map_err(|error| RedisError::String(error.to_string()))?;
 
-    calendar_index_updater
-        .update_indexed_related_to(&updated_event_related_to_diff)
-        .map_err(|error| RedisError::String(error.to_string()))?;
+        calendar_index_updater
+            .update_indexed_related_to(&updated_event_related_to_diff)
+            .map_err(|error| RedisError::String(error.to_string()))?;
 
-    calendar_index_updater
-        .update_indexed_geo(&updated_event_geo_diff)
-        .map_err(|error| RedisError::String(error.to_string()))?;
+        calendar_index_updater
+            .update_indexed_geo(&updated_event_geo_diff)
+            .map_err(|error| RedisError::String(error.to_string()))?;
 
-    calendar_index_updater
-        .update_indexed_class(&updated_event_class_diff)
-        .map_err(|error| RedisError::String(error.to_string()))?;
+        calendar_index_updater
+            .update_indexed_class(&updated_event_class_diff)
+            .map_err(|error| RedisError::String(error.to_string()))?;
+    }
 
     calendar.events.remove(&event_uid);
 

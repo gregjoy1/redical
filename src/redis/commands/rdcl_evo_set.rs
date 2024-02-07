@@ -62,62 +62,64 @@ pub fn redical_event_override_set(ctx: &Context, args: Vec<RedisString>) -> Redi
 
     let event_occurrence_override = EventOccurrenceOverride::parse_ical(override_date_string, other.as_str()).map_err(RedisError::String)?;
 
-    event.override_occurrence(&event_occurrence_override).map_err(RedisError::String)?;
+    event.override_occurrence(&event_occurrence_override, calendar.indexes_active.to_owned()).map_err(RedisError::String)?;
 
-    // HashMap.insert returns the old value (if present) which we can use in diffing old -> new.
-    let existing_event = calendar
-        .events
-        .insert(event_uid.to_owned(), event.to_owned());
+    if calendar.indexes_active {
+        // HashMap.insert returns the old value (if present) which we can use in diffing old -> new.
+        let existing_event = calendar
+            .events
+            .insert(event_uid.to_owned(), event.to_owned());
 
-    let updated_event_categories_diff = InvertedEventIndex::diff_indexed_terms(
-        existing_event
-            .as_ref()
-            .and_then(|existing_event| existing_event.indexed_categories.clone())
-            .as_ref(),
-        event.indexed_categories.as_ref(),
-    );
+        let updated_event_categories_diff = InvertedEventIndex::diff_indexed_terms(
+            existing_event
+                .as_ref()
+                .and_then(|existing_event| existing_event.indexed_categories.clone())
+                .as_ref(),
+            event.indexed_categories.as_ref(),
+        );
 
-    let updated_event_related_to_diff = InvertedEventIndex::diff_indexed_terms(
-        existing_event
-            .clone()
-            .and_then(|existing_event| existing_event.indexed_related_to.clone())
-            .as_ref(),
-        event.indexed_related_to.as_ref(),
-    );
+        let updated_event_related_to_diff = InvertedEventIndex::diff_indexed_terms(
+            existing_event
+                .clone()
+                .and_then(|existing_event| existing_event.indexed_related_to.clone())
+                .as_ref(),
+            event.indexed_related_to.as_ref(),
+        );
 
-    let updated_event_geo_diff = InvertedEventIndex::diff_indexed_terms(
-        existing_event
-            .as_ref()
-            .and_then(|existing_event| existing_event.indexed_geo.clone())
-            .as_ref(),
-        event.indexed_geo.as_ref(),
-    );
+        let updated_event_geo_diff = InvertedEventIndex::diff_indexed_terms(
+            existing_event
+                .as_ref()
+                .and_then(|existing_event| existing_event.indexed_geo.clone())
+                .as_ref(),
+            event.indexed_geo.as_ref(),
+        );
 
-    let updated_event_class_diff = InvertedEventIndex::diff_indexed_terms(
-        existing_event
-            .as_ref()
-            .and_then(|existing_event| existing_event.indexed_class.clone())
-            .as_ref(),
-        event.indexed_class.as_ref(),
-    );
+        let updated_event_class_diff = InvertedEventIndex::diff_indexed_terms(
+            existing_event
+                .as_ref()
+                .and_then(|existing_event| existing_event.indexed_class.clone())
+                .as_ref(),
+            event.indexed_class.as_ref(),
+        );
 
-    let mut calendar_index_updater = CalendarIndexUpdater::new(&event_uid, calendar);
+        let mut calendar_index_updater = CalendarIndexUpdater::new(&event_uid, calendar);
 
-    calendar_index_updater
-        .update_indexed_categories(&updated_event_categories_diff)
-        .map_err(|error| RedisError::String(error.to_string()))?;
+        calendar_index_updater
+            .update_indexed_categories(&updated_event_categories_diff)
+            .map_err(|error| RedisError::String(error.to_string()))?;
 
-    calendar_index_updater
-        .update_indexed_related_to(&updated_event_related_to_diff)
-        .map_err(|error| RedisError::String(error.to_string()))?;
+        calendar_index_updater
+            .update_indexed_related_to(&updated_event_related_to_diff)
+            .map_err(|error| RedisError::String(error.to_string()))?;
 
-    calendar_index_updater
-        .update_indexed_geo(&updated_event_geo_diff)
-        .map_err(|error| RedisError::String(error.to_string()))?;
+        calendar_index_updater
+            .update_indexed_geo(&updated_event_geo_diff)
+            .map_err(|error| RedisError::String(error.to_string()))?;
 
-    calendar_index_updater
-        .update_indexed_class(&updated_event_class_diff)
-        .map_err(|error| RedisError::String(error.to_string()))?;
+        calendar_index_updater
+            .update_indexed_class(&updated_event_class_diff)
+            .map_err(|error| RedisError::String(error.to_string()))?;
+    }
 
     calendar_key.set_value(&CALENDAR_DATA_TYPE, calendar.clone())?;
 

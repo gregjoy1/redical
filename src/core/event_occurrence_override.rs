@@ -89,14 +89,14 @@ impl EventOccurrenceOverride {
         })
     }
 
-    pub fn validate(&self) -> Result<(), String> {
+    pub fn validate(&self) -> Result<bool, String> {
         if self.dtstart.is_none() {
             return Err(
                 String::from("Event occurrence override innvalid, expected DTSTART to be defined.")
             );
         }
 
-        Ok(())
+        Ok(true)
     }
 
     pub fn insert(&mut self, property: Property) -> Result<&Self, String> {

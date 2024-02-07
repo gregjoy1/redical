@@ -11,6 +11,8 @@ pub fn build_event_and_overrides_from_ical(
 ) -> crate::core::Event {
     let mut event = Event::parse_ical(event_uid, event_ical_parts.join(" ").as_str()).unwrap();
 
+    event.validate().unwrap();
+
     if let Err(error) = event.schedule_properties.build_parsed_rrule_set() {
         panic!("Build Event '{event_uid}' from ical failed -- build_parsed_rrule_set returned error: {:#?}", error);
     }
@@ -18,11 +20,10 @@ pub fn build_event_and_overrides_from_ical(
     for (dtstart_date_string, override_ical_parts) in event_overrides {
         let parsed_event_occurrence_override = build_event_override_from_ical(dtstart_date_string, override_ical_parts);
 
-        assert!(event.override_occurrence(&parsed_event_occurrence_override).is_ok());
+        event.override_occurrence(&parsed_event_occurrence_override, true).unwrap();
     }
 
-    assert!(event.rebuild_indexed_categories().is_ok());
-    assert!(event.rebuild_indexed_related_to().is_ok());
+    event.rebuild_indexes().unwrap();
 
     event
 }

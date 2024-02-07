@@ -19,6 +19,7 @@ use crate::core::ical::serializer::{
 pub struct Calendar {
     pub uid: UIDProperty,
     pub events: HashMap<String, Event>,
+    pub indexes_active: bool,
     pub indexed_categories: InvertedCalendarIndex<String>,
     pub indexed_related_to: InvertedCalendarIndex<KeyValuePair>,
     pub indexed_geo: GeoSpatialCalendarIndex,
@@ -30,6 +31,7 @@ impl Calendar {
         Calendar {
             uid: uid.into(),
             events: HashMap::new(),
+            indexes_active: true,
             indexed_categories: InvertedCalendarIndex::new(),
             indexed_related_to: InvertedCalendarIndex::new(),
             indexed_geo: GeoSpatialCalendarIndex::new(),
@@ -57,7 +59,34 @@ impl Calendar {
         Ok(self)
     }
 
+    fn clear_indexes(&mut self) {
+        self.indexed_categories = InvertedCalendarIndex::new();
+        self.indexed_related_to = InvertedCalendarIndex::new();
+        self.indexed_geo = GeoSpatialCalendarIndex::new();
+        self.indexed_class = InvertedCalendarIndex::new();
+    }
+
+    // Disable and clear the indexes on the Calendar.
+    // This is useful when performing bulk data imports where we want to ingest the
+    // Event's and EventOccurrenceOverride's as quickly as possible and build the indexes
+    // at the end instead of slowing down down the process by ineffiently rebuilding throughout.
+    pub fn disable_indexes(&mut self) {
+        self.indexes_active = false;
+
+        // Clear the indexes on disabling indexing on the Calendar
+        // to keep the memory footprint efficient.
+        self.clear_indexes();
+    }
+
+    // Rebuild the Calendar indexes from scratch, very helpful to perform at the tail
+    // end of a bulk data import.
     pub fn rebuild_indexes(&mut self) -> Result<bool, String> {
+        // Clear the indexes first to ensure full clean rebuild.
+        self.clear_indexes();
+
+        // Ensure indexes are re-enabled.
+        self.indexes_active = true;
+
         let indexed_categories = &mut self.indexed_categories;
         let indexed_related_to = &mut self.indexed_related_to;
         let indexed_geo = &mut self.indexed_geo;
