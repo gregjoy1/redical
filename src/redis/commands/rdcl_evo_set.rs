@@ -64,11 +64,12 @@ pub fn redical_event_override_set(ctx: &Context, args: Vec<RedisString>) -> Redi
 
     event.override_occurrence(&event_occurrence_override, calendar.indexes_active.to_owned()).map_err(RedisError::String)?;
 
+    // HashMap.insert returns the old value (if present) which we can use in diffing old -> new.
+    let existing_event = calendar
+        .events
+        .insert(event_uid.to_owned(), event.to_owned());
+
     if calendar.indexes_active {
-        // HashMap.insert returns the old value (if present) which we can use in diffing old -> new.
-        let existing_event = calendar
-            .events
-            .insert(event_uid.to_owned(), event.to_owned());
 
         let updated_event_categories_diff = InvertedEventIndex::diff_indexed_terms(
             existing_event
@@ -120,6 +121,8 @@ pub fn redical_event_override_set(ctx: &Context, args: Vec<RedisString>) -> Redi
             .update_indexed_class(&updated_event_class_diff)
             .map_err(|error| RedisError::String(error.to_string()))?;
     }
+
+    // println!("rdcl.evt_set: key: {calendar_uid} event uid: {event_uid} DTSTART: {override_date_string} - count: {}", event.overrides.len());
 
     calendar_key.set_value(&CALENDAR_DATA_TYPE, calendar.clone())?;
 
