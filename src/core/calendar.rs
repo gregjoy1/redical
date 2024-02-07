@@ -92,8 +92,10 @@ impl Calendar {
         let indexed_geo = &mut self.indexed_geo;
         let indexed_class = &mut self.indexed_class;
 
-        for event in self.events.values() {
+        for event in self.events.values_mut() {
             let event_uid = event.uid.uid.to_owned();
+
+            event.rebuild_indexes()?;
 
             if let Some(indexed_event_categories) = &event.indexed_categories {
                 for (indexed_term, indexed_conclusion) in &indexed_event_categories.terms {

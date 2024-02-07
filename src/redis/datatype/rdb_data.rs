@@ -168,7 +168,11 @@ impl TryFrom<&RDBEvent> for Event {
             );
         }
 
-        event.validate().map_err(|error| ParseRDBEntityError::OnSelf(rdb_event_uid.to_owned(), error))?;
+        event.validate().map_err(|error| {
+            dbg!(&rdb_event);
+
+            ParseRDBEntityError::OnSelf(rdb_event_uid.to_owned(), error)
+        })?;
 
         for rdb_event_occurrence_override in rdb_event.2.iter() {
             let event_occurrence_override =

@@ -250,33 +250,24 @@ impl ScheduleProperties {
     }
 
     pub fn parse_rrule(&self) -> Result<RRuleSet, RRuleError> {
-        let mut is_missing_rules = true;
         let mut ical_parts = vec![];
 
         if let Some(rrule) = &self.rrule {
-            is_missing_rules = false;
-
             ical_parts.push(rrule.serialize_to_ical(None));
         }
 
         if let Some(exrule) = &self.exrule {
-            is_missing_rules = false;
-
             ical_parts.push(exrule.serialize_to_ical(None));
         }
 
-        if let Some(rdatesss) = &self.rdates {
-            rdatesss.iter().for_each(|rdates| {
-                is_missing_rules = false;
-
+        if let Some(rdates) = &self.rdates {
+            rdates.iter().for_each(|rdates| {
                 ical_parts.push(rdates.serialize_to_ical(None));
             });
         }
 
-        if let Some(exdatesss) = &self.exdates {
-            exdatesss.iter().for_each(|exdates| {
-                is_missing_rules = false;
-
+        if let Some(exdates) = &self.exdates {
+            exdates.iter().for_each(|exdates| {
                 ical_parts.push(exdates.serialize_to_ical(None));
             });
         }
@@ -297,8 +288,8 @@ impl ScheduleProperties {
             //
             // "RRule parsing error: Missing date generation property. There needs to be at least
             // one `RRULE` or `RDATE` to generate occurrences."
-            if is_missing_rules {
-                ical_parts.push(String::from("RRULE:FREQ=MINUTELY;COUNT=1"));
+            if self.rrule.is_none() && (self.rdates.is_none() || self.rdates.as_ref().is_some_and(|rdates| rdates.is_empty())) {
+                ical_parts.push(RDateProperty::from(dtstart.utc_timestamp).serialize_to_ical(None));
             }
         }
 

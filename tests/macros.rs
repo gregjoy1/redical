@@ -99,6 +99,35 @@ macro_rules! set_and_assert_calendar {
 }
 
 #[macro_export]
+macro_rules! disable_calendar_indexes {
+    ($connection:expr, $calendar_uid:expr, $expected_result:expr $(,)*) => {
+        let calendar_index_disable_result =
+            redis::cmd("rdcl.cal_idx_disable")
+            .arg($calendar_uid)
+            .query($connection);
+
+        assert_eq!(
+            calendar_index_disable_result,
+            RedisResult::Ok(
+                Value::Int($expected_result)
+            )
+        );
+    }
+}
+
+#[macro_export]
+macro_rules! rebuild_calendar_indexes {
+    ($connection:expr, $calendar_uid:expr $(,)*) => {
+        let calendar_index_rebuild_result =
+            redis::cmd("rdcl.cal_idx_rebuild")
+            .arg($calendar_uid)
+            .query($connection);
+
+        assert_eq!(calendar_index_rebuild_result, RedisResult::Ok(true));
+    }
+}
+
+#[macro_export]
 macro_rules! assert_event_present {
     ($connection:expr, $calendar_uid:expr, $event_uid:expr $(,)*) => {
         let event_get_result: Vec<String> = redis::cmd("rdcl.evt_get")

@@ -26,6 +26,12 @@ pub fn redical_calendar_query(ctx: &Context, args: Vec<RedisString>) -> RedisRes
         )));
     };
 
+    if calendar.indexes_active == false {
+        return Err(RedisError::String(format!(
+            "rdcl.cal_query: Queries disabled on Calendar: {calendar_uid} because it's indexes have been disabled."
+        )));
+    }
+
     ctx.log_debug(format!("rdcl.cal_query: calendar_uid: {calendar_uid}").as_str());
 
     let query_string: String = args

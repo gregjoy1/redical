@@ -108,7 +108,7 @@ unsafe extern "C" fn free(value: *mut c_void) {
 
     let calendar = value as *mut Calendar;
 
-    println!("Calendar data type - free - calendar : {:#?}", &calendar);
+    // println!("Calendar data type - free - calendar : {:#?}", &calendar);
 
     drop(Box::from_raw(calendar));
 }

@@ -685,6 +685,116 @@ mod integration {
         Ok(())
     }
 
+    fn test_calendar_index_disable_rebuild(connection: &mut Connection) -> Result<()> {
+        set_and_assert_calendar!(connection, "TEST_CALENDAR_UID");
+
+        // Assert blank results when no events exist
+        query_calendar_and_assert_matching_event_instances!(
+            connection,
+            "TEST_CALENDAR_UID",
+            [],
+            [],
+        );
+
+        set_and_assert_event!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "EVENT_IN_OXFORD_MON_WED",
+            [
+                "SUMMARY:Event in Oxford on Mondays and Wednesdays at 5:00PM",
+                "RRULE:BYDAY=MO,WE;COUNT=2;FREQ=WEEKLY;INTERVAL=1",
+                "DTSTART:20201231T170000Z",
+                "DTEND:20201231T173000Z",
+                "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
+                "GEO:51.751365550307604;-1.2601196837753945",
+            ],
+        );
+
+        set_and_assert_event_override!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "EVENT_IN_OXFORD_MON_WED",
+            "20210104T170000Z",
+            [
+                "SUMMARY:Overridden event in Oxford summary text",
+                "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_PARENT_UUID",
+                "CATEGORIES:OVERRIDDEN_CATEGORY",
+            ],
+        );
+
+        // Assert Calendar indexes working with query to strip out overridden event occurrence.
+        query_calendar_and_assert_matching_event_instances!(
+            connection,
+            "TEST_CALENDAR_UID",
+            [
+                "X-RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+            ],
+            [
+                [
+                    [
+                        "DTSTART:20210106T170000Z",
+                    ],
+                    [
+                        "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
+                        "DTEND:20210106T173000Z",
+                        "DTSTART:20210106T170000Z",
+                        "DURATION:PT30M",
+                        "GEO:51.751365550307604;-1.2601196837753945",
+                        "RECURRENCE-ID;VALUE=DATE-TIME:20210106T170000Z",
+                        "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                        "SUMMARY:Event in Oxford on Mondays and Wednesdays at 5:00PM",
+                        "UID:EVENT_IN_OXFORD_MON_WED",
+                    ],
+                ],
+            ]
+        );
+
+        disable_calendar_indexes!(connection, "TEST_CALENDAR_UID", 1);
+        disable_calendar_indexes!(connection, "TEST_CALENDAR_UID", 0);
+
+        // Assert error reporting Calendar querying disabled
+        let disabled_query_result: Result<Vec<String>, String> = redis::cmd("rdcl.cal_query").arg("TEST_CALENDAR_UID").arg("X-RELATED-TO;RELTYPE=PARENT:PARENT_UUID").query(connection).map_err(|error| error.to_string());
+
+        assert_eq!(
+            disabled_query_result,
+            Err(
+                String::from("rdcl.cal_query:: Queries disabled on Calendar: TEST_CALENDAR_UID because it's indexes have been disabled."),
+            ),
+        );
+
+        rebuild_calendar_indexes!(connection, "TEST_CALENDAR_UID");
+
+        // Test that querying is re-enabled and indexes work again.
+        query_calendar_and_assert_matching_event_instances!(
+            connection,
+            "TEST_CALENDAR_UID",
+            [
+                "X-RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+            ],
+            [
+                [
+                    [
+                        "DTSTART:20210106T170000Z",
+                    ],
+                    [
+                        "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
+                        "DTEND:20210106T173000Z",
+                        "DTSTART:20210106T170000Z",
+                        "DURATION:PT30M",
+                        "GEO:51.751365550307604;-1.2601196837753945",
+                        "RECURRENCE-ID;VALUE=DATE-TIME:20210106T170000Z",
+                        "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                        "SUMMARY:Event in Oxford on Mondays and Wednesdays at 5:00PM",
+                        "UID:EVENT_IN_OXFORD_MON_WED",
+                    ],
+                ],
+            ]
+        );
+
+        Ok(())
+    }
+
     fn test_rdb_save_load(connection: &mut Connection) -> Result<()> {
         set_and_assert_calendar!(connection, "TEST_CALENDAR_UID");
 
@@ -864,6 +974,7 @@ mod integration {
         test_event_override_get_set_del_list,
         test_event_instance_list,
         test_calendar_query,
+        test_calendar_index_disable_rebuild,
         test_rdb_save_load,
     );
 

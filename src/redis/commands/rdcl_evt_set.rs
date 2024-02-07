@@ -122,6 +122,8 @@ pub fn redical_event_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
 
     let serialized_event_ical = event.serialize_to_ical(None);
 
+    println!("rdcl.evt_set: key: {calendar_uid} event uid: {event_uid} - count: {}", calendar.events.len());
+
     calendar.events.insert(String::from(event_uid), event);
 
     calendar_key.set_value(&CALENDAR_DATA_TYPE, calendar.clone())?;
