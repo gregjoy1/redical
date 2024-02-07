@@ -426,7 +426,7 @@ macro_rules! build_rrule_property {
                         ),
                     )| {
                         let mut freq: String = String::from("");
-                        let mut interval: usize = 0;
+                        let mut interval: usize = 1;
                         let mut count: Option<usize> = None;
                         let mut wkst: Option<String> = None;
                         let mut until_utc_timestamp: Option<i64> = None;
@@ -665,6 +665,35 @@ macro_rules! build_rrule_property {
                         $property_struct {
                             freq: String::from("DAILY"),
                             interval: 2,
+                            count: Some(10),
+                            wkst: None,
+                            until_utc_timestamp: None,
+                            by_second: None,
+                            by_minute: None,
+                            by_hour: None,
+                            by_day: None,
+                            by_week_no: None,
+                            by_month: None,
+                            by_month_day: None,
+                            by_year_day: None,
+                            by_easter: None,
+                            by_set_pos: None,
+
+                            x_params: None,
+                        },
+                    ))
+                );
+            }
+
+            #[test]
+            fn test_parse_ical_missing_interval() {
+                assert_eq!(
+                    $property_struct::parse_ical(concat!($property_name, ":FREQ=DAILY;COUNT=10")),
+                    Ok((
+                        "",
+                        $property_struct {
+                            freq: String::from("DAILY"),
+                            interval: 1,
                             count: Some(10),
                             wkst: None,
                             until_utc_timestamp: None,
