@@ -5,11 +5,13 @@ use crate::redis::datatype::CALENDAR_DATA_TYPE;
 
 use crate::core::ical::serializer::SerializableICalComponent;
 
-fn serialize_event_overrides(event: &Event) -> RedisValue {
+fn serialize_event_overrides(event: &Event, offset: usize, count: usize) -> RedisValue {
     RedisValue::Array(
         event
             .overrides
             .values()
+            .skip(offset)
+            .take(count)
             .map(serialize_event_occurrence_override)
             .collect()
     )
@@ -37,6 +39,9 @@ pub fn redical_event_override_list(ctx: &Context, args: Vec<RedisString>) -> Red
     let calendar_uid = args.next_arg()?;
     let event_uid = args.next_arg()?.to_string();
 
+    let offset = args.next_u64().unwrap_or(0) as usize;
+    let count = args.next_u64().unwrap_or(50) as usize;
+
     let calendar_key = ctx.open_key(&calendar_uid);
 
     ctx.log_debug(
@@ -55,5 +60,5 @@ pub fn redical_event_override_list(ctx: &Context, args: Vec<RedisString>) -> Red
         )));
     };
 
-    Ok(serialize_event_overrides(event))
+    Ok(serialize_event_overrides(event, offset, count))
 }

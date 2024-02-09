@@ -72,15 +72,6 @@ mod integration {
             "TEST_CALENDAR_UID",
             [
                 [
-                    "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM",
-                    "RRULE:BYDAY=MO,WE;FREQ=WEEKLY;INTERVAL=1;UNTIL=20211231T170000Z",
-                    "DTSTART:20201231T160000Z",
-                    "DTEND:20201231T170000Z",
-                    "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
-                    "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
-                    "UID:ONLINE_EVENT_MON_WED",
-                ],
-                [
                     "SUMMARY:Event in Oxford on Mondays and Wednesdays at 5:00PM",
                     "RRULE:BYDAY=MO,WE;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
                     "DTSTART:20201231T170000Z",
@@ -89,6 +80,15 @@ mod integration {
                     "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
                     "GEO:51.751365550307604;-1.2601196837753945",
                     "UID:EVENT_IN_OXFORD_MON_WED",
+                ],
+                [
+                    "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM",
+                    "RRULE:BYDAY=MO,WE;FREQ=WEEKLY;INTERVAL=1;UNTIL=20211231T170000Z",
+                    "DTSTART:20201231T160000Z",
+                    "DTEND:20201231T170000Z",
+                    "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                    "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
+                    "UID:ONLINE_EVENT_MON_WED",
                 ],
             ],
         );
@@ -158,6 +158,37 @@ mod integration {
                     "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_PARENT_UUID",
                     "CATEGORIES:OVERRIDDEN_CATEGORY",
                 ],
+                [
+                    "DTSTART:20210102T170000Z",
+                    "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY",
+                    "X-SPACES-BOOKED:12",
+                ],
+            ],
+        );
+
+        list_and_assert_matching_event_overrides!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "EVENT_IN_OXFORD_MON_WED",
+            0,
+            1,
+            [
+                [
+                    "DTSTART:20201231T170000Z",
+                    "SUMMARY:Overridden event in Oxford summary text",
+                    "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_PARENT_UUID",
+                    "CATEGORIES:OVERRIDDEN_CATEGORY",
+                ],
+            ],
+        );
+
+        list_and_assert_matching_event_overrides!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "EVENT_IN_OXFORD_MON_WED",
+            1,
+            20,
+            [
                 [
                     "DTSTART:20210102T170000Z",
                     "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY",
@@ -238,6 +269,27 @@ mod integration {
             ],
         );
 
+        list_and_assert_matching_event_instances!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "EVENT_IN_OXFORD_MON_WED",
+            1,
+            1,
+            [
+                [
+                    "DTEND:20210106T173000Z",
+                    "DTSTART:20210106T170000Z",
+                    "RECURRENCE-ID;VALUE=DATE-TIME:20210106T170000Z",
+                    "UID:EVENT_IN_OXFORD_MON_WED",
+                    "DURATION:PT30M",
+                    "SUMMARY:Event in Oxford on Mondays and Wednesdays at 5:00PM",
+                    "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                    "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
+                    "GEO:51.751365550307604;-1.2601196837753945",
+                ],
+            ],
+        );
+
         set_and_assert_event_override!(
             connection,
             "TEST_CALENDAR_UID",
@@ -303,6 +355,27 @@ mod integration {
             ],
         );
 
+        list_and_assert_matching_event_instances!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "EVENT_IN_OXFORD_MON_WED",
+            0,
+            1,
+            [
+                [
+                    "DTEND:20210104T173000Z",
+                    "DTSTART:20210104T170000Z",
+                    "RECURRENCE-ID;VALUE=DATE-TIME:20210104T170000Z",
+                    "UID:EVENT_IN_OXFORD_MON_WED",
+                    "DURATION:PT30M",
+                    "SUMMARY:Overridden event in Oxford summary text",  // <= Overridden
+                    "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_PARENT_UUID", // <= Overridden
+                    "CATEGORIES:OVERRIDDEN_CATEGORY",                   // <= Overridden
+                    "GEO:51.751365550307604;-1.2601196837753945",
+                ],
+            ],
+        );
+
         del_and_assert_event_override_deletion!(connection, "TEST_CALENDAR_UID", "EVENT_IN_OXFORD_MON_WED", "20210104T170000Z", 1);
         del_and_assert_event_override_deletion!(connection, "TEST_CALENDAR_UID", "EVENT_IN_OXFORD_MON_WED", "20210111T170000Z", 1);
 
@@ -345,6 +418,36 @@ mod integration {
                     "GEO:51.751365550307604;-1.2601196837753945",
                 ],
             ],
+        );
+
+        list_and_assert_matching_event_instances!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "EVENT_IN_OXFORD_MON_WED",
+            2,
+            1,
+            [
+                [
+                    "DTEND:20210111T173000Z",
+                    "DTSTART:20210111T170000Z",
+                    "RECURRENCE-ID;VALUE=DATE-TIME:20210111T170000Z",
+                    "UID:EVENT_IN_OXFORD_MON_WED",
+                    "DURATION:PT30M",
+                    "SUMMARY:Event in Oxford on Mondays and Wednesdays at 5:00PM",
+                    "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                    "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
+                    "GEO:51.751365550307604;-1.2601196837753945",
+                ],
+            ],
+        );
+
+        list_and_assert_matching_event_instances!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "EVENT_IN_OXFORD_MON_WED",
+            20,
+            1,
+            [],
         );
 
         Ok(())
@@ -832,15 +935,6 @@ mod integration {
             "TEST_CALENDAR_UID",
             [
                 [
-                    "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM",
-                    "RRULE:BYDAY=MO,WE;FREQ=WEEKLY;INTERVAL=1;UNTIL=20211231T170000Z",
-                    "DTSTART:20201231T160000Z",
-                    "DTEND:20201231T170000Z",
-                    "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
-                    "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
-                    "UID:ONLINE_EVENT_MON_WED",
-                ],
-                [
                     "SUMMARY:Event in Oxford on Mondays and Wednesdays at 5:00PM",
                     "RRULE:BYDAY=MO,WE;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
                     "DTSTART:20201231T170000Z",
@@ -850,7 +944,42 @@ mod integration {
                     "GEO:51.751365550307604;-1.2601196837753945",
                     "UID:EVENT_IN_OXFORD_MON_WED",
                 ],
+                [
+                    "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM",
+                    "RRULE:BYDAY=MO,WE;FREQ=WEEKLY;INTERVAL=1;UNTIL=20211231T170000Z",
+                    "DTSTART:20201231T160000Z",
+                    "DTEND:20201231T170000Z",
+                    "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                    "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
+                    "UID:ONLINE_EVENT_MON_WED",
+                ],
             ],
+        );
+
+        list_and_assert_matching_events!(
+            connection,
+            "TEST_CALENDAR_UID",
+            1,
+            5,
+            [
+                [
+                    "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM",
+                    "RRULE:BYDAY=MO,WE;FREQ=WEEKLY;INTERVAL=1;UNTIL=20211231T170000Z",
+                    "DTSTART:20201231T160000Z",
+                    "DTEND:20201231T170000Z",
+                    "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                    "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
+                    "UID:ONLINE_EVENT_MON_WED",
+                ],
+            ],
+        );
+
+        list_and_assert_matching_events!(
+            connection,
+            "TEST_CALENDAR_UID",
+            5,
+            20,
+            [],
         );
 
         set_and_assert_event_override!(
@@ -925,15 +1054,6 @@ mod integration {
             "TEST_CALENDAR_UID",
             [
                 [
-                    "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM",
-                    "RRULE:BYDAY=MO,WE;FREQ=WEEKLY;INTERVAL=1;UNTIL=20211231T170000Z",
-                    "DTSTART:20201231T160000Z",
-                    "DTEND:20201231T170000Z",
-                    "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
-                    "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
-                    "UID:ONLINE_EVENT_MON_WED",
-                ],
-                [
                     "SUMMARY:Event in Oxford on Mondays and Wednesdays at 5:00PM",
                     "RRULE:BYDAY=MO,WE;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
                     "DTSTART:20201231T170000Z",
@@ -942,6 +1062,15 @@ mod integration {
                     "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
                     "GEO:51.751365550307604;-1.2601196837753945",
                     "UID:EVENT_IN_OXFORD_MON_WED",
+                ],
+                [
+                    "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM",
+                    "RRULE:BYDAY=MO,WE;FREQ=WEEKLY;INTERVAL=1;UNTIL=20211231T170000Z",
+                    "DTSTART:20201231T160000Z",
+                    "DTEND:20201231T170000Z",
+                    "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                    "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
+                    "UID:ONLINE_EVENT_MON_WED",
                 ],
             ],
         );

@@ -259,6 +259,23 @@ macro_rules! list_and_assert_matching_events {
         assert_eq!(event_list_result, expected_event_list_result);
     };
 
+    ($connection:expr, $calendar_uid:expr, $offset:expr, $count:expr, [] $(,)*) => {
+        let event_list_result: Vec<Vec<String>> = redis::cmd("rdcl.evt_list")
+            .arg($calendar_uid)
+            .arg($offset)
+            .arg($count)
+            .query($connection)
+            .with_context(|| {
+                format!(
+                    "failed to list calendar: '{}' events via rdcl.evt_list", $calendar_uid,
+                )
+            })?;
+
+        let expected_event_list_result: Vec<Vec<String>> = vec![];
+
+        assert_eq!(event_list_result, expected_event_list_result);
+    };
+
     ($connection:expr, $calendar_uid:expr, [$([$($ical_component_property:expr),+ $(,)*]),+ $(,)*] $(,)*) => {
         let expected_event_list_result: Vec<Vec<String>> = vec![
             $(
@@ -279,7 +296,32 @@ macro_rules! list_and_assert_matching_events {
                 )
             })?;
 
-        assert_matching_ical_components_sorted!(event_list_result, expected_event_list_result);
+        assert_matching_ical_components!(event_list_result, expected_event_list_result);
+    };
+
+    ($connection:expr, $calendar_uid:expr, $offset:expr, $count:expr, [$([$($ical_component_property:expr),+ $(,)*]),+ $(,)*] $(,)*) => {
+        let expected_event_list_result: Vec<Vec<String>> = vec![
+            $(
+                vec![
+                    $(
+                        String::from($ical_component_property),
+                    )+
+                ],
+            )+
+        ];
+
+        let event_list_result: Vec<Vec<String>> = redis::cmd("rdcl.evt_list")
+            .arg($calendar_uid)
+            .arg($offset)
+            .arg($count)
+            .query($connection)
+            .with_context(|| {
+                format!(
+                    "failed to list calendar: '{}' events via rdcl.evt_list", $calendar_uid,
+                )
+            })?;
+
+        assert_matching_ical_components!(event_list_result, expected_event_list_result);
     };
 }
 
@@ -397,6 +439,24 @@ macro_rules! list_and_assert_matching_event_overrides {
         assert_eq!(event_override_list_result, expected_event_override_list_result);
     };
 
+    ($connection:expr, $calendar_uid:expr, $event_uid:expr, $offset:expr, $count:expr, [] $(,)*) => {
+        let event_override_list_result: Vec<Vec<String>> = redis::cmd("rdcl.evo_list")
+            .arg($calendar_uid)
+            .arg($event_uid)
+            .arg($offset)
+            .arg($count)
+            .query($connection)
+            .with_context(|| {
+                format!(
+                    "failed to list overrides for event UID: '{}' events via rdcl.evo_list", $event_uid,
+                )
+            })?;
+
+        let expected_event_override_list_result: Vec<Vec<String>> = vec![];
+
+        assert_eq!(event_override_list_result, expected_event_override_list_result);
+    };
+
     ($connection:expr, $calendar_uid:expr, $event_uid:expr, [$([$($ical_component_property:expr),+ $(,)*]),+ $(,)*] $(,)*) => {
         let expected_event_override_list_result: Vec<Vec<String>> = vec![
             $(
@@ -411,6 +471,32 @@ macro_rules! list_and_assert_matching_event_overrides {
         let event_override_list_result: Vec<Vec<String>> = redis::cmd("rdcl.evo_list")
             .arg($calendar_uid)
             .arg($event_uid)
+            .query($connection)
+            .with_context(|| {
+                format!(
+                    "failed to list overrides for event UID: '{}' events via rdcl.evo_list", $event_uid,
+                )
+            })?;
+
+        assert_matching_ical_components!(event_override_list_result, expected_event_override_list_result);
+    };
+
+    ($connection:expr, $calendar_uid:expr, $event_uid:expr, $offset:expr, $count:expr, [$([$($ical_component_property:expr),+ $(,)*]),+ $(,)*] $(,)*) => {
+        let expected_event_override_list_result: Vec<Vec<String>> = vec![
+            $(
+                vec![
+                    $(
+                        String::from($ical_component_property),
+                    )+
+                ],
+            )+
+        ];
+
+        let event_override_list_result: Vec<Vec<String>> = redis::cmd("rdcl.evo_list")
+            .arg($calendar_uid)
+            .arg($event_uid)
+            .arg($offset)
+            .arg($count)
             .query($connection)
             .with_context(|| {
                 format!(
@@ -466,6 +552,24 @@ macro_rules! list_and_assert_matching_event_instances {
         assert_eq!(event_instance_list_result, expected_event_instance_list_result);
     };
 
+    ($connection:expr, $calendar_uid:expr, $event_uid:expr, $offset:expr, $count:expr, [] $(,)*) => {
+        let event_instance_list_result: Vec<Vec<String>> = redis::cmd("rdcl.evi_list")
+            .arg($calendar_uid)
+            .arg($event_uid)
+            .arg($offset)
+            .arg($count)
+            .query($connection)
+            .with_context(|| {
+                format!(
+                    "failed to list instances for event UID: '{}' events via rdcl.evi_list", $event_uid,
+                )
+            })?;
+
+        let expected_event_instance_list_result: Vec<Vec<String>> = vec![];
+
+        assert_eq!(event_instance_list_result, expected_event_instance_list_result);
+    };
+
     ($connection:expr, $calendar_uid:expr, $event_uid:expr, [$([$($ical_component_property:expr),+ $(,)*]),+ $(,)*] $(,)*) => {
         let expected_event_instance_list_result: Vec<Vec<String>> = vec![
             $(
@@ -480,6 +584,32 @@ macro_rules! list_and_assert_matching_event_instances {
         let event_instance_list_result: Vec<Vec<String>> = redis::cmd("rdcl.evi_list")
             .arg($calendar_uid)
             .arg($event_uid)
+            .query($connection)
+            .with_context(|| {
+                format!(
+                    "failed to list instances for event UID: '{}' events via rdcl.evi_list", $event_uid,
+                )
+            })?;
+
+        assert_matching_ical_components!(event_instance_list_result, expected_event_instance_list_result);
+    };
+
+    ($connection:expr, $calendar_uid:expr, $event_uid:expr, $offset:expr, $count:expr, [$([$($ical_component_property:expr),+ $(,)*]),+ $(,)*] $(,)*) => {
+        let expected_event_instance_list_result: Vec<Vec<String>> = vec![
+            $(
+                vec![
+                    $(
+                        String::from($ical_component_property),
+                    )+
+                ],
+            )+
+        ];
+
+        let event_instance_list_result: Vec<Vec<String>> = redis::cmd("rdcl.evi_list")
+            .arg($calendar_uid)
+            .arg($event_uid)
+            .arg($offset)
+            .arg($count)
             .query($connection)
             .with_context(|| {
                 format!(

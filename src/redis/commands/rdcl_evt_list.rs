@@ -5,10 +5,12 @@ use crate::redis::datatype::CALENDAR_DATA_TYPE;
 
 use crate::core::ical::serializer::SerializableICalComponent;
 
-fn serialize_calendar_events(calendar: &Calendar) -> RedisValue {
+fn serialize_calendar_events(calendar: &Calendar, offset: usize, count: usize) -> RedisValue {
     RedisValue::Array(
         calendar.events
                 .values()
+                .skip(offset)
+                .take(count)
                 .map(serialize_event)
                 .collect()
     )
@@ -35,6 +37,9 @@ pub fn redical_event_list(ctx: &Context, args: Vec<RedisString>) -> RedisResult 
 
     let calendar_uid = args.next_arg()?;
 
+    let offset = args.next_u64().unwrap_or(0) as usize;
+    let count = args.next_u64().unwrap_or(50) as usize;
+
     let calendar_key = ctx.open_key(&calendar_uid);
 
     ctx.log_debug(
@@ -47,5 +52,5 @@ pub fn redical_event_list(ctx: &Context, args: Vec<RedisString>) -> RedisResult 
         )));
     };
 
-    Ok(serialize_calendar_events(calendar))
+    Ok(serialize_calendar_events(calendar, offset, count))
 }

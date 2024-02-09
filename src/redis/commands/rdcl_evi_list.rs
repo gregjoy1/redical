@@ -17,6 +17,9 @@ pub fn redical_event_instance_list(ctx: &Context, args: Vec<RedisString>) -> Red
     let calendar_uid = args.next_arg()?;
     let event_uid = args.next_arg()?;
 
+    let offset = args.next_u64().unwrap_or(0) as usize;
+    let count = args.next_u64().unwrap_or(50) as usize;
+
     let calendar_key = ctx.open_key(&calendar_uid);
 
     ctx.log_debug(
@@ -35,17 +38,20 @@ pub fn redical_event_instance_list(ctx: &Context, args: Vec<RedisString>) -> Red
 
     match event_instance_iterator {
         Ok(event_instance_iterator) => {
-            let event_instances = event_instance_iterator
-                .map(|event_instance| {
-                    RedisValue::Array(
-                        event_instance
-                            .serialize_to_ical(None)
-                            .iter()
-                            .map(|ical_part| RedisValue::SimpleString(ical_part.to_owned()))
-                            .collect(),
-                    )
-                })
-                .collect();
+            let event_instances =
+                event_instance_iterator
+                    .skip(offset)
+                    .take(count)
+                    .map(|event_instance| {
+                        RedisValue::Array(
+                            event_instance
+                                .serialize_to_ical(None)
+                                .iter()
+                                .map(|ical_part| RedisValue::SimpleString(ical_part.to_owned()))
+                                .collect(),
+                        )
+                    })
+                    .collect();
 
             Ok(RedisValue::Array(event_instances))
         }

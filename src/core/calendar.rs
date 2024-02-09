@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeSet, BTreeMap};
 
 use crate::core::inverted_index::{IndexedConclusion, InvertedCalendarIndex};
 
@@ -18,7 +18,7 @@ use crate::core::ical::serializer::{
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Calendar {
     pub uid: UIDProperty,
-    pub events: HashMap<String, Box<Event>>,
+    pub events: BTreeMap<String, Box<Event>>,
     pub indexes_active: bool,
     pub indexed_categories: InvertedCalendarIndex<String>,
     pub indexed_related_to: InvertedCalendarIndex<KeyValuePair>,
@@ -30,7 +30,7 @@ impl Calendar {
     pub fn new(uid: String) -> Self {
         Calendar {
             uid: uid.into(),
-            events: HashMap::new(),
+            events: BTreeMap::new(),
             indexes_active: true,
             indexed_categories: InvertedCalendarIndex::new(),
             indexed_related_to: InvertedCalendarIndex::new(),
@@ -64,7 +64,7 @@ impl Calendar {
     }
 
     pub fn insert_event(&mut self, event: Event) -> Option<Event> {
-        use std::collections::hash_map::Entry;
+        use std::collections::btree_map::Entry;
 
         match self.events.entry(event.uid.uid.to_owned()) {
             Entry::Occupied(mut entry) => {
