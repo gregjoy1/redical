@@ -73,6 +73,9 @@ pub fn redical_event_del(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
 
     calendar.remove_event(&event_uid);
 
+    // Use this command when replicating across other Redis instances.
+    ctx.replicate_verbatim();
+
     // TODO: Revisit keyspace events...
     if ctx.notify_keyspace_event(NotifyEvent::GENERIC, "event.del", &calendar_uid)
         == Status::Err

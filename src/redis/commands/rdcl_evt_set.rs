@@ -1,4 +1,4 @@
-use redis_module::{Context, NextArg, RedisError, RedisResult, RedisString, RedisValue};
+use redis_module::{Context, NextArg, NotifyEvent, RedisError, RedisResult, RedisString, RedisValue, Status};
 
 use crate::core::{
     rebase_overrides, Calendar, CalendarIndexUpdater, Event, EventDiff, InvertedEventIndex,
@@ -44,7 +44,7 @@ pub fn redical_event_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     let mut event =
         Event::parse_ical(event_uid.as_str(), other.as_str()).map_err(RedisError::String)?;
 
-    event.validate();
+    event.validate().map_err(RedisError::String)?;
 
     let existing_event =
         calendar
@@ -125,6 +125,16 @@ pub fn redical_event_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     println!("rdcl.evt_set: key: {calendar_uid} event uid: {event_uid} - count: {}", calendar.events.len());
 
     calendar.insert_event(event);
+
+    // Use this command when replicating across other Redis instances.
+    ctx.replicate_verbatim();
+
+    // TODO: Revisit keyspace events...
+    if ctx.notify_keyspace_event(NotifyEvent::GENERIC, "event.set", &calendar_uid)
+        == Status::Err
+    {
+        return Err(RedisError::Str("Generic error"));
+    }
 
     Ok(
         RedisValue::Array(

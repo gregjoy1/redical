@@ -1,4 +1,4 @@
-use redis_module::{Context, NextArg, RedisError, RedisResult, RedisString, RedisValue};
+use redis_module::{Context, NextArg, NotifyEvent, RedisError, RedisResult, RedisString, RedisValue, Status};
 
 use crate::core::Calendar;
 use crate::redis::datatype::CALENDAR_DATA_TYPE;
@@ -36,9 +36,19 @@ pub fn redical_calendar_set(ctx: &Context, args: Vec<RedisString>) -> RedisResul
 
     ctx.log_debug(format!("rdcl.cal_set: key: {calendar_uid}").as_str());
 
-    let calendar = Calendar::new(calendar_uid.into());
+    let calendar = Calendar::new(calendar_uid.clone().into());
 
     calendar_key.set_value(&CALENDAR_DATA_TYPE, calendar.clone())?;
+
+    // Use this command when replicating across other Redis instances.
+    ctx.replicate_verbatim();
+
+    // TODO: Revisit keyspace events...
+    if ctx.notify_keyspace_event(NotifyEvent::GENERIC, "calendar.set", &calendar_uid)
+        == Status::Err
+    {
+        return Err(RedisError::Str("Generic error"));
+    }
 
     Ok(serialize_calendar(&calendar))
 }

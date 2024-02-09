@@ -102,6 +102,9 @@ pub fn redical_event_override_del(ctx: &Context, args: Vec<RedisString>) -> Redi
             .map_err(|error| RedisError::String(error.to_string()))?;
     }
 
+    // Use this command when replicating across other Redis instances.
+    ctx.replicate_verbatim();
+
     // TODO: Revisit keyspace events...
     if ctx.notify_keyspace_event(NotifyEvent::GENERIC, "event.override_set", &calendar_uid)
         == Status::Err

@@ -122,6 +122,9 @@ pub fn redical_event_override_set(ctx: &Context, args: Vec<RedisString>) -> Redi
 
     println!("rdcl.evo_set: key: {calendar_uid} event uid: {event_uid} - count: {} - DTSTART: {override_date_string} - count: {}", calendar.events.len(), event.overrides.len());
 
+    // Use this command when replicating across other Redis instances.
+    ctx.replicate_verbatim();
+
     // TODO: Revisit keyspace events...
     if ctx.notify_keyspace_event(NotifyEvent::GENERIC, "event.override_set", &calendar_uid)
         == Status::Err
