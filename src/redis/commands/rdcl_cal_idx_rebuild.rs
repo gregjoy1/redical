@@ -24,8 +24,6 @@ pub fn redical_calendar_idx_rebuild(ctx: &Context, args: Vec<RedisString>) -> Re
 
     calendar.rebuild_indexes().map_err(RedisError::String)?;
 
-    calendar_key.set_value(&CALENDAR_DATA_TYPE, calendar.clone())?;
-
     ctx.log_debug(format!("rdcl.cal_idx_rebuild: key: {calendar_uid}").as_str());
 
     Ok(RedisValue::Bool(true))

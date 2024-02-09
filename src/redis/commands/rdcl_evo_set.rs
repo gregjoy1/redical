@@ -53,7 +53,7 @@ pub fn redical_event_override_set(ctx: &Context, args: Vec<RedisString>) -> Redi
         )));
     };
 
-    let Some(mut event) = calendar.events.get(&event_uid).cloned() else {
+    let Some(mut event) = calendar.get_event(&event_uid).cloned() else {
         return Err(RedisError::String(format!(
             "No event with UID: '{}' found",
             event_uid
@@ -65,9 +65,7 @@ pub fn redical_event_override_set(ctx: &Context, args: Vec<RedisString>) -> Redi
     event.override_occurrence(&event_occurrence_override, calendar.indexes_active.to_owned()).map_err(RedisError::String)?;
 
     // HashMap.insert returns the old value (if present) which we can use in diffing old -> new.
-    let existing_event = calendar
-        .events
-        .insert(event_uid.to_owned(), event.to_owned());
+    let existing_event = calendar.insert_event(event.clone()).and_then(|boxed_event| Some(boxed_event));
 
     if calendar.indexes_active {
 
@@ -122,9 +120,7 @@ pub fn redical_event_override_set(ctx: &Context, args: Vec<RedisString>) -> Redi
             .map_err(|error| RedisError::String(error.to_string()))?;
     }
 
-    // println!("rdcl.evt_set: key: {calendar_uid} event uid: {event_uid} DTSTART: {override_date_string} - count: {}", event.overrides.len());
-
-    calendar_key.set_value(&CALENDAR_DATA_TYPE, calendar.clone())?;
+    println!("rdcl.evo_set: key: {calendar_uid} event uid: {event_uid} - count: {} - DTSTART: {override_date_string} - count: {}", calendar.events.len(), event.overrides.len());
 
     // TODO: Revisit keyspace events...
     if ctx.notify_keyspace_event(NotifyEvent::GENERIC, "event.override_set", &calendar_uid)

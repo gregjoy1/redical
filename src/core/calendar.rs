@@ -18,7 +18,7 @@ use crate::core::ical::serializer::{
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Calendar {
     pub uid: UIDProperty,
-    pub events: HashMap<String, Event>,
+    pub events: HashMap<String, Box<Event>>,
     pub indexes_active: bool,
     pub indexed_categories: InvertedCalendarIndex<String>,
     pub indexed_related_to: InvertedCalendarIndex<KeyValuePair>,
@@ -57,6 +57,36 @@ impl Calendar {
         }
 
         Ok(self)
+    }
+
+    pub fn get_event(&self, event_uid: &String) -> Option<&Event> {
+        self.events.get(event_uid).and_then(|boxed_event| Some(boxed_event.as_ref()))
+    }
+
+    pub fn insert_event(&mut self, event: Event) -> Option<Event> {
+        use std::collections::hash_map::Entry;
+
+        match self.events.entry(event.uid.uid.to_owned()) {
+            Entry::Occupied(mut entry) => {
+                let boxed_event = entry.get_mut();
+
+                // Swap boxed event value out with new one to avoid copying
+                // the entire Calendar everytime we want to make an update.
+                Some(
+                    std::mem::replace(&mut **boxed_event, event)
+                )
+            },
+
+            Entry::Vacant(entry) => {
+                entry.insert(Box::new(event));
+
+                None
+            },
+        }
+    }
+
+    pub fn remove_event(&mut self, event_uid: &String) -> Option<Box<Event>> {
+        self.events.remove(event_uid)
     }
 
     fn clear_indexes(&mut self) {

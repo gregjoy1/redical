@@ -30,8 +30,6 @@ pub fn redical_calendar_idx_disable(ctx: &Context, args: Vec<RedisString>) -> Re
 
     calendar.disable_indexes();
 
-    calendar_key.set_value(&CALENDAR_DATA_TYPE, calendar.clone())?;
-
     ctx.log_debug(format!("rdcl.cal_idx_disable: key: {calendar_uid}").as_str());
 
     Ok(RedisValue::Bool(true))

@@ -71,9 +71,7 @@ pub fn redical_event_del(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
             .map_err(|error| RedisError::String(error.to_string()))?;
     }
 
-    calendar.events.remove(&event_uid);
-
-    calendar_key.set_value(&CALENDAR_DATA_TYPE, calendar.clone())?;
+    calendar.remove_event(&event_uid);
 
     // TODO: Revisit keyspace events...
     if ctx.notify_keyspace_event(NotifyEvent::GENERIC, "event.del", &calendar_uid)

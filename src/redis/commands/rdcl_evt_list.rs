@@ -14,7 +14,7 @@ fn serialize_calendar_events(calendar: &Calendar) -> RedisValue {
     )
 }
 
-fn serialize_event(event: &Event) -> RedisValue {
+fn serialize_event(event: &Box<Event>) -> RedisValue {
     RedisValue::Array(
         event
             .serialize_to_ical(None)

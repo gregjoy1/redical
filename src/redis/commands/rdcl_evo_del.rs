@@ -102,8 +102,6 @@ pub fn redical_event_override_del(ctx: &Context, args: Vec<RedisString>) -> Redi
             .map_err(|error| RedisError::String(error.to_string()))?;
     }
 
-    calendar_key.set_value(&CALENDAR_DATA_TYPE, calendar.clone())?;
-
     // TODO: Revisit keyspace events...
     if ctx.notify_keyspace_event(NotifyEvent::GENERIC, "event.override_set", &calendar_uid)
         == Status::Err

@@ -65,7 +65,7 @@ impl TryFrom<&Calendar> for RDBCalendar {
 
         for event in calendar.events.values() {
             rdb_events.push(
-                RDBEvent::try_from(event)?
+                RDBEvent::try_from(event.as_ref())?
             );
         }
 
@@ -104,7 +104,7 @@ impl TryFrom<&RDBCalendar> for Calendar {
             let event = Event::try_from(rdb_event).map_err(|error| ParseRDBEntityError::OnChild(rdb_calendar_uid.to_owned(), Box::new(error)))?;
             let event_uid = event.uid.uid.to_owned();
 
-            calendar.events.insert(event_uid, event);
+            calendar.insert_event(event);
         }
 
         calendar.rebuild_indexes().map_err(|error| ParseRDBEntityError::OnSelf(rdb_calendar_uid.to_owned(), error))?;
@@ -273,10 +273,7 @@ mod test {
 
         let mut calendar = Calendar::new(String::from("CALENDAR_UID"));
 
-        calendar.events.insert(
-            String::from("EVENT_UID"),
-            event.clone(),
-        );
+        calendar.insert_event(event.clone());
 
         calendar.rebuild_indexes().unwrap();
 
@@ -341,10 +338,7 @@ mod test {
 
         let mut calendar = Calendar::new(String::from("CALENDAR_UID"));
 
-        calendar.events.insert(
-            String::from("EVENT_UID"),
-            event.clone(),
-        );
+        calendar.insert_event(event.clone());
 
         calendar.rebuild_indexes().unwrap();
 
