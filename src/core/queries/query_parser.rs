@@ -34,6 +34,25 @@ fn parse_single_value(input: &str) -> ParserResult<&str, &str> {
     alt((common::quoted_string, param_text))(input)
 }
 
+// All query property names
+fn query_name(input: &str) -> ParserResult<&str, &str> {
+    alt(
+        (
+            tag("X-TZID"),
+            tag("X-LIMIT"),
+            tag("X-OFFSET"),
+            tag("X-DISTINCT"),
+            tag("X-FROM"),
+            tag("X-UNTIL"),
+            tag("X-ORDER"),
+            tag("X-RELATED-TO"),
+            tag("X-CLASS"),
+            tag("X-CATEGORIES"),
+            tag("X-GEO"),
+        )
+    )(input)
+}
+
 fn look_ahead_property_parser(input: &str) -> ParserResult<&str, &str> {
     alt((
         preceded(common::white_space, tag(")")),
@@ -41,8 +60,7 @@ fn look_ahead_property_parser(input: &str) -> ParserResult<&str, &str> {
             common::white_space1,
             alt((tag("AND"), tag("&&"), tag("OR"), tag("||"))),
             common::white_space1,
-            tag("X-RELATED-TO"),
-            // common::name,
+            query_name,
             alt((common::colon_delimeter, common::semicolon_delimeter)),
         ))),
         common::look_ahead_property_parser,
@@ -837,6 +855,26 @@ fn parse_operator_prefixed_where_query_property_content(
                 parsed_external_where_operator,
             ),
 
+            ParsedQueryComponent::WhereGeo(
+                geo_distance,
+                geo_point,
+                _external_operator,
+            ) => ParsedQueryComponent::WhereGeo(
+                geo_distance,
+                geo_point,
+                parsed_external_where_operator,
+            ),
+
+            ParsedQueryComponent::WhereClass(
+                parsed_classification,
+                internal_operator,
+                _external_operator,
+            ) => ParsedQueryComponent::WhereClass(
+                parsed_classification,
+                internal_operator,
+                parsed_external_where_operator,
+            ),
+
             ParsedQueryComponent::WhereGroup(parsed_query_properties, _external_operator) => {
                 ParsedQueryComponent::WhereGroup(
                     parsed_query_properties,
@@ -844,7 +882,7 @@ fn parse_operator_prefixed_where_query_property_content(
                 )
             }
 
-            _ => panic!("Expected where query property."),
+            _ => panic!("Expected where query property - received: {:#?}", parsed_query_component),
         };
 
         (remaining, parsed_where_query_component)
@@ -1601,11 +1639,11 @@ mod test {
             "X-UNTIL;PROP=DTSTART;OP=LTE;TZID=UTC:19971102T090000",
             "(",
             "(",
-            "X-GEO;DIST=1.5KM:48.85299;2.36885",
+            "X-RELATED-TO;RELTYPE=PARENT:PARENT_UID",
             "OR",
             "X-CATEGORIES:CATEGORY_ONE",
             "OR",
-            "X-RELATED-TO;RELTYPE=PARENT:PARENT_UID",
+            "X-GEO;DIST=1.5KM:48.85299;2.36885",
             ")",
             "AND",
             "(",
@@ -1633,13 +1671,10 @@ mod test {
                                 Box::new(WhereConditional::Operator(
                                     Box::new(WhereConditional::Operator(
                                         Box::new(WhereConditional::Property(
-                                            WhereConditionalProperty::Geo(
-                                                GeoDistance::new_from_kilometers_float(1.5),
-                                                GeoPoint {
-                                                    long: 2.36885,
-                                                    lat: 48.85299,
-                                                },
-                                            ),
+                                            WhereConditionalProperty::RelatedTo(KeyValuePair::new(
+                                                String::from("PARENT"),
+                                                String::from("PARENT_UID"),
+                                            )),
                                         )),
                                         Box::new(WhereConditional::Property(
                                             WhereConditionalProperty::Categories(String::from(
@@ -1649,10 +1684,13 @@ mod test {
                                         WhereOperator::Or,
                                     )),
                                     Box::new(WhereConditional::Property(
-                                        WhereConditionalProperty::RelatedTo(KeyValuePair::new(
-                                            String::from("PARENT"),
-                                            String::from("PARENT_UID"),
-                                        )),
+                                        WhereConditionalProperty::Geo(
+                                            GeoDistance::new_from_kilometers_float(1.5),
+                                            GeoPoint {
+                                                long: 2.36885,
+                                                lat: 48.85299,
+                                            },
+                                        ),
                                     )),
                                     WhereOperator::Or,
                                 )),
