@@ -11,9 +11,6 @@ mod integration {
 
     use super::*;
 
-    use std::collections::HashMap;
-
-    use lazy_static::lazy_static;
     use pretty_assertions_sorted::{assert_eq, assert_eq_sorted};
 
     // Run with:

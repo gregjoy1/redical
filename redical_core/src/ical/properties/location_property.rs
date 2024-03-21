@@ -11,11 +11,11 @@ use nom::{
     sequence::{preceded, separated_pair, tuple},
 };
 
-use crate::core::ical::parser::common;
-use crate::core::ical::parser::common::ParserResult;
-use crate::core::ical::parser::macros::*;
-use crate::core::ical::parser::properties;
-use crate::core::ical::serializer::{
+use crate::ical::parser::common;
+use crate::ical::parser::common::ParserResult;
+use crate::ical::parser::macros::*;
+use crate::ical::parser::properties;
+use crate::ical::serializer::{
     quote_string_if_needed, SerializableICalProperty, SerializationPreferences, SerializedValue,
 };
 

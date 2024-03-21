@@ -1,4 +1,4 @@
-use crate::core::{FilterProperty, LowerBoundFilterCondition, UpperBoundFilterCondition};
+use crate::{FilterProperty, LowerBoundFilterCondition, UpperBoundFilterCondition};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum RangeConditionProperty {

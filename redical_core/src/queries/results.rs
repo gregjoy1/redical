@@ -1,7 +1,7 @@
 use std::cmp::Ordering;
 use std::collections::{BTreeSet, HashSet};
 
-use crate::core::EventInstance;
+use crate::EventInstance;
 
 use super::results_ordering::{OrderingCondition, QueryResultOrdering};
 
@@ -134,15 +134,13 @@ impl QueryResultItem for QueryResult {}
 mod test {
     use super::*;
 
-    use crate::core::{GeoDistance, GeoPoint, IndexedProperties, PassiveProperties};
+    use crate::{GeoDistance, GeoPoint, IndexedProperties, PassiveProperties};
 
     use pretty_assertions_sorted::assert_eq;
 
-    use std::collections::BTreeSet;
-
     use crate::testing::macros::build_property_from_ical;
 
-    use crate::core::ical::properties::{
+    use crate::ical::properties::{
         CategoriesProperty, ClassProperty, DTEndProperty, DTStartProperty, DescriptionProperty,
         DurationProperty, GeoProperty, LocationProperty, Property, RelatedToProperty, UIDProperty,
     };

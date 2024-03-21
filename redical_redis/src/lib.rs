@@ -2,10 +2,10 @@ use redis_module::{redis_module, Context, NotifyEvent};
 
 use redical_core as core;
 
-#[cfg(test)]
-use redical_testing as testing;
+mod datatype;
+mod commands;
 
-use redis::datatype::CALENDAR_DATA_TYPE;
+use crate::datatype::CALENDAR_DATA_TYPE;
 
 fn on_event(ctx: &Context, event_type: NotifyEvent, event: &str, key: &[u8]) {
     ctx.log_notice(
@@ -58,20 +58,20 @@ redis_module! {
         CALENDAR_DATA_TYPE
     ],
     commands:   [
-        ["rdcl.evt_set",         redis::commands::redical_event_set,            "write pubsub deny-oom", 1, 1, 1],
-        ["rdcl.evt_get",         redis::commands::redical_event_get,            "readonly",              1, 1, 1],
-        ["rdcl.evt_del",         redis::commands::redical_event_del,            "write pubsub deny-oom", 1, 1, 1],
-        ["rdcl.evt_list",        redis::commands::redical_event_list,           "readonly",              1, 1, 1],
-        ["rdcl.evi_list",        redis::commands::redical_event_instance_list,  "readonly",              1, 1, 1],
-        ["rdcl.evo_get",         redis::commands::redical_event_override_get,   "readonly",              1, 1, 1],
-        ["rdcl.evo_set",         redis::commands::redical_event_override_set,   "write pubsub deny-oom", 1, 1, 1],
-        ["rdcl.evo_del",         redis::commands::redical_event_override_del,   "write pubsub deny-oom", 1, 1, 1],
-        ["rdcl.evo_list",        redis::commands::redical_event_override_list,  "readonly",              1, 1, 1],
-        ["rdcl.cal_set",         redis::commands::redical_calendar_set,         "write pubsub deny-oom", 1, 1, 1],
-        ["rdcl.cal_get",         redis::commands::redical_calendar_get,         "readonly",              1, 1, 1],
-        ["rdcl.cal_query",       redis::commands::redical_calendar_query,       "readonly",              1, 1, 1],
-        ["rdcl.cal_idx_disable", redis::commands::redical_calendar_idx_disable, "write pubsub",          1, 1, 1],
-        ["rdcl.cal_idx_rebuild", redis::commands::redical_calendar_idx_rebuild, "write pubsub deny-oom", 1, 1, 1],
+        ["rdcl.evt_set",         commands::redical_event_set,            "write pubsub deny-oom", 1, 1, 1],
+        ["rdcl.evt_get",         commands::redical_event_get,            "readonly",              1, 1, 1],
+        ["rdcl.evt_del",         commands::redical_event_del,            "write pubsub deny-oom", 1, 1, 1],
+        ["rdcl.evt_list",        commands::redical_event_list,           "readonly",              1, 1, 1],
+        ["rdcl.evi_list",        commands::redical_event_instance_list,  "readonly",              1, 1, 1],
+        ["rdcl.evo_get",         commands::redical_event_override_get,   "readonly",              1, 1, 1],
+        ["rdcl.evo_set",         commands::redical_event_override_set,   "write pubsub deny-oom", 1, 1, 1],
+        ["rdcl.evo_del",         commands::redical_event_override_del,   "write pubsub deny-oom", 1, 1, 1],
+        ["rdcl.evo_list",        commands::redical_event_override_list,  "readonly",              1, 1, 1],
+        ["rdcl.cal_set",         commands::redical_calendar_set,         "write pubsub deny-oom", 1, 1, 1],
+        ["rdcl.cal_get",         commands::redical_calendar_get,         "readonly",              1, 1, 1],
+        ["rdcl.cal_query",       commands::redical_calendar_query,       "readonly",              1, 1, 1],
+        ["rdcl.cal_idx_disable", commands::redical_calendar_idx_disable, "write pubsub",          1, 1, 1],
+        ["rdcl.cal_idx_rebuild", commands::redical_calendar_idx_rebuild, "write pubsub deny-oom", 1, 1, 1],
     ],
     event_handlers: [
         [@STRING: on_event],

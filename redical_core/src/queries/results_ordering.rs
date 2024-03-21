@@ -3,15 +3,15 @@ use std::collections::BTreeSet;
 
 use chrono_tz::Tz;
 
-use crate::core::ical::serializer::{
+use crate::ical::serializer::{
     DistanceUnit, SerializableICalComponent, SerializableICalProperty, SerializationPreferences,
 };
 
 use geo::HaversineDistance;
 
-use crate::core::{EventInstance, GeoDistance, GeoPoint, KeyValuePair};
+use crate::{EventInstance, GeoDistance, GeoPoint, KeyValuePair};
 
-use crate::core::ical::properties::{DTStartProperty, XProperty};
+use crate::ical::properties::{DTStartProperty, XProperty};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum OrderingCondition {

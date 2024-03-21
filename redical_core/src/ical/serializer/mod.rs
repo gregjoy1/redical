@@ -3,10 +3,10 @@ use std::collections::BTreeSet;
 use chrono::TimeZone;
 use chrono_tz::Tz;
 
-use crate::core::ical::properties::Property;
+use crate::ical::properties::Property;
 
-use crate::core::queries::query::Query;
-use crate::core::utils::KeyValuePair;
+use crate::queries::query::Query;
+use crate::utils::KeyValuePair;
 
 mod serialized_value;
 
@@ -148,7 +148,7 @@ pub trait SerializableICalProperty {
 mod test {
 
     use super::*;
-    use crate::core::ical::parser::common::param_text;
+    use crate::ical::parser::common::param_text;
     use pretty_assertions_sorted::assert_eq;
 
     #[test]

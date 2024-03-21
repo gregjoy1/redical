@@ -1,6 +1,6 @@
-use crate::core::{Event, EventOccurrenceOverride};
+use crate::{Event, EventOccurrenceOverride};
 
-pub fn build_event_from_ical(event_uid: &str, event_ical_parts: Vec<&str>) -> crate::core::Event {
+pub fn build_event_from_ical(event_uid: &str, event_ical_parts: Vec<&str>) -> Event {
     build_event_and_overrides_from_ical(event_uid, event_ical_parts, vec![])
 }
 
@@ -8,7 +8,7 @@ pub fn build_event_and_overrides_from_ical(
     event_uid: &str,
     event_ical_parts: Vec<&str>,
     event_overrides: Vec<(&str, Vec<&str>)>,
-) -> crate::core::Event {
+) -> Event {
     let mut event = Event::parse_ical(event_uid, event_ical_parts.join(" ").as_str()).unwrap();
 
     event.validate().unwrap();

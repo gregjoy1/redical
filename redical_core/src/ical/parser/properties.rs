@@ -10,8 +10,8 @@ use nom::{
     IResult,
 };
 
-use crate::core::ical::parser::common;
-use crate::core::ical::parser::common::ParserResult;
+use crate::ical::parser::common;
+use crate::ical::parser::common::ParserResult;
 
 // text       = *(TSAFE-CHAR / ":" / DQUOTE / ESCAPED-CHAR)
 //

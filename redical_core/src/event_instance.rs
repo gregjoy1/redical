@@ -5,19 +5,19 @@ use std::cmp::Ordering;
 
 use std::collections::{BTreeSet, HashMap, HashSet};
 
-use crate::core::{Event, EventOccurrenceOverride, GeoPoint, IndexedConclusion, KeyValuePair};
+use crate::{Event, EventOccurrenceOverride, GeoPoint, IndexedConclusion, KeyValuePair};
 
-use crate::core::ical::serializer::{
+use crate::ical::serializer::{
     SerializableICalComponent, SerializableICalProperty, SerializationPreferences,
 };
 
-use crate::core::event_occurrence_iterator::{
+use crate::event_occurrence_iterator::{
     EventOccurrenceIterator, LowerBoundFilterCondition, UpperBoundFilterCondition,
 };
 
-use crate::core::event::{IndexedProperties, PassiveProperties};
+use crate::event::{IndexedProperties, PassiveProperties};
 
-use crate::core::ical::properties::{
+use crate::ical::properties::{
     CategoriesProperty, ClassProperty, DTEndProperty, DTStartProperty, DurationProperty,
     GeoProperty, Property, RecurrenceIDProperty, RelatedToProperty, UIDProperty,
 };
@@ -323,12 +323,12 @@ impl<'a> Iterator for EventInstanceIterator<'a> {
 mod test {
     use super::*;
 
+
     use crate::testing::utils::{build_event_and_overrides_from_ical, build_event_from_ical};
+    use crate::testing::macros::build_property_from_ical;
     use pretty_assertions_sorted::{assert_eq, assert_eq_sorted};
 
-    use crate::testing::macros::build_property_from_ical;
-
-    use crate::core::ical::properties::{DescriptionProperty, LocationProperty};
+    use crate::ical::properties::{DescriptionProperty, LocationProperty};
 
     #[test]
     fn test_event_instance_without_override() {

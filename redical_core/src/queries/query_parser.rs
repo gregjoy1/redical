@@ -13,18 +13,18 @@ use nom::{
     error::{VerboseError, VerboseErrorKind},
 };
 
-use crate::core::queries::indexed_property_filters::{
+use crate::queries::indexed_property_filters::{
     WhereConditional, WhereConditionalProperty, WhereOperator,
 };
-use crate::core::queries::query::Query;
-use crate::core::queries::results_ordering::OrderingCondition;
-use crate::core::queries::results_range_bounds::{
+use crate::queries::query::Query;
+use crate::queries::results_ordering::OrderingCondition;
+use crate::queries::results_range_bounds::{
     LowerBoundRangeCondition, RangeConditionProperty, UpperBoundRangeCondition,
 };
-use crate::core::{GeoDistance, GeoPoint, KeyValuePair};
+use crate::{GeoDistance, GeoPoint, KeyValuePair};
 
-use crate::core::ical::parser::common;
-use crate::core::ical::parser::common::ParserResult;
+use crate::ical::parser::common;
+use crate::ical::parser::common::ParserResult;
 
 fn parse_list_values(input: &str) -> ParserResult<&str, &str> {
     alt((common::quoted_string, param_text))(input)
@@ -524,7 +524,7 @@ fn parse_related_to_query_property_content(
                         ),
                         (
                             "RELTYPE",
-                            common::ParsedValue::parse_single(crate::core::ical::properties::RelatedToProperty::reltype_param_value)
+                            common::ParsedValue::parse_single(crate::ical::properties::RelatedToProperty::reltype_param_value)
                         ),
                     ),
                 )),

@@ -4,13 +4,13 @@ use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 
-use crate::core::event::{IndexedProperties, PassiveProperties};
+use crate::event::{IndexedProperties, PassiveProperties};
 
-use crate::core::ical::serializer::{SerializableICalComponent, SerializableICalProperty, SerializationPreferences};
+use crate::ical::serializer::{SerializableICalComponent, SerializableICalProperty, SerializationPreferences};
 
-use crate::core::ical::parser::datetime::{datestring_to_date, ParseError};
+use crate::ical::parser::datetime::{datestring_to_date, ParseError};
 
-use crate::core::ical::properties::{
+use crate::ical::properties::{
     DTEndProperty, DTStartProperty, DurationProperty, Properties, Property,
 };
 
@@ -206,7 +206,7 @@ mod test {
 
     use std::collections::{BTreeSet, HashSet};
 
-    use crate::core::ical::properties::{
+    use crate::ical::properties::{
         CategoriesProperty, ClassProperty, DescriptionProperty, Property,
     };
 

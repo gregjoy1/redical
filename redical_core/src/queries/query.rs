@@ -1,24 +1,24 @@
 use std::str::FromStr;
 
-use crate::core::{
+use crate::{
     Calendar, Event, EventInstance, EventInstanceIterator, GeoPoint, IndexedConclusion,
     InvertedCalendarIndexTerm, LowerBoundFilterCondition, UpperBoundFilterCondition,
 };
 use chrono_tz::Tz;
 
-use crate::core::queries::indexed_property_filters::WhereConditional;
-use crate::core::queries::query_parser::parse_query_string;
-use crate::core::queries::results::QueryResults;
-use crate::core::queries::results_ordering::OrderingCondition;
-use crate::core::queries::results_range_bounds::{
+use crate::queries::indexed_property_filters::WhereConditional;
+use crate::queries::query_parser::parse_query_string;
+use crate::queries::results::QueryResults;
+use crate::queries::results_ordering::OrderingCondition;
+use crate::queries::results_range_bounds::{
     LowerBoundRangeCondition, UpperBoundRangeCondition,
 };
 
-use crate::core::ical::parser::error::convert_error;
+use crate::ical::parser::error::convert_error;
 
 use nom::combinator::all_consuming;
 
-use crate::core::MergedIterator;
+use crate::MergedIterator;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Query {
@@ -339,15 +339,15 @@ impl Default for Query {
 mod test {
     use super::*;
 
-    use crate::core::queries::indexed_property_filters::{
+    use crate::queries::indexed_property_filters::{
         WhereConditional, WhereConditionalProperty, WhereOperator,
     };
 
-    use crate::core::queries::results_range_bounds::{
+    use crate::queries::results_range_bounds::{
         LowerBoundRangeCondition, RangeConditionProperty, UpperBoundRangeCondition,
     };
 
-    use crate::core::{Event, GeoPoint, KeyValuePair};
+    use crate::{Event, GeoPoint, KeyValuePair};
     use crate::testing::utils::{build_event_and_overrides_from_ical, build_event_from_ical};
     use pretty_assertions_sorted::assert_eq;
 

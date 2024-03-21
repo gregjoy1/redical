@@ -17,9 +17,9 @@ use chrono_tz::Tz;
 
 use std::collections::HashMap;
 
-use crate::core::ical::parser::datetime::{parse_timezone, ParsedDateString};
-use crate::core::ical::parser::duration::{parse_duration_string_components, ParsedDuration};
-use crate::core::{GeoDistance, KeyValuePair};
+use crate::ical::parser::datetime::{parse_timezone, ParsedDateString};
+use crate::ical::parser::duration::{parse_duration_string_components, ParsedDuration};
+use crate::{GeoDistance, KeyValuePair};
 
 use nom::{
     branch::alt,
@@ -676,7 +676,7 @@ mod test {
 
     use chrono::prelude::*;
 
-    use crate::core::ical::parser::datetime::{ParsedDateStringFlags, ParsedDateStringTime};
+    use crate::ical::parser::datetime::{ParsedDateStringFlags, ParsedDateStringTime};
 
     use nom::bytes::complete::take_while1;
     use nom::combinator::recognize;

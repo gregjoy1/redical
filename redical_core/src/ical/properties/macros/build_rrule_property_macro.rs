@@ -16,10 +16,10 @@ macro_rules! build_rrule_property {
             sequence::{preceded, separated_pair, tuple},
         };
 
-        use crate::core::ical::parser::common;
-        use crate::core::ical::parser::common::{ParsedValue, ParserResult};
-        use crate::core::ical::parser::macros::*;
-        use crate::core::ical::serializer::{
+        use crate::ical::parser::common;
+        use crate::ical::parser::common::{ParsedValue, ParserResult};
+        use crate::ical::parser::macros::*;
+        use crate::ical::serializer::{
             quote_string_if_needed, serialize_timestamp_to_ical_datetime, SerializableICalProperty,
             SerializedValue, SerializationPreferences,
         };

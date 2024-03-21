@@ -8,6 +8,9 @@ mod geo_index;
 mod inverted_index;
 mod utils;
 
+#[cfg(test)]
+mod testing;
+
 pub use calendar::*;
 pub use event::*;
 pub use event_diff::*;

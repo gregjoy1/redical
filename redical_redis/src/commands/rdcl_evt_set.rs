@@ -3,7 +3,7 @@ use redis_module::{Context, NextArg, NotifyEvent, RedisError, RedisResult, Redis
 use crate::core::{
     rebase_overrides, Calendar, CalendarIndexUpdater, Event, EventDiff, InvertedEventIndex,
 };
-use crate::redis::datatype::CALENDAR_DATA_TYPE;
+use crate::datatype::CALENDAR_DATA_TYPE;
 
 use crate::core::ical::serializer::SerializableICalComponent;
 

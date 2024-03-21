@@ -4,25 +4,25 @@ use std::str::FromStr;
 
 use rrule::{RRuleError, RRuleSet};
 
-use crate::core::ical::properties::{
+use crate::ical::properties::{
     CategoriesProperty, ClassProperty, DTEndProperty, DTStartProperty, DurationProperty,
     ExDateProperty, ExRuleProperty, GeoProperty, Properties, Property, RDateProperty,
     RRuleProperty, RelatedToProperty, UIDProperty,
 };
 
-use crate::core::ical::serializer::{
+use crate::ical::serializer::{
     SerializableICalComponent, SerializableICalProperty, SerializationPreferences,
 };
 
-use crate::core::event_occurrence_override::EventOccurrenceOverride;
+use crate::event_occurrence_override::EventOccurrenceOverride;
 
-use crate::core::inverted_index::InvertedEventIndex;
+use crate::inverted_index::InvertedEventIndex;
 
-use crate::core::geo_index::GeoPoint;
+use crate::geo_index::GeoPoint;
 
-use crate::core::event_diff::EventDiff;
+use crate::event_diff::EventDiff;
 
-use crate::core::utils::KeyValuePair;
+use crate::utils::KeyValuePair;
 
 // Rebase all overrides with added/removed EventDiff properties.
 //
@@ -794,11 +794,11 @@ impl SerializableICalComponent for Event {
 mod test {
     use super::*;
 
-    use crate::core::IndexedConclusion;
+    use crate::IndexedConclusion;
 
     use crate::testing::macros::build_property_from_ical;
 
-    use crate::core::ical::properties::DescriptionProperty;
+    use crate::ical::properties::DescriptionProperty;
 
     use std::collections::BTreeMap;
 

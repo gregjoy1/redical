@@ -17,10 +17,10 @@ macro_rules! build_date_string_property {
             sequence::{preceded, separated_pair, tuple},
         };
 
-        use crate::core::ical::parser::common;
-        use crate::core::ical::parser::common::ParserResult;
-        use crate::core::ical::parser::macros::*;
-        use crate::core::ical::serializer::{
+        use crate::ical::parser::common;
+        use crate::ical::parser::common::ParserResult;
+        use crate::ical::parser::macros::*;
+        use crate::ical::serializer::{
             quote_string_if_needed, serialize_timestamp_to_ical_datetime, serialize_timestamp_to_ical_date,
             SerializableICalProperty, SerializedValue, SerializationPreferences,
         };
@@ -222,7 +222,7 @@ macro_rules! build_date_string_property {
 
             use super::*;
             use pretty_assertions_sorted::assert_eq;
-            use crate::core::ical::parser::error::convert_error;
+            use crate::ical::parser::error::convert_error;
 
             #[test]
             fn test_parse_ical_with_invalid_date_value_type() {

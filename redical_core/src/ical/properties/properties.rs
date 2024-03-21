@@ -11,11 +11,11 @@ use nom::{
 
 use std::str::FromStr;
 
-use crate::core::ical::parser::error::convert_error;
+use crate::ical::parser::error::convert_error;
 
-use crate::core::ical::parser::common::{white_space1, ParserResult};
-use crate::core::ical::properties::*;
-use crate::core::ical::serializer::{
+use crate::ical::parser::common::{white_space1, ParserResult};
+use crate::ical::properties::*;
+use crate::ical::serializer::{
     SerializableICalProperty, SerializationPreferences, SerializedValue,
 };
 

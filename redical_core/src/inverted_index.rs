@@ -1,12 +1,12 @@
 use serde::{Deserialize, Serialize};
 
-use crate::core::ical::serializer::SerializableICalProperty;
+use crate::ical::serializer::SerializableICalProperty;
 use std::collections::{HashMap, HashSet};
 
-use crate::core::event::Event;
-use crate::core::geo_index::GeoPoint;
+use crate::event::Event;
+use crate::geo_index::GeoPoint;
 
-use crate::core::utils::{KeyValuePair, UpdatedHashMapMembers, UpdatedSetMembers};
+use crate::utils::{KeyValuePair, UpdatedHashMapMembers, UpdatedSetMembers};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct InvertedCalendarIndexTerm {

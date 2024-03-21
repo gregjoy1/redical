@@ -1,7 +1,7 @@
 use redis_module::{Context, NextArg, NotifyEvent, RedisError, RedisResult, RedisString, Status, RedisValue};
 
 use crate::core::{Calendar, CalendarIndexUpdater, EventOccurrenceOverride, InvertedEventIndex};
-use crate::redis::datatype::CALENDAR_DATA_TYPE;
+use crate::datatype::CALENDAR_DATA_TYPE;
 
 use crate::core::ical::serializer::SerializableICalComponent;
 

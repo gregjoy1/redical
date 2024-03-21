@@ -9,10 +9,10 @@ use nom::{
     sequence::{preceded, separated_pair, terminated, tuple},
 };
 
-use crate::core::ical::parser::common;
-use crate::core::ical::parser::common::ParserResult;
-use crate::core::ical::parser::macros::*;
-use crate::core::ical::serializer::{
+use crate::ical::parser::common;
+use crate::ical::parser::common::ParserResult;
+use crate::ical::parser::macros::*;
+use crate::ical::serializer::{
     quote_string_if_needed, SerializableICalProperty, SerializationPreferences, SerializedValue,
 };
 

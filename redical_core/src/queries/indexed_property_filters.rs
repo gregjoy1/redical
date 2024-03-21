@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use crate::core::{Calendar, GeoDistance, GeoPoint, InvertedCalendarIndexTerm, KeyValuePair};
+use crate::{Calendar, GeoDistance, GeoPoint, InvertedCalendarIndexTerm, KeyValuePair};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum WhereOperator {
@@ -264,7 +264,7 @@ mod test {
 
     use pretty_assertions_sorted::assert_eq;
 
-    use crate::core::IndexedConclusion;
+    use crate::IndexedConclusion;
     use std::collections::{HashMap, HashSet};
 
     #[test]

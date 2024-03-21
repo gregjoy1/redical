@@ -1,9 +1,9 @@
 use redis_module::{Context, NextArg, RedisError, RedisResult, RedisString, RedisValue};
 
-use crate::redis::datatype::CALENDAR_DATA_TYPE;
+use crate::datatype::CALENDAR_DATA_TYPE;
 
-use crate::core::ical::serializer::SerializableICalComponent;
-use crate::core::{Calendar, EventInstanceIterator};
+use redical_core::ical::serializer::SerializableICalComponent;
+use redical_core::{Calendar, EventInstanceIterator};
 
 pub fn redical_event_instance_list(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     if args.len() < 2 {

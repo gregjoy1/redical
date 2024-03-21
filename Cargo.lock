@@ -935,24 +935,8 @@ name = "redical"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "bincode",
- "chrono",
- "chrono-tz",
- "geo",
- "geohash",
- "lazy_static",
- "libc",
- "nom 6.1.2",
- "num",
  "pretty_assertions_sorted",
  "redis",
- "redis-module",
- "redis-module-macros",
- "regex",
- "rrule",
- "rstar",
- "serde",
- "unicode-segmentation",
 ]
 
 [[package]]
@@ -960,16 +944,15 @@ name = "redical_core"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "bincode",
  "chrono",
  "chrono-tz",
  "geo",
  "geohash",
  "lazy_static",
- "libc",
  "nom 6.1.2",
  "num",
  "pretty_assertions_sorted",
+ "redis",
  "regex",
  "rrule",
  "rstar",
@@ -988,16 +971,11 @@ dependencies = [
  "libc",
  "pretty_assertions_sorted",
  "redical_core",
- "redical_testing",
  "redis",
  "redis-module",
  "redis-module-macros",
  "serde",
 ]
-
-[[package]]
-name = "redical_testing"
-version = "0.1.0"
 
 [[package]]
 name = "redis"

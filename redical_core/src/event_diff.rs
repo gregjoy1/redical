@@ -1,8 +1,8 @@
 use std::collections::HashSet;
 use std::hash::Hash;
 
-use crate::core::ical::properties::DurationProperty;
-use crate::core::{
+use crate::ical::properties::DurationProperty;
+use crate::{
     btree_hashset_to_hashset, hashmap_to_hashset, Event, GeoPoint, KeyValuePair, UpdatedAttribute,
     UpdatedSetMembers,
 };
@@ -217,13 +217,13 @@ mod test {
 
     use std::collections::{BTreeMap, BTreeSet, HashSet};
 
-    use crate::core::ical::properties::{
+    use crate::ical::properties::{
         CategoriesProperty, ClassProperty, DTStartProperty, DescriptionProperty, DurationProperty,
         ExDateProperty, ExRuleProperty, GeoProperty, Property, RDateProperty, RRuleProperty,
         RelatedToProperty,
     };
 
-    use crate::core::{IndexedProperties, KeyValuePair, PassiveProperties, ScheduleProperties};
+    use crate::{IndexedProperties, KeyValuePair, PassiveProperties, ScheduleProperties};
 
     use pretty_assertions_sorted::assert_eq;
 

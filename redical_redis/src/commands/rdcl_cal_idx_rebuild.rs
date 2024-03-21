@@ -1,7 +1,7 @@
 use redis_module::{Context, NextArg, RedisError, RedisResult, RedisString, RedisValue};
 
-use crate::core::Calendar;
-use crate::redis::datatype::CALENDAR_DATA_TYPE;
+use redical_core::Calendar;
+use crate::datatype::CALENDAR_DATA_TYPE;
 
 pub fn redical_calendar_idx_rebuild(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     if args.len() < 1 {

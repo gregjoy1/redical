@@ -6,13 +6,11 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bincode = "1.3.3"
-serde = { version = "1.0.162", features = ["derive"] }
-libc = "0.2"
+serde = { workspace = true }
 nom = "6.0"
 rrule = { version = "0.10", features = ["serde", "exrule"] }
-chrono = "0.4.19"
-chrono-tz = "0.6.1"
+chrono = { workspace = true }
+chrono-tz = { workspace = true }
 lazy_static = "1.4.0"
 regex = { version = "1.5.5", default-features = false, features = ["perf", "std"] }
 rstar = { version = "0.11.0", features = ["serde"] }
@@ -22,5 +20,6 @@ num = "0.4.1"
 unicode-segmentation = "1.10.1"
 
 [dev-dependencies]
-pretty_assertions_sorted = "1.2.3"
-anyhow = "1"
+pretty_assertions_sorted = { workspace = true }
+anyhow = { workspace = true }
+redis = { workspace = true }

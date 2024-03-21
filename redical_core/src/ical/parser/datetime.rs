@@ -264,7 +264,7 @@ impl ParsedDateString {
 
 use rrule::Tz;
 
-// use crate::core::{DateTime, Tz};
+// use crate::{DateTime, Tz};
 
 pub type DateTime = chrono::DateTime<Tz>;
 
@@ -278,7 +278,7 @@ pub(crate) fn parse_timezone(tz: &str) -> Result<chrono_tz::Tz, ParseError> {
 /// Convert a datetime string and a timezone to a `chrono::DateTime<Tz>`.
 /// If the string specifies a zulu timezone with `Z`, then the timezone
 /// argument will be ignored.
-pub(crate) fn datestring_to_date(
+pub fn datestring_to_date(
     dt: &str,
     tz: Option<Tz>,
     property: &str,

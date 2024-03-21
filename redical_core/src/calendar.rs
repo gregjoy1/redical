@@ -1,17 +1,17 @@
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeSet, BTreeMap};
 
-use crate::core::inverted_index::{IndexedConclusion, InvertedCalendarIndex};
+use crate::inverted_index::{IndexedConclusion, InvertedCalendarIndex};
 
-use crate::core::utils::{KeyValuePair, UpdatedHashMapMembers};
+use crate::utils::{KeyValuePair, UpdatedHashMapMembers};
 
-use crate::core::geo_index::{GeoPoint, GeoSpatialCalendarIndex};
+use crate::geo_index::{GeoPoint, GeoSpatialCalendarIndex};
 
-use crate::core::event::Event;
+use crate::event::Event;
 
-use crate::core::ical::properties::{Property, UIDProperty};
+use crate::ical::properties::{Property, UIDProperty};
 
-use crate::core::ical::serializer::{
+use crate::ical::serializer::{
     SerializableICalComponent, SerializableICalProperty, SerializationPreferences,
 };
 

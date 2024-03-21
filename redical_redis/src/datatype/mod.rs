@@ -1,4 +1,4 @@
-use crate::core::Calendar;
+use redical_core::Calendar;
 
 use redis_module::{
     native_types::RedisType, raw, RedisModuleIO, RedisModuleString, RedisModuleTypeMethods,

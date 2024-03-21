@@ -1,4 +1,4 @@
-use crate::core::{EventOccurrenceOverride, IndexedConclusion, ScheduleProperties};
+use crate::{EventOccurrenceOverride, IndexedConclusion, ScheduleProperties};
 use std::collections::BTreeMap;
 
 #[derive(Debug, Clone)]
@@ -361,13 +361,13 @@ impl<'a> Iterator for EventOccurrenceIterator<'a> {
 mod test {
     use super::*;
 
-    use crate::core::ical::properties::{DTEndProperty, DTStartProperty, RRuleProperty};
+    use crate::ical::properties::{DTEndProperty, DTStartProperty, RRuleProperty};
 
     use crate::testing::macros::build_property_from_ical;
 
     use std::collections::{BTreeMap, HashSet};
 
-    use crate::core::event::{IndexedProperties, PassiveProperties};
+    use crate::event::{IndexedProperties, PassiveProperties};
 
     use pretty_assertions_sorted::assert_eq;
 

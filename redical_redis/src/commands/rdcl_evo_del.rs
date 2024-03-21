@@ -1,9 +1,9 @@
 use redis_module::{Context, NextArg, NotifyEvent, RedisError, RedisResult, RedisString, Status, RedisValue};
 
-use crate::core::{Calendar, CalendarIndexUpdater, InvertedEventIndex};
-use crate::redis::datatype::CALENDAR_DATA_TYPE;
+use redical_core::{Calendar, CalendarIndexUpdater, InvertedEventIndex};
+use crate::datatype::CALENDAR_DATA_TYPE;
 
-use crate::core::ical::parser::datetime::datestring_to_date;
+use redical_core::ical::parser::datetime::datestring_to_date;
 
 pub fn redical_event_override_del(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     if args.len() < 3 {

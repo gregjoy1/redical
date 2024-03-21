@@ -25,15 +25,15 @@ use nom::{
     sequence::{preceded, separated_pair, tuple},
 };
 
-use crate::core::ical::parser::common;
-use crate::core::ical::parser::common::ParserResult;
-use crate::core::ical::parser::macros::*;
-use crate::core::ical::serializer::{
+use crate::ical::parser::common;
+use crate::ical::parser::common::ParserResult;
+use crate::ical::parser::macros::*;
+use crate::ical::serializer::{
     quote_string_if_needed, serialize_timestamp_to_ical_date, serialize_timestamp_to_ical_datetime,
     SerializableICalProperty, SerializationPreferences, SerializedValue,
 };
 
-use crate::core::ical::properties::DTStartProperty;
+use crate::ical::properties::DTStartProperty;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct RecurrenceIDProperty {
@@ -254,7 +254,7 @@ impl RecurrenceIDProperty {
 mod test {
 
     use super::*;
-    use crate::core::ical::parser::error::convert_error;
+    use crate::ical::parser::error::convert_error;
     use pretty_assertions_sorted::assert_eq;
 
     #[test]
