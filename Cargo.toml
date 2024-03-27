@@ -23,6 +23,7 @@ anyhow = "1"
 redis-module-macros = "2.0.2"
 redis-module = "2.0.2"
 redis = "0.23"
+itertools = "0.12.1"
 
 # For tests directory.
 [dev-dependencies]
@@ -36,5 +37,6 @@ as-library = []
 [workspace]
 members = [
     "redical_core",
+    "redical_ical",
     "redical_redis",
 ]
