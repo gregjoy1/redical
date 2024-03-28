@@ -4,7 +4,7 @@ use nom::sequence::{preceded, terminated, tuple};
 use nom::multi::many0;
 use nom::combinator::{cut, map, opt};
 
-use crate::grammar::{colon, semicolon, name, param, value, crlf};
+use crate::grammar::{colon, semicolon, x_name, name, param, value, crlf};
 
 use crate::{ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
 
@@ -109,31 +109,36 @@ impl_icalendar_entity_traits!(ContentLineParams);
 pub struct ContentLine(pub String, pub ContentLineParams, pub String);
 
 impl<'a> From<(ParserInput<'a>, ContentLineParams, ParserInput<'a>)> for ContentLine {
-    fn from(content_line: (ParserInput, ContentLineParams, ParserInput)) -> Self {
+    fn from((name, params, value): (ParserInput, ContentLineParams, ParserInput)) -> Self {
         ContentLine(
-            content_line.0.to_string(),
-            content_line.1,
-            content_line.2.to_string(),
+            name.to_string(),
+            params,
+            value.to_string(),
         )
+    }
+}
+impl<'a> From<(&str, (ContentLineParams, String))> for ContentLine {
+    fn from((name, (params, value)): (&str, (ContentLineParams, String))) -> Self {
+        ContentLine(name.to_string(), params, value)
     }
 }
 
 impl From<(String, Vec<(String, String)>, String)> for ContentLine {
-    fn from(content_line: (String, Vec<(String, String)>, String)) -> Self {
+    fn from((name, params, value): (String, Vec<(String, String)>, String)) -> Self {
         ContentLine(
-            content_line.0.into(),
-            content_line.1.into(),
-            content_line.2.into(),
+            name.into(),
+            params.into(),
+            value.into(),
         )
     }
 }
 
 impl From<(&str, Vec<(&str, &str)>, &str)> for ContentLine {
-    fn from(content_line: (&str, Vec<(&str, &str)>, &str)) -> Self {
+    fn from((name, params, value): (&str, Vec<(&str, &str)>, &str)) -> Self {
         ContentLine(
-            content_line.0.to_string(),
-            content_line.1.into(),
-            content_line.2.to_string(),
+            name.to_string(),
+            params.into(),
+            value.to_string(),
         )
     }
 }
@@ -164,6 +169,33 @@ impl ICalendarEntity for ContentLine {
 }
 
 impl ContentLine {
+    pub fn parse_ical_for_x_property() -> impl FnMut(ParserInput) -> ParserResult<Self> {
+        move |input: ParserInput| {
+            let (remaining, value) =
+                context(
+                    "X",
+                    context(
+                        "CONTENTLINE",
+                        map(
+                            tuple(
+                                (
+                                    x_name,
+                                    ContentLineParams::parse_ical,
+                                    terminated(
+                                        preceded(colon, value),
+                                        opt(crlf),
+                                    )
+                                )
+                            ),
+                            ContentLine::from,
+                        )
+                    )
+                )(input)?;
+
+            Ok((remaining, value))
+        }
+    }
+
     pub fn parse_ical_for_property(property_name: &'static str) -> impl FnMut(ParserInput) -> ParserResult<Self> {
         move |input: ParserInput| {
             let (remaining, value) =

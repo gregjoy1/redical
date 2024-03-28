@@ -3,6 +3,7 @@ pub mod component;
 // pub mod event;
 pub mod test_uid;
 pub mod property;
+pub mod passive;
 
 #[macro_export]
 macro_rules! define_property_params {
