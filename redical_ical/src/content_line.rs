@@ -6,7 +6,7 @@ use nom::combinator::{cut, map, opt};
 
 use crate::grammar::{colon, semicolon, x_name, name, param, value, crlf};
 
-use crate::{ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
+use crate::{ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits, terminated_lookahead};
 
 #[derive(Debug, Clone, Eq, PartialEq, Default)]
 pub struct ContentLineParam(pub String, pub String);
@@ -152,9 +152,12 @@ impl ICalendarEntity for ContentLine {
                     (
                         name,
                         ContentLineParams::parse_ical,
-                        terminated(
-                            preceded(colon, value),
-                            opt(crlf),
+                        preceded(
+                            colon,
+                            terminated_lookahead(
+                                value,
+                                input.extra.terminating_property_lookahead(),
+                            ),
                         )
                     )
                 ),
@@ -181,9 +184,12 @@ impl ContentLine {
                                 (
                                     x_name,
                                     ContentLineParams::parse_ical,
-                                    terminated(
-                                        preceded(colon, value),
-                                        opt(crlf),
+                                    preceded(
+                                        colon,
+                                        terminated_lookahead(
+                                            value,
+                                            input.extra.terminating_property_lookahead(),
+                                        ),
                                     )
                                 )
                             ),
@@ -208,9 +214,12 @@ impl ContentLine {
                                 (
                                     tag(property_name),
                                     ContentLineParams::parse_ical,
-                                    terminated(
-                                        preceded(colon, value),
-                                        opt(crlf),
+                                    preceded(
+                                        colon,
+                                        terminated_lookahead(
+                                            value,
+                                            input.extra.terminating_property_lookahead(),
+                                        ),
                                     )
                                 )
                             ),
@@ -229,6 +238,9 @@ impl_icalendar_entity_traits!(ContentLine);
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use nom::multi::separated_list1;
+    use crate::grammar::wsp;
 
     use crate::tests::assert_parser_output;
 
@@ -408,6 +420,170 @@ mod tests {
                         "PT25S",
                     )
                 ),
+            )
+        );
+    }
+
+    #[test]
+    fn parse_ical_context_terminated_property_lookahead() {
+        let categories_property =
+            ContentLine::from(
+                (
+                    "CATEGORIES",
+                    vec![
+                        ("X-TEST-KEY-ONE", r#"VALUE_ONE,"VALUE_TWO""#),
+                        ("LANGUAGE", "ENGLISH"),
+                        ("X-TEST-KEY-TWO", r#""KEY -🎄- TWO""#),
+                    ],
+                    r#"  APPOINTMENT ,EDUCATION,"QUOTED, + 🎄 STRING", TESTING\nESCAPED\,CHARS:OK"#,
+                )
+            );
+
+        let related_property =
+            ContentLine::from(
+                (
+                    "RELATED-TO",
+                    vec![
+                        ("X-TEST-KEY-ONE", r#"VALUE_ONE,"VALUE_TWO""#),
+                        ("RELTYPE", "X-CUSTOM-RELTYPE"),
+                        ("X-TEST-KEY-TWO", r#""KEY -🎄- TWO""#),
+                    ],
+                    "  UID",
+                )
+            );
+
+        let x_property =
+            ContentLine::from(
+                (
+                    "X-PROPERTY",
+                    vec![
+                        ("X-TEST-KEY-ONE", r#"VALUE_ONE,"VALUE_TWO""#),
+                        ("LANGUAGE", "ENGLISH"),
+                        ("X-TEST-KEY-TWO", r#""KEY -🎄- TWO""#),
+                    ],
+                    "Experimental property text.",
+                )
+            );
+
+        let resources_property =
+            ContentLine::from(
+                (
+                    "RESOURCES",
+                    vec![
+                        ("ALTREP", r#""http://xyzcorp.com/conf-rooms/f123.vcf""#),
+                        ("X-TEST-KEY-ONE", r#"VALUE_ONE,"VALUE_TWO""#),
+                        ("LANGUAGE", "ENGLISH"),
+                        ("X-TEST-KEY-TWO", r#""KEY -🎄- TWO""#),
+                    ],
+                    r#"  APPOINTMENT ,EDUCATION,"QUOTED, + 🎄 STRING", TESTING\nESCAPED\,CHARS:OK"#,
+                )
+            );
+
+        let joined_ical =
+            [
+                categories_property.render_ical(),
+                related_property.render_ical(),
+                x_property.render_ical(),
+                resources_property.render_ical(),
+            ].join(" ");
+
+        assert_parser_output!(
+            separated_list1(wsp, ContentLine::parse_ical)(ParserInput::from(joined_ical.as_str())),
+            (
+                "",
+                vec![
+                    categories_property,
+                    related_property,
+                    x_property,
+                    resources_property,
+                ]
+            )
+        );
+    }
+
+    #[test]
+    fn parse_ical_for_x_property_context_terminated_property_lookahead() {
+        let x_property =
+            ContentLine::from(
+                (
+                    "X-PROPERTY",
+                    vec![
+                        ("X-TEST-KEY-ONE", r#"VALUE_ONE,"VALUE_TWO""#),
+                        ("LANGUAGE", "ENGLISH"),
+                        ("X-TEST-KEY-TWO", r#""KEY -🎄- TWO""#),
+                    ],
+                    "Experimental property text.",
+                )
+            );
+
+        let resources_property =
+            ContentLine::from(
+                (
+                    "RESOURCES",
+                    vec![
+                        ("ALTREP", r#""http://xyzcorp.com/conf-rooms/f123.vcf""#),
+                        ("X-TEST-KEY-ONE", r#"VALUE_ONE,"VALUE_TWO""#),
+                        ("LANGUAGE", "ENGLISH"),
+                        ("X-TEST-KEY-TWO", r#""KEY -🎄- TWO""#),
+                    ],
+                    r#"  APPOINTMENT ,EDUCATION,"QUOTED, + 🎄 STRING", TESTING\nESCAPED\,CHARS:OK"#,
+                )
+            );
+
+        let joined_ical =
+            [
+                x_property.render_ical(),
+                resources_property.render_ical(),
+            ].join(" ");
+
+        assert_parser_output!(
+            ContentLine::parse_ical_for_x_property()(ParserInput::from(joined_ical.as_str())),
+            (
+                format!(" {}", resources_property.render_ical()),
+                x_property,
+            )
+        );
+    }
+
+    #[test]
+    fn parse_ical_for_property_context_terminated_property_lookahead() {
+        let related_property =
+            ContentLine::from(
+                (
+                    "RELATED-TO",
+                    vec![
+                        ("X-TEST-KEY-ONE", r#"VALUE_ONE,"VALUE_TWO""#),
+                        ("RELTYPE", "X-CUSTOM-RELTYPE"),
+                        ("X-TEST-KEY-TWO", r#""KEY -🎄- TWO""#),
+                    ],
+                    "  UID",
+                )
+            );
+
+        let x_property =
+            ContentLine::from(
+                (
+                    "X-PROPERTY",
+                    vec![
+                        ("X-TEST-KEY-ONE", r#"VALUE_ONE,"VALUE_TWO""#),
+                        ("LANGUAGE", "ENGLISH"),
+                        ("X-TEST-KEY-TWO", r#""KEY -🎄- TWO""#),
+                    ],
+                    "Experimental property text.",
+                )
+            );
+
+        let joined_ical =
+            [
+                related_property.render_ical(),
+                x_property.render_ical(),
+            ].join(" ");
+
+        assert_parser_output!(
+            ContentLine::parse_ical_for_property("RELATED-TO")(ParserInput::from(joined_ical.as_str())),
+            (
+                format!(" {}", x_property.render_ical()),
+                related_property,
             )
         );
     }

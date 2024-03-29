@@ -88,8 +88,125 @@ pub fn convert_error<I: core::ops::Deref<Target = str>>(_input: I, error: Parser
     format!("Error - {:#?}", error)
 }
 
-pub type ParserInput<'a> = nom_locate::LocatedSpan<&'a str>;
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum ParserContext {
+    None,
+    Event,
+}
+
+impl Copy for ParserContext {}
+
+impl Default for ParserContext {
+    fn default() -> Self {
+        ParserContext::None
+    }
+}
+
+impl ParserContext {
+    fn terminating_property_lookahead(&self) -> impl FnMut(ParserInput) -> ParserResult<ParserInput> {
+        move |mut input: ParserInput| {
+            input.extra = ParserContext::None;
+
+            // TODO: Add branches for Event
+            nom::combinator::recognize(nom::sequence::preceded(grammar::wsp, grammar::contentline))(input)
+        }
+    }
+}
+
+pub type ParserInput<'a> = nom_locate::LocatedSpan<&'a str, ParserContext>;
 pub type ParserResult<'a, O> = nom::IResult<ParserInput<'a>, O, ParserError<'a>>;
+
+// TODO: document this
+pub trait UnicodeSegmentation {
+    fn wrapped_grapheme_indices<'a>(
+        &'a self,
+        is_extended: bool,
+    ) -> unicode_segmentation::GraphemeIndices<'a>;
+}
+
+impl<'a> UnicodeSegmentation for ParserInput<'a> {
+    #[inline]
+    fn wrapped_grapheme_indices(&self, is_extended: bool) -> unicode_segmentation::GraphemeIndices {
+        unicode_segmentation::UnicodeSegmentation::grapheme_indices(self.into_fragment(), is_extended)
+    }
+}
+
+impl UnicodeSegmentation for &str {
+    #[inline]
+    fn wrapped_grapheme_indices(&self, is_extended: bool) -> unicode_segmentation::GraphemeIndices {
+        unicode_segmentation::UnicodeSegmentation::grapheme_indices(*self, is_extended)
+    }
+}
+
+/// A parser that greedily matches from the primary parser, then finds the earliest match from the
+/// lookahead parser and returns the shortest result.
+///
+/// # Arguments
+/// * `first` The first parser to apply.
+/// * `second` The lookahead parser to terminate at.
+///
+/// ```rust
+/// use nom::{Err, error::ErrorKind, Needed};
+/// use nom::bytes::complete::tag;
+/// use nom::character::complete::alpha1;
+/// use redical_ical::terminated_lookahead;
+///
+/// let mut parser = terminated_lookahead(alpha1, tag("END"));
+///
+/// assert_eq!(parser("abcdefgEND"), Ok(("END", "abcdefg")));
+/// assert_eq!(parser("abcdefg END"), Ok((" END", "abcdefg")));
+/// assert_eq!(parser(""), Err(Err::Error(("", ErrorKind::Alpha))));
+/// assert_eq!(parser("123"), Err(Err::Error(("123", ErrorKind::Alpha))));
+/// ```
+pub fn terminated_lookahead<I, O, E, F, F2>(
+    mut parser: F,
+    mut look_ahead_parser: F2,
+) -> impl FnMut(I) -> nom::IResult<I, I, E>
+where
+    I: Clone
+        + UnicodeSegmentation
+        + nom::InputLength
+        + nom::Slice<std::ops::Range<usize>>
+        + nom::Slice<std::ops::RangeFrom<usize>>
+        + std::fmt::Debug
+        + Copy,
+    F: nom::Parser<I, I, E>,
+    F2: nom::Parser<I, O, E>,
+{
+    move |input: I| {
+        let (remaining, output) = parser.parse(input.clone())?;
+
+        let parser_max_index = input.input_len() - remaining.input_len();
+        let input_max_index = input.input_len();
+
+        let max_index = std::cmp::max(input_max_index, parser_max_index);
+
+        let mut look_ahead_max_index = max_index;
+
+        for (index, _element) in input.wrapped_grapheme_indices(true) {
+            if index >= parser_max_index {
+                break;
+            }
+
+            let sliced_input = input.slice(index..max_index);
+
+            if look_ahead_parser.parse(sliced_input).is_ok() {
+                look_ahead_max_index = index;
+
+                break;
+            }
+        }
+
+        if look_ahead_max_index >= max_index || look_ahead_max_index >= (input.input_len() - 1) {
+            return Ok((remaining, output));
+        }
+
+        let refined_output = input.slice(0..look_ahead_max_index);
+        let refined_remaining = input.slice(look_ahead_max_index..);
+
+        Ok((refined_remaining, refined_output))
+    }
+}
 
 pub trait ICalendarEntity {
     fn parse_ical(input: ParserInput) -> ParserResult<Self>
