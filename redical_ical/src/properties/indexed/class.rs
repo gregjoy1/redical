@@ -66,7 +66,7 @@ impl ICalendarEntity for ClassPropertyParams {
         ClassPropertyParams,
         (
             pair(alt((x_name, iana_token)), cut(preceded(tag("="), recognize(separated_list1(comma, param_value))))),
-            |params: &mut ClassPropertyParams, key: ParserInput, value: ParserInput| params.other.insert(key.to_string(), value.to_string()),
+            |params: &mut ClassPropertyParams, (key, value): (ParserInput, ParserInput)| params.other.insert(key.to_string(), value.to_string()),
         ),
     );
 

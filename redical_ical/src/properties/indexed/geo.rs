@@ -29,7 +29,7 @@ impl ICalendarEntity for GeoPropertyParams {
         GeoPropertyParams,
         (
             pair(alt((x_name, iana_token)), cut(preceded(tag("="), recognize(separated_list1(comma, param_value))))),
-            |params: &mut GeoPropertyParams, key: ParserInput, value: ParserInput| params.other.insert(key.to_string(), value.to_string()),
+            |params: &mut GeoPropertyParams, (key, value): (ParserInput, ParserInput)| params.other.insert(key.to_string(), value.to_string()),
         ),
     );
 

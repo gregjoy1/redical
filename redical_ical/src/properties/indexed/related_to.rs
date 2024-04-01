@@ -8,6 +8,7 @@ use nom::combinator::{recognize, map, cut, opt};
 use nom::bytes::complete::tag;
 
 use crate::property_value_data_types::text::Text;
+use crate::property_parameters::reltype::{Reltype, ReltypeParam};
 
 use crate::grammar::{semicolon, colon, comma, x_name, iana_token, param_value};
 
@@ -19,52 +20,9 @@ use crate::{ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_tr
 
 use std::collections::HashMap;
 
-// RELTYPE = ("PARENT"    ; Parent relationship - Default
-//          / "CHILD"     ; Child relationship
-//          / "SIBLING"   ; Sibling relationship
-//          / iana-token  ; Some other IANA-registered
-//                        ; iCalendar relationship type
-//          / x-name)     ; A non-standard, experimental
-//                        ; relationship type
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub enum RelType {
-    Parent,            // Parent relationship - Default
-    Child,             // Child relationship
-    Sibling,           // Sibling relationship
-    XName(String),     // Experimental type
-    IanaToken(String), // Other IANA-registered
-}
-
-impl ICalendarEntity for RelType {
-    fn parse_ical(input: ParserInput) -> ParserResult<Self> {
-        context(
-            "RELTYPE",
-            alt((
-                map(tag("PARENT"), |_| RelType::Parent),
-                map(tag("CHILD"), |_| RelType::Child),
-                map(tag("SIBLING"), |_| RelType::Sibling),
-                map(x_name, |value| RelType::XName(value.to_string())),
-                map(iana_token, |value| RelType::IanaToken(value.to_string())),
-            )),
-        )(input)
-    }
-
-    fn render_ical(&self) -> String {
-        match self {
-           Self::Parent => String::from("PARENT"),
-           Self::Child => String::from("CHILD"),
-           Self::Sibling => String::from("SIBLING"),
-           Self::XName(name) => name.to_owned(),
-           Self::IanaToken(name) => name.to_owned(),
-        }
-    }
-}
-
-impl_icalendar_entity_traits!(RelType);
-
 #[derive(Debug, Clone, Eq, PartialEq, Default)]
 pub struct RelatedToPropertyParams {
-    pub reltype: Option<RelType>,
+    pub reltype: Option<Reltype>,
     pub other: HashMap<String, String>,
 }
 
@@ -72,12 +30,12 @@ impl ICalendarEntity for RelatedToPropertyParams {
     define_property_params_ical_parser!(
         RelatedToPropertyParams,
         (
-            pair(tag("RELTYPE"), cut(preceded(tag("="), RelType::parse_ical))),
-            |params: &mut RelatedToPropertyParams, _key: ParserInput, value: RelType| params.reltype = Some(value),
+            ReltypeParam::parse_ical,
+            |params: &mut RelatedToPropertyParams, reltype_param: ReltypeParam| params.reltype = Some(reltype_param.0),
         ),
         (
             pair(alt((x_name, iana_token)), cut(preceded(tag("="), recognize(separated_list1(comma, param_value))))),
-            |params: &mut RelatedToPropertyParams, key: ParserInput, value: ParserInput| params.other.insert(key.to_string(), value.to_string()),
+            |params: &mut RelatedToPropertyParams, (key, value): (ParserInput, ParserInput)| params.other.insert(key.to_string(), value.to_string()),
         ),
     );
 
@@ -224,7 +182,7 @@ mod tests {
                 "",
                 RelatedToProperty {
                     params: RelatedToPropertyParams {
-                        reltype: Some(RelType::Child),
+                        reltype: Some(Reltype::Child),
                         other: HashMap::from([
                             (String::from("X-TEST"), String::from("X_VALUE")),
                             (String::from("TEST"), String::from("VALUE")),
@@ -251,7 +209,7 @@ mod tests {
         assert_eq!(
             RelatedToProperty {
                 params: RelatedToPropertyParams {
-                    reltype: Some(RelType::Child),
+                    reltype: Some(Reltype::Child),
                     other: HashMap::from([
                         (String::from("X-TEST"), String::from("X_VALUE")),
                         (String::from("TEST"), String::from("VALUE")),

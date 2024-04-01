@@ -29,7 +29,7 @@ impl ICalendarEntity for UIDPropertyParams {
         UIDPropertyParams,
         (
             pair(alt((x_name, iana_token)), cut(preceded(tag("="), recognize(separated_list1(comma, param_value))))),
-            |params: &mut UIDPropertyParams, key: ParserInput, value: ParserInput| params.other.insert(key.to_string(), value.to_string()),
+            |params: &mut UIDPropertyParams, (key, value): (ParserInput, ParserInput)| params.other.insert(key.to_string(), value.to_string()),
         ),
     );
 

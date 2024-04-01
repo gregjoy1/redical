@@ -30,11 +30,11 @@ impl ICalendarEntity for CategoriesPropertyParams {
         CategoriesPropertyParams,
         (
             pair(tag("LANGUAGE"), cut(preceded(tag("="), param_value))),
-            |params: &mut CategoriesPropertyParams, _key: ParserInput, value: ParserInput| params.language = Some(value.to_string()),
+            |params: &mut CategoriesPropertyParams, (_key, value): (ParserInput, ParserInput)| params.language = Some(value.to_string()),
         ),
         (
             pair(alt((x_name, iana_token)), cut(preceded(tag("="), recognize(separated_list1(comma, param_value))))),
-            |params: &mut CategoriesPropertyParams, key: ParserInput, value: ParserInput| params.other.insert(key.to_string(), value.to_string()),
+            |params: &mut CategoriesPropertyParams, (key, value): (ParserInput, ParserInput)| params.other.insert(key.to_string(), value.to_string()),
         ),
     );
 
