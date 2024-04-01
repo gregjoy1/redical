@@ -9,6 +9,43 @@ use crate::grammar::{is_safe_char, is_wsp_char, solidus};
 
 use crate::{ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
 
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct Tzid(pub String);
+
+impl ICalendarEntity for Tzid {
+    fn parse_ical(input: ParserInput) -> ParserResult<Self> {
+        context(
+            "TZID",
+            map(
+                recognize(
+                    pair(
+                        opt(solidus),
+                        // Small hack that allows paramtext chars except whitespace.
+                        take_while1(|input: char| {
+                            is_safe_char(input) && !is_wsp_char(input)
+                        }),
+                    )
+                ),
+                |value: ParserInput| Self(value.to_string())
+            )
+        )(input)
+    }
+
+    fn render_ical(&self) -> String {
+        self.0.to_owned()
+    }
+
+    fn validate(&self) -> Result<(), String> {
+        if self.0.parse::<Tz>().is_err() {
+            return Err(String::from("Timezone is invalid"))
+        }
+
+        Ok(())
+    }
+}
+
+impl_icalendar_entity_traits!(Tzid);
+
 // Time Zone Identifier
 //
 // Parameter Name:  TZID
@@ -23,7 +60,7 @@ use crate::{ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_tr
 //
 //     tzidprefix = "/"
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct TzidParam(pub String);
+pub struct TzidParam(pub Tzid);
 
 impl ICalendarEntity for TzidParam {
     fn parse_ical(input: ParserInput) -> ParserResult<Self> {
@@ -34,34 +71,16 @@ impl ICalendarEntity for TzidParam {
                     tag("TZID"),
                     preceded(
                         tag("="),
-                        cut(
-                            recognize(
-                                pair(
-                                    opt(solidus),
-                                    // Small hack that allows paramtext chars except whitespace.
-                                    take_while1(|input: char| {
-                                        is_safe_char(input) && !is_wsp_char(input)
-                                    }),
-                                )
-                            )
-                        ),
+                        cut(Tzid::parse_ical),
                     )
                 ),
-                |(_key, value)| Self(value.to_string())
+                |(_key, tzid)| Self(tzid)
             ),
         )(input)
     }
 
     fn render_ical(&self) -> String {
-        format!("TZID={}", self.0)
-    }
-
-    fn validate(&self) -> Result<(), String> {
-        if self.0.parse::<Tz>().is_err() {
-            return Err(String::from("Timezone is invalid"))
-        }
-
-        Ok(())
+        format!("TZID={}", self.0.render_ical())
     }
 }
 
@@ -79,7 +98,7 @@ mod tests {
             TzidParam::parse_ical("TZID=America/New_York TESTING".into()),
             (
                 " TESTING",
-                TzidParam(String::from("America/New_York")),
+                TzidParam(Tzid(String::from("America/New_York"))),
             )
         );
 
@@ -87,7 +106,7 @@ mod tests {
             TzidParam::parse_ical("TZID=Etc/GMT+12 TESTING".into()),
             (
                 " TESTING",
-                TzidParam(String::from("Etc/GMT+12")),
+                TzidParam(Tzid(String::from("Etc/GMT+12"))),
             )
         );
 
@@ -95,7 +114,7 @@ mod tests {
             TzidParam::parse_ical("TZID=UTC TESTING".into()),
             (
                 " TESTING",
-                TzidParam(String::from("UTC")),
+                TzidParam(Tzid(String::from("UTC"))),
             )
         );
     }
@@ -103,7 +122,7 @@ mod tests {
     #[test]
     fn render_ical() {
         assert_eq!(
-            TzidParam(String::from("America/New_York")).render_ical(),
+            TzidParam(Tzid(String::from("America/New_York"))).render_ical(),
             String::from("TZID=America/New_York"),
         );
     }

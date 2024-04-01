@@ -1,7 +1,7 @@
 pub mod uid;
 pub mod passive;
 pub mod indexed;
-// pub mod schedule;
+pub mod schedule;
 
 #[macro_export]
 macro_rules! define_property_params_ical_parser {

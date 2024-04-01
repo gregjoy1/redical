@@ -36,6 +36,16 @@ impl ICalendarEntity for Value {
     }
 }
 
+impl Value {
+    pub fn validate_against_date_time(&self, date_time: &DateTime) -> Result<(), String> {
+        match (self, date_time) {
+            (Value::DateTime, DateTime { date: _, time: Some(_) }) => Ok(()),
+            (Value::Date,     DateTime { date: _, time: None })    => Ok(()),
+            _ => Err(String::from("VALUE incompatible with parsed DATE-TIME/DATE value")),
+        }
+    }
+}
+
 impl_icalendar_entity_traits!(Value);
 
 // Unofficial parameter for describing DateTime value types:
@@ -64,16 +74,6 @@ impl ICalendarEntity for ValueParam {
 }
 
 impl_icalendar_entity_traits!(ValueParam);
-
-impl ValueParam {
-    pub fn validate_against_date_time(&self, date_time: &DateTime) -> Result<(), String> {
-        match (self, date_time) {
-            (Self(Value::DateTime), DateTime { date: _, time: Some(_) }) => Ok(()),
-            (Self(Value::Date),     DateTime { date: _, time: None })    => Ok(()),
-            _ => Err(String::from("VALUE incompatible with parsed DATE-TIME/DATE value")),
-        }
-    }
-}
 
 #[cfg(test)]
 mod tests {
@@ -110,7 +110,7 @@ mod tests {
     #[test]
     fn validate_against_date_time() {
         assert_eq!(
-            ValueParam(Value::DateTime).validate_against_date_time(
+            Value::DateTime.validate_against_date_time(
                 &DateTime {
                     date: Date { year: 1996_i32, month: 4_u32, day: 1_u32 },
                     time: Some(Time{ hour: 15_u32, minute: 0_u32, second: 0_u32, is_utc: true }),
@@ -120,7 +120,7 @@ mod tests {
         );
 
         assert_eq!(
-            ValueParam(Value::DateTime).validate_against_date_time(
+            Value::DateTime.validate_against_date_time(
                 &DateTime {
                     date: Date { year: 1996_i32, month: 4_u32, day: 1_u32 },
                     time: None,
@@ -130,7 +130,7 @@ mod tests {
         );
 
         assert_eq!(
-            ValueParam(Value::Date).validate_against_date_time(
+            Value::Date.validate_against_date_time(
                 &DateTime {
                     date: Date { year: 1996_i32, month: 4_u32, day: 1_u32 },
                     time: None,
@@ -140,7 +140,7 @@ mod tests {
         );
 
         assert_eq!(
-            ValueParam(Value::Date).validate_against_date_time(
+            Value::Date.validate_against_date_time(
                 &DateTime {
                     date: Date { year: 1996_i32, month: 4_u32, day: 1_u32 },
                     time: Some(Time{ hour: 15_u32, minute: 0_u32, second: 0_u32, is_utc: true }),
