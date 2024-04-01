@@ -1,10 +1,10 @@
 use nom::error::context;
 use nom::bytes::complete::tag;
-use nom::sequence::{preceded, terminated, tuple};
+use nom::sequence::{preceded, tuple};
 use nom::multi::many0;
-use nom::combinator::{cut, map, opt};
+use nom::combinator::{cut, map};
 
-use crate::grammar::{colon, semicolon, x_name, name, param, value, crlf};
+use crate::grammar::{colon, semicolon, x_name, name, param, value};
 
 use crate::{ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits, terminated_lookahead};
 
@@ -100,6 +100,14 @@ impl ICalendarEntity for ContentLineParams {
         }
 
         output
+    }
+}
+
+impl ContentLineParams {
+    pub fn insert(&mut self, key: String, value: String) {
+        self.0.push(
+            ContentLineParam(key, value)
+        );
     }
 }
 

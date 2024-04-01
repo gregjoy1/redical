@@ -3,7 +3,7 @@ use nom::multi::many0;
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take_while_m_n};
 
-use crate::{ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
+use crate::{ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits, terminated_lookahead};
 use crate::grammar::{colon, dquote, is_safe_char};
 
 // text       = *(TSAFE-CHAR / ":" / DQUOTE / ESCAPED-CHAR)
@@ -85,7 +85,13 @@ impl ICalendarEntity for Text {
     where
         Self: Sized
     {
-        map(text, |value| Self(value.to_string()))(input)
+        map(
+            terminated_lookahead(
+                text,
+                input.extra.terminating_property_lookahead(),
+            ),
+            |value| Self(value.to_string()),
+        )(input)
     }
 
     fn render_ical(&self) -> String {
@@ -128,6 +134,17 @@ mod tests {
         assert!(all_consuming(Text::parse_ical)(",".into()).is_err());
         assert!(all_consuming(Text::parse_ical)(";".into()).is_err());
         assert!(all_consuming(Text::parse_ical)("\\".into()).is_err());
+    }
+
+    #[test]
+    fn parse_ical_with_terminated_property_lookahead() {
+        assert_parser_output!(
+            Text::parse_ical("Some text\\, some more text! DESCRIPTION:Description Text".into()),
+            (
+                " DESCRIPTION:Description Text",
+                Text(String::from("Some text\\, some more text!")),
+            ),
+        );
     }
 
     #[test]
