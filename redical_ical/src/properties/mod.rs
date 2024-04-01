@@ -2,7 +2,6 @@ pub mod calendar;
 pub mod component;
 // pub mod event;
 pub mod uid;
-pub mod property;
 pub mod passive;
 
 #[macro_export]
