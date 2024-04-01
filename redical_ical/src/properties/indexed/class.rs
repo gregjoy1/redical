@@ -1,27 +1,21 @@
+use itertools::Itertools;
+
 use nom::error::context;
 use nom::branch::alt;
 use nom::sequence::{pair, preceded};
-use nom::multi::fold_many0;
-use nom::combinator::{map, cut, opt};
+use nom::multi::separated_list1;
+use nom::combinator::{recognize, map, cut, opt};
 use nom::bytes::complete::tag;
 
-use crate::grammar::{semicolon, colon, x_name, iana_token};
-use crate::property_parameters::{
-    iana::{IanaParam, IanaParams},
-    experimental::{XParam, XParams},
-};
+use crate::grammar::{semicolon, colon, comma, x_name, iana_token, param_value};
+
+use crate::properties::define_property_params_ical_parser;
+
+use crate::content_line::{ContentLineParams, ContentLine};
 
 use crate::{ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
 
-use crate::properties::define_property_params;
-
-define_property_params!(
-    ClassParams,
-    ClassParam,
-    "CLASSPARAM",
-    (X, XParam, x, XParams),
-    (Iana, IanaParam, iana, IanaParams),
-);
+use std::collections::HashMap;
 
 // classvalue = "PUBLIC" / "PRIVATE" / "CONFIDENTIAL" / iana-token
 //            / x-name
@@ -62,6 +56,43 @@ impl ICalendarEntity for ClassValue {
 
 impl_icalendar_entity_traits!(ClassValue);
 
+#[derive(Debug, Clone, Eq, PartialEq, Default)]
+pub struct ClassPropertyParams {
+    pub other: HashMap<String, String>,
+}
+
+impl ICalendarEntity for ClassPropertyParams {
+    define_property_params_ical_parser!(
+        ClassPropertyParams,
+        (
+            pair(alt((x_name, iana_token)), cut(preceded(tag("="), recognize(separated_list1(comma, param_value))))),
+            |params: &mut ClassPropertyParams, key: ParserInput, value: ParserInput| params.other.insert(key.to_string(), value.to_string()),
+        ),
+    );
+
+    fn render_ical(&self) -> String {
+        ContentLineParams::from(self).render_ical()
+    }
+}
+
+impl From<&ClassPropertyParams> for ContentLineParams {
+    fn from(class_params: &ClassPropertyParams) -> Self {
+        let mut content_line_params = ContentLineParams::default();
+
+        for (key, value) in class_params.other.to_owned().into_iter().sorted() {
+            content_line_params.insert(key.to_owned(), value.to_owned());
+        }
+
+        content_line_params
+    }
+}
+
+impl From<ClassPropertyParams> for ContentLineParams {
+    fn from(class_params: ClassPropertyParams) -> Self {
+        ContentLineParams::from(&class_params)
+    }
+}
+
 // Classification
 //
 // Property Name:  CLASS
@@ -92,12 +123,12 @@ impl_icalendar_entity_traits!(ClassValue);
 //
 //     CLASS:PUBLIC
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct Class {
-    pub params: ClassParams,
+pub struct ClassProperty {
+    pub params: ClassPropertyParams,
     pub value: ClassValue,
 }
 
-impl ICalendarEntity for Class {
+impl ICalendarEntity for ClassProperty {
     fn parse_ical(input: ParserInput) -> ParserResult<Self> {
         context(
             "CLASS",
@@ -106,12 +137,12 @@ impl ICalendarEntity for Class {
                 cut(
                     map(
                         pair(
-                            opt(ClassParams::parse_ical),
+                            opt(ClassPropertyParams::parse_ical),
                             preceded(colon, ClassValue::parse_ical),
                         ),
                         |(params, value)| {
-                            Class {
-                                params: params.unwrap_or(ClassParams::default()),
+                            ClassProperty {
+                                params: params.unwrap_or(ClassPropertyParams::default()),
                                 value,
                             }
                         }
@@ -122,11 +153,23 @@ impl ICalendarEntity for Class {
     }
 
     fn render_ical(&self) -> String {
-        format!("CLASS{}:{}", self.params.render_ical(), self.value.render_ical())
+        ContentLine::from(self).render_ical()
     }
 }
 
-impl_icalendar_entity_traits!(Class);
+impl From<&ClassProperty> for ContentLine {
+    fn from(class_property: &ClassProperty) -> Self {
+        ContentLine::from((
+            "CLASS",
+            (
+                ContentLineParams::from(&class_property.params),
+                class_property.value.to_string(),
+            )
+        ))
+    }
+}
+
+impl_icalendar_entity_traits!(ClassProperty);
 
 #[cfg(test)]
 mod tests {
@@ -137,71 +180,75 @@ mod tests {
     #[test]
     fn parse_ical() {
         assert_parser_output!(
-            Class::parse_ical("CLASS:PRIVATE".into()),
+            ClassProperty::parse_ical("CLASS:PRIVATE DESCRIPTION:Description text".into()),
             (
-                "",
-                Class {
-                    params: ClassParams::default(),
+                " DESCRIPTION:Description text",
+                ClassProperty {
+                    params: ClassPropertyParams::default(),
                     value: ClassValue::Private,
                 },
             ),
         );
 
         assert_parser_output!(
-            Class::parse_ical("CLASS:X-HIDDEN".into()),
+            ClassProperty::parse_ical("CLASS:X-HIDDEN".into()),
             (
                 "",
-                Class {
-                    params: ClassParams::default(),
+                ClassProperty {
+                    params: ClassPropertyParams::default(),
                     value: ClassValue::XName(String::from("X-HIDDEN")),
                 },
             ),
         );
 
         assert_parser_output!(
-            Class::parse_ical("CLASS;X-TEST=X_VALUE;TEST=VALUE:IANA-TOKEN".into()),
+            ClassProperty::parse_ical("CLASS;X-TEST=X_VALUE;TEST=VALUE:IANA-TOKEN".into()),
             (
                 "",
-                Class {
-                    params: ClassParams {
-                        iana: IanaParams::from(vec![("TEST", "VALUE")]),
-                        x: XParams::from(vec![("X-TEST", "X_VALUE")]),
+                ClassProperty {
+                    params: ClassPropertyParams {
+                        other: HashMap::from([
+                            (String::from("X-TEST"), String::from("X_VALUE")),
+                            (String::from("TEST"), String::from("VALUE")),
+                        ]),
                     },
                     value: ClassValue::IanaToken(String::from("IANA-TOKEN")),
                 },
             ),
         );
 
-        assert!(Class::parse_ical(":".into()).is_err());
+        assert!(ClassProperty::parse_ical(":".into()).is_err());
     }
 
     #[test]
     fn render_ical() {
         assert_eq!(
-            Class {
-                params: ClassParams::default(),
+            ClassProperty {
+                params: ClassPropertyParams::default(),
                 value: ClassValue::Private,
             }.render_ical(),
             String::from("CLASS:PRIVATE"),
         );
 
         assert_eq!(
-            Class {
-                params: ClassParams::default(),
+            ClassProperty {
+                params: ClassPropertyParams::default(),
                 value: ClassValue::XName(String::from("X-HIDDEN")),
             }.render_ical(),
             String::from("CLASS:X-HIDDEN"),
         );
 
         assert_eq!(
-            Class {
-                params: ClassParams {
-                    iana: IanaParams::from(vec![("TEST", "VALUE")]),
-                    x: XParams::from(vec![("X-TEST", "X_VALUE")]),
+            ClassProperty {
+                params: ClassPropertyParams {
+                    other: HashMap::from([
+                        (String::from("X-TEST"), String::from("X_VALUE")),
+                        (String::from("TEST"), String::from("VALUE")),
+                    ]),
                 },
                 value: ClassValue::IanaToken(String::from("IANA-TOKEN")),
             }.render_ical(),
-            String::from("CLASS;X-TEST=X_VALUE;TEST=VALUE:IANA-TOKEN"),
+            String::from("CLASS;TEST=VALUE;X-TEST=X_VALUE:IANA-TOKEN"),
         );
     }
 }

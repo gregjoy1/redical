@@ -140,10 +140,10 @@ mod tests {
     fn parse_ical() {
         assert_parser_output!(
             UIDProperty::parse_ical(
-                "UID:19960401T080045Z-4000F192713-0052@example.com".into()
+                "UID:19960401T080045Z-4000F192713-0052@example.com DESCRIPTION:Description text".into()
             ),
             (
-                "",
+                " DESCRIPTION:Description text",
                 UIDProperty {
                     params: UIDPropertyParams::default(),
                     value: Text(String::from("19960401T080045Z-4000F192713-0052@example.com")),

@@ -1,8 +1,7 @@
-pub mod calendar;
-pub mod component;
-// pub mod event;
 pub mod uid;
 pub mod passive;
+pub mod indexed;
+// pub mod schedule;
 
 #[macro_export]
 macro_rules! define_property_params_ical_parser {

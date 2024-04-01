@@ -5,7 +5,7 @@ use nom::sequence::{tuple, preceded, delimited, terminated};
 use nom::error::context;
 use nom::branch::alt;
 use nom::multi::{many0, separated_list0, separated_list1};
-use nom::combinator::{recognize, opt, verify, map, cut};
+use nom::combinator::{recognize, opt, verify, map};
 use nom::bytes::complete::{tag, take_while, take_while1, take_while_m_n};
 use nom::character::{is_alphabetic, is_digit};
 use nom::character::complete::{alphanumeric1, char};
