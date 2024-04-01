@@ -2,6 +2,8 @@ pub mod uid;
 pub mod passive;
 pub mod indexed;
 pub mod schedule;
+pub mod event;
+pub mod event_occurrence_override;
 
 #[macro_export]
 macro_rules! define_property_params_ical_parser {

@@ -153,9 +153,9 @@ mod tests {
     #[test]
     fn parse_ical() {
         assert_parser_output!(
-            RRuleProperty::parse_ical("RRULE:FREQ=YEARLY;INTERVAL=2;BYMONTH=1;BYDAY=-1MO,SU;BYHOUR=8,9;BYMINUTE=30 TESTING".into()),
+            RRuleProperty::parse_ical("RRULE:FREQ=YEARLY;INTERVAL=2;BYMONTH=1;BYDAY=-1MO,SU;BYHOUR=8,9;BYMINUTE=30 DESCRIPTION:Description text".into()),
             (
-                " TESTING",
+                " DESCRIPTION:Description text",
                 RRuleProperty {
                     params: RRulePropertyParams::default(),
                     value: Recur {

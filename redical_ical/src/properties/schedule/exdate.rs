@@ -202,9 +202,9 @@ mod tests {
     #[test]
     fn parse_ical() {
         assert_parser_output!(
-            ExDateProperty::parse_ical("EXDATE:19960401T150000Z".into()),
+            ExDateProperty::parse_ical("EXDATE:19960401T150000Z DESCRIPTION:Description text".into()),
             (
-                "",
+                " DESCRIPTION:Description text",
                 ExDateProperty {
                     params: ExDatePropertyParams::default(),
                     value: DateTime { date: Date { year: 1996_i32, month: 4_u32, day: 1_u32 }, time: Some(Time{ hour: 15_u32, minute: 0_u32, second: 0_u32, is_utc: true }) },

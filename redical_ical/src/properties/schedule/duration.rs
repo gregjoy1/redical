@@ -152,9 +152,9 @@ mod tests {
     #[test]
     fn parse_ical() {
         assert_parser_output!(
-            DurationProperty::parse_ical("DURATION:PT1H0M0S".into()),
+            DurationProperty::parse_ical("DURATION:PT1H0M0S DESCRIPTION:Description text".into()),
             (
-                "",
+                " DESCRIPTION:Description text",
                 DurationProperty {
                     params: DurationPropertyParams::default(),
                     value: Duration {

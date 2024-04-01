@@ -148,9 +148,9 @@ mod tests {
     #[test]
     fn parse_ical() {
         assert_parser_output!(
-            ExRuleProperty::parse_ical("EXRULE:FREQ=YEARLY;INTERVAL=2;BYMONTH=1;BYDAY=-1MO,SU;BYHOUR=8,9;BYMINUTE=30 TESTING".into()),
+            ExRuleProperty::parse_ical("EXRULE:FREQ=YEARLY;INTERVAL=2;BYMONTH=1;BYDAY=-1MO,SU;BYHOUR=8,9;BYMINUTE=30 DESCRIPTION:Description text".into()),
             (
-                " TESTING",
+                " DESCRIPTION:Description text",
                 ExRuleProperty {
                     params: ExRulePropertyParams::default(),
                     value: Recur {

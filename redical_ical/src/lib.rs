@@ -92,6 +92,7 @@ pub fn convert_error<I: core::ops::Deref<Target = str>>(_input: I, error: Parser
 pub enum ParserContext {
     None,
     Event,
+    EventOccurrenceOverride,
 }
 
 impl Copy for ParserContext {}
@@ -103,12 +104,38 @@ impl Default for ParserContext {
 }
 
 impl ParserContext {
-    fn terminating_property_lookahead(&self) -> impl FnMut(ParserInput) -> ParserResult<ParserInput> {
+    fn terminating_property_lookahead(&self) -> impl FnMut(ParserInput) -> ParserResult<ParserInput> + '_ {
         move |mut input: ParserInput| {
             input.extra = ParserContext::None;
 
-            // TODO: Add branches for Event
-            nom::combinator::recognize(nom::sequence::preceded(grammar::wsp, grammar::contentline))(input)
+            match self {
+                ParserContext::Event => {
+                    nom::combinator::recognize(
+                        nom::sequence::preceded(
+                            grammar::wsp,
+                            properties::event::EventProperty::parse_ical,
+                        )
+                    )(input)
+                },
+
+                ParserContext::EventOccurrenceOverride => {
+                    nom::combinator::recognize(
+                        nom::sequence::preceded(
+                            grammar::wsp,
+                            properties::event_occurrence_override::EventOccurrenceOverrideProperty::parse_ical,
+                        )
+                    )(input)
+                },
+
+                _ => {
+                    nom::combinator::recognize(
+                        nom::sequence::preceded(
+                            grammar::wsp,
+                            grammar::contentline,
+                        )
+                    )(input)
+                },
+            }
         }
     }
 }
