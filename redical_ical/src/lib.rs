@@ -92,7 +92,6 @@ pub fn convert_error<I: core::ops::Deref<Target = str>>(_input: I, error: Parser
 pub enum ParserContext {
     None,
     Event,
-    EventOccurrenceOverride,
 }
 
 impl Copy for ParserContext {}
@@ -114,15 +113,6 @@ impl ParserContext {
                         nom::sequence::preceded(
                             grammar::wsp,
                             properties::event::EventProperty::parse_ical,
-                        )
-                    )(input)
-                },
-
-                ParserContext::EventOccurrenceOverride => {
-                    nom::combinator::recognize(
-                        nom::sequence::preceded(
-                            grammar::wsp,
-                            properties::event_occurrence_override::EventOccurrenceOverrideProperty::parse_ical,
                         )
                     )(input)
                 },
