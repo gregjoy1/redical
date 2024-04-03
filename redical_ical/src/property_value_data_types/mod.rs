@@ -12,3 +12,4 @@ pub mod period;
 pub mod recur;
 pub mod text;
 pub mod utc_offset;
+pub mod tzid;
