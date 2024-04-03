@@ -7,8 +7,8 @@ use nom::multi::separated_list1;
 use nom::combinator::{recognize, map, cut, opt};
 use nom::bytes::complete::tag;
 
-use crate::property_value_data_types::date_time::{DateTime, ValueType};
-use crate::property_value_data_types::tzid::Tzid;
+use crate::value_data_types::date_time::{DateTime, ValueType};
+use crate::value_data_types::tzid::Tzid;
 
 use crate::grammar::{semicolon, colon, comma, x_name, iana_token, param_value};
 
@@ -199,7 +199,7 @@ mod tests {
 
     use crate::tests::assert_parser_output;
 
-    use crate::property_value_data_types::{
+    use crate::value_data_types::{
         date::Date,
         time::Time,
     };

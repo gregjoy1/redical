@@ -14,7 +14,7 @@ use crate::grammar;
 /// # Examples
 ///
 /// ```rust
-/// use redical_ical::property_value_data_types::binary::binary;
+/// use redical_ical::value_data_types::binary::binary;
 ///
 /// assert!(binary("aB1+bC2/Ab==".into()).is_ok());
 /// assert!(binary("B+/=".into()).is_ok());
@@ -45,7 +45,7 @@ pub fn binary(input: ParserInput) -> ParserResult<ParserInput> {
 /// # Examples
 ///
 /// ```rust
-/// use redical_ical::property_value_data_types::binary::b_end;
+/// use redical_ical::value_data_types::binary::b_end;
 ///
 /// assert!(b_end("Ab==".into()).is_ok());
 /// assert!(b_end("B+/=".into()).is_ok());
@@ -86,7 +86,7 @@ pub fn b_end(input: ParserInput) -> ParserResult<ParserInput> {
 /// # Examples
 ///
 /// ```rust
-/// use redical_ical::property_value_data_types::binary::b_char;
+/// use redical_ical::value_data_types::binary::b_char;
 ///
 /// assert!(b_char("a".into()).is_ok());
 /// assert!(b_char("B".into()).is_ok());

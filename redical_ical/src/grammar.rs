@@ -1343,7 +1343,7 @@ impl_icalendar_entity_traits!(PositiveNegative);
 /// use std::collections::HashSet;
 ///
 /// use redical_ical::grammar::List;
-/// use redical_ical::property_value_data_types::integer::Integer;
+/// use redical_ical::value_data_types::integer::Integer;
 /// use redical_ical::ICalendarEntity;
 ///
 /// // Testing zero values
@@ -1471,7 +1471,7 @@ where
 /// ```rust
 ///
 /// use redical_ical::grammar::Quoted;
-/// use redical_ical::property_value_data_types::uri::Uri;
+/// use redical_ical::value_data_types::uri::Uri;
 /// use redical_ical::ICalendarEntity;
 ///
 /// let result = Quoted::<Uri>::parse_ical("\"mailto:jsmith@example.com\" TESTING".into());

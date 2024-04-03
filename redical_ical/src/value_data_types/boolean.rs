@@ -9,7 +9,7 @@ use crate::{ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_tr
 /// # Examples
 ///
 /// ```rust
-/// use redical_ical::property_value_data_types::boolean::boolean;
+/// use redical_ical::value_data_types::boolean::boolean;
 ///
 /// assert!(boolean("TRUE".into()).is_ok());
 /// assert!(boolean("FALSE".into()).is_ok());

@@ -6,8 +6,8 @@ use crate::{ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_tr
 
 use crate::grammar::PositiveNegative;
 
-use crate::property_value_data_types::integer::Integer;
-use crate::property_value_data_types::time::{time_hour, time_minute, time_second};
+use crate::value_data_types::integer::Integer;
+use crate::value_data_types::time::{time_hour, time_minute, time_second};
 
 // Value Name:  UTC-OFFSET
 //

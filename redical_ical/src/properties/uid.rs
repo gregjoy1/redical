@@ -7,7 +7,7 @@ use nom::multi::separated_list1;
 use nom::combinator::{recognize, map, cut, opt};
 use nom::bytes::complete::tag;
 
-use crate::property_value_data_types::text::Text;
+use crate::value_data_types::text::Text;
 
 use crate::grammar::{semicolon, colon, comma, x_name, iana_token, param_value};
 

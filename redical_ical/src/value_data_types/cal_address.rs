@@ -2,14 +2,14 @@ use nom::error::context;
 use nom::combinator::map;
 
 use crate::{ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
-use crate::property_value_data_types::uri::{uri, Uri};
+use crate::value_data_types::uri::{uri, Uri};
 
 /// Parse cal-address chars.
 ///
 /// # Examples
 ///
 /// ```rust
-/// use redical_ical::property_value_data_types::cal_address::cal_address;
+/// use redical_ical::value_data_types::cal_address::cal_address;
 ///
 /// assert!(cal_address("ftp://ftp.is.co.za/rfc/rfc1808.txt".into()).is_ok());
 /// assert!(cal_address("http://www.ietf.org/rfc/rfc2396.txt".into()).is_ok());

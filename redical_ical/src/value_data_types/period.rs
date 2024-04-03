@@ -6,15 +6,15 @@ use nom::bytes::complete::tag;
 
 use crate::{ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
 
-use crate::property_value_data_types::date_time::DateTime;
-use crate::property_value_data_types::duration::Duration;
+use crate::value_data_types::date_time::DateTime;
+use crate::value_data_types::duration::Duration;
 
 /// Parse period chars.
 ///
 /// # Examples
 ///
 /// ```rust
-/// use redical_ical::property_value_data_types::period::period;
+/// use redical_ical::value_data_types::period::period;
 ///
 /// assert!(period("19970101T180000Z/19970102T070000Z".into()).is_ok());
 /// assert!(period("19970101T180000Z/PT5H30M".into()).is_ok());

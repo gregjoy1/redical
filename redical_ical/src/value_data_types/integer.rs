@@ -51,7 +51,7 @@ impl Integer {
     ///
     /// ```rust
     ///
-    /// use redical_ical::property_value_data_types::integer::Integer;
+    /// use redical_ical::value_data_types::integer::Integer;
     ///
     /// // Create a parser that:
     /// //   1. Expects a digit 2-3 characters in length
@@ -113,7 +113,7 @@ impl Integer {
     ///
     /// ```rust
     ///
-    /// use redical_ical::property_value_data_types::integer::Integer;
+    /// use redical_ical::value_data_types::integer::Integer;
     /// use redical_ical::grammar::PositiveNegative;
     ///
     /// // Create a parser that:

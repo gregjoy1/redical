@@ -8,7 +8,7 @@ use crate::{ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_tr
 
 use crate::grammar::latin_capital_letter_t;
 
-use crate::property_value_data_types::{
+use crate::value_data_types::{
     date::{date, Date},
     time::{time, Time},
 };
@@ -56,7 +56,7 @@ impl_icalendar_entity_traits!(ValueType);
 /// # Examples
 ///
 /// ```rust
-/// use redical_ical::property_value_data_types::date_time::date_time;
+/// use redical_ical::value_data_types::date_time::date_time;
 ///
 /// assert!(date_time("19970714".into()).is_ok());
 /// assert!(date_time("19980118T230000".into()).is_ok());
