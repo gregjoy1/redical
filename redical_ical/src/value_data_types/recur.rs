@@ -6,12 +6,13 @@ use nom::multi::separated_list1;
 use nom::character::is_digit;
 use nom::bytes::complete::{tag, take_while1};
 
-use crate::grammar::{comma, semicolon, List};
+use crate::grammar::{comma, semicolon};
 
 use crate::{ICalendarEntity, ParserInput, ParserResult, ParserError, impl_icalendar_entity_traits};
 
 use crate::value_data_types::date_time::DateTime;
 use crate::value_data_types::integer::Integer;
+use crate::value_data_types::list::List;
 
 #[macro_export]
 macro_rules! build_ical_param {

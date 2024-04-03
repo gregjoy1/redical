@@ -144,9 +144,8 @@ mod tests {
 
     use crate::tests::assert_parser_output;
 
-    use crate::grammar::List;
-
     use crate::value_data_types::integer::Integer;
+    use crate::value_data_types::list::List;
 
     use crate::value_data_types::recur::{FreqParam, Frequency, IntervalParam, ByminuteParam, ByhourParam, BydayParam, BymonthParam, WeekDayNum, WeekDay};
 

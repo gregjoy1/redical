@@ -1,13 +1,13 @@
 use chrono_tz::Tz;
 
 use nom::error::context;
-use nom::sequence::{pair, preceded};
-use nom::combinator::{opt, map_res, map, cut, recognize};
-use nom::bytes::complete::{tag, take_while1};
+use nom::sequence::pair;
+use nom::combinator::{opt, map_res, recognize};
+use nom::bytes::complete::take_while1;
 
 use crate::grammar::{is_safe_char, is_wsp_char, solidus};
 
-use crate::{ICalendarEntity, ParserInput, ParserResult, ParserError, impl_icalendar_entity_traits};
+use crate::{ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Tzid(pub String);
