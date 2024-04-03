@@ -190,6 +190,8 @@ impl_icalendar_entity_traits!(DTStartProperty);
 mod tests {
     use super::*;
 
+    use chrono_tz::Tz;
+
     use crate::tests::assert_parser_output;
 
     use crate::value_data_types::{
@@ -217,7 +219,7 @@ mod tests {
                 DTStartProperty {
                     params: DTStartPropertyParams {
                         value_type: None,
-                        tzid: Some(Tzid(String::from("Europe/London"))),
+                        tzid: Some(Tzid(Tz::Europe__London)),
                         other: HashMap::new(),
                     },
                     value: DateTime { date: Date { year: 1996_i32, month: 4_u32, day: 1_u32 }, time: Some(Time{ hour: 15_u32, minute: 0_u32, second: 0_u32, is_utc: false }) },
@@ -260,7 +262,7 @@ mod tests {
             DTStartProperty {
                 params: DTStartPropertyParams {
                     value_type: None,
-                    tzid: Some(Tzid(String::from("Europe/London"))),
+                    tzid: Some(Tzid(Tz::Europe__London)),
                     other: HashMap::new(),
                 },
                 value: DateTime { date: Date { year: 1996_i32, month: 4_u32, day: 1_u32 }, time: Some(Time{ hour: 15_u32, minute: 0_u32, second: 0_u32, is_utc: false }) },
