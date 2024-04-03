@@ -1,7 +1,6 @@
 pub mod grammar;
 pub mod content_line;
 pub mod property_value_data_types;
-pub mod property_parameters;
 pub mod properties;
 
 #[derive(Clone, Debug, PartialEq)]

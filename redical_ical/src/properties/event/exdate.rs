@@ -7,9 +7,8 @@ use nom::multi::separated_list1;
 use nom::combinator::{recognize, map, cut, opt};
 use nom::bytes::complete::tag;
 
-use crate::property_value_data_types::date_time::DateTime;
-use crate::property_parameters::tzid::{TzidParam, Tzid};
-use crate::property_parameters::value_type::{ValueTypeParam, ValueType};
+use crate::property_value_data_types::date_time::{DateTime, ValueType};
+use crate::property_value_data_types::tzid::Tzid;
 
 use crate::grammar::{semicolon, colon, comma, x_name, iana_token, param_value};
 
@@ -32,12 +31,12 @@ impl ICalendarEntity for ExDatePropertyParams {
     define_property_params_ical_parser!(
         ExDatePropertyParams,
         (
-            TzidParam::parse_ical,
-            |params: &mut ExDatePropertyParams, tzid_param: TzidParam| params.tzid = Some(tzid_param.0),
+            pair(tag("TZID"), cut(preceded(tag("="), Tzid::parse_ical))),
+            |params: &mut ExDatePropertyParams, (_key, value): (ParserInput, Tzid)| params.tzid = Some(value),
         ),
         (
-            ValueTypeParam::parse_ical,
-            |params: &mut ExDatePropertyParams, value_param: ValueTypeParam| params.value_type = Some(value_param.0),
+            pair(tag("VALUE"), cut(preceded(tag("="), ValueType::parse_ical))),
+            |params: &mut ExDatePropertyParams, (_key, value): (ParserInput, ValueType)| params.value_type = Some(value),
         ),
         (
             pair(alt((x_name, iana_token)), cut(preceded(tag("="), recognize(separated_list1(comma, param_value))))),

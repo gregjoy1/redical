@@ -266,7 +266,7 @@ mod tests {
     #[test]
     fn reltype_parse_ical() {
         assert_parser_output!(
-            Reltype::parse_ical(r#"RELTYPE=PARENT TESTING"#.into()),
+            Reltype::parse_ical(r#"PARENT TESTING"#.into()),
             (
                 " TESTING",
                 Reltype::Parent,
@@ -274,7 +274,7 @@ mod tests {
         );
 
         assert_parser_output!(
-            Reltype::parse_ical(r#"RELTYPE=CHILD TESTING"#.into()),
+            Reltype::parse_ical(r#"CHILD TESTING"#.into()),
             (
                 " TESTING",
                 Reltype::Child,
@@ -282,7 +282,7 @@ mod tests {
         );
 
         assert_parser_output!(
-            Reltype::parse_ical(r#"RELTYPE=SIBLING TESTING"#.into()),
+            Reltype::parse_ical(r#"SIBLING TESTING"#.into()),
             (
                 " TESTING",
                 Reltype::Sibling,
@@ -290,7 +290,7 @@ mod tests {
         );
 
         assert_parser_output!(
-            Reltype::parse_ical(r#"RELTYPE=X-TEST-NAME TESTING"#.into()),
+            Reltype::parse_ical(r#"X-TEST-NAME TESTING"#.into()),
             (
                 " TESTING",
                 Reltype::XName(String::from("X-TEST-NAME")),
@@ -298,7 +298,7 @@ mod tests {
         );
 
         assert_parser_output!(
-            Reltype::parse_ical(r#"RELTYPE=TEST-IANA-NAME TESTING"#.into()),
+            Reltype::parse_ical(r#"TEST-IANA-NAME TESTING"#.into()),
             (
                 " TESTING",
                 Reltype::IanaToken(String::from("TEST-IANA-NAME")),
@@ -312,27 +312,27 @@ mod tests {
     fn reltype_render_ical() {
         assert_eq!(
             Reltype::Parent.render_ical(),
-            String::from("RELTYPE=PARENT"),
+            String::from("PARENT"),
         );
 
         assert_eq!(
             Reltype::Child.render_ical(),
-            String::from("RELTYPE=CHILD"),
+            String::from("CHILD"),
         );
 
         assert_eq!(
             Reltype::Sibling.render_ical(),
-            String::from("RELTYPE=SIBLING"),
+            String::from("SIBLING"),
         );
 
         assert_eq!(
             Reltype::XName(String::from("X-TEST-NAME")).render_ical(),
-            String::from("RELTYPE=X-TEST-NAME"),
+            String::from("X-TEST-NAME"),
         );
 
         assert_eq!(
             Reltype::IanaToken(String::from("TEST-IANA-NAME")).render_ical(),
-            String::from("RELTYPE=TEST-IANA-NAME"),
+            String::from("TEST-IANA-NAME"),
         );
     }
 }

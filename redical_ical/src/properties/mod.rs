@@ -7,9 +7,8 @@ use crate::ICalendarEntity;
 
 pub trait ICalendarProperty {}
 
-use crate::property_parameters::tzid::Tzid;
-use crate::property_parameters::value_type::ValueType;
-use crate::property_value_data_types::date_time::DateTime;
+use crate::property_value_data_types::tzid::Tzid;
+use crate::property_value_data_types::date_time::{DateTime, ValueType};
 
 pub trait ICalendarDateTimeProperty {
 
