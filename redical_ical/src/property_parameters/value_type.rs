@@ -12,18 +12,18 @@ use crate::{ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_tr
 //
 // VALUE = ("DATE-TIME" / "DATE")
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub enum Value {
+pub enum ValueType {
     DateTime,
     Date,
 }
 
-impl ICalendarEntity for Value {
+impl ICalendarEntity for ValueType {
     fn parse_ical(input: ParserInput) -> ParserResult<Self> {
         context(
             "VALUE",
             alt((
-                map(tag("DATE-TIME"), |_| Value::DateTime),
-                map(tag("DATE"), |_| Value::Date),
+                map(tag("DATE-TIME"), |_| ValueType::DateTime),
+                map(tag("DATE"), |_| ValueType::Date),
             )),
         )(input)
     }
@@ -36,32 +36,32 @@ impl ICalendarEntity for Value {
     }
 }
 
-impl Value {
+impl ValueType {
     pub fn validate_against_date_time(&self, date_time: &DateTime) -> Result<(), String> {
         match (self, date_time) {
-            (Value::DateTime, DateTime { date: _, time: Some(_) }) => Ok(()),
-            (Value::Date,     DateTime { date: _, time: None })    => Ok(()),
+            (ValueType::DateTime, DateTime { date: _, time: Some(_) }) => Ok(()),
+            (ValueType::Date,     DateTime { date: _, time: None })    => Ok(()),
             _ => Err(String::from("VALUE incompatible with parsed DATE-TIME/DATE value")),
         }
     }
 }
 
-impl_icalendar_entity_traits!(Value);
+impl_icalendar_entity_traits!(ValueType);
 
 // Unofficial parameter for describing DateTime value types:
 //
 // VALUE = ("DATE-TIME" / "DATE")
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct ValueParam(pub Value);
+pub struct ValueTypeParam(pub ValueType);
 
-impl ICalendarEntity for ValueParam {
+impl ICalendarEntity for ValueTypeParam {
     fn parse_ical(input: ParserInput) -> ParserResult<Self> {
         context(
             "VALUEPARAM",
             map(
                 pair(
                     tag("VALUE"),
-                    preceded(tag("="), cut(Value::parse_ical)),
+                    preceded(tag("="), cut(ValueType::parse_ical)),
                 ),
                 |(_key, value)| Self(value)
             ),
@@ -73,7 +73,7 @@ impl ICalendarEntity for ValueParam {
     }
 }
 
-impl_icalendar_entity_traits!(ValueParam);
+impl_icalendar_entity_traits!(ValueTypeParam);
 
 #[cfg(test)]
 mod tests {
@@ -89,28 +89,28 @@ mod tests {
     #[test]
     fn parse_ical() {
         assert_parser_output!(
-            ValueParam::parse_ical(r#"VALUE=DATE-TIME TESTING"#.into()),
+            ValueTypeParam::parse_ical(r#"VALUE=DATE-TIME TESTING"#.into()),
             (
                 " TESTING",
-                ValueParam(Value::DateTime),
+                ValueTypeParam(ValueType::DateTime),
             ),
         );
 
         assert_parser_output!(
-            ValueParam::parse_ical(r#"VALUE=DATE TESTING"#.into()),
+            ValueTypeParam::parse_ical(r#"VALUE=DATE TESTING"#.into()),
             (
                 " TESTING",
-                ValueParam(Value::Date),
+                ValueTypeParam(ValueType::Date),
             ),
         );
 
-        assert!(ValueParam::parse_ical(":".into()).is_err());
+        assert!(ValueTypeParam::parse_ical(":".into()).is_err());
     }
 
     #[test]
     fn validate_against_date_time() {
         assert_eq!(
-            Value::DateTime.validate_against_date_time(
+            ValueType::DateTime.validate_against_date_time(
                 &DateTime {
                     date: Date { year: 1996_i32, month: 4_u32, day: 1_u32 },
                     time: Some(Time{ hour: 15_u32, minute: 0_u32, second: 0_u32, is_utc: true }),
@@ -120,7 +120,7 @@ mod tests {
         );
 
         assert_eq!(
-            Value::DateTime.validate_against_date_time(
+            ValueType::DateTime.validate_against_date_time(
                 &DateTime {
                     date: Date { year: 1996_i32, month: 4_u32, day: 1_u32 },
                     time: None,
@@ -130,7 +130,7 @@ mod tests {
         );
 
         assert_eq!(
-            Value::Date.validate_against_date_time(
+            ValueType::Date.validate_against_date_time(
                 &DateTime {
                     date: Date { year: 1996_i32, month: 4_u32, day: 1_u32 },
                     time: None,
@@ -140,7 +140,7 @@ mod tests {
         );
 
         assert_eq!(
-            Value::Date.validate_against_date_time(
+            ValueType::Date.validate_against_date_time(
                 &DateTime {
                     date: Date { year: 1996_i32, month: 4_u32, day: 1_u32 },
                     time: Some(Time{ hour: 15_u32, minute: 0_u32, second: 0_u32, is_utc: true }),
@@ -153,12 +153,12 @@ mod tests {
     #[test]
     fn render_ical() {
         assert_eq!(
-            ValueParam(Value::DateTime).render_ical(),
+            ValueTypeParam(ValueType::DateTime).render_ical(),
             String::from("VALUE=DATE-TIME"),
         );
 
         assert_eq!(
-            ValueParam(Value::Date).render_ical(),
+            ValueTypeParam(ValueType::Date).render_ical(),
             String::from("VALUE=DATE"),
         );
     }

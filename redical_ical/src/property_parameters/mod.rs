@@ -19,4 +19,4 @@ pub mod sent_by;
 pub mod tzid;
 pub mod experimental;
 pub mod iana;
-pub mod value;
+pub mod value_type;

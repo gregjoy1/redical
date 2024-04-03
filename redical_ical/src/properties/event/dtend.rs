@@ -9,7 +9,7 @@ use nom::bytes::complete::tag;
 
 use crate::property_value_data_types::date_time::DateTime;
 use crate::property_parameters::tzid::{TzidParam, Tzid};
-use crate::property_parameters::value::{ValueParam, Value};
+use crate::property_parameters::value_type::{ValueTypeParam, ValueType};
 
 use crate::grammar::{semicolon, colon, comma, x_name, iana_token, param_value};
 
@@ -24,7 +24,7 @@ use std::collections::HashMap;
 #[derive(Debug, Clone, Eq, PartialEq, Default)]
 pub struct DTEndPropertyParams {
     pub tzid: Option<Tzid>,
-    pub value: Option<Value>,
+    pub value_type: Option<ValueType>,
     pub other: HashMap<String, String>,
 }
 
@@ -36,8 +36,8 @@ impl ICalendarEntity for DTEndPropertyParams {
             |params: &mut DTEndPropertyParams, tzid_param: TzidParam| params.tzid = Some(tzid_param.0),
         ),
         (
-            ValueParam::parse_ical,
-            |params: &mut DTEndPropertyParams, value_param: ValueParam| params.value = Some(value_param.0),
+            ValueTypeParam::parse_ical,
+            |params: &mut DTEndPropertyParams, value_param: ValueTypeParam| params.value_type = Some(value_param.0),
         ),
         (
             pair(alt((x_name, iana_token)), cut(preceded(tag("="), recognize(separated_list1(comma, param_value))))),
@@ -58,8 +58,8 @@ impl From<&DTEndPropertyParams> for ContentLineParams {
             content_line_params.insert(key.to_owned(), value.to_owned());
         }
 
-        if let Some(value) = related_to_params.value.as_ref() {
-            content_line_params.insert(String::from("VALUE"), value.render_ical());
+        if let Some(value_type) = related_to_params.value_type.as_ref() {
+            content_line_params.insert(String::from("VALUE"), value_type.render_ical());
         }
 
         if let Some(tzid) = related_to_params.tzid.as_ref() {
@@ -162,8 +162,8 @@ impl ICalendarEntity for DTEndProperty {
             tzid.validate()?;
         };
 
-        if let Some(value) = self.params.value.as_ref() {
-            value.validate_against_date_time(&self.value)?;
+        if let Some(value_type) = self.params.value_type.as_ref() {
+            value_type.validate_against_date_time(&self.value)?;
         }
 
         Ok(())
@@ -190,8 +190,6 @@ mod tests {
 
     use crate::tests::assert_parser_output;
 
-    use crate::property_parameters::value::Value;
-
     use crate::property_value_data_types::{
         date::Date,
         time::Time,
@@ -216,7 +214,7 @@ mod tests {
                 "",
                 DTEndProperty {
                     params: DTEndPropertyParams {
-                        value: None,
+                        value_type: None,
                         tzid: Some(Tzid(String::from("Europe/London"))),
                         other: HashMap::new(),
                     },
@@ -231,7 +229,7 @@ mod tests {
                 "",
                 DTEndProperty {
                     params: DTEndPropertyParams {
-                        value: Some(Value::Date),
+                        value_type: Some(ValueType::Date),
                         tzid: None,
                         other: HashMap::from([
                             (String::from("X-TEST"), String::from("X_VALUE")),
@@ -259,7 +257,7 @@ mod tests {
         assert_eq!(
             DTEndProperty {
                 params: DTEndPropertyParams {
-                    value: None,
+                    value_type: None,
                     tzid: Some(Tzid(String::from("Europe/London"))),
                     other: HashMap::new(),
                 },
@@ -271,7 +269,7 @@ mod tests {
         assert_eq!(
             DTEndProperty {
                 params: DTEndPropertyParams {
-                    value: Some(Value::Date),
+                    value_type: Some(ValueType::Date),
                     tzid: None,
                     other: HashMap::from([
                         (String::from("X-TEST"), String::from("X_VALUE")),

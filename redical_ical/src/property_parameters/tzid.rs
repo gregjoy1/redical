@@ -2,12 +2,12 @@ use chrono_tz::Tz;
 
 use nom::error::context;
 use nom::sequence::{pair, preceded};
-use nom::combinator::{opt, map, cut, recognize};
+use nom::combinator::{opt, map_res, map, cut, recognize};
 use nom::bytes::complete::{tag, take_while1};
 
 use crate::grammar::{is_safe_char, is_wsp_char, solidus};
 
-use crate::{ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
+use crate::{ICalendarEntity, ParserInput, ParserResult, ParserError, impl_icalendar_entity_traits};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Tzid(pub String);
@@ -16,7 +16,7 @@ impl ICalendarEntity for Tzid {
     fn parse_ical(input: ParserInput) -> ParserResult<Self> {
         context(
             "TZID",
-            map(
+            map_res(
                 recognize(
                     pair(
                         opt(solidus),
@@ -26,7 +26,15 @@ impl ICalendarEntity for Tzid {
                         }),
                     )
                 ),
-                |value: ParserInput| Self(value.to_string())
+                |value: ParserInput| {
+                    let tzid = Self(value.to_string());
+
+                    if let Err(error) = tzid.validate() {
+                        Err(error)
+                    } else {
+                        Ok(tzid)
+                    }
+                }
             )
         )(input)
     }
@@ -45,6 +53,14 @@ impl ICalendarEntity for Tzid {
 }
 
 impl_icalendar_entity_traits!(Tzid);
+
+impl TryFrom<Tzid> for Tz {
+    type Error = String;
+
+    fn try_from(tzid: Tzid) -> Result<Self, Self::Error> {
+        tzid.0.parse::<Tz>().map_err(|_error| String::from("Timezone is invalid"))
+    }
+}
 
 // Time Zone Identifier
 //
