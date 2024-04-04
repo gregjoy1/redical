@@ -12,11 +12,15 @@ use crate::value_data_types::date_time::{DateTime, ValueType};
 
 pub trait ICalendarDateTimeProperty {
 
-    fn get_tzid(&self) -> Option<Tzid>;
+    fn get_tzid(&self) -> Option<&Tzid>;
 
-    fn get_value_type(&self) -> Option<ValueType>;
+    fn get_tz(&self) -> Option<&chrono_tz::Tz> {
+        self.get_tzid().and_then(|tzid| Some(&tzid.0))
+    }
 
-    fn get_date_time(&self) -> DateTime;
+    fn get_value_type(&self) -> Option<&ValueType>;
+
+    fn get_date_time(&self) -> &DateTime;
 
     fn validate(&self) -> Result<(), String> {
         self.get_date_time().validate()?;

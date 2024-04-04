@@ -125,24 +125,22 @@ impl From<ExDatePropertyParams> for ContentLineParams {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ExDateProperty {
     pub params: ExDatePropertyParams,
-    pub value: DateTime,
+    pub date_time: DateTime,
 }
 
-/*
 impl ICalendarDateTimeProperty for ExDateProperty {
-    fn get_tzid(&self) -> Option<Tzid> {
-        self.params.tzid
+    fn get_tzid(&self) -> Option<&Tzid> {
+        self.params.tzid.as_ref()
     }
 
-    fn get_value_type(&self) -> Option<ValueType> {
-        self.params.value_type
+    fn get_value_type(&self) -> Option<&ValueType> {
+        self.params.value_type.as_ref()
     }
 
-    fn get_date_time(&self) -> DateTime {
-        self.value
+    fn get_date_time(&self) -> &DateTime {
+        &self.date_time
     }
 }
-*/
 
 impl ICalendarEntity for ExDateProperty {
     fn parse_ical(input: ParserInput) -> ParserResult<Self> {
@@ -156,10 +154,10 @@ impl ICalendarEntity for ExDateProperty {
                             opt(ExDatePropertyParams::parse_ical),
                             preceded(colon, DateTime::parse_ical),
                         ),
-                        |(params, value)| {
+                        |(params, date_time)| {
                             ExDateProperty {
                                 params: params.unwrap_or(ExDatePropertyParams::default()),
-                                value,
+                                date_time,
                             }
                         }
                     )
@@ -173,14 +171,14 @@ impl ICalendarEntity for ExDateProperty {
     }
 
     fn validate(&self) -> Result<(), String> {
-        self.value.validate()?;
+        self.date_time.validate()?;
 
         if let Some(tzid) = self.params.tzid.as_ref() {
             tzid.validate()?;
         };
 
         if let Some(value_type) = self.params.value_type.as_ref() {
-            value_type.validate_against_date_time(&self.value)?;
+            value_type.validate_against_date_time(&self.date_time)?;
         }
 
         Ok(())
@@ -193,7 +191,7 @@ impl From<&ExDateProperty> for ContentLine {
             "EXDATE",
             (
                 ContentLineParams::from(&exdate_property.params),
-                exdate_property.value.to_string(),
+                exdate_property.date_time.serialize_ical(exdate_property.get_tz())
             )
         ))
     }
@@ -205,14 +203,10 @@ impl_icalendar_entity_traits!(ExDateProperty);
 mod tests {
     use super::*;
 
+    use chrono::{NaiveDate, NaiveTime, NaiveDateTime};
     use chrono_tz::Tz;
 
     use crate::tests::assert_parser_output;
-
-    use crate::value_data_types::{
-        date::Date,
-        time::Time,
-    };
 
     #[test]
     fn parse_ical() {
@@ -222,7 +216,12 @@ mod tests {
                 " DESCRIPTION:Description text",
                 ExDateProperty {
                     params: ExDatePropertyParams::default(),
-                    value: DateTime { date: Date { year: 1996_i32, month: 4_u32, day: 1_u32 }, time: Some(Time{ hour: 15_u32, minute: 0_u32, second: 0_u32, is_utc: true }) },
+                    date_time: DateTime::UtcDateTime(
+                        NaiveDateTime::new(
+                            NaiveDate::from_ymd_opt(1996_i32, 4_u32, 1_u32).unwrap(),
+                            NaiveTime::from_hms_opt(15_u32, 0_u32, 0_u32).unwrap(),
+                        )
+                    ),
                 },
             ),
         );
@@ -237,7 +236,12 @@ mod tests {
                         tzid: Some(Tzid(Tz::Europe__London)),
                         other: HashMap::new(),
                     },
-                    value: DateTime { date: Date { year: 1996_i32, month: 4_u32, day: 1_u32 }, time: Some(Time{ hour: 15_u32, minute: 0_u32, second: 0_u32, is_utc: false }) },
+                    date_time: DateTime::LocalDateTime(
+                        NaiveDateTime::new(
+                            NaiveDate::from_ymd_opt(1996_i32, 4_u32, 1_u32).unwrap(),
+                            NaiveTime::from_hms_opt(15_u32, 0_u32, 0_u32).unwrap(),
+                        )
+                    ),
                 },
             ),
         );
@@ -255,7 +259,9 @@ mod tests {
                             (String::from("TEST"), String::from("VALUE")),
                         ]),
                     },
-                    value: DateTime { date: Date { year: 1996_i32, month: 4_u32, day: 1_u32 }, time: None },
+                    date_time: DateTime::LocalDate(
+                        NaiveDate::from_ymd_opt(1996_i32, 4_u32, 1_u32).unwrap()
+                    ),
                 },
             ),
         );
@@ -268,7 +274,12 @@ mod tests {
         assert_eq!(
             ExDateProperty {
                 params: ExDatePropertyParams::default(),
-                value: DateTime { date: Date { year: 1996_i32, month: 4_u32, day: 1_u32 }, time: Some(Time{ hour: 15_u32, minute: 0_u32, second: 0_u32, is_utc: true }) },
+                date_time: DateTime::UtcDateTime(
+                    NaiveDateTime::new(
+                        NaiveDate::from_ymd_opt(1996_i32, 4_u32, 1_u32).unwrap(),
+                        NaiveTime::from_hms_opt(15_u32, 0_u32, 0_u32).unwrap(),
+                    )
+                ),
             }.render_ical(),
             String::from("EXDATE:19960401T150000Z"),
         );
@@ -280,7 +291,12 @@ mod tests {
                     tzid: Some(Tzid(Tz::Europe__London)),
                     other: HashMap::new(),
                 },
-                value: DateTime { date: Date { year: 1996_i32, month: 4_u32, day: 1_u32 }, time: Some(Time{ hour: 15_u32, minute: 0_u32, second: 0_u32, is_utc: false }) },
+                date_time: DateTime::LocalDateTime(
+                    NaiveDateTime::new(
+                        NaiveDate::from_ymd_opt(1996_i32, 4_u32, 1_u32).unwrap(),
+                        NaiveTime::from_hms_opt(15_u32, 0_u32, 0_u32).unwrap(),
+                    )
+                ),
             }.render_ical(),
             String::from("EXDATE;TZID=Europe/London:19960401T150000"),
         );
@@ -295,7 +311,9 @@ mod tests {
                         (String::from("TEST"), String::from("VALUE")),
                     ]),
                 },
-                value: DateTime { date: Date { year: 1996_i32, month: 4_u32, day: 1_u32 }, time: None },
+                date_time: DateTime::LocalDate(
+                    NaiveDate::from_ymd_opt(1996_i32, 4_u32, 1_u32).unwrap()
+                ),
             }.render_ical(),
             String::from("EXDATE;TEST=VALUE;X-TEST=X_VALUE;VALUE=DATE:19960401"),
         );

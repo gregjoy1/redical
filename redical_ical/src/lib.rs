@@ -304,6 +304,31 @@ mod tests {
 
     pub use assert_parser_output;
 
+    #[macro_export]
+    macro_rules! assert_parser_error {
+        ($subject:expr, nom::Err::Error(span: $span:expr, message: $message:expr, context: [$($context:expr $(,)*)+ $(,)*] $(,)*) $(,)*) => {
+            let result = $subject;
+
+            let Err(nom::Err::Error(parser_error)) = result else {
+                panic!("Expected to be nom::Err::Error Error, Actual: {:#?}", result);
+            };
+
+            pretty_assertions_sorted::assert_eq!(parser_error.span.to_string(), String::from($span));
+            pretty_assertions_sorted::assert_eq!(parser_error.message, Some(String::from($message)));
+
+            pretty_assertions_sorted::assert_eq!(
+                parser_error.context,
+                vec![
+                    $(
+                        String::from($context)
+                    )+
+                ],
+            );
+        }
+    }
+
+    pub use assert_parser_error;
+
     /*
     #[test]
     fn it_works() {

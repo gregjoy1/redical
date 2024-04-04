@@ -226,6 +226,18 @@ impl ICalendarEntity for Date {
     }
 }
 
+impl TryFrom<Date> for chrono::NaiveDate {
+    type Error = String;
+
+    fn try_from(date: Date) -> Result<chrono::NaiveDate, Self::Error> {
+        if let Some(date) = chrono::NaiveDate::from_ymd_opt(date.year, date.month, date.day) {
+            Ok(date)
+        } else {
+            Err(String::from("Date is invalid"))
+        }
+    }
+}
+
 impl_icalendar_entity_traits!(Date);
 
 #[cfg(test)]

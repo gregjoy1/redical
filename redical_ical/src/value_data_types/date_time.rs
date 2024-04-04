@@ -1,8 +1,12 @@
+use chrono::prelude::TimeZone;
+use chrono::{NaiveDate, NaiveTime, NaiveDateTime};
+use chrono_tz::Tz;
+
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::sequence::{pair, preceded};
 use nom::error::context;
-use nom::combinator::{recognize, map, opt, cut};
+use nom::combinator::{recognize, map, map_res, opt, cut};
 
 use crate::{ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
 
@@ -42,8 +46,9 @@ impl ICalendarEntity for ValueType {
 impl ValueType {
     pub fn validate_against_date_time(&self, date_time: &DateTime) -> Result<(), String> {
         match (self, date_time) {
-            (ValueType::DateTime, DateTime { date: _, time: Some(_) }) => Ok(()),
-            (ValueType::Date,     DateTime { date: _, time: None })    => Ok(()),
+            (ValueType::DateTime, DateTime::UtcDateTime(_))   => Ok(()),
+            (ValueType::DateTime, DateTime::LocalDateTime(_)) => Ok(()),
+            (ValueType::Date,     DateTime::LocalDate(_))     => Ok(()),
             _ => Err(String::from("VALUE incompatible with parsed DATE-TIME/DATE value")),
         }
     }
@@ -98,9 +103,10 @@ pub fn date_time(input: ParserInput) -> ParserResult<ParserInput> {
 //     date-time  = date "T" time ;As specified in the DATE and TIME
 //                                ;value definitions
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct DateTime {
-    pub date: Date,
-    pub time: Option<Time>,
+pub enum DateTime {
+    LocalDate(NaiveDate),
+    LocalDateTime(NaiveDateTime),
+    UtcDateTime(NaiveDateTime),
 }
 
 impl ICalendarEntity for DateTime {
@@ -110,7 +116,7 @@ impl ICalendarEntity for DateTime {
     {
         context(
             "DATE-TIME",
-            map(
+            map_res(
                 pair(
                     Date::parse_ical,
                     opt(
@@ -120,10 +126,33 @@ impl ICalendarEntity for DateTime {
                         )
                     ),
                 ),
-                |(date, time)| {
-                    Self {
-                        date,
-                        time,
+                |(date, time): (Date, Option<Time>)| -> Result<Self, String> {
+                    let date = NaiveDate::try_from(date)?;
+
+                    if let Some(time) = time {
+                        if time.is_utc {
+                            Ok(
+                                Self::UtcDateTime(
+                                    NaiveDateTime::new(
+                                        date,
+                                        NaiveTime::try_from(time)?,
+                                    )
+                                )
+                            )
+                        } else {
+                            Ok(
+                                Self::LocalDateTime(
+                                    NaiveDateTime::new(
+                                        date,
+                                        NaiveTime::try_from(time)?,
+                                    )
+                                )
+                            )
+                        }
+                    } else {
+                        Ok(
+                            Self::LocalDate(date)
+                        )
                     }
                 },
             )
@@ -131,22 +160,57 @@ impl ICalendarEntity for DateTime {
     }
 
     fn render_ical(&self) -> String {
-        if let Some(time) = self.time.as_ref() {
-            format!("{}T{}", self.date.render_ical(), time.render_ical())
+        self.serialize_ical(None)
+    }
+}
+
+impl DateTime {
+    pub fn serialize_ical(&self, tz: Option<&Tz>) -> String {
+        let tz = tz.cloned().unwrap_or(Tz::UTC);
+
+        match self {
+            Self::LocalDate(date) => {
+                // TODO: Render with context of property.
+                Self::serialize_date(date, &tz)
+            },
+
+            Self::LocalDateTime(date_time) => {
+                // TODO: Render with context of property.
+                Self::serialize_date_time(date_time, &tz)
+            },
+
+            Self::UtcDateTime(date_time) => {
+                if tz == Tz::UTC {
+                    Self::serialize_date_time(date_time, &tz)
+                } else {
+                    let utc_timestamp = Tz::UTC.from_local_datetime(date_time).unwrap().timestamp();
+                    let tz_adjusted_naive_date_time = tz.timestamp_opt(utc_timestamp, 0_u32).unwrap().naive_local();
+
+                    Self::serialize_date_time(&tz_adjusted_naive_date_time, &tz)
+                }
+            },
+        }
+    }
+
+    fn serialize_date_time(naive_date_time: &NaiveDateTime, tz: &Tz) -> String {
+        let local_date_time = tz.from_local_datetime(naive_date_time).unwrap();
+
+        if matches!(tz, &Tz::UTC) {
+            local_date_time.format("%Y%m%dT%H%M%SZ").to_string()
         } else {
-            self.date.render_ical()
+            local_date_time.format("%Y%m%dT%H%M%S").to_string()
         }
     }
 
-    fn validate(&self) -> Result<(), String> {
-        self.date.validate()?;
+    fn serialize_date(naive_date: &NaiveDate, tz: &Tz) -> String {
+        let naive_date_time = NaiveDateTime::new(naive_date.to_owned(), NaiveTime::default());
 
-        if let Some(time) = self.time.as_ref() {
-            time.validate()?;
-        }
-
-        Ok(())
+        tz.from_local_datetime(&naive_date_time)
+          .unwrap()
+          .format("%Y%m%d")
+          .to_string()
     }
+
 }
 
 impl_icalendar_entity_traits!(DateTime);
@@ -163,14 +227,22 @@ mod tests {
             DateTime::parse_ical("19970714 TESTING".into()),
             (
                 " TESTING",
-                DateTime {
-                    date: Date {
-                        year: 1997_i32,
-                        month: 7_u32,
-                        day: 14_u32,
-                    },
-                    time: None,
-                },
+                DateTime::LocalDate(
+                    NaiveDate::from_ymd_opt(1997_i32, 7_u32, 14_u32).unwrap()
+                ),
+            ),
+        );
+
+        assert_parser_output!(
+            DateTime::parse_ical("19980118T230000 TESTING".into()),
+            (
+                " TESTING",
+                DateTime::LocalDateTime(
+                    NaiveDateTime::new(
+                        NaiveDate::from_ymd_opt(1998_i32, 1_u32, 18_u32).unwrap(),
+                        NaiveTime::from_hms_opt(23_u32, 0_u32, 0_u32).unwrap(),
+                    )
+                ),
             ),
         );
 
@@ -178,21 +250,12 @@ mod tests {
             DateTime::parse_ical("19980118T230000Z TESTING".into()),
             (
                 " TESTING",
-                DateTime {
-                    date: Date {
-                        year: 1998_i32,
-                        month: 1_u32,
-                        day: 18_u32,
-                    },
-                    time: Some(
-                        Time {
-                            hour: 23_u32,
-                            minute: 0_u32,
-                            second: 0_u32,
-                            is_utc: true,
-                        }
+                DateTime::UtcDateTime(
+                    NaiveDateTime::new(
+                        NaiveDate::from_ymd_opt(1998_i32, 1_u32, 18_u32).unwrap(),
+                        NaiveTime::from_hms_opt(23_u32, 0_u32, 0_u32).unwrap(),
                     )
-                },
+                ),
             ),
         );
 
@@ -206,33 +269,29 @@ mod tests {
     #[test]
     fn date_time_render_ical() {
         assert_eq!(
-            DateTime {
-                date: Date {
-                    year: 1997_i32,
-                    month: 7_u32,
-                    day: 14_u32,
-                },
-                time: None,
-            }.render_ical(),
+            DateTime::LocalDate(
+                NaiveDate::from_ymd_opt(1997_i32, 7_u32, 14_u32).unwrap()
+            ).render_ical(),
             String::from("19970714"),
         );
 
         assert_eq!(
-            DateTime {
-                date: Date {
-                    year: 1998_i32,
-                    month: 1_u32,
-                    day: 18_u32,
-                },
-                time: Some(
-                    Time{
-                        hour: 23_u32,
-                        minute: 0_u32,
-                        second: 0_u32,
-                        is_utc: true
-                    }
+            DateTime::LocalDateTime(
+                NaiveDateTime::new(
+                    NaiveDate::from_ymd_opt(1998_i32, 1_u32, 18_u32).unwrap(),
+                    NaiveTime::from_hms_opt(23_u32, 0_u32, 0_u32).unwrap(),
                 )
-            }.render_ical(),
+            ).render_ical(),
+            String::from("19980118T230000Z"), // TODO: Update to without Z suffix with render_ical_with_context change.
+        );
+
+        assert_eq!(
+            DateTime::UtcDateTime(
+                NaiveDateTime::new(
+                    NaiveDate::from_ymd_opt(1998_i32, 1_u32, 18_u32).unwrap(),
+                    NaiveTime::from_hms_opt(23_u32, 0_u32, 0_u32).unwrap(),
+                )
+            ).render_ical(),
             String::from("19980118T230000Z"),
         );
     }
@@ -261,41 +320,67 @@ mod tests {
     #[test]
     fn value_type_validate_against_date_time() {
         assert_eq!(
-            ValueType::DateTime.validate_against_date_time(
-                &DateTime {
-                    date: Date { year: 1996_i32, month: 4_u32, day: 1_u32 },
-                    time: Some(Time{ hour: 15_u32, minute: 0_u32, second: 0_u32, is_utc: true }),
-                },
+            ValueType::Date.validate_against_date_time(
+                &DateTime::LocalDate(
+                    NaiveDate::from_ymd_opt(1997_i32, 7_u32, 14_u32).unwrap()
+                )
             ),
             Ok(()),
         );
 
         assert_eq!(
             ValueType::DateTime.validate_against_date_time(
-                &DateTime {
-                    date: Date { year: 1996_i32, month: 4_u32, day: 1_u32 },
-                    time: None,
-                },
+                &DateTime::LocalDate(
+                    NaiveDate::from_ymd_opt(1997_i32, 7_u32, 14_u32).unwrap()
+                )
             ),
             Err(String::from("VALUE incompatible with parsed DATE-TIME/DATE value")),
         );
 
         assert_eq!(
-            ValueType::Date.validate_against_date_time(
-                &DateTime {
-                    date: Date { year: 1996_i32, month: 4_u32, day: 1_u32 },
-                    time: None,
-                },
+            ValueType::DateTime.validate_against_date_time(
+                &DateTime::LocalDateTime(
+                    NaiveDateTime::new(
+                        NaiveDate::from_ymd_opt(1998_i32, 1_u32, 18_u32).unwrap(),
+                        NaiveTime::from_hms_opt(23_u32, 0_u32, 0_u32).unwrap(),
+                    )
+                )
             ),
             Ok(()),
         );
 
         assert_eq!(
             ValueType::Date.validate_against_date_time(
-                &DateTime {
-                    date: Date { year: 1996_i32, month: 4_u32, day: 1_u32 },
-                    time: Some(Time{ hour: 15_u32, minute: 0_u32, second: 0_u32, is_utc: true }),
-                },
+                &DateTime::LocalDateTime(
+                    NaiveDateTime::new(
+                        NaiveDate::from_ymd_opt(1998_i32, 1_u32, 18_u32).unwrap(),
+                        NaiveTime::from_hms_opt(23_u32, 0_u32, 0_u32).unwrap(),
+                    )
+                )
+            ),
+            Err(String::from("VALUE incompatible with parsed DATE-TIME/DATE value")),
+        );
+
+        assert_eq!(
+            ValueType::DateTime.validate_against_date_time(
+                &DateTime::UtcDateTime(
+                    NaiveDateTime::new(
+                        NaiveDate::from_ymd_opt(1998_i32, 1_u32, 18_u32).unwrap(),
+                        NaiveTime::from_hms_opt(23_u32, 0_u32, 0_u32).unwrap(),
+                    )
+                )
+            ),
+            Ok(()),
+        );
+
+        assert_eq!(
+            ValueType::Date.validate_against_date_time(
+                &DateTime::UtcDateTime(
+                    NaiveDateTime::new(
+                        NaiveDate::from_ymd_opt(1998_i32, 1_u32, 18_u32).unwrap(),
+                        NaiveTime::from_hms_opt(23_u32, 0_u32, 0_u32).unwrap(),
+                    )
+                )
             ),
             Err(String::from("VALUE incompatible with parsed DATE-TIME/DATE value")),
         );

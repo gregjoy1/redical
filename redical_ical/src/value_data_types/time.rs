@@ -235,6 +235,18 @@ impl ICalendarEntity for Time {
     }
 }
 
+impl TryFrom<Time> for chrono::NaiveTime {
+    type Error = String;
+
+    fn try_from(time: Time) -> Result<chrono::NaiveTime, Self::Error> {
+        if let Some(time) = chrono::NaiveTime::from_hms_opt(time.hour, time.minute, time.second) {
+            Ok(time)
+        } else {
+            Err(String::from("Time is invalid"))
+        }
+    }
+}
+
 impl_icalendar_entity_traits!(Time);
 
 #[cfg(test)]

@@ -48,7 +48,7 @@ impl_icalendar_entity_traits!(Tzid);
 mod tests {
     use super::*;
 
-    use crate::tests::assert_parser_output;
+    use crate::tests::{assert_parser_output, assert_parser_error};
 
     #[test]
     fn parse_ical() {
@@ -73,6 +73,15 @@ mod tests {
             (
                 " TESTING",
                 Tzid(Tz::UTC),
+            )
+        );
+
+        assert_parser_error!(
+            Tzid::parse_ical("INVALID TESTING".into()),
+            nom::Err::Error(
+                span: "INVALID TESTING",
+                message: "Timezone is invalid",
+                context: ["TZID"],
             )
         );
     }

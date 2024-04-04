@@ -16,7 +16,7 @@ use crate::{ICalendarEntity, ParserInput, ParserResult};
 ///
 /// use std::collections::HashSet;
 ///
-/// use redical_ical::grammar::List;
+/// use redical_ical::value_data_types::list::List;
 /// use redical_ical::value_data_types::integer::Integer;
 /// use redical_ical::ICalendarEntity;
 ///

@@ -12,7 +12,7 @@ use crate::value_data_types::tzid::Tzid;
 
 use crate::grammar::{semicolon, colon, comma, x_name, iana_token, param_value};
 
-use crate::properties::define_property_params_ical_parser;
+use crate::properties::{ICalendarDateTimeProperty, define_property_params_ical_parser};
 
 use crate::content_line::{ContentLineParams, ContentLine};
 
@@ -133,7 +133,21 @@ impl From<RDatePropertyParams> for ContentLineParams {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct RDateProperty {
     pub params: RDatePropertyParams,
-    pub value: DateTime,
+    pub date_time: DateTime,
+}
+
+impl ICalendarDateTimeProperty for RDateProperty {
+    fn get_tzid(&self) -> Option<&Tzid> {
+        self.params.tzid.as_ref()
+    }
+
+    fn get_value_type(&self) -> Option<&ValueType> {
+        self.params.value_type.as_ref()
+    }
+
+    fn get_date_time(&self) -> &DateTime {
+        &self.date_time
+    }
 }
 
 impl ICalendarEntity for RDateProperty {
@@ -148,10 +162,10 @@ impl ICalendarEntity for RDateProperty {
                             opt(RDatePropertyParams::parse_ical),
                             preceded(colon, DateTime::parse_ical),
                         ),
-                        |(params, value)| {
+                        |(params, date_time)| {
                             RDateProperty {
                                 params: params.unwrap_or(RDatePropertyParams::default()),
-                                value,
+                                date_time,
                             }
                         }
                     )
@@ -165,14 +179,14 @@ impl ICalendarEntity for RDateProperty {
     }
 
     fn validate(&self) -> Result<(), String> {
-        self.value.validate()?;
+        self.date_time.validate()?;
 
         if let Some(tzid) = self.params.tzid.as_ref() {
             tzid.validate()?;
         };
 
         if let Some(value_type) = self.params.value_type.as_ref() {
-            value_type.validate_against_date_time(&self.value)?;
+            value_type.validate_against_date_time(&self.date_time)?;
         }
 
         Ok(())
@@ -185,7 +199,7 @@ impl From<&RDateProperty> for ContentLine {
             "RDATE",
             (
                 ContentLineParams::from(&rdate_property.params),
-                rdate_property.value.to_string(),
+                rdate_property.date_time.serialize_ical(rdate_property.get_tz())
             )
         ))
     }
@@ -197,14 +211,10 @@ impl_icalendar_entity_traits!(RDateProperty);
 mod tests {
     use super::*;
 
+    use chrono::{NaiveDate, NaiveTime, NaiveDateTime};
     use chrono_tz::Tz;
 
     use crate::tests::assert_parser_output;
-
-    use crate::value_data_types::{
-        date::Date,
-        time::Time,
-    };
 
     #[test]
     fn parse_ical() {
@@ -214,7 +224,12 @@ mod tests {
                 " DESCRIPTION:Description text",
                 RDateProperty {
                     params: RDatePropertyParams::default(),
-                    value: DateTime { date: Date { year: 1996_i32, month: 4_u32, day: 1_u32 }, time: Some(Time{ hour: 15_u32, minute: 0_u32, second: 0_u32, is_utc: true }) },
+                    date_time: DateTime::UtcDateTime(
+                        NaiveDateTime::new(
+                            NaiveDate::from_ymd_opt(1996_i32, 4_u32, 1_u32).unwrap(),
+                            NaiveTime::from_hms_opt(15_u32, 0_u32, 0_u32).unwrap(),
+                        )
+                    ),
                 },
             ),
         );
@@ -229,7 +244,12 @@ mod tests {
                         tzid: Some(Tzid(Tz::Europe__London)),
                         other: HashMap::new(),
                     },
-                    value: DateTime { date: Date { year: 1996_i32, month: 4_u32, day: 1_u32 }, time: Some(Time{ hour: 15_u32, minute: 0_u32, second: 0_u32, is_utc: false }) },
+                    date_time: DateTime::LocalDateTime(
+                        NaiveDateTime::new(
+                            NaiveDate::from_ymd_opt(1996_i32, 4_u32, 1_u32).unwrap(),
+                            NaiveTime::from_hms_opt(15_u32, 0_u32, 0_u32).unwrap(),
+                        )
+                    ),
                 },
             ),
         );
@@ -247,7 +267,9 @@ mod tests {
                             (String::from("TEST"), String::from("VALUE")),
                         ]),
                     },
-                    value: DateTime { date: Date { year: 1996_i32, month: 4_u32, day: 1_u32 }, time: None },
+                    date_time: DateTime::LocalDate(
+                        NaiveDate::from_ymd_opt(1996_i32, 4_u32, 1_u32).unwrap()
+                    ),
                 },
             ),
         );
@@ -260,7 +282,12 @@ mod tests {
         assert_eq!(
             RDateProperty {
                 params: RDatePropertyParams::default(),
-                value: DateTime { date: Date { year: 1996_i32, month: 4_u32, day: 1_u32 }, time: Some(Time{ hour: 15_u32, minute: 0_u32, second: 0_u32, is_utc: true }) },
+                date_time: DateTime::UtcDateTime(
+                    NaiveDateTime::new(
+                        NaiveDate::from_ymd_opt(1996_i32, 4_u32, 1_u32).unwrap(),
+                        NaiveTime::from_hms_opt(15_u32, 0_u32, 0_u32).unwrap(),
+                    )
+                ),
             }.render_ical(),
             String::from("RDATE:19960401T150000Z"),
         );
@@ -272,7 +299,12 @@ mod tests {
                     tzid: Some(Tzid(Tz::Europe__London)),
                     other: HashMap::new(),
                 },
-                value: DateTime { date: Date { year: 1996_i32, month: 4_u32, day: 1_u32 }, time: Some(Time{ hour: 15_u32, minute: 0_u32, second: 0_u32, is_utc: false }) },
+                date_time: DateTime::LocalDateTime(
+                    NaiveDateTime::new(
+                        NaiveDate::from_ymd_opt(1996_i32, 4_u32, 1_u32).unwrap(),
+                        NaiveTime::from_hms_opt(15_u32, 0_u32, 0_u32).unwrap(),
+                    )
+                ),
             }.render_ical(),
             String::from("RDATE;TZID=Europe/London:19960401T150000"),
         );
@@ -287,7 +319,9 @@ mod tests {
                         (String::from("TEST"), String::from("VALUE")),
                     ]),
                 },
-                value: DateTime { date: Date { year: 1996_i32, month: 4_u32, day: 1_u32 }, time: None },
+                date_time: DateTime::LocalDate(
+                    NaiveDate::from_ymd_opt(1996_i32, 4_u32, 1_u32).unwrap()
+                ),
             }.render_ical(),
             String::from("RDATE;TEST=VALUE;X-TEST=X_VALUE;VALUE=DATE:19960401"),
         );
