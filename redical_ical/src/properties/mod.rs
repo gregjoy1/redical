@@ -3,15 +3,48 @@ pub mod event;
 
 pub use uid::*;
 
-use crate::ICalendarEntity;
-
-pub trait ICalendarProperty {}
+use crate::{ICalendarEntity, RenderingContext};
 
 use crate::value_data_types::tzid::Tzid;
 use crate::value_data_types::date_time::{DateTime, ValueType};
 
-pub trait ICalendarDateTimeProperty {
+use crate::content_line::{ContentLine, ContentLineParams};
 
+pub trait ICalendarPropertyParams {
+    fn to_content_line_params(&self) -> ContentLineParams {
+        self.to_content_line_params_with_context(None)
+    }
+
+    fn to_content_line_params_with_context(&self, _context: Option<&RenderingContext>) -> ContentLineParams;
+}
+
+impl<P> From<&P> for ContentLineParams
+where
+    P: ICalendarPropertyParams,
+{
+    fn from(property_params: &P) -> Self {
+        property_params.to_content_line_params()
+    }
+}
+
+pub trait ICalendarProperty {
+    fn to_content_line(&self) -> ContentLine {
+        self.to_content_line_with_context(None)
+    }
+
+    fn to_content_line_with_context(&self, context: Option<&RenderingContext>) -> ContentLine;
+}
+
+impl<P> From<&P> for ContentLine
+where
+    P: ICalendarProperty,
+{
+    fn from(property: &P) -> Self {
+        property.to_content_line()
+    }
+}
+
+pub trait ICalendarDateTimeProperty {
     fn get_tzid(&self) -> Option<&Tzid>;
 
     fn get_tz(&self) -> Option<&chrono_tz::Tz> {
