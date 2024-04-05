@@ -12,7 +12,7 @@ use crate::value_data_types::tzid::Tzid;
 
 use crate::grammar::{semicolon, colon, comma, x_name, iana_token, param_value};
 
-use crate::properties::{ICalendarDateTimeProperty, define_property_params_ical_parser};
+use crate::properties::{ICalendarProperty, ICalendarPropertyParams, ICalendarDateTimeProperty, define_property_params_ical_parser};
 
 use crate::content_line::{ContentLineParams, ContentLine};
 
@@ -44,34 +44,52 @@ impl ICalendarEntity for RDatePropertyParams {
         ),
     );
 
-    fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
-        ContentLineParams::from(self).render_ical()
+    fn render_ical_with_context(&self, context: Option<&RenderingContext>) -> String {
+        self.to_content_line_params_with_context(context).render_ical()
     }
 }
 
-impl From<&RDatePropertyParams> for ContentLineParams {
-    fn from(related_to_params: &RDatePropertyParams) -> Self {
+impl ICalendarPropertyParams for RDatePropertyParams {
+    /// Build a `ContentLineParams` instance with consideration to the optionally provided
+    /// `RenderingContext`.
+    fn to_content_line_params_with_context(&self, context: Option<&RenderingContext>) -> ContentLineParams {
         let mut content_line_params = ContentLineParams::default();
 
-        for (key, value) in related_to_params.other.to_owned().into_iter().sorted() {
+        for (key, value) in self.other.to_owned().into_iter().sorted() {
             content_line_params.insert(key.to_owned(), value.to_owned());
         }
 
-        if let Some(value_type) = related_to_params.value_type.as_ref() {
+        if let Some(value_type) = self.value_type.as_ref() {
             content_line_params.insert(String::from("VALUE"), value_type.render_ical());
         }
 
-        if let Some(tzid) = related_to_params.tzid.as_ref() {
-            content_line_params.insert(String::from("TZID"), tzid.render_ical());
+        if let Some(tz) = self.get_context_tz(context) {
+            content_line_params.insert(String::from("TZID"), tz.to_string());
         }
 
         content_line_params
     }
 }
 
-impl From<RDatePropertyParams> for ContentLineParams {
-    fn from(related_to_params: RDatePropertyParams) -> Self {
-        ContentLineParams::from(&related_to_params)
+impl RDatePropertyParams {
+    /// Sometimes we need to overide the timezone that date string within this property is rendered
+    /// with. We do this via the optionally provided `RenderingContext`.
+    ///
+    /// We return the timezone contained within the `RenderingContext` (if present),
+    ///   -> falling back to the one originally specified in the TZID param (if present)
+    ///     -> falling back to None if nothing exists.
+    fn get_context_tz(&self, context: Option<&RenderingContext>) -> Option<chrono_tz::Tz> {
+        let mut tz = None;
+
+        if let Some(tzid) = self.tzid.as_ref() {
+            tz = Some(tzid.0);
+        }
+
+        if let Some(context_tz) = context.and_then(|context| context.tz) {
+            tz = Some(context_tz);
+        }
+
+        tz
     }
 }
 
@@ -174,8 +192,8 @@ impl ICalendarEntity for RDateProperty {
         )(input)
     }
 
-    fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
-        ContentLine::from(self).render_ical()
+    fn render_ical_with_context(&self, context: Option<&RenderingContext>) -> String {
+        self.to_content_line_with_context(context).render_ical()
     }
 
     fn validate(&self) -> Result<(), String> {
@@ -193,13 +211,27 @@ impl ICalendarEntity for RDateProperty {
     }
 }
 
-impl From<&RDateProperty> for ContentLine {
-    fn from(rdate_property: &RDateProperty) -> Self {
+impl ICalendarProperty for RDateProperty {
+    /// Build a `ContentLine` instance with consideration to the optionally provided
+    /// `RenderingContext`.
+    fn to_content_line_with_context(&self, context: Option<&RenderingContext>) -> ContentLine {
+        // To allow this property to be rendered in a different timezone, we first need to know the
+        // current timezone[1] to convert from and then the timezone in the rendering context[2] we
+        // need to convert to.
+        //
+        // [1] We get this from the TZID property param - falling back to UTC if undefined.
+        // [2] We get this (if provided) from the optionally provided `RenderingContext` - falling
+        //     back to the earlier established current timezone.
+        let current_tz = self.get_tz().unwrap_or(&chrono_tz::UTC);
+        let context_tz = context.and_then(|context| context.tz.as_ref()).unwrap_or(current_tz);
+
+        let context_adjusted_date_time = self.date_time.with_timezone(Some(current_tz), context_tz);
+
         ContentLine::from((
             "RDATE",
             (
-                ContentLineParams::from(&rdate_property.params),
-                rdate_property.date_time.render_formatted_date_time(rdate_property.get_tz())
+                self.params.to_content_line_params_with_context(context),
+                context_adjusted_date_time.render_formatted_date_time(Some(context_tz)),
             )
         ))
     }
@@ -324,6 +356,78 @@ mod tests {
                 ),
             }.render_ical(),
             String::from("RDATE;TEST=VALUE;X-TEST=X_VALUE;VALUE=DATE:19960401"),
+        );
+    }
+
+    #[test]
+    fn render_ical_with_context_tz_override() {
+        // UTC -> Europe/Warsaw (UTC +02:00 DST)
+        assert_eq!(
+            RDateProperty {
+                params: RDatePropertyParams::default(),
+                date_time: DateTime::UtcDateTime(
+                    NaiveDateTime::new(
+                        NaiveDate::from_ymd_opt(1996_i32, 4_u32, 1_u32).unwrap(),
+                        NaiveTime::from_hms_opt(15_u32, 0_u32, 0_u32).unwrap(),
+                    )
+                ),
+            }.render_ical_with_context(Some(&RenderingContext { tz: Some(Tz::Europe__Warsaw) })),
+            String::from("RDATE;TZID=Europe/Warsaw:19960401T170000"),
+        );
+
+        // Europe/London (UTC +01:00 BST) -> America/Phoenix (UTC -07:00 MST)
+        assert_eq!(
+            RDateProperty {
+                params: RDatePropertyParams {
+                    value_type: None,
+                    tzid: Some(Tzid(Tz::Europe__London)),
+                    other: HashMap::new(),
+                },
+                date_time: DateTime::LocalDateTime(
+                    NaiveDateTime::new(
+                        NaiveDate::from_ymd_opt(1996_i32, 4_u32, 1_u32).unwrap(),
+                        NaiveTime::from_hms_opt(15_u32, 0_u32, 0_u32).unwrap(),
+                    )
+                ),
+            }.render_ical_with_context(Some(&RenderingContext { tz: Some(Tz::America__Phoenix) })),
+            String::from("RDATE;TZID=America/Phoenix:19960401T070000"),
+        );
+
+        // Europe/London (UTC +01:00 BST) -> UTC
+        assert_eq!(
+            RDateProperty {
+                params: RDatePropertyParams {
+                    value_type: None,
+                    tzid: Some(Tzid(Tz::Europe__London)),
+                    other: HashMap::new(),
+                },
+                date_time: DateTime::LocalDateTime(
+                    NaiveDateTime::new(
+                        NaiveDate::from_ymd_opt(1996_i32, 4_u32, 1_u32).unwrap(),
+                        NaiveTime::from_hms_opt(15_u32, 0_u32, 0_u32).unwrap(),
+                    )
+                ),
+            }.render_ical_with_context(Some(&RenderingContext { tz: Some(Tz::UTC) })),
+            String::from("RDATE;TZID=UTC:19960401T140000Z"),
+        );
+
+        // UTC (implied) -> America/Phoenix (UTC -07:00 MST)
+        // Presents as previous day (00:00:00 - 7 hours)
+        assert_eq!(
+            RDateProperty {
+                params: RDatePropertyParams {
+                    value_type: Some(ValueType::Date),
+                    tzid: None,
+                    other: HashMap::from([
+                        (String::from("X-TEST"), String::from("X_VALUE")),
+                        (String::from("TEST"), String::from("VALUE")),
+                    ]),
+                },
+                date_time: DateTime::LocalDate(
+                    NaiveDate::from_ymd_opt(1996_i32, 4_u32, 1_u32).unwrap()
+                ),
+            }.render_ical_with_context(Some(&RenderingContext { tz: Some(Tz::America__Phoenix) })),
+            String::from("RDATE;TEST=VALUE;X-TEST=X_VALUE;VALUE=DATE;TZID=America/Phoenix:19960331"),
         );
     }
 }
