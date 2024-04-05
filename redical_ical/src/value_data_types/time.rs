@@ -4,7 +4,7 @@ use nom::combinator::{recognize, map_res, opt};
 use nom::bytes::complete::{tag, take_while_m_n};
 use nom::character::is_digit;
 
-use crate::{ICalendarEntity, ParserInput, ParserResult, ParserError, impl_icalendar_entity_traits};
+use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, ParserError, impl_icalendar_entity_traits};
 
 /// Parse time chars.
 ///
@@ -218,7 +218,7 @@ impl ICalendarEntity for Time {
         )(input)
     }
 
-    fn render_ical(&self) -> String {
+    fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
         if self.is_utc {
             format!("{:02}{:02}{:02}Z", self.hour, self.minute, self.second)
         } else {

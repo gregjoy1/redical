@@ -3,7 +3,7 @@ use nom::multi::many0;
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take_while_m_n};
 
-use crate::{ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits, terminated_lookahead};
+use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits, terminated_lookahead};
 use crate::grammar::{colon, dquote, is_safe_char};
 
 // text       = *(TSAFE-CHAR / ":" / DQUOTE / ESCAPED-CHAR)
@@ -94,7 +94,7 @@ impl ICalendarEntity for Text {
         )(input)
     }
 
-    fn render_ical(&self) -> String {
+    fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
         self.0.to_string()
     }
 }

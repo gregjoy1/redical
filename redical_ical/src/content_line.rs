@@ -6,7 +6,7 @@ use nom::combinator::{cut, map};
 
 use crate::grammar::{colon, semicolon, x_name, name, param, value};
 
-use crate::{ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits, terminated_lookahead};
+use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits, terminated_lookahead};
 
 #[derive(Debug, Clone, Eq, PartialEq, Default)]
 pub struct ContentLineParam(pub String, pub String);
@@ -43,7 +43,7 @@ impl ICalendarEntity for ContentLineParam {
         map(param, ContentLineParam::from)(input)
     }
 
-    fn render_ical(&self) -> String {
+    fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
         format!("{}={}", self.0, self.1)
     }
 }
@@ -92,7 +92,7 @@ impl ICalendarEntity for ContentLineParams {
         )(input)
     }
 
-    fn render_ical(&self) -> String {
+    fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
         let mut output = String::new();
 
         for param in &self.0 {
@@ -174,7 +174,7 @@ impl ICalendarEntity for ContentLine {
         )(input)
     }
 
-    fn render_ical(&self) -> String {
+    fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
         format!("{}{}:{}", self.0, self.1.render_ical(), self.2)
     }
 }

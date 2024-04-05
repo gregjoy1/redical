@@ -8,7 +8,7 @@ use nom::sequence::{pair, preceded};
 use nom::error::context;
 use nom::combinator::{recognize, map, map_res, opt, cut};
 
-use crate::{ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
+use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
 
 use crate::grammar::latin_capital_letter_t;
 
@@ -35,7 +35,7 @@ impl ICalendarEntity for ValueType {
         )(input)
     }
 
-    fn render_ical(&self) -> String {
+    fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
         match self {
             Self::DateTime => String::from("DATE-TIME"),
             Self::Date => String::from("DATE"),
@@ -159,7 +159,7 @@ impl ICalendarEntity for DateTime {
         )(input)
     }
 
-    fn render_ical(&self) -> String {
+    fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
         self.serialize_ical(None)
     }
 }

@@ -33,7 +33,7 @@ pub use passive::PassiveProperty;
 
 use crate::properties::uid::UIDProperty;
 
-use crate::{ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
+use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum EventProperty {
@@ -71,7 +71,7 @@ impl ICalendarEntity for EventProperty {
         ))(input)
     }
 
-    fn render_ical(&self) -> String {
+    fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
         match self {
             Self::UID(property) => property.render_ical(),
             Self::DTStart(property) => property.render_ical(),

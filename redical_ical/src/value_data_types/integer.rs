@@ -6,7 +6,7 @@ use nom::bytes::complete::take_while_m_n;
 use nom::character::is_digit;
 use nom::sequence::pair;
 
-use crate::{ICalendarEntity, ParserInput, ParserResult, ParserError, impl_icalendar_entity_traits};
+use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, ParserError, impl_icalendar_entity_traits};
 use crate::grammar::PositiveNegative;
 
 // integer      = (["+"] / "-") 1*DIGIT ["." 1*DIGIT]
@@ -39,7 +39,7 @@ impl ICalendarEntity for Integer {
         map(integer, |value| Self(value))(input)
     }
 
-    fn render_ical(&self) -> String {
+    fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
         self.0.to_string()
     }
 }

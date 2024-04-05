@@ -6,7 +6,7 @@ use nom::combinator::map;
 
 use crate::grammar::comma;
 
-use crate::{ICalendarEntity, ParserInput, ParserResult};
+use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult};
 
 /// Parses and serializes a list of values
 ///
@@ -84,7 +84,7 @@ where
         )(input)
     }
 
-    fn render_ical(&self) -> String {
+    fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
         let mut list_elements =
             self.0
                 .iter()

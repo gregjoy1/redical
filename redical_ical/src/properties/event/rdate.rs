@@ -16,7 +16,7 @@ use crate::properties::{ICalendarDateTimeProperty, define_property_params_ical_p
 
 use crate::content_line::{ContentLineParams, ContentLine};
 
-use crate::{ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
+use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
 
 use std::collections::HashMap;
 
@@ -44,7 +44,7 @@ impl ICalendarEntity for RDatePropertyParams {
         ),
     );
 
-    fn render_ical(&self) -> String {
+    fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
         ContentLineParams::from(self).render_ical()
     }
 }
@@ -174,7 +174,7 @@ impl ICalendarEntity for RDateProperty {
         )(input)
     }
 
-    fn render_ical(&self) -> String {
+    fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
         ContentLine::from(self).render_ical()
     }
 

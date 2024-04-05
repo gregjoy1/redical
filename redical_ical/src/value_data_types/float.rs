@@ -2,7 +2,7 @@ use nom::combinator::{recognize, map, cut, map_res, opt};
 use nom::character::complete::{one_of, digit1};
 use nom::sequence::{preceded, tuple};
 
-use crate::{ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
+use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
 
 use crate::grammar::period;
 
@@ -42,7 +42,7 @@ impl ICalendarEntity for Float {
         map(float, |value| Self(value))(input)
     }
 
-    fn render_ical(&self) -> String {
+    fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
         self.0.to_string()
     }
 }

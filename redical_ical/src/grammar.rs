@@ -7,7 +7,7 @@ use nom::bytes::complete::{tag, take_while, take_while1, take_while_m_n};
 use nom::character::{is_alphabetic, is_digit};
 use nom::character::complete::{alphanumeric1, char};
 
-use crate::{ICalendarEntity, ParserInput, ParserResult, ParserError, impl_icalendar_entity_traits};
+use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, ParserError, impl_icalendar_entity_traits};
 
 // +------------------------+-------------------+
 // | Character name         | Decimal codepoint |
@@ -1241,7 +1241,7 @@ impl ICalendarEntity for PositiveNegative {
         ))(input)
     }
 
-    fn render_ical(&self) -> String {
+    fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
         match self {
             Self::Positive => String::from("+"),
             Self::Negative => String::from("-"),

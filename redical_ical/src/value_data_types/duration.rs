@@ -9,7 +9,7 @@ use nom::{
 
 use crate::grammar::PositiveNegative;
 
-use crate::{ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
+use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
 
 const SECONDS_IN_MINUTE: i64 = 60;
 const SECONDS_IN_HOUR: i64 = SECONDS_IN_MINUTE * 60;
@@ -180,7 +180,7 @@ where
         )(input)
     }
 
-    fn render_ical(&self) -> String {
+    fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
         let mut output = String::new();
 
         if self.is_empty() {

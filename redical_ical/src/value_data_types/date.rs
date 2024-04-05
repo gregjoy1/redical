@@ -4,7 +4,7 @@ use nom::combinator::{recognize, map_res};
 use nom::bytes::complete::take_while_m_n;
 use nom::character::is_digit;
 
-use crate::{ICalendarEntity, ParserInput, ParserResult, ParserError, impl_icalendar_entity_traits};
+use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, ParserError, impl_icalendar_entity_traits};
 
 /// Parse date chars.
 ///
@@ -213,7 +213,7 @@ impl ICalendarEntity for Date {
         )(input)
     }
 
-    fn render_ical(&self) -> String {
+    fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
         format!("{:04}{:02}{:02}", self.year, self.month, self.day)
     }
 

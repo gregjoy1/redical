@@ -8,7 +8,7 @@ use nom::bytes::complete::{tag, take_while1};
 
 use crate::grammar::{comma, semicolon};
 
-use crate::{ICalendarEntity, ParserInput, ParserResult, ParserError, impl_icalendar_entity_traits};
+use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, ParserError, impl_icalendar_entity_traits};
 
 use crate::value_data_types::date_time::DateTime;
 use crate::value_data_types::integer::Integer;
@@ -31,7 +31,7 @@ macro_rules! build_ical_param {
                 )(input)
             }
 
-            fn render_ical(&self) -> String {
+            fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
                 format!("{}={}", $key_str, self.0.render_ical())
             }
         }
@@ -109,7 +109,7 @@ impl ICalendarEntity for RecurRulePart {
         )(input)
     }
 
-    fn render_ical(&self) -> String {
+    fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
         match self {
             Self::Freq(param) => param.render_ical(),
             Self::Until(param) => param.render_ical(),
@@ -321,7 +321,7 @@ impl ICalendarEntity for Frequency {
         )(input)
     }
 
-    fn render_ical(&self) -> String {
+    fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
         match self {
             Self::Secondly => String::from("SECONDLY"),
             Self::Minutely => String::from("MINUTELY"),
@@ -390,7 +390,7 @@ impl ICalendarEntity for WeekDayNum {
         )(input)
     }
 
-    fn render_ical(&self) -> String {
+    fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
         let mut output = String::new();
 
         if let Some(ordwk) = self.0.as_ref() {
@@ -467,7 +467,7 @@ impl ICalendarEntity for WeekDay {
         )(input)
     }
 
-    fn render_ical(&self) -> String {
+    fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
         match self {
             Self::Sunday => String::from("SU"),
             Self::Monday => String::from("MO"),
@@ -539,7 +539,7 @@ impl ICalendarEntity for Recur {
         )(input)
     }
 
-    fn render_ical(&self) -> String {
+    fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
         fn push_rendered_ical_if_present<T: ICalendarEntity>(property: &Option<T>, parts: &mut Vec<String>) {
             if let Some(property) = property {
                 parts.push(property.render_ical());

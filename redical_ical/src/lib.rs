@@ -88,6 +88,11 @@ pub fn convert_error<I: core::ops::Deref<Target = str>>(_input: I, error: Parser
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
+pub struct RenderingContext<'a> {
+    pub tz: Option<&'a chrono_tz::Tz>,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum ParserContext {
     None,
     Event,
@@ -229,7 +234,11 @@ pub trait ICalendarEntity {
     where
         Self: Sized;
 
-    fn render_ical(&self) -> String;
+    fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String;
+
+    fn render_ical(&self) -> String {
+        self.render_ical_with_context(None)
+    }
 
     fn validate(&self) -> Result<(), String> {
         Ok(())
@@ -244,7 +253,7 @@ where
         T::parse_ical(input).and_then(|(remaining, parsed)| Ok((remaining, Some(parsed))))
     }
 
-    fn render_ical(&self) -> String {
+    fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
         if let Some(entity) = self {
             entity.render_ical()
         } else {
