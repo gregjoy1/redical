@@ -162,22 +162,56 @@ impl ICalendarEntity for DateTime {
     fn render_ical_with_context(&self, context: Option<&RenderingContext>) -> String {
         let tz = context.and_then(|context| context.tz.as_ref());
 
-        self.serialize_ical(tz)
+        self.render_formatted_date_time(tz)
     }
 }
 
 impl DateTime {
-    pub fn serialize_ical(&self, tz: Option<&Tz>) -> String {
+    /// Converts the `DateTime` to the provided timezone.
+    /// If `current_tz` is `None` then it is assumed to be UTC.
+    /// If `DateTime::UtcDateTime` and `current_tz` is specified to not be UTC, then it will
+    /// silently ignore `current_tz` and be converted from UTC.
+    pub fn with_timezone(&self, current_tz: Option<&Tz>, new_tz: &Tz) -> Self {
+        let current_tz = current_tz.cloned().unwrap_or(Tz::UTC);
+
+        match self {
+            Self::LocalDate(date) => {
+                let date_time: NaiveDateTime = date.to_owned().into();
+                let utc_timestamp = current_tz.from_local_datetime(&date_time).unwrap().timestamp();
+                let tz_adjusted_naive_date_time = new_tz.timestamp_opt(utc_timestamp, 0_u32).unwrap().naive_local();
+
+                Self::LocalDate(tz_adjusted_naive_date_time.into())
+            },
+
+            Self::LocalDateTime(date_time) => {
+                let utc_timestamp = current_tz.from_local_datetime(date_time).unwrap().timestamp();
+                let tz_adjusted_naive_date_time = new_tz.timestamp_opt(utc_timestamp, 0_u32).unwrap().naive_local();
+
+                Self::LocalDateTime(tz_adjusted_naive_date_time)
+            },
+
+            Self::UtcDateTime(date_time) => {
+                if new_tz == &Tz::UTC {
+                    self.clone()
+                } else {
+                    let utc_timestamp = Tz::UTC.from_local_datetime(date_time).unwrap().timestamp();
+                    let tz_adjusted_naive_date_time = new_tz.timestamp_opt(utc_timestamp, 0_u32).unwrap().naive_local();
+
+                    Self::LocalDateTime(tz_adjusted_naive_date_time)
+                }
+            },
+        }
+    }
+
+    pub fn render_formatted_date_time(&self, tz: Option<&Tz>) -> String {
         let tz = tz.cloned().unwrap_or(Tz::UTC);
 
         match self {
             Self::LocalDate(date) => {
-                // TODO: Render with context of property.
                 Self::serialize_date(date, &tz)
             },
 
             Self::LocalDateTime(date_time) => {
-                // TODO: Render with context of property.
                 Self::serialize_date_time(date_time, &tz)
             },
 
@@ -185,10 +219,7 @@ impl DateTime {
                 if tz == Tz::UTC {
                     Self::serialize_date_time(date_time, &tz)
                 } else {
-                    let utc_timestamp = Tz::UTC.from_local_datetime(date_time).unwrap().timestamp();
-                    let tz_adjusted_naive_date_time = tz.timestamp_opt(utc_timestamp, 0_u32).unwrap().naive_local();
-
-                    Self::serialize_date_time(&tz_adjusted_naive_date_time, &tz)
+                    self.with_timezone(Some(&Tz::UTC), &tz).render_formatted_date_time(Some(&tz))
                 }
             },
         }
@@ -369,6 +400,149 @@ mod tests {
                 )
             ).render_ical_with_context(Some(&RenderingContext { tz: Some(Tz::UTC) })),
             String::from("19980118T230000Z"),
+        );
+    }
+
+    #[test]
+    fn date_time_with_tz() {
+        // Current tz is not provided so assume UTC
+        // UTC -> UTC +02:00
+        // Remains the same
+        assert_eq!(
+            DateTime::LocalDate(
+                NaiveDate::from_ymd_opt(1997_i32, 7_u32, 14_u32).unwrap()
+            ).with_timezone(None, &Tz::Europe__Vilnius),
+            DateTime::LocalDate(
+                NaiveDate::from_ymd_opt(1997_i32, 7_u32, 14_u32).unwrap()
+            ),
+        );
+
+        // UTC +01:00 -> UTC +02:00
+        // Remains the same
+        assert_eq!(
+            DateTime::LocalDate(
+                NaiveDate::from_ymd_opt(1997_i32, 7_u32, 14_u32).unwrap()
+            ).with_timezone(Some(&Tz::Europe__Warsaw), &Tz::Europe__Vilnius),
+            DateTime::LocalDate(
+                NaiveDate::from_ymd_opt(1997_i32, 7_u32, 14_u32).unwrap()
+            ),
+        );
+
+        // UTC -> UTC -07:00
+        // Changes to previous day (midnight - 7 hours)
+        assert_eq!(
+            DateTime::LocalDate(
+                NaiveDate::from_ymd_opt(1997_i32, 7_u32, 14_u32).unwrap()
+            ).with_timezone(Some(&Tz::UTC), &Tz::America__Phoenix),
+            DateTime::LocalDate(
+                NaiveDate::from_ymd_opt(1997_i32, 7_u32, 13_u32).unwrap()
+            ),
+        );
+
+        // UTC -> UTC +02:00
+        // Changes to 01:00:00 the next day (23:00:00 + 2 hours)
+        assert_eq!(
+            DateTime::LocalDateTime(
+                NaiveDateTime::new(
+                    NaiveDate::from_ymd_opt(1998_i32, 1_u32, 18_u32).unwrap(),
+                    NaiveTime::from_hms_opt(23_u32, 0_u32, 0_u32).unwrap(),
+                )
+            ).with_timezone(Some(&Tz::UTC), &Tz::Europe__Vilnius),
+            DateTime::LocalDateTime(
+                NaiveDateTime::new(
+                    NaiveDate::from_ymd_opt(1998_i32, 1_u32, 19_u32).unwrap(),
+                    NaiveTime::from_hms_opt(1_u32, 0_u32, 0_u32).unwrap(),
+                )
+            ),
+        );
+
+        // UTC -> UTC -07:00
+        // Stays on the same day but 7 hours earlier
+        assert_eq!(
+            DateTime::LocalDateTime(
+                NaiveDateTime::new(
+                    NaiveDate::from_ymd_opt(1998_i32, 1_u32, 18_u32).unwrap(),
+                    NaiveTime::from_hms_opt(23_u32, 0_u32, 0_u32).unwrap(),
+                )
+            ).with_timezone(Some(&Tz::UTC), &Tz::America__Phoenix),
+            DateTime::LocalDateTime(
+                NaiveDateTime::new(
+                    NaiveDate::from_ymd_opt(1998_i32, 1_u32, 18_u32).unwrap(),
+                    NaiveTime::from_hms_opt(16_u32, 0_u32, 0_u32).unwrap(),
+                )
+            ),
+        );
+
+        // UTC -> UTC +02:00
+        // Changes to LocalDateTime at 01:00:00 the next day (23:00:00 + 2 hours)
+        assert_eq!(
+            DateTime::UtcDateTime(
+                NaiveDateTime::new(
+                    NaiveDate::from_ymd_opt(1998_i32, 1_u32, 18_u32).unwrap(),
+                    NaiveTime::from_hms_opt(23_u32, 0_u32, 0_u32).unwrap(),
+                )
+            ).with_timezone(Some(&Tz::UTC), &Tz::Europe__Vilnius),
+            DateTime::LocalDateTime(
+                NaiveDateTime::new(
+                    NaiveDate::from_ymd_opt(1998_i32, 1_u32, 19_u32).unwrap(),
+                    NaiveTime::from_hms_opt(1_u32, 0_u32, 0_u32).unwrap(),
+                )
+            ),
+        );
+
+        // UTC -> UTC -07:00
+        // Stays on the same day but 7 hours earlier
+        assert_eq!(
+            DateTime::UtcDateTime(
+                NaiveDateTime::new(
+                    NaiveDate::from_ymd_opt(1998_i32, 1_u32, 18_u32).unwrap(),
+                    NaiveTime::from_hms_opt(23_u32, 0_u32, 0_u32).unwrap(),
+                )
+            ).with_timezone(Some(&Tz::UTC), &Tz::America__Phoenix),
+            DateTime::LocalDateTime(
+                NaiveDateTime::new(
+                    NaiveDate::from_ymd_opt(1998_i32, 1_u32, 18_u32).unwrap(),
+                    NaiveTime::from_hms_opt(16_u32, 0_u32, 0_u32).unwrap(),
+                )
+            ),
+        );
+
+        // Misinformed of current TZ being -07:00 when UTC.
+        // We just ignore it as we know it is UTC.
+        // UTC -> UTC -07:00
+        // Changes to LocalDateTime but staying on the same day but 7 hours earlier
+        assert_eq!(
+            DateTime::UtcDateTime(
+                NaiveDateTime::new(
+                    NaiveDate::from_ymd_opt(1998_i32, 1_u32, 18_u32).unwrap(),
+                    NaiveTime::from_hms_opt(23_u32, 0_u32, 0_u32).unwrap(),
+                )
+            ).with_timezone(Some(&Tz::America__Phoenix), &Tz::America__Phoenix),
+            DateTime::LocalDateTime(
+                NaiveDateTime::new(
+                    NaiveDate::from_ymd_opt(1998_i32, 1_u32, 18_u32).unwrap(),
+                    NaiveTime::from_hms_opt(16_u32, 0_u32, 0_u32).unwrap(),
+                )
+            ),
+        );
+
+        // Misinformed of current TZ being -07:00 when UTC.
+        // We just ignore it as we know it is UTC.
+        // UTC -> UTC
+        // Stays on UtcDateTime with the same time (essentially just clone)
+        assert_eq!(
+            DateTime::UtcDateTime(
+                NaiveDateTime::new(
+                    NaiveDate::from_ymd_opt(1998_i32, 1_u32, 18_u32).unwrap(),
+                    NaiveTime::from_hms_opt(23_u32, 0_u32, 0_u32).unwrap(),
+                )
+            ).with_timezone(Some(&Tz::America__Phoenix), &Tz::UTC),
+            DateTime::UtcDateTime(
+                NaiveDateTime::new(
+                    NaiveDate::from_ymd_opt(1998_i32, 1_u32, 18_u32).unwrap(),
+                    NaiveTime::from_hms_opt(23_u32, 0_u32, 0_u32).unwrap(),
+                )
+            ),
         );
     }
 

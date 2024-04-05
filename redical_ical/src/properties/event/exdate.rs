@@ -191,7 +191,7 @@ impl From<&ExDateProperty> for ContentLine {
             "EXDATE",
             (
                 ContentLineParams::from(&exdate_property.params),
-                exdate_property.date_time.serialize_ical(exdate_property.get_tz())
+                exdate_property.date_time.render_formatted_date_time(exdate_property.get_tz())
             )
         ))
     }

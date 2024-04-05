@@ -199,7 +199,7 @@ impl From<&RDateProperty> for ContentLine {
             "RDATE",
             (
                 ContentLineParams::from(&rdate_property.params),
-                rdate_property.date_time.serialize_ical(rdate_property.get_tz())
+                rdate_property.date_time.render_formatted_date_time(rdate_property.get_tz())
             )
         ))
     }

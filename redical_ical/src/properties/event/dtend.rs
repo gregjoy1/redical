@@ -189,7 +189,7 @@ impl From<&DTEndProperty> for ContentLine {
             "DTEND",
             (
                 ContentLineParams::from(&dtend_property.params),
-                dtend_property.date_time.serialize_ical(dtend_property.get_tz())
+                dtend_property.date_time.render_formatted_date_time(dtend_property.get_tz())
             )
         ))
     }

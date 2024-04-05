@@ -192,7 +192,7 @@ impl From<&DTStartProperty> for ContentLine {
             "DTSTART",
             (
                 ContentLineParams::from(&dtstart_property.params),
-                dtstart_property.date_time.serialize_ical(dtstart_property.get_tz())
+                dtstart_property.date_time.render_formatted_date_time(dtstart_property.get_tz())
             )
         ))
     }
