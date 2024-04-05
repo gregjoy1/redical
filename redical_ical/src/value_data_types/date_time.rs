@@ -159,8 +159,10 @@ impl ICalendarEntity for DateTime {
         )(input)
     }
 
-    fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
-        self.serialize_ical(None)
+    fn render_ical_with_context(&self, context: Option<&RenderingContext>) -> String {
+        let tz = context.and_then(|context| context.tz.as_ref());
+
+        self.serialize_ical(tz)
     }
 }
 
@@ -282,7 +284,7 @@ mod tests {
                     NaiveTime::from_hms_opt(23_u32, 0_u32, 0_u32).unwrap(),
                 )
             ).render_ical(),
-            String::from("19980118T230000Z"), // TODO: Update to without Z suffix with render_ical_with_context change.
+            String::from("19980118T230000Z"),
         );
 
         assert_eq!(
@@ -292,6 +294,80 @@ mod tests {
                     NaiveTime::from_hms_opt(23_u32, 0_u32, 0_u32).unwrap(),
                 )
             ).render_ical(),
+            String::from("19980118T230000Z"),
+        );
+    }
+
+    #[test]
+    fn date_time_render_ical_with_context_tz_override() {
+        // UTC +02:00
+        assert_eq!(
+            DateTime::LocalDate(
+                NaiveDate::from_ymd_opt(1997_i32, 7_u32, 14_u32).unwrap()
+            ).render_ical_with_context(Some(&RenderingContext { tz: Some(Tz::Europe__Vilnius) })),
+            String::from("19970714"),
+        );
+
+        // UTC -07:00
+        assert_eq!(
+            DateTime::LocalDate(
+                NaiveDate::from_ymd_opt(1997_i32, 7_u32, 14_u32).unwrap()
+            ).render_ical_with_context(Some(&RenderingContext { tz: Some(Tz::America__Phoenix) })),
+            String::from("19970714"),
+        );
+
+        // UTC +02:00
+        assert_eq!(
+            DateTime::LocalDateTime(
+                NaiveDateTime::new(
+                    NaiveDate::from_ymd_opt(1998_i32, 1_u32, 18_u32).unwrap(),
+                    NaiveTime::from_hms_opt(23_u32, 0_u32, 0_u32).unwrap(),
+                )
+            ).render_ical_with_context(Some(&RenderingContext { tz: Some(Tz::Europe__Vilnius) })),
+            String::from("19980118T230000"),
+        );
+
+        // UTC -07:00
+        assert_eq!(
+            DateTime::LocalDateTime(
+                NaiveDateTime::new(
+                    NaiveDate::from_ymd_opt(1998_i32, 1_u32, 18_u32).unwrap(),
+                    NaiveTime::from_hms_opt(23_u32, 0_u32, 0_u32).unwrap(),
+                )
+            ).render_ical_with_context(Some(&RenderingContext { tz: Some(Tz::America__Phoenix) })),
+            String::from("19980118T230000"),
+        );
+
+        // UTC +02:00
+        assert_eq!(
+            DateTime::UtcDateTime(
+                NaiveDateTime::new(
+                    NaiveDate::from_ymd_opt(1998_i32, 1_u32, 18_u32).unwrap(),
+                    NaiveTime::from_hms_opt(23_u32, 0_u32, 0_u32).unwrap(),
+                )
+            ).render_ical_with_context(Some(&RenderingContext { tz: Some(Tz::Europe__Vilnius) })),
+            String::from("19980119T010000"),
+        );
+
+        // UTC -07:00
+        assert_eq!(
+            DateTime::UtcDateTime(
+                NaiveDateTime::new(
+                    NaiveDate::from_ymd_opt(1998_i32, 1_u32, 18_u32).unwrap(),
+                    NaiveTime::from_hms_opt(23_u32, 0_u32, 0_u32).unwrap(),
+                )
+            ).render_ical_with_context(Some(&RenderingContext { tz: Some(Tz::America__Phoenix) })),
+            String::from("19980118T160000"),
+        );
+
+        // UTC +00:00
+        assert_eq!(
+            DateTime::UtcDateTime(
+                NaiveDateTime::new(
+                    NaiveDate::from_ymd_opt(1998_i32, 1_u32, 18_u32).unwrap(),
+                    NaiveTime::from_hms_opt(23_u32, 0_u32, 0_u32).unwrap(),
+                )
+            ).render_ical_with_context(Some(&RenderingContext { tz: Some(Tz::UTC) })),
             String::from("19980118T230000Z"),
         );
     }

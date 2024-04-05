@@ -88,8 +88,8 @@ pub fn convert_error<I: core::ops::Deref<Target = str>>(_input: I, error: Parser
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct RenderingContext<'a> {
-    pub tz: Option<&'a chrono_tz::Tz>,
+pub struct RenderingContext {
+    pub tz: Option<chrono_tz::Tz>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
