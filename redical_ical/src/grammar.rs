@@ -3,11 +3,73 @@ use nom::error::context;
 use nom::branch::alt;
 use nom::multi::{many0, separated_list1};
 use nom::combinator::{recognize, opt, verify, map};
-use nom::bytes::complete::{tag, take_while, take_while1, take_while_m_n};
+use nom::bytes::complete::{take_while, take_while1, take_while_m_n};
 use nom::character::{is_alphabetic, is_digit};
 use nom::character::complete::{alphanumeric1, char};
 
 use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, ParserError, impl_icalendar_entity_traits};
+
+/// Recognizes a pattern
+///
+/// Wrapped nom::bytes::complete::tag to provide better error messages e.g. "expected '<tag text>'"
+/// over the unhelpful nom base tag parser.
+///
+/// The input data will be compared to the tag combinator's argument and will return the part of
+/// the input that matches the argument
+///
+/// It will return `Err(Err::Error((ParserError)))` if the input doesn't match the pattern
+/// # Example
+/// ```rust
+/// # use nom::{Err, error::{Error, ErrorKind}, Needed, IResult};
+/// use redical_ical::{ParserError, ParserInput, ParserResult};
+/// use redical_ical::grammar::tag;
+///
+/// fn parser(input: ParserInput) -> ParserResult<ParserInput> {
+///   tag("Hello")(input)
+/// }
+///
+/// assert!(parser("Hello, World!".into()).is_ok());
+///
+/// let input: ParserInput = "Something".into();
+///
+/// assert_eq!(
+///     parser(input),
+///     Err(
+///         nom::Err::Error(
+///             ParserError::new(String::from("expected 'Hello'"), input)
+///         )
+///     ),
+/// );
+/// ```
+pub fn tag<'a>(tag: &'a str) -> impl Fn(ParserInput) -> ParserResult<ParserInput> + 'a {
+    move |input: ParserInput| {
+        match nom::bytes::complete::tag::<&'a str, ParserInput, ParserError>(tag)(input) {
+            Ok(result) => Ok(result),
+
+            Err(nom::Err::Error(_error)) => {
+                Err(
+                    nom::Err::Error(
+                        ParserError::new(format!("expected '{}'", tag), input)
+                    )
+                )
+            },
+
+            Err(nom::Err::Failure(_error)) => {
+                Err(
+                    nom::Err::Failure(
+                        ParserError::new(format!("expected '{}'", tag), input)
+                    )
+                )
+            },
+
+            Err(nom::Err::Incomplete(error)) => {
+                Err(
+                    nom::Err::Incomplete(error)
+                )
+            },
+        }
+    }
+}
 
 // +------------------------+-------------------+
 // | Character name         | Decimal codepoint |

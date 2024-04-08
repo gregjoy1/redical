@@ -295,8 +295,6 @@ macro_rules! impl_icalendar_entity_traits {
 
 #[cfg(test)]
 mod tests {
-    // use super::*;
-
     #[macro_export]
     macro_rules! assert_parser_output {
         ($subject:expr, ($remaining:expr, $expected:expr $(,)*) $(,)*) => {
@@ -337,12 +335,4 @@ mod tests {
     }
 
     pub use assert_parser_error;
-
-    /*
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-    */
 }
