@@ -5,12 +5,11 @@ use nom::branch::alt;
 use nom::sequence::{pair, preceded};
 use nom::multi::separated_list1;
 use nom::combinator::{recognize, map, cut, opt};
-use nom::bytes::complete::tag;
 
 use crate::value_data_types::date_time::{DateTime, ValueType};
 use crate::value_data_types::tzid::Tzid;
 
-use crate::grammar::{semicolon, colon, comma, x_name, iana_token, param_value};
+use crate::grammar::{tag, semicolon, colon, comma, x_name, iana_token, param_value};
 
 use crate::properties::{ICalendarProperty, ICalendarPropertyParams, ICalendarDateTimeProperty, define_property_params_ical_parser};
 

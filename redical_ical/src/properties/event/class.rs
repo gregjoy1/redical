@@ -5,9 +5,8 @@ use nom::branch::alt;
 use nom::sequence::{pair, preceded};
 use nom::multi::separated_list1;
 use nom::combinator::{recognize, map, cut, opt};
-use nom::bytes::complete::tag;
 
-use crate::grammar::{semicolon, colon, comma, x_name, iana_token, param_value};
+use crate::grammar::{tag, semicolon, colon, comma, x_name, iana_token, param_value};
 
 use crate::properties::define_property_params_ical_parser;
 

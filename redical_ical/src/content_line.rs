@@ -1,10 +1,9 @@
 use nom::error::context;
-use nom::bytes::complete::tag;
 use nom::sequence::{preceded, tuple};
 use nom::multi::many0;
 use nom::combinator::{cut, map};
 
-use crate::grammar::{colon, semicolon, x_name, name, param, value};
+use crate::grammar::{tag, colon, semicolon, x_name, name, param, value};
 
 use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits, terminated_lookahead};
 
