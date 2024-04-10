@@ -203,6 +203,34 @@ impl DateTime {
         }
     }
 
+    /// Returns the timestamp of the `DateTime` (adjusted to UTC from provided current timezone).
+    /// If `current_tz` is `None` then it is assumed to be UTC.
+    /// If `DateTime::UtcDateTime` and `current_tz` is specified to not be UTC, then it will
+    /// silently ignore `current_tz` and be presumed UTC.
+    pub fn get_utc_timestamp(&self, current_tz: Option<&Tz>) -> i64 {
+        let current_tz = current_tz.cloned().unwrap_or(Tz::UTC);
+
+        let date_time_result =
+            match self {
+                Self::LocalDate(date) => {
+                    let date_time: NaiveDateTime = date.to_owned().into();
+
+                    current_tz.from_local_datetime(&date_time)
+                },
+
+                Self::LocalDateTime(date_time) => {
+                    current_tz.from_local_datetime(date_time)
+                },
+
+                Self::UtcDateTime(date_time) => {
+                    Tz::UTC.from_local_datetime(date_time)
+                },
+            };
+
+        date_time_result.unwrap()
+                        .timestamp()
+    }
+
     pub fn render_formatted_date_time(&self, tz: Option<&Tz>) -> String {
         let tz = tz.cloned().unwrap_or(Tz::UTC);
 

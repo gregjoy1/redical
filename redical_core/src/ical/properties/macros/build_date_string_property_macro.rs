@@ -25,7 +25,7 @@ macro_rules! build_date_string_property {
             SerializableICalProperty, SerializedValue, SerializationPreferences,
         };
 
-        #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+        #[derive(Debug, PartialEq, Clone)]
         pub struct $property_struct {
             pub timezone: Option<Tz>,
             pub value_type: Option<String>,

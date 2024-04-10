@@ -16,9 +16,7 @@ use crate::ical::serializer::{
     quote_string_if_needed, SerializableICalProperty, SerializationPreferences, SerializedValue,
 };
 
-use serde::{Deserialize, Serialize};
-
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct DurationProperty {
     pub weeks: Option<i64>,
     pub days: Option<i64>,

@@ -24,7 +24,7 @@ macro_rules! build_rrule_property {
             SerializedValue, SerializationPreferences,
         };
 
-        #[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone)]
+        #[derive(Debug, Eq, PartialEq, Clone)]
         pub struct $property_struct {
             pub freq: String,
             pub interval: usize,

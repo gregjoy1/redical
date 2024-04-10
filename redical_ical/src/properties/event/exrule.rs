@@ -10,7 +10,7 @@ use crate::value_data_types::recur::Recur;
 
 use crate::grammar::{tag, semicolon, colon, comma, x_name, iana_token, param_value};
 
-use crate::properties::define_property_params_ical_parser;
+use crate::properties::{ICalendarProperty, ICalendarPropertyParams, define_property_params_ical_parser};
 
 use crate::content_line::{ContentLineParams, ContentLine};
 
@@ -32,16 +32,18 @@ impl ICalendarEntity for ExRulePropertyParams {
         ),
     );
 
-    fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
-        ContentLineParams::from(self).render_ical()
+    fn render_ical_with_context(&self, context: Option<&RenderingContext>) -> String {
+        self.to_content_line_params_with_context(context).render_ical()
     }
 }
 
-impl From<&ExRulePropertyParams> for ContentLineParams {
-    fn from(exrule_params: &ExRulePropertyParams) -> Self {
+impl ICalendarPropertyParams for ExRulePropertyParams {
+    /// Build a `ContentLineParams` instance with consideration to the optionally provided
+    /// `RenderingContext`.
+    fn to_content_line_params_with_context(&self, _context: Option<&RenderingContext>) -> ContentLineParams {
         let mut content_line_params = ContentLineParams::default();
 
-        for (key, value) in exrule_params.other.to_owned().into_iter().sorted() {
+        for (key, value) in self.other.to_owned().into_iter().sorted() {
             content_line_params.insert(key.to_owned(), value.to_owned());
         }
 
@@ -118,13 +120,15 @@ impl ICalendarEntity for ExRuleProperty {
     }
 }
 
-impl From<&ExRuleProperty> for ContentLine {
-    fn from(exrule_property: &ExRuleProperty) -> Self {
+impl ICalendarProperty for ExRuleProperty {
+    /// Build a `ContentLine` instance with consideration to the optionally provided
+    /// `RenderingContext`.
+    fn to_content_line_with_context(&self, _context: Option<&RenderingContext>) -> ContentLine {
         ContentLine::from((
             "EXRULE",
             (
-                ContentLineParams::from(&exrule_property.params),
-                exrule_property.value.to_string(),
+                ContentLineParams::from(&self.params),
+                self.value.to_string(),
             )
         ))
     }

@@ -10,7 +10,7 @@ use crate::value_data_types::recur::Recur;
 
 use crate::grammar::{tag, semicolon, colon, comma, x_name, iana_token, param_value};
 
-use crate::properties::define_property_params_ical_parser;
+use crate::properties::{ICalendarProperty, ICalendarPropertyParams, define_property_params_ical_parser};
 
 use crate::content_line::{ContentLineParams, ContentLine};
 
@@ -32,16 +32,18 @@ impl ICalendarEntity for RRulePropertyParams {
         ),
     );
 
-    fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
-        ContentLineParams::from(self).render_ical()
+    fn render_ical_with_context(&self, context: Option<&RenderingContext>) -> String {
+        self.to_content_line_params_with_context(context).render_ical()
     }
 }
 
-impl From<&RRulePropertyParams> for ContentLineParams {
-    fn from(rrule_params: &RRulePropertyParams) -> Self {
+impl ICalendarPropertyParams for RRulePropertyParams {
+    /// Build a `ContentLineParams` instance with consideration to the optionally provided
+    /// `RenderingContext`.
+    fn to_content_line_params_with_context(&self, _context: Option<&RenderingContext>) -> ContentLineParams {
         let mut content_line_params = ContentLineParams::default();
 
-        for (key, value) in rrule_params.other.to_owned().into_iter().sorted() {
+        for (key, value) in self.other.to_owned().into_iter().sorted() {
             content_line_params.insert(key.to_owned(), value.to_owned());
         }
 
@@ -123,13 +125,15 @@ impl ICalendarEntity for RRuleProperty {
     }
 }
 
-impl From<&RRuleProperty> for ContentLine {
-    fn from(rrule_property: &RRuleProperty) -> Self {
+impl ICalendarProperty for RRuleProperty {
+    /// Build a `ContentLine` instance with consideration to the optionally provided
+    /// `RenderingContext`.
+    fn to_content_line_with_context(&self, _context: Option<&RenderingContext>) -> ContentLine {
         ContentLine::from((
             "RRULE",
             (
-                ContentLineParams::from(&rrule_property.params),
-                rrule_property.value.to_string(),
+                ContentLineParams::from(&self.params),
+                self.value.to_string(),
             )
         ))
     }

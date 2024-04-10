@@ -154,6 +154,18 @@ pub struct RDateProperty {
 }
 
 impl ICalendarDateTimeProperty for RDateProperty {
+    fn new(value_type: Option<&ValueType>, tzid: Option<&Tzid>, date_time: &DateTime) -> Self {
+        let mut params = RDatePropertyParams::default();
+
+        params.value_type = value_type.cloned();
+        params.tzid = tzid.cloned();
+
+        RDateProperty {
+            params,
+            date_time: date_time.to_owned(),
+        }
+    }
+
     fn get_tzid(&self) -> Option<&Tzid> {
         self.params.tzid.as_ref()
     }

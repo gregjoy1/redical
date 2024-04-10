@@ -35,7 +35,7 @@ use crate::ical::serializer::{
 
 use crate::ical::properties::DTStartProperty;
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct RecurrenceIDProperty {
     pub timezone: Option<Tz>,
     pub value_type: Option<String>,

@@ -1,5 +1,3 @@
-use serde::{Deserialize, Serialize};
-
 use nom::{
     branch::alt,
     bytes::complete::tag,
@@ -19,7 +17,7 @@ use crate::ical::serializer::{
     SerializableICalProperty, SerializationPreferences, SerializedValue,
 };
 
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone, Ord, PartialOrd)]
+#[derive(Debug, Eq, PartialEq, Clone, Ord, PartialOrd)]
 pub enum Property {
     // TODO: Implement "CALSCALE"
     // TODO: Implement "METHOD"

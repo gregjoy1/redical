@@ -18,6 +18,7 @@ geo = { version = "0.26.0", features = ["use-serde"] }
 geohash = "0.13.0"
 num = "0.4.1"
 unicode-segmentation = "1.10.1"
+redical_ical = { path = "../redical_ical" }
 
 [dev-dependencies]
 pretty_assertions_sorted = { workspace = true }

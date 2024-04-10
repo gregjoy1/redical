@@ -1,5 +1,3 @@
-use serde::{Deserialize, Serialize};
-
 use nom::{
     bytes::complete::tag,
     character::complete::digit1,
@@ -44,7 +42,7 @@ pub fn parse_duration_string_components(
     )(input)
 }
 
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct ParsedDuration {
     pub weeks: Option<i64>,
     pub days: Option<i64>,

@@ -10,7 +10,7 @@ use crate::value_data_types::duration::Duration;
 
 use crate::grammar::{tag, semicolon, colon, comma, x_name, iana_token, param_value};
 
-use crate::properties::define_property_params_ical_parser;
+use crate::properties::{ICalendarProperty, ICalendarPropertyParams, define_property_params_ical_parser};
 
 use crate::content_line::{ContentLineParams, ContentLine};
 
@@ -37,11 +37,13 @@ impl ICalendarEntity for DurationPropertyParams {
     }
 }
 
-impl From<&DurationPropertyParams> for ContentLineParams {
-    fn from(duration_params: &DurationPropertyParams) -> Self {
+impl ICalendarPropertyParams for DurationPropertyParams {
+    /// Build a `ContentLineParams` instance with consideration to the optionally provided
+    /// `RenderingContext`.
+    fn to_content_line_params_with_context(&self, _context: Option<&RenderingContext>) -> ContentLineParams {
         let mut content_line_params = ContentLineParams::default();
 
-        for (key, value) in duration_params.other.to_owned().into_iter().sorted() {
+        for (key, value) in self.other.to_owned().into_iter().sorted() {
             content_line_params.insert(key.to_owned(), value.to_owned());
         }
 
@@ -90,7 +92,7 @@ impl From<DurationPropertyParams> for ContentLineParams {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct DurationProperty {
     pub params: DurationPropertyParams,
-    pub value: Duration,
+    pub duration: Duration,
 }
 
 impl ICalendarEntity for DurationProperty {
@@ -105,10 +107,10 @@ impl ICalendarEntity for DurationProperty {
                             opt(DurationPropertyParams::parse_ical),
                             preceded(colon, Duration::parse_ical),
                         ),
-                        |(params, value)| {
+                        |(params, duration)| {
                             DurationProperty {
                                 params: params.unwrap_or(DurationPropertyParams::default()),
-                                value,
+                                duration,
                             }
                         }
                     )
@@ -122,19 +124,21 @@ impl ICalendarEntity for DurationProperty {
     }
 
     fn validate(&self) -> Result<(), String> {
-        self.value.validate()?;
+        self.duration.validate()?;
 
         Ok(())
     }
 }
 
-impl From<&DurationProperty> for ContentLine {
-    fn from(duration_property: &DurationProperty) -> Self {
+impl ICalendarProperty for DurationProperty {
+    /// Build a `ContentLine` instance with consideration to the optionally provided
+    /// `RenderingContext`.
+    fn to_content_line_with_context(&self, _context: Option<&RenderingContext>) -> ContentLine {
         ContentLine::from((
             "DURATION",
             (
-                ContentLineParams::from(&duration_property.params),
-                duration_property.value.to_string(),
+                ContentLineParams::from(&self.params),
+                self.duration.to_string(),
             )
         ))
     }
@@ -156,7 +160,7 @@ mod tests {
                 " DESCRIPTION:Description text",
                 DurationProperty {
                     params: DurationPropertyParams::default(),
-                    value: Duration {
+                    duration: Duration {
                         positive_negative: None,
                         weeks: None,
                         days: None,
@@ -179,7 +183,7 @@ mod tests {
                             (String::from("TEST"), String::from("VALUE")),
                         ]),
                     },
-                    value: Duration {
+                    duration: Duration {
                         positive_negative: None,
                         weeks: None,
                         days: None,
@@ -199,7 +203,7 @@ mod tests {
         assert_eq!(
             DurationProperty {
                 params: DurationPropertyParams::default(),
-                value: Duration {
+                duration: Duration {
                     positive_negative: None,
                     weeks: None,
                     days: None,
@@ -219,7 +223,7 @@ mod tests {
                         (String::from("TEST"), String::from("VALUE")),
                     ]),
                 },
-                value: Duration {
+                duration: Duration {
                     positive_negative: None,
                     weeks: None,
                     days: None,

@@ -147,6 +147,18 @@ pub struct DTStartProperty {
 }
 
 impl ICalendarDateTimeProperty for DTStartProperty {
+    fn new(value_type: Option<&ValueType>, tzid: Option<&Tzid>, date_time: &DateTime) -> Self {
+        let mut params = DTStartPropertyParams::default();
+
+        params.value_type = value_type.cloned();
+        params.tzid = tzid.cloned();
+
+        DTStartProperty {
+            params,
+            date_time: date_time.to_owned(),
+        }
+    }
+
     fn get_tzid(&self) -> Option<&Tzid> {
         self.params.tzid.as_ref()
     }

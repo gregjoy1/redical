@@ -2,8 +2,6 @@ use std::collections::BTreeSet;
 
 use std::str::FromStr;
 
-use serde::{Deserialize, Serialize};
-
 use crate::event::{IndexedProperties, PassiveProperties};
 
 use crate::ical::serializer::{SerializableICalComponent, SerializableICalProperty, SerializationPreferences};
@@ -14,7 +12,7 @@ use crate::ical::properties::{
     DTEndProperty, DTStartProperty, DurationProperty, Properties, Property,
 };
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct EventOccurrenceOverride {
     pub indexed_properties: IndexedProperties,
     pub passive_properties: PassiveProperties,

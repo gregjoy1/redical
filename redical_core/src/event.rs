@@ -1,17 +1,31 @@
-use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::str::FromStr;
 
 use rrule::{RRuleError, RRuleSet};
 
-use crate::ical::properties::{
-    CategoriesProperty, ClassProperty, DTEndProperty, DTStartProperty, DurationProperty,
-    ExDateProperty, ExRuleProperty, GeoProperty, Properties, Property, RDateProperty,
-    RRuleProperty, RelatedToProperty, UIDProperty,
-};
-
-use crate::ical::serializer::{
-    SerializableICalComponent, SerializableICalProperty, SerializationPreferences,
+use redical_ical::{
+    ICalendarComponent,
+    ICalendarEntity,
+    RenderingContext,
+    content_line::ContentLine,
+    properties::{
+        ICalendarProperty,
+        ICalendarDateTimeProperty,
+        UIDProperty,
+        EventProperty,
+        RRuleProperty,
+        ExRuleProperty,
+        RDateProperty,
+        ExDateProperty,
+        DTStartProperty,
+        DTEndProperty,
+        DurationProperty,
+        CategoriesProperty,
+        RelatedToProperty,
+        ClassProperty,
+        GeoProperty,
+        PassiveProperty,
+    },
 };
 
 use crate::event_occurrence_override::EventOccurrenceOverride;
@@ -136,7 +150,7 @@ fn rebase_override(
 }
 */
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct ScheduleProperties {
     pub rrule: Option<RRuleProperty>,
     pub exrule: Option<ExRuleProperty>,
@@ -165,13 +179,13 @@ impl ScheduleProperties {
     pub fn extract_serialized_rrule_ical_key_value_pair(&self) -> Option<KeyValuePair> {
         self.rrule
             .as_ref()
-            .and_then(|property| Some(property.serialize_to_ical_key_value_pair(None)))
+            .and_then(|property| Some(property.to_content_line().into()))
     }
 
     pub fn extract_serialized_exrule_ical_key_value_pair(&self) -> Option<KeyValuePair> {
         self.exrule
             .as_ref()
-            .and_then(|property| Some(property.serialize_to_ical_key_value_pair(None)))
+            .and_then(|property| Some(property.to_content_line().into()))
     }
 
     pub fn extract_serialized_rdates_ical_key_value_pairs(&self) -> Option<HashSet<KeyValuePair>> {
@@ -179,7 +193,7 @@ impl ScheduleProperties {
             let mut key_value_pairs = HashSet::new();
 
             for property in properties {
-                key_value_pairs.insert(property.serialize_to_ical_key_value_pair(None));
+                key_value_pairs.insert(property.to_content_line().into());
             }
 
             Some(key_value_pairs)
@@ -191,7 +205,7 @@ impl ScheduleProperties {
             let mut key_value_pairs = HashSet::new();
 
             for property in properties {
-                key_value_pairs.insert(property.serialize_to_ical_key_value_pair(None));
+                key_value_pairs.insert(property.to_content_line().into());
             }
 
             Some(key_value_pairs)
@@ -201,43 +215,43 @@ impl ScheduleProperties {
     pub fn extract_serialized_duration_ical_key_value_pair(&self) -> Option<KeyValuePair> {
         self.duration
             .as_ref()
-            .and_then(|property| Some(property.serialize_to_ical_key_value_pair(None)))
+            .and_then(|property| Some(property.to_content_line().into()))
     }
 
     pub fn extract_serialized_dtstart_ical_key_value_pair(&self) -> Option<KeyValuePair> {
         self.dtstart
             .as_ref()
-            .and_then(|property| Some(property.serialize_to_ical_key_value_pair(None)))
+            .and_then(|property| Some(property.to_content_line().into()))
     }
 
     pub fn extract_serialized_dtend_ical_key_value_pair(&self) -> Option<KeyValuePair> {
         self.dtend
             .as_ref()
-            .and_then(|property| Some(property.serialize_to_ical_key_value_pair(None)))
+            .and_then(|property| Some(property.to_content_line().into()))
     }
 
-    pub fn insert(&mut self, property: Property) -> Result<&Self, String> {
+    pub fn insert(&mut self, property: EventProperty) -> Result<&Self, String> {
         match property {
-            Property::RRule(property) => { self.rrule = Some(property); },
-            Property::ExRule(property) => { self.exrule = Some(property); },
-            Property::DTStart(property) => { self.dtstart = Some(property); },
-            Property::DTEnd(property) => { self.dtend = Some(property); },
+            EventProperty::RRule(property) => { self.rrule = Some(property); },
+            EventProperty::ExRule(property) => { self.exrule = Some(property); },
+            EventProperty::DTStart(property) => { self.dtstart = Some(property); },
+            EventProperty::DTEnd(property) => { self.dtend = Some(property); },
 
-            Property::RDate(property) => {
+            EventProperty::RDate(property) => {
                 match &mut self.rdates {
                     Some(rdates) => { rdates.insert(property); },
                     None => { self.rdates = Some(HashSet::from([property])); }
                 }
             },
 
-            Property::ExDate(property) => {
+            EventProperty::ExDate(property) => {
                 match &mut self.exdates {
                     Some(exdates) => { exdates.insert(property); },
                     None => { self.exdates = Some(HashSet::from([property])); }
                 }
             },
 
-            Property::Duration(property) => {
+            EventProperty::Duration(property) => {
                 self.duration = Some(property);
             },
 
@@ -253,27 +267,27 @@ impl ScheduleProperties {
         let mut ical_parts = vec![];
 
         if let Some(rrule) = &self.rrule {
-            ical_parts.push(rrule.serialize_to_ical(None));
+            ical_parts.push(rrule.render_ical());
         }
 
         if let Some(exrule) = &self.exrule {
-            ical_parts.push(exrule.serialize_to_ical(None));
+            ical_parts.push(exrule.render_ical());
         }
 
         if let Some(rdates) = &self.rdates {
             rdates.iter().for_each(|rdates| {
-                ical_parts.push(rdates.serialize_to_ical(None));
+                ical_parts.push(rdates.render_ical());
             });
         }
 
         if let Some(exdates) = &self.exdates {
             exdates.iter().for_each(|exdates| {
-                ical_parts.push(exdates.serialize_to_ical(None));
+                ical_parts.push(exdates.render_ical());
             });
         }
 
         if let Some(dtstart) = &self.dtstart {
-            ical_parts.push(dtstart.serialize_to_ical(None));
+            ical_parts.push(dtstart.render_ical());
 
             // If parsed ical does not contain any RRULE or RDATE properties, we need to
             // artifically create them based on the specified DTSTART properties so that the
@@ -289,7 +303,7 @@ impl ScheduleProperties {
             // "RRule parsing error: Missing date generation property. There needs to be at least
             // one `RRULE` or `RDATE` to generate occurrences."
             if self.rrule.is_none() && (self.rdates.is_none() || self.rdates.as_ref().is_some_and(|rdates| rdates.is_empty())) {
-                ical_parts.push(RDateProperty::from(dtstart.utc_timestamp).serialize_to_ical(None));
+                ical_parts.push(RDateProperty::new_from(dtstart).render_ical());
             }
         }
 
@@ -299,18 +313,18 @@ impl ScheduleProperties {
     pub fn get_dtstart_timestamp(&self) -> Option<i64> {
         self.dtstart
             .as_ref()
-            .and_then(|dtstart| Some(dtstart.utc_timestamp.to_owned()))
+            .and_then(|dtstart| Some(dtstart.get_utc_timestamp()))
     }
 
     pub fn get_dtend_timestamp(&self) -> Option<i64> {
         self.dtend
             .as_ref()
-            .and_then(|dtend| Some(dtend.utc_timestamp.to_owned()))
+            .and_then(|dtend| Some(dtend.get_utc_timestamp()))
     }
 
     pub fn get_duration_in_seconds(&self) -> Option<i64> {
         if let Some(parsed_duration) = self.duration.as_ref() {
-            return Some(parsed_duration.get_duration_in_seconds());
+            return Some(parsed_duration.duration.get_duration_in_seconds());
         }
 
         match (self.get_dtstart_timestamp(), self.get_dtend_timestamp()) {
@@ -331,7 +345,7 @@ impl ScheduleProperties {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct IndexedProperties {
     pub geo: Option<GeoProperty>,
     pub related_to: Option<HashSet<RelatedToProperty>>,
@@ -404,23 +418,23 @@ impl IndexedProperties {
             .and_then(|class_property| Some(class_property.class.clone()))
     }
 
-    pub fn insert(&mut self, property: Property) -> Result<&Self, String> {
+    pub fn insert(&mut self, property: EventProperty) -> Result<&Self, String> {
         match property {
-            Property::Class(property) => {
+            EventProperty::Class(property) => {
                 self.class = Some(property);
             }
 
-            Property::Geo(property) => {
+            EventProperty::Geo(property) => {
                 self.geo = Some(property);
             }
 
-            Property::Categories(property) => {
+            EventProperty::Categories(property) => {
                 self.categories
                     .get_or_insert(HashSet::new())
                     .insert(property);
             }
 
-            Property::RelatedTo(property) => {
+            EventProperty::RelatedTo(property) => {
                 self.related_to
                     .get_or_insert(HashSet::new())
                     .insert(property);
@@ -429,7 +443,7 @@ impl IndexedProperties {
             _ => {
                 return Err(format!(
                     "Expected indexable property (CATEGORIES, RELATED_TO), received: {}",
-                    property.serialize_to_ical(None)
+                    property.render_ical()
                 ));
             }
         };
@@ -438,9 +452,9 @@ impl IndexedProperties {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct PassiveProperties {
-    pub properties: BTreeSet<Property>,
+    pub properties: BTreeSet<PassiveProperty>,
 }
 
 impl PassiveProperties {
@@ -460,22 +474,22 @@ impl PassiveProperties {
         key_value_pairs
     }
 
-    pub fn insert(&mut self, property: Property) -> Result<&Self, String> {
+    pub fn insert(&mut self, property: EventProperty) -> Result<&Self, String> {
         match property {
-            Property::Class(_)
-            | Property::Geo(_)
-            | Property::Categories(_)
-            | Property::RelatedTo(_)
-            | Property::RRule(_)
-            | Property::ExRule(_)
-            | Property::DTStart(_)
-            | Property::DTEnd(_)
-            | Property::RDate(_)
-            | Property::ExDate(_)
-            | Property::Duration(_) => {
+            EventProperty::Class(_)
+            | EventProperty::Geo(_)
+            | EventProperty::Categories(_)
+            | EventProperty::RelatedTo(_)
+            | EventProperty::RRule(_)
+            | EventProperty::ExRule(_)
+            | EventProperty::DTStart(_)
+            | EventProperty::DTEnd(_)
+            | EventProperty::RDate(_)
+            | EventProperty::ExDate(_)
+            | EventProperty::Duration(_) => {
                 return Err(format!(
                     "Expected passive property, received: {}",
-                    property.serialize_to_ical(None)
+                    property.render_ical()
                 ));
             }
 
@@ -488,7 +502,7 @@ impl PassiveProperties {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Event {
     pub uid: UIDProperty,
 
@@ -541,7 +555,7 @@ impl Event {
     }
 
     pub fn parse_ical(uid: &str, input: &str) -> Result<Event, String> {
-        Properties::from_str(input).and_then(|Properties(parsed_properties)| {
+        EventProperties::from_str(input).and_then(|Properties(parsed_properties)| {
             let mut new_event = Event::new(String::from(uid));
 
             for parsed_property in parsed_properties {
@@ -552,9 +566,9 @@ impl Event {
         })
     }
 
-    pub fn insert(&mut self, property: Property) -> Result<&Self, String> {
+    pub fn insert(&mut self, property: EventProperty) -> Result<&Self, String> {
         match property {
-            Property::UID(property) => {
+            EventProperty::UID(property) => {
                 if self.uid != property {
                     return Err(
                         format!("Inserted event UID: {} does not match existing UID: {}", property.uid, self.uid.uid)
@@ -562,20 +576,20 @@ impl Event {
                 }
             },
 
-            Property::Class(_)
-            | Property::Geo(_)
-            | Property::Categories(_)
-            | Property::RelatedTo(_) => {
+            EventProperty::Class(_)
+            | EventProperty::Geo(_)
+            | EventProperty::Categories(_)
+            | EventProperty::RelatedTo(_) => {
                 self.indexed_properties.insert(property)?;
             }
 
-            Property::RRule(_)
-            | Property::ExRule(_)
-            | Property::DTStart(_)
-            | Property::DTEnd(_)
-            | Property::RDate(_)
-            | Property::ExDate(_)
-            | Property::Duration(_) => {
+            EventProperty::RRule(_)
+            | EventProperty::ExRule(_)
+            | EventProperty::DTStart(_)
+            | EventProperty::DTEnd(_)
+            | EventProperty::RDate(_)
+            | EventProperty::ExDate(_)
+            | EventProperty::Duration(_) => {
                 self.schedule_properties.insert(property)?;
             }
 
@@ -721,69 +735,66 @@ impl Event {
     }
 }
 
-impl SerializableICalComponent for Event {
-    fn serialize_to_ical_set(
-        &self,
-        preferences: Option<&SerializationPreferences>,
-    ) -> BTreeSet<String> {
-        let mut serializable_properties: BTreeSet<String> = BTreeSet::new();
+impl ICalendarComponent for Event {
+    fn to_content_line_set_with_context(&self, context: Option<&RenderingContext>) -> BTreeSet<ContentLine> {
+        let mut serializable_properties: BTreeSet<ContentLine> = BTreeSet::new();
 
-        serializable_properties.insert(self.uid.serialize_to_ical(preferences));
+        serializable_properties.insert(self.uid.to_content_line_with_context(context));
 
         if let Some(rrule_property) = &self.schedule_properties.rrule {
-            serializable_properties.insert(rrule_property.serialize_to_ical(preferences));
+            serializable_properties.insert(rrule_property.to_content_line_with_context(context));
         }
 
         if let Some(exrule_property) = &self.schedule_properties.exrule {
-            serializable_properties.insert(exrule_property.serialize_to_ical(preferences));
+            serializable_properties.insert(exrule_property.to_content_line_with_context(context));
         }
 
         if let Some(rdates_properties) = &self.schedule_properties.rdates {
             for rdate_property in rdates_properties {
-                serializable_properties.insert(rdate_property.serialize_to_ical(preferences));
+                serializable_properties.insert(rdate_property.to_content_line_with_context(context));
             }
         }
 
         if let Some(exdates_properties) = &self.schedule_properties.exdates {
             for exdate_property in exdates_properties {
-                serializable_properties.insert(exdate_property.serialize_to_ical(preferences));
+                serializable_properties.insert(exdate_property.to_content_line_with_context(context));
             }
         }
 
         if let Some(duration_property) = &self.schedule_properties.duration {
-            serializable_properties.insert(duration_property.serialize_to_ical(preferences));
+            serializable_properties.insert(duration_property.to_content_line_with_context(context));
         }
 
         if let Some(dtstart_property) = &self.schedule_properties.dtstart {
-            serializable_properties.insert(dtstart_property.serialize_to_ical(preferences));
+            serializable_properties.insert(dtstart_property.to_content_line_with_context(context));
         }
 
         if let Some(dtend_property) = &self.schedule_properties.dtend {
-            serializable_properties.insert(dtend_property.serialize_to_ical(preferences));
+            serializable_properties.insert(dtend_property.to_content_line_with_context(context));
         }
 
         if let Some(geo_property) = &self.indexed_properties.geo {
-            serializable_properties.insert(geo_property.serialize_to_ical(preferences));
+            serializable_properties.insert(geo_property.to_content_line_with_context(context));
         }
 
         if let Some(class_property) = &self.indexed_properties.class {
-            serializable_properties.insert(class_property.serialize_to_ical(preferences));
+            serializable_properties.insert(class_property.to_content_line_with_context(context));
         }
 
         if let Some(related_to_properties) = &self.indexed_properties.related_to {
             for related_to_property in related_to_properties {
-                serializable_properties.insert(related_to_property.serialize_to_ical(preferences));
+                serializable_properties.insert(related_to_property.to_content_line_with_context(context));
             }
         }
 
         if let Some(categories_properties) = &self.indexed_properties.categories {
             for categories_property in categories_properties {
-                serializable_properties.insert(categories_property.serialize_to_ical(preferences));
+                serializable_properties.insert(categories_property.to_content_line_with_context(context));
             }
         }
 
         for passive_property in &self.passive_properties.properties {
-            serializable_properties.insert(passive_property.serialize_to_ical(preferences));
+            serializable_properties.insert(passive_property.to_content_line_with_context(context));
         }
 
         serializable_properties

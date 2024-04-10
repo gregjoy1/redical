@@ -15,7 +15,7 @@ use crate::ical::serializer::{
     SerializableICalComponent, SerializableICalProperty, SerializationPreferences,
 };
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Calendar {
     pub uid: UIDProperty,
     pub events: BTreeMap<String, Box<Event>>,
@@ -41,10 +41,10 @@ impl Calendar {
 
     pub fn insert(&mut self, property: Property) -> Result<&Self, String> {
         match property {
-            Property::UID(property) => {
-                if self.uid != property {
+            Event::UID(uid_property) => {
+                if self.uid != uid_property {
                     return Err(
-                        format!("Inserted calendar UID: {} does not match existing UID: {}", property.uid, self.uid.uid)
+                        format!("Inserted calendar UID: {} does not match existing UID: {}", uid_property.uid, self.uid.value)
                     );
                 }
             },
@@ -66,7 +66,7 @@ impl Calendar {
     pub fn insert_event(&mut self, event: Event) -> Option<Event> {
         use std::collections::btree_map::Entry;
 
-        match self.events.entry(event.uid.uid.to_owned()) {
+        match self.events.entry(event.uid.value.to_owned()) {
             Entry::Occupied(mut entry) => {
                 let boxed_event = entry.get_mut();
 
@@ -123,7 +123,7 @@ impl Calendar {
         let indexed_class = &mut self.indexed_class;
 
         for event in self.events.values_mut() {
-            let event_uid = event.uid.uid.to_owned();
+            let event_uid = event.uid.value.to_owned();
 
             event.rebuild_indexes()?;
 

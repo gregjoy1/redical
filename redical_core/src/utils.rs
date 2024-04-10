@@ -4,9 +4,12 @@ use std::hash::Hash;
 
 use std::cmp::Ordering;
 
-use serde::{Deserialize, Serialize};
+use redical_ical::{
+    ICalendarEntity,
+    content_line::ContentLine,
+};
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash, PartialOrd, Clone)]
+#[derive(Debug, PartialEq, Eq, Hash, PartialOrd, Clone)]
 pub struct KeyValuePair {
     pub key: String,
     pub value: String,
@@ -19,6 +22,15 @@ impl KeyValuePair {
 
     pub fn to_string(&self) -> String {
         self.key.clone() + &self.value
+    }
+}
+
+impl From<ContentLine> for KeyValuePair {
+    fn from(content_line: ContentLine) -> Self {
+        let key = content_line.0;
+        let value = format!("{}{}", content_line.1.render_ical(), content_line.2);
+
+        Self::new(key, value)
     }
 }
 
@@ -91,7 +103,7 @@ pub fn btree_hashset_to_hashset(
     })
 }
 
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub enum UpdatedAttribute<T>
 where
     T: Eq + PartialEq + Clone,
@@ -126,7 +138,7 @@ where
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct UpdatedSetMembers<T>
 where
     T: Eq + PartialEq + Hash + Clone,
@@ -203,7 +215,7 @@ where
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct UpdatedHashMapMembers<K, T>
 where
     K: Eq + PartialEq + Hash + Clone,

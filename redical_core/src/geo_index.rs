@@ -5,8 +5,6 @@ use std::cmp::Ordering;
 
 use rstar::primitives::GeomWithData;
 
-use serde::{Deserialize, Serialize};
-
 use std::hash::{Hash, Hasher};
 
 use crate::ical::properties::GeoProperty;
@@ -140,7 +138,7 @@ impl Ord for GeoDistance {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct GeoPoint {
     pub long: f64,
     pub lat: f64,
@@ -273,8 +271,8 @@ impl PartialEq for GeoPoint {
 impl Eq for GeoPoint {}
 
 // Multi layer inverted index (for multiple events) - indexed term - event - include/exclude
-//#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-#[derive(Serialize, Deserialize, Debug, Clone)]
+//#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Clone)]
 pub struct GeoSpatialCalendarIndex {
     pub coords: RTree<GeomWithData<GeoPoint, InvertedCalendarIndexTerm>>,
 }

@@ -1,5 +1,3 @@
-use serde::{Deserialize, Serialize};
-
 use crate::ical::serializer::SerializableICalProperty;
 use std::collections::{HashMap, HashSet};
 
@@ -8,7 +6,7 @@ use crate::geo_index::GeoPoint;
 
 use crate::utils::{KeyValuePair, UpdatedHashMapMembers, UpdatedSetMembers};
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct InvertedCalendarIndexTerm {
     pub events: HashMap<String, IndexedConclusion>,
 }
@@ -191,7 +189,7 @@ impl InvertedCalendarIndexTerm {
 
 // TODO: Make more generic as this is used into the geo index
 // Single layer inverted index (for one event) - indexed term - include/exclude
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct InvertedEventIndex<K>
 where
     K: std::hash::Hash + Clone + std::cmp::Eq,
@@ -379,7 +377,7 @@ where
 }
 
 // Multi layer inverted index (for multiple events) - indexed term - event - include/exclude
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct InvertedCalendarIndex<K>
 where
     K: std::hash::Hash + Clone + Eq,
@@ -456,7 +454,7 @@ where
     // }
 }
 
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub enum IndexedConclusion {
     Include(Option<HashSet<i64>>),
     Exclude(Option<HashSet<i64>>),

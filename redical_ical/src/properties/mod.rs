@@ -1,7 +1,10 @@
 mod uid;
+
 pub mod event;
 
 pub use uid::*;
+
+pub use event::*;
 
 use crate::{ICalendarEntity, RenderingContext};
 
@@ -45,10 +48,29 @@ where
 }
 
 pub trait ICalendarDateTimeProperty {
+    fn new_from<P>(from_property: &P) -> Self
+    where
+        P: ICalendarDateTimeProperty,
+        Self: Sized,
+    {
+        Self::new(
+            from_property.get_value_type(),
+            from_property.get_tzid(),
+            from_property.get_date_time(),
+        )
+    }
+
+    fn new(value_type: Option<&ValueType>, tzid: Option<&Tzid>, date_time: &DateTime) -> Self;
+
     fn get_tzid(&self) -> Option<&Tzid>;
 
     fn get_tz(&self) -> Option<&chrono_tz::Tz> {
         self.get_tzid().and_then(|tzid| Some(&tzid.0))
+    }
+
+    fn get_utc_timestamp(&self) -> i64 {
+        self.get_date_time()
+            .get_utc_timestamp(self.get_tz())
     }
 
     fn get_value_type(&self) -> Option<&ValueType>;

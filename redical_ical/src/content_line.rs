@@ -7,7 +7,7 @@ use crate::grammar::{tag, colon, semicolon, x_name, name, param, value};
 
 use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits, terminated_lookahead};
 
-#[derive(Debug, Clone, Eq, PartialEq, Default)]
+#[derive(Debug, Clone, Eq, PartialEq, Default, PartialOrd)]
 pub struct ContentLineParam(pub String, pub String);
 
 impl<'a> From<(ParserInput<'a>, ParserInput<'a>)> for ContentLineParam {
@@ -49,7 +49,7 @@ impl ICalendarEntity for ContentLineParam {
 
 impl_icalendar_entity_traits!(ContentLineParam);
 
-#[derive(Debug, Clone, Eq, PartialEq, Default)]
+#[derive(Debug, Clone, Eq, PartialEq, Default, PartialOrd)]
 pub struct ContentLineParams(pub Vec<ContentLineParam>);
 
 impl<'a> From<Vec<ContentLineParam>> for ContentLineParams {
@@ -112,7 +112,7 @@ impl ContentLineParams {
 
 impl_icalendar_entity_traits!(ContentLineParams);
 
-#[derive(Debug, Clone, Eq, PartialEq, Default)]
+#[derive(Debug, Clone, Eq, PartialEq, Default, PartialOrd)]
 pub struct ContentLine(pub String, pub ContentLineParams, pub String);
 
 impl<'a> From<(ParserInput<'a>, ContentLineParams, ParserInput<'a>)> for ContentLine {

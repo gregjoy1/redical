@@ -977,6 +977,7 @@ dependencies = [
  "nom 6.1.2",
  "num",
  "pretty_assertions_sorted",
+ "redical_ical",
  "redis",
  "regex",
  "rrule",

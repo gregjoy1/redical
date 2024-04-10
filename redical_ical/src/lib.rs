@@ -1,7 +1,11 @@
+use std::collections::BTreeSet;
+
 pub mod grammar;
 pub mod content_line;
 pub mod value_data_types;
 pub mod properties;
+
+use content_line::ContentLine;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ParserError<'a> {
@@ -227,6 +231,14 @@ where
 
         Ok((refined_remaining, refined_output))
     }
+}
+
+pub trait ICalendarComponent {
+    fn to_content_line_set(&self) -> BTreeSet<ContentLine> {
+        self.to_content_line_set_with_context(None)
+    }
+
+    fn to_content_line_set_with_context(&self, context: Option<&RenderingContext>) -> BTreeSet<ContentLine>;
 }
 
 pub trait ICalendarEntity {
