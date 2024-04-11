@@ -1,11 +1,11 @@
 use std::collections::HashSet;
 use std::hash::Hash;
 
-use crate::ical::properties::DurationProperty;
 use crate::{
-    btree_hashset_to_hashset, hashmap_to_hashset, Event, GeoPoint, KeyValuePair, UpdatedAttribute,
-    UpdatedSetMembers,
+    Event, GeoPoint, KeyValuePair, UpdatedAttribute, UpdatedSetMembers,
 };
+
+use redical_ical::properties::DurationProperty;
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct EventDiff {
@@ -139,44 +139,58 @@ impl SchedulePropertiesDiff {
         let original_event_schedule_properties = &original_event.schedule_properties;
         let updated_event_schedule_properties = &updated_event.schedule_properties;
 
+        let rrule = Self::build_updated_attribute(
+            &original_event_schedule_properties.extract_serialized_rrule_ical_key_value_pair(),
+            &updated_event_schedule_properties.extract_serialized_rrule_ical_key_value_pair(),
+        );
+
+        let exrule = Self::build_updated_attribute(
+            &original_event_schedule_properties.extract_serialized_exrule_ical_key_value_pair(),
+            &updated_event_schedule_properties.extract_serialized_exrule_ical_key_value_pair(),
+        );
+
+        let rdate = Self::build_updated_set_members(
+            original_event_schedule_properties
+                .extract_serialized_rdates_ical_key_value_pairs()
+                .as_ref(),
+            updated_event_schedule_properties
+                .extract_serialized_rdates_ical_key_value_pairs()
+                .as_ref(),
+        );
+
+        let exdate = Self::build_updated_set_members(
+            original_event_schedule_properties
+                .extract_serialized_exdates_ical_key_value_pairs()
+                .as_ref(),
+            updated_event_schedule_properties
+                .extract_serialized_exdates_ical_key_value_pairs()
+                .as_ref(),
+        );
+
+        let duration = Self::build_updated_attribute(
+            &original_event_schedule_properties.duration,
+            &updated_event_schedule_properties.duration,
+        );
+
+        let dtstart = Self::build_updated_attribute(
+            &original_event_schedule_properties
+                .extract_serialized_dtstart_ical_key_value_pair(),
+            &updated_event_schedule_properties.extract_serialized_dtstart_ical_key_value_pair(),
+        );
+
+        let dtend = Self::build_updated_attribute(
+            &original_event_schedule_properties.extract_serialized_dtend_ical_key_value_pair(),
+            &updated_event_schedule_properties.extract_serialized_dtend_ical_key_value_pair(),
+        );
+
         SchedulePropertiesDiff {
-            rrule: Self::build_updated_attribute(
-                &original_event_schedule_properties.extract_serialized_rrule_ical_key_value_pair(),
-                &updated_event_schedule_properties.extract_serialized_rrule_ical_key_value_pair(),
-            ),
-            exrule: Self::build_updated_attribute(
-                &original_event_schedule_properties.extract_serialized_exrule_ical_key_value_pair(),
-                &updated_event_schedule_properties.extract_serialized_exrule_ical_key_value_pair(),
-            ),
-            rdate: Self::build_updated_set_members(
-                original_event_schedule_properties
-                    .extract_serialized_rdates_ical_key_value_pairs()
-                    .as_ref(),
-                updated_event_schedule_properties
-                    .extract_serialized_rdates_ical_key_value_pairs()
-                    .as_ref(),
-            ),
-            exdate: Self::build_updated_set_members(
-                original_event_schedule_properties
-                    .extract_serialized_exdates_ical_key_value_pairs()
-                    .as_ref(),
-                updated_event_schedule_properties
-                    .extract_serialized_exdates_ical_key_value_pairs()
-                    .as_ref(),
-            ),
-            duration: Self::build_updated_attribute(
-                &original_event_schedule_properties.duration,
-                &updated_event_schedule_properties.duration,
-            ),
-            dtstart: Self::build_updated_attribute(
-                &original_event_schedule_properties
-                    .extract_serialized_dtstart_ical_key_value_pair(),
-                &updated_event_schedule_properties.extract_serialized_dtstart_ical_key_value_pair(),
-            ),
-            dtend: Self::build_updated_attribute(
-                &original_event_schedule_properties.extract_serialized_dtend_ical_key_value_pair(),
-                &updated_event_schedule_properties.extract_serialized_dtend_ical_key_value_pair(),
-            ),
+            rrule,
+            exrule,
+            rdate,
+            exdate,
+            duration,
+            dtstart,
+            dtend,
         }
     }
 
@@ -213,14 +227,14 @@ impl SchedulePropertiesDiff {
 mod test {
     use super::*;
 
+    use std::str::FromStr;
+
     use crate::testing::macros::build_property_from_ical;
 
     use std::collections::{BTreeMap, BTreeSet, HashSet};
 
-    use crate::ical::properties::{
-        CategoriesProperty, ClassProperty, DTStartProperty, DescriptionProperty, DurationProperty,
-        ExDateProperty, ExRuleProperty, GeoProperty, Property, RDateProperty, RRuleProperty,
-        RelatedToProperty,
+    use redical_ical::properties::{
+        CategoriesProperty, ClassProperty, DTStartProperty, GeoProperty, RRuleProperty, RelatedToProperty, PassiveProperty
     };
 
     use crate::{IndexedProperties, KeyValuePair, PassiveProperties, ScheduleProperties};
@@ -312,10 +326,7 @@ mod test {
             },
 
             passive_properties: PassiveProperties {
-                properties: BTreeSet::from([Property::Description(build_property_from_ical!(
-                    DescriptionProperty,
-                    "DESCRIPTION:Testing updated description text"
-                ))]),
+                properties: BTreeSet::from([build_property_from_ical!(PassiveProperty, "DESCRIPTION:Testing updated description text")]),
             },
 
             overrides: BTreeMap::new(),
@@ -413,10 +424,7 @@ mod test {
             },
 
             passive_properties: PassiveProperties {
-                properties: BTreeSet::from([Property::Description(build_property_from_ical!(
-                    DescriptionProperty,
-                    "DESCRIPTION:Testing original description text"
-                ))]),
+                properties: BTreeSet::from([build_property_from_ical!(PassiveProperty, "DESCRIPTION:Testing original description text")]),
             },
 
             overrides: BTreeMap::new(),
