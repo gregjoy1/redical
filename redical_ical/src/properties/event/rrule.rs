@@ -139,6 +139,12 @@ impl ICalendarProperty for RRuleProperty {
     }
 }
 
+impl std::hash::Hash for RRuleProperty {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.render_ical().hash(state)
+    }
+}
+
 impl_icalendar_entity_traits!(RRuleProperty);
 
 #[cfg(test)]

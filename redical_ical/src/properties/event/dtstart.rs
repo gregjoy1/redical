@@ -241,6 +241,12 @@ impl ICalendarProperty for DTStartProperty {
     }
 }
 
+impl std::hash::Hash for DTStartProperty {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.render_ical().hash(state)
+    }
+}
+
 impl_icalendar_entity_traits!(DTStartProperty);
 
 #[cfg(test)]

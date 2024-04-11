@@ -369,7 +369,7 @@ impl IndexedProperties {
 
             for categories_property in categories_properties {
                 for category in &categories_property.categories {
-                    categories.insert(category.clone());
+                    categories.insert(category.to_string());
                 }
             }
 
@@ -382,7 +382,7 @@ impl IndexedProperties {
             let mut related_to_key_value_pairs: HashSet<KeyValuePair> = HashSet::new();
 
             for related_to_property in related_to_properties {
-                related_to_key_value_pairs.insert(related_to_property.to_key_value_pair());
+                related_to_key_value_pairs.insert(related_to_property.to_reltype_uid_pair().into());
             }
 
             Some(related_to_key_value_pairs)
@@ -395,11 +395,11 @@ impl IndexedProperties {
 
             for related_to_property in related_to_properties {
                 related_to_map
-                    .entry(related_to_property.get_reltype())
+                    .entry(related_to_property.get_reltype().to_string())
                     .and_modify(|uid_set: &mut HashSet<String>| {
-                        uid_set.insert(related_to_property.uid.clone());
+                        uid_set.insert(related_to_property.uid.to_string());
                     })
-                    .or_insert(HashSet::from([related_to_property.uid.clone()]));
+                    .or_insert(HashSet::from([related_to_property.uid.to_string()]));
             }
 
             Some(related_to_map)

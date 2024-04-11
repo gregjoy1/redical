@@ -248,6 +248,12 @@ impl ICalendarProperty for RDateProperty {
     }
 }
 
+impl std::hash::Hash for RDateProperty {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.render_ical().hash(state)
+    }
+}
+
 impl_icalendar_entity_traits!(RDateProperty);
 
 #[cfg(test)]

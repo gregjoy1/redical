@@ -149,7 +149,7 @@ impl From<RelatedToPropertyParams> for ContentLineParams {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct RelatedToProperty {
     pub params: RelatedToPropertyParams,
-    pub value: Text,
+    pub uid: Text,
 }
 
 impl ICalendarEntity for RelatedToProperty {
@@ -164,10 +164,10 @@ impl ICalendarEntity for RelatedToProperty {
                             opt(RelatedToPropertyParams::parse_ical),
                             preceded(colon, Text::parse_ical),
                         ),
-                        |(params, value)| {
+                        |(params, uid)| {
                             RelatedToProperty {
                                 params: params.unwrap_or(RelatedToPropertyParams::default()),
-                                value,
+                                uid,
                             }
                         }
                     )
@@ -188,9 +188,33 @@ impl From<&RelatedToProperty> for ContentLine {
             "RELATED-TO",
             (
                 ContentLineParams::from(&related_to_property.params),
-                related_to_property.value.to_string(),
+                related_to_property.uid.to_string(),
             )
         ))
+    }
+}
+
+impl RelatedToProperty {
+    /// Returns the RELTYPE for this property, if not present we return the default
+    /// `Reltype::Parent`.
+    pub fn get_reltype(&self) -> Reltype {
+        self.params.reltype.to_owned().unwrap_or(Reltype::Parent)
+    }
+
+    /// Returns a tuple pair comprised of the RELTYPE and UID defined in this property.
+    /// If RELTYPE is not defined, we use the default `Reltype::Parent`.
+    pub fn to_reltype_uid_pair(&self) -> (String, String) {
+        (
+            self.get_reltype().to_string(),
+            self.uid.to_string(),
+        )
+    }
+}
+
+
+impl std::hash::Hash for RelatedToProperty {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.render_ical().hash(state)
     }
 }
 
@@ -212,7 +236,7 @@ mod tests {
                 " DESCRIPTION:Description text",
                 RelatedToProperty {
                     params: RelatedToPropertyParams::default(),
-                    value: Text(String::from("jsmith.part7.19960817T083000.xyzMail@example.com")),
+                    uid: Text(String::from("jsmith.part7.19960817T083000.xyzMail@example.com")),
                 },
             ),
         );
@@ -229,7 +253,7 @@ mod tests {
                             (String::from("TEST"), String::from("VALUE")),
                         ]),
                     },
-                    value: Text(String::from("19960401-080045-4000F192713-0052@example.com")),
+                    uid: Text(String::from("19960401-080045-4000F192713-0052@example.com")),
                 },
             ),
         );
@@ -242,7 +266,7 @@ mod tests {
         assert_eq!(
             RelatedToProperty {
                 params: RelatedToPropertyParams::default(),
-                value: Text(String::from("jsmith.part7.19960817T083000.xyzMail@example.com")),
+                uid: Text(String::from("jsmith.part7.19960817T083000.xyzMail@example.com")),
             }.render_ical(),
             String::from("RELATED-TO:jsmith.part7.19960817T083000.xyzMail@example.com"),
         );
@@ -256,7 +280,7 @@ mod tests {
                         (String::from("TEST"), String::from("VALUE")),
                     ]),
                 },
-                value: Text(String::from("19960401-080045-4000F192713-0052@example.com")),
+                uid: Text(String::from("19960401-080045-4000F192713-0052@example.com")),
             }.render_ical(),
             String::from("RELATED-TO;TEST=VALUE;X-TEST=X_VALUE;RELTYPE=CHILD:19960401-080045-4000F192713-0052@example.com"),
         );

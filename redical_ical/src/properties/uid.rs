@@ -127,6 +127,12 @@ impl From<&UIDProperty> for ContentLine {
     }
 }
 
+impl std::hash::Hash for UIDProperty {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.render_ical().hash(state)
+    }
+}
+
 impl_icalendar_entity_traits!(UIDProperty);
 
 #[cfg(test)]

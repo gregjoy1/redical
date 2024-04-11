@@ -108,7 +108,7 @@ impl From<CategoriesPropertyParams> for ContentLineParams {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct CategoriesProperty {
     pub params: CategoriesPropertyParams,
-    pub value: List<Text>,
+    pub categories: List<Text>,
 }
 
 impl ICalendarEntity for CategoriesProperty {
@@ -123,10 +123,10 @@ impl ICalendarEntity for CategoriesProperty {
                             opt(CategoriesPropertyParams::parse_ical),
                             preceded(colon, List::parse_ical),
                         ),
-                        |(params, value)| {
+                        |(params, categories)| {
                             CategoriesProperty {
                                 params: params.unwrap_or(CategoriesPropertyParams::default()),
-                                value,
+                                categories,
                             }
                         }
                     )
@@ -146,9 +146,15 @@ impl From<&CategoriesProperty> for ContentLine {
             "CATEGORIES",
             (
                 ContentLineParams::from(&categories_property.params),
-                categories_property.value.to_string(),
+                categories_property.categories.to_string(),
             )
         ))
+    }
+}
+
+impl std::hash::Hash for CategoriesProperty {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.render_ical().hash(state)
     }
 }
 
@@ -168,7 +174,7 @@ mod tests {
                 " DESCRIPTION:Description text",
                 CategoriesProperty {
                     params: CategoriesPropertyParams::default(),
-                    value: List::from(vec![Text(String::from("APPOINTMENT")), Text(String::from("EDUCATION"))]),
+                    categories: List::from(vec![Text(String::from("APPOINTMENT")), Text(String::from("EDUCATION"))]),
                 },
             ),
         );
@@ -185,7 +191,7 @@ mod tests {
                             (String::from("TEST"), String::from("VALUE")),
                         ]),
                     },
-                    value: List::from(vec![Text(String::from("EDUCATION"))]),
+                    categories: List::from(vec![Text(String::from("EDUCATION"))]),
                 },
             ),
         );
@@ -198,7 +204,7 @@ mod tests {
         assert_eq!(
             CategoriesProperty {
                 params: CategoriesPropertyParams::default(),
-                value: List::from(vec![Text(String::from("APPOINTMENT")), Text(String::from("EDUCATION"))]),
+                categories: List::from(vec![Text(String::from("APPOINTMENT")), Text(String::from("EDUCATION"))]),
             }.render_ical(),
             String::from("CATEGORIES:APPOINTMENT,EDUCATION"),
         );
@@ -212,7 +218,7 @@ mod tests {
                         (String::from("TEST"), String::from("VALUE")),
                     ]),
                 },
-                value: List::from(vec![Text(String::from("EDUCATION"))]),
+                categories: List::from(vec![Text(String::from("EDUCATION"))]),
             }.render_ical(),
             String::from("CATEGORIES;TEST=VALUE;X-TEST=X_VALUE;LANGUAGE=en-US:EDUCATION"),
         );

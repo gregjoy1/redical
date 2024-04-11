@@ -144,6 +144,12 @@ impl ICalendarProperty for DurationProperty {
     }
 }
 
+impl std::hash::Hash for DurationProperty {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.render_ical().hash(state)
+    }
+}
+
 impl_icalendar_entity_traits!(DurationProperty);
 
 #[cfg(test)]

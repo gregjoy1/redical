@@ -90,6 +90,12 @@ impl ICalendarEntity for EventProperty {
     }
 }
 
+impl std::hash::Hash for EventProperty {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.render_ical().hash(state)
+    }
+}
+
 impl_icalendar_entity_traits!(EventProperty);
 
 #[cfg(test)]

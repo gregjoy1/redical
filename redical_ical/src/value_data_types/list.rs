@@ -137,3 +137,27 @@ where
         List(HashSet::from_iter(value.into_iter()))
     }
 }
+
+impl<T> IntoIterator for List<T>
+where
+    T: std::fmt::Debug + Clone + ICalendarEntity + Eq + PartialEq + std::hash::Hash,
+{
+    type Item = T;
+    type IntoIter = std::collections::hash_set::IntoIter<T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl<T> IntoIterator for &List<T>
+where
+    T: std::fmt::Debug + Clone + ICalendarEntity + Eq + PartialEq + std::hash::Hash,
+{
+    type Item = T;
+    type IntoIter = std::collections::hash_set::IntoIter<T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.to_owned().into_iter()
+    }
+}

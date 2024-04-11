@@ -168,6 +168,12 @@ impl From<&ClassProperty> for ContentLine {
     }
 }
 
+impl std::hash::Hash for ClassProperty {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.render_ical().hash(state)
+    }
+}
+
 impl_icalendar_entity_traits!(ClassProperty);
 
 #[cfg(test)]
