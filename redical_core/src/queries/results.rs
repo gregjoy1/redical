@@ -140,10 +140,16 @@ mod test {
 
     use crate::testing::macros::build_property_from_ical;
 
-    use crate::ical::properties::{
-        CategoriesProperty, ClassProperty, DTEndProperty, DTStartProperty, DescriptionProperty,
-        DurationProperty, GeoProperty, LocationProperty, Property, RelatedToProperty, UIDProperty,
+    use redical_ical::properties::{
+        DTEndProperty,
+        DTStartProperty,
+        DurationProperty,
+        GeoProperty,
+        UIDProperty,
+        PassiveProperty,
     };
+
+    use std::str::FromStr;
 
     fn build_event_instance_one() -> EventInstance {
         EventInstance {

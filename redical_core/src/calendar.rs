@@ -47,7 +47,7 @@ impl Calendar {
     pub fn insert(&mut self, property: CalendarProperty) -> Result<&Self, String> {
         match property {
             CalendarProperty::UID(uid_property) => {
-                if self.uid != uid_property {
+                if self.uid.uid != uid_property.uid {
                     return Err(
                         format!("Inserted calendar UID: {} does not match existing UID: {}", uid_property.uid.to_string(), self.uid.uid.to_string())
                     );

@@ -147,14 +147,21 @@ pub struct GeoPoint {
 impl From<GeoProperty> for GeoPoint {
     #[inline]
     fn from(property: GeoProperty) -> Self {
-        GeoPoint::new(property.longitude.into(), property.latitude.into())
+        let latitude: f64 = property.latitude.into();
+        let longitude: f64 = property.longitude.into();
+
+        GeoPoint::new(latitude, longitude)
     }
 }
 
 impl From<&GeoProperty> for GeoPoint {
     #[inline]
     fn from(property: &GeoProperty) -> Self {
-        GeoPoint::new(property.longitude.into(), property.latitude.into())
+        let property = property.to_owned();
+        let latitude: f64 = property.latitude.into();
+        let longitude: f64 = property.longitude.into();
+
+        GeoPoint::new(latitude, longitude)
     }
 }
 

@@ -131,7 +131,7 @@ impl DescriptionProperty {
                     }
                 }
 
-                let mut description = String::from(parsed_value.trim());
+                let description = String::from(parsed_value.trim());
 
                 let parsed_property = DescriptionProperty {
                     altrep,
