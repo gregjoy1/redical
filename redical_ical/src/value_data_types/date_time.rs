@@ -391,7 +391,7 @@ mod tests {
         assert_eq!(
             DateTime::LocalDate(
                 NaiveDate::from_ymd_opt(1997_i32, 7_u32, 14_u32).unwrap()
-            ).render_ical_with_context(Some(&RenderingContext { tz: Some(Tz::Europe__Vilnius) })),
+            ).render_ical_with_context(Some(&RenderingContext { tz: Some(Tz::Europe__Vilnius), distance_unit: None })),
             String::from("19970714"),
         );
 
@@ -399,7 +399,7 @@ mod tests {
         assert_eq!(
             DateTime::LocalDate(
                 NaiveDate::from_ymd_opt(1997_i32, 7_u32, 14_u32).unwrap()
-            ).render_ical_with_context(Some(&RenderingContext { tz: Some(Tz::America__Phoenix) })),
+            ).render_ical_with_context(Some(&RenderingContext { tz: Some(Tz::America__Phoenix), distance_unit: None })),
             String::from("19970714"),
         );
 
@@ -410,7 +410,7 @@ mod tests {
                     NaiveDate::from_ymd_opt(1998_i32, 1_u32, 18_u32).unwrap(),
                     NaiveTime::from_hms_opt(23_u32, 0_u32, 0_u32).unwrap(),
                 )
-            ).render_ical_with_context(Some(&RenderingContext { tz: Some(Tz::Europe__Vilnius) })),
+            ).render_ical_with_context(Some(&RenderingContext { tz: Some(Tz::Europe__Vilnius), distance_unit: None })),
             String::from("19980118T230000"),
         );
 
@@ -421,7 +421,7 @@ mod tests {
                     NaiveDate::from_ymd_opt(1998_i32, 1_u32, 18_u32).unwrap(),
                     NaiveTime::from_hms_opt(23_u32, 0_u32, 0_u32).unwrap(),
                 )
-            ).render_ical_with_context(Some(&RenderingContext { tz: Some(Tz::America__Phoenix) })),
+            ).render_ical_with_context(Some(&RenderingContext { tz: Some(Tz::America__Phoenix), distance_unit: None })),
             String::from("19980118T230000"),
         );
 
@@ -432,7 +432,7 @@ mod tests {
                     NaiveDate::from_ymd_opt(1998_i32, 1_u32, 18_u32).unwrap(),
                     NaiveTime::from_hms_opt(23_u32, 0_u32, 0_u32).unwrap(),
                 )
-            ).render_ical_with_context(Some(&RenderingContext { tz: Some(Tz::Europe__Vilnius) })),
+            ).render_ical_with_context(Some(&RenderingContext { tz: Some(Tz::Europe__Vilnius), distance_unit: None })),
             String::from("19980119T010000"),
         );
 
@@ -443,7 +443,7 @@ mod tests {
                     NaiveDate::from_ymd_opt(1998_i32, 1_u32, 18_u32).unwrap(),
                     NaiveTime::from_hms_opt(23_u32, 0_u32, 0_u32).unwrap(),
                 )
-            ).render_ical_with_context(Some(&RenderingContext { tz: Some(Tz::America__Phoenix) })),
+            ).render_ical_with_context(Some(&RenderingContext { tz: Some(Tz::America__Phoenix), distance_unit: None })),
             String::from("19980118T160000"),
         );
 
@@ -454,7 +454,7 @@ mod tests {
                     NaiveDate::from_ymd_opt(1998_i32, 1_u32, 18_u32).unwrap(),
                     NaiveTime::from_hms_opt(23_u32, 0_u32, 0_u32).unwrap(),
                 )
-            ).render_ical_with_context(Some(&RenderingContext { tz: Some(Tz::UTC) })),
+            ).render_ical_with_context(Some(&RenderingContext { tz: Some(Tz::UTC), distance_unit: None })),
             String::from("19980118T230000Z"),
         );
     }

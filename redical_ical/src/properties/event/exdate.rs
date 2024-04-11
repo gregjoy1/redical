@@ -380,7 +380,7 @@ mod tests {
                         NaiveTime::from_hms_opt(15_u32, 0_u32, 0_u32).unwrap(),
                     )
                 ),
-            }.render_ical_with_context(Some(&RenderingContext { tz: Some(Tz::Europe__Warsaw) })),
+            }.render_ical_with_context(Some(&RenderingContext { tz: Some(Tz::Europe__Warsaw), distance_unit: None })),
             String::from("EXDATE;TZID=Europe/Warsaw:19960401T170000"),
         );
 
@@ -398,7 +398,7 @@ mod tests {
                         NaiveTime::from_hms_opt(15_u32, 0_u32, 0_u32).unwrap(),
                     )
                 ),
-            }.render_ical_with_context(Some(&RenderingContext { tz: Some(Tz::America__Phoenix) })),
+            }.render_ical_with_context(Some(&RenderingContext { tz: Some(Tz::America__Phoenix), distance_unit: None })),
             String::from("EXDATE;TZID=America/Phoenix:19960401T070000"),
         );
 
@@ -416,7 +416,7 @@ mod tests {
                         NaiveTime::from_hms_opt(15_u32, 0_u32, 0_u32).unwrap(),
                     )
                 ),
-            }.render_ical_with_context(Some(&RenderingContext { tz: Some(Tz::UTC) })),
+            }.render_ical_with_context(Some(&RenderingContext { tz: Some(Tz::UTC), distance_unit: None })),
             String::from("EXDATE;TZID=UTC:19960401T140000Z"),
         );
 
@@ -435,7 +435,7 @@ mod tests {
                 date_time: DateTime::LocalDate(
                     NaiveDate::from_ymd_opt(1996_i32, 4_u32, 1_u32).unwrap()
                 ),
-            }.render_ical_with_context(Some(&RenderingContext { tz: Some(Tz::America__Phoenix) })),
+            }.render_ical_with_context(Some(&RenderingContext { tz: Some(Tz::America__Phoenix), distance_unit: None })),
             String::from("EXDATE;TEST=VALUE;X-TEST=X_VALUE;VALUE=DATE;TZID=America/Phoenix:19960331"),
         );
     }
