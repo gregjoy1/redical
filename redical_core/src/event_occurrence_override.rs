@@ -4,13 +4,22 @@ use std::str::FromStr;
 
 use crate::event::{IndexedProperties, PassiveProperties};
 
-use crate::ical::serializer::{SerializableICalComponent, SerializableICalProperty, SerializationPreferences};
-
-use crate::ical::parser::datetime::{datestring_to_date, ParseError};
-
-use crate::ical::properties::{
-    DTEndProperty, DTStartProperty, DurationProperty, Properties, Property,
+use redical_ical::{
+    ICalendarComponent,
+    RenderingContext,
+    content_line::ContentLine,
+    properties::{
+        ICalendarProperty,
+        ICalendarDateTimeProperty,
+        EventProperty,
+        EventProperties,
+        DTStartProperty,
+        DTEndProperty,
+        DurationProperty,
+    },
 };
+
+use redical_ical::value_data_types::date_time::DateTime as ICalDateTime;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct EventOccurrenceOverride {
@@ -36,24 +45,24 @@ impl Default for EventOccurrenceOverride {
 
 impl EventOccurrenceOverride {
     pub fn set_dtstart_timestamp(&mut self, dtstart_timestamp: i64) {
-        self.dtstart = Some(dtstart_timestamp.into());
+        self.dtstart = Some(DTStartProperty::new_from_utc_timestamp(&dtstart_timestamp));
     }
 
     pub fn get_dtstart_timestamp(&self) -> Option<i64> {
         self.dtstart
             .as_ref()
-            .and_then(|dtstart| Some(dtstart.utc_timestamp.to_owned()))
+            .and_then(|dtstart| Some(dtstart.get_utc_timestamp()))
     }
 
     pub fn get_dtend_timestamp(&self) -> Option<i64> {
         self.dtend
             .as_ref()
-            .and_then(|dtend| Some(dtend.utc_timestamp.to_owned()))
+            .and_then(|dtend| Some(dtend.get_utc_timestamp()))
     }
 
     pub fn get_duration_in_seconds(&self) -> Option<i64> {
         if let Some(parsed_duration) = self.duration.as_ref() {
-            return Some(parsed_duration.get_duration_in_seconds());
+            return Some(parsed_duration.duration.get_duration_in_seconds());
         }
 
         match (self.get_dtstart_timestamp(), self.get_dtend_timestamp()) {
@@ -66,20 +75,20 @@ impl EventOccurrenceOverride {
     }
 
     pub fn parse_ical(dtstart_date_string: &str, input: &str) -> Result<EventOccurrenceOverride, String> {
-        Properties::from_str(input).and_then(|Properties(parsed_properties)| {
+        EventProperties::from_str(input).and_then(|EventProperties(parsed_properties)| {
             let mut new_override = EventOccurrenceOverride::default();
 
             for parsed_property in parsed_properties {
                 new_override.insert(parsed_property)?;
             }
 
-            let Ok(dtstart_datetime) = datestring_to_date(dtstart_date_string, None, "DTSTART") else {
+            let Ok(dtstart_datetime) = ICalDateTime::from_str(dtstart_date_string) else {
                 return Err(
                     format!("Event occurrence override datetime: {dtstart_date_string} is not a valid datetime format.")
                 );
             };
 
-            new_override.set_dtstart_timestamp(dtstart_datetime.timestamp());
+            new_override.set_dtstart_timestamp(dtstart_datetime.get_utc_timestamp(None));
 
             new_override.validate()?;
 
@@ -97,48 +106,48 @@ impl EventOccurrenceOverride {
         Ok(true)
     }
 
-    pub fn insert(&mut self, property: Property) -> Result<&Self, String> {
+    pub fn insert(&mut self, property: EventProperty) -> Result<&Self, String> {
         match property {
-            Property::Class(_)
-            | Property::Geo(_)
-            | Property::Categories(_)
-            | Property::RelatedTo(_) => {
+            EventProperty::Class(_)
+            | EventProperty::Geo(_)
+            | EventProperty::Categories(_)
+            | EventProperty::RelatedTo(_) => {
                 self.indexed_properties.insert(property)?;
             }
 
-            Property::RRule(_) => {
+            EventProperty::RRule(_) => {
                 return Err(String::from(
                     "Event occurrence override does not expect an RRULE property",
                 ));
             }
 
-            Property::ExRule(_) => {
+            EventProperty::ExRule(_) => {
                 return Err(String::from(
                     "Event occurrence override does not expect an EXRULE property",
                 ));
             }
 
-            Property::RDate(_) => {
+            EventProperty::RDate(_) => {
                 return Err(String::from(
                     "Event occurrence override does not expect an RDATE property",
                 ));
             }
 
-            Property::ExDate(_) => {
+            EventProperty::ExDate(_) => {
                 return Err(String::from(
                     "Event occurrence override does not expect an EXDATE property",
                 ));
             }
 
-            Property::DTStart(dtstart_property) => {
+            EventProperty::DTStart(dtstart_property) => {
                 self.dtstart = Some(dtstart_property);
             }
 
-            Property::DTEnd(dtend_property) => {
+            EventProperty::DTEnd(dtend_property) => {
                 self.dtend = Some(dtend_property);
             }
 
-            Property::Duration(duration_property) => {
+            EventProperty::Duration(duration_property) => {
                 self.duration = Some(duration_property);
             }
 
@@ -151,47 +160,44 @@ impl EventOccurrenceOverride {
     }
 }
 
-impl SerializableICalComponent for EventOccurrenceOverride {
-    fn serialize_to_ical_set(
-        &self,
-        preferences: Option<&SerializationPreferences>,
-    ) -> BTreeSet<String> {
-        let mut serializable_properties: BTreeSet<String> = BTreeSet::new();
+impl ICalendarComponent for EventOccurrenceOverride {
+    fn to_content_line_set_with_context(&self, context: Option<&RenderingContext>) -> BTreeSet<ContentLine> {
+        let mut serializable_properties: BTreeSet<ContentLine> = BTreeSet::new();
 
         if let Some(dtstart_property) = &self.dtstart {
-            serializable_properties.insert(dtstart_property.serialize_to_ical(preferences));
+            serializable_properties.insert(dtstart_property.to_content_line_with_context(context));
         }
 
         if let Some(dtend_property) = &self.dtend {
-            serializable_properties.insert(dtend_property.serialize_to_ical(preferences));
+            serializable_properties.insert(dtend_property.to_content_line_with_context(context));
         }
 
         if let Some(duration_property) = &self.duration {
-            serializable_properties.insert(duration_property.serialize_to_ical(preferences));
+            serializable_properties.insert(duration_property.to_content_line_with_context(context));
         }
 
         if let Some(geo_property) = &self.indexed_properties.geo {
-            serializable_properties.insert(geo_property.serialize_to_ical(preferences));
+            serializable_properties.insert(geo_property.to_content_line_with_context(context));
         }
 
         if let Some(class_property) = &self.indexed_properties.class {
-            serializable_properties.insert(class_property.serialize_to_ical(preferences));
+            serializable_properties.insert(class_property.to_content_line_with_context(context));
         }
 
         if let Some(related_to_properties) = &self.indexed_properties.related_to {
             for related_to_property in related_to_properties {
-                serializable_properties.insert(related_to_property.serialize_to_ical(preferences));
+                serializable_properties.insert(related_to_property.to_content_line_with_context(context));
             }
         }
 
         if let Some(categories_properties) = &self.indexed_properties.categories {
             for categories_property in categories_properties {
-                serializable_properties.insert(categories_property.serialize_to_ical(preferences));
+                serializable_properties.insert(categories_property.to_content_line_with_context(context));
             }
         }
 
         for passive_property in &self.passive_properties.properties {
-            serializable_properties.insert(passive_property.serialize_to_ical(preferences));
+            serializable_properties.insert(passive_property.to_content_line_with_context(context));
         }
 
         serializable_properties
@@ -204,8 +210,10 @@ mod test {
 
     use std::collections::{BTreeSet, HashSet};
 
-    use crate::ical::properties::{
-        CategoriesProperty, ClassProperty, DescriptionProperty, Property,
+    use redical_ical::properties::{
+        PassiveProperty,
+        ClassProperty,
+        CategoriesProperty,
     };
 
     use crate::testing::macros::build_property_from_ical;
@@ -238,7 +246,7 @@ mod test {
                     },
 
                     passive_properties: PassiveProperties {
-                        properties: BTreeSet::from([Property::Description(build_property_from_ical!(DescriptionProperty, "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas\\, NV\\, USA"))]),
+                        properties: BTreeSet::from([build_property_from_ical!(PassiveProperty, "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas\\, NV\\, USA")]),
                     },
 
                     duration: None,
@@ -261,7 +269,7 @@ mod test {
                 },
 
                 passive_properties: PassiveProperties {
-                    properties: BTreeSet::from([Property::Description(build_property_from_ical!(DescriptionProperty, "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas\\, NV\\, USA"))]),
+                    properties: BTreeSet::from([build_property_from_ical!(PassiveProperty, "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas\\, NV\\, USA")]),
                 },
 
                 duration: None,

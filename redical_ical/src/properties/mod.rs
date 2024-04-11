@@ -62,6 +62,18 @@ pub trait ICalendarDateTimeProperty {
         )
     }
 
+    fn new_from_utc_timestamp(utc_timestamp: &i64) -> Self
+    where
+        Self: Sized,
+    {
+        Self::new(
+            None,
+            None,
+            &DateTime::from(utc_timestamp.to_owned()),
+        )
+    }
+
+
     fn new(value_type: Option<&ValueType>, tzid: Option<&Tzid>, date_time: &DateTime) -> Self;
 
     fn get_tzid(&self) -> Option<&Tzid>;

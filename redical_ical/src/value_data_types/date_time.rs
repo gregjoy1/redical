@@ -1,5 +1,5 @@
 use chrono::prelude::TimeZone;
-use chrono::{NaiveDate, NaiveTime, NaiveDateTime};
+use chrono::{NaiveDate, NaiveTime, NaiveDateTime, LocalResult};
 use chrono_tz::Tz;
 
 use nom::branch::alt;
@@ -272,6 +272,26 @@ impl DateTime {
           .to_string()
     }
 
+}
+
+impl From<i64> for DateTime {
+    fn from(timestamp: i64) -> Self {
+        match Tz::UTC.timestamp_opt(timestamp, 0) {
+            LocalResult::Single(local_date_time) => {
+                DateTime::UtcDateTime(local_date_time.naive_utc())
+            },
+
+            LocalResult::None => {
+                // TODO: Consider handling this better
+                panic!("Unable to parse ICalendar DateTime String from UTC timestamp: {timestamp} - none determined");
+            },
+
+            LocalResult::Ambiguous(earliest, latest) => {
+                // TODO: Consider handling this better
+                panic!("Unable to parse ICalendar DateTime String from UTC timestamp: {timestamp} - multiple determined - earliest: {earliest} latest: {latest}");
+            },
+        }
+    }
 }
 
 impl_icalendar_entity_traits!(DateTime);
