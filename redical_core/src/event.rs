@@ -11,8 +11,9 @@ use redical_ical::{
     properties::{
         ICalendarProperty,
         ICalendarDateTimeProperty,
-        UIDProperty,
         EventProperty,
+        EventProperties,
+        UIDProperty,
         RRuleProperty,
         ExRuleProperty,
         RDateProperty,
@@ -556,7 +557,7 @@ impl Event {
     }
 
     pub fn parse_ical(uid: &str, input: &str) -> Result<Event, String> {
-        EventProperties::from_str(input).and_then(|Properties(parsed_properties)| {
+        EventProperties::from_str(input).and_then(|EventProperties(parsed_properties)| {
             let mut new_event = Event::new(String::from(uid));
 
             for parsed_property in parsed_properties {
@@ -1083,7 +1084,7 @@ mod test {
                 },
 
                 passive_properties: PassiveProperties {
-                    properties: BTreeSet::from([Property::Description(build_property_from_ical!(DescriptionProperty, "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas\\, NV\\, USA"))]),
+                    properties: BTreeSet::from([build_property_from_ical!(PassiveProperty, "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas\\, NV\\, USA")]),
                 },
 
                 overrides: BTreeMap::new(),
@@ -1196,7 +1197,7 @@ mod test {
                 class: None,
             },
             passive_properties: PassiveProperties {
-                properties: BTreeSet::from([Property::Description(build_property_from_ical!(DescriptionProperty, "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas\\, NV\\, USA"))]),
+                properties: BTreeSet::from([build_property_from_ical!(PassiveProperty, "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas\\, NV\\, USA")]),
             },
             dtstart: Some(build_property_from_ical!(DTStartProperty, "DTSTART:20210112T183000Z")),
             dtend: None,
@@ -1235,7 +1236,7 @@ mod test {
                                     class: None,
                                 },
                                 passive_properties: PassiveProperties {
-                                    properties: BTreeSet::from([Property::Description(build_property_from_ical!(DescriptionProperty, "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas\\, NV\\, USA"))]),
+                                    properties: BTreeSet::from([build_property_from_ical!(PassiveProperty, "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas\\, NV\\, USA")]),
                                 },
                                 dtstart: Some(build_property_from_ical!(DTStartProperty, "DTSTART:20210112T183000Z")),
                                 dtend: None,

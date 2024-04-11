@@ -1,5 +1,9 @@
+use std::str::FromStr;
+
 use nom::branch::alt;
 use nom::combinator::map;
+use nom::combinator::all_consuming;
+use nom::multi::separated_list1;
 
 mod dtstart;
 mod dtend;
@@ -15,6 +19,8 @@ mod geo;
 mod related_to;
 
 mod passive;
+
+use crate::grammar::wsp;
 
 pub use dtstart::{DTStartProperty, DTStartPropertyParams};
 pub use dtend::{DTEndProperty, DTEndPropertyParams};
@@ -33,7 +39,7 @@ pub use passive::PassiveProperty;
 
 use crate::properties::uid::UIDProperty;
 
-use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
+use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits, convert_error};
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum EventProperty {
@@ -97,6 +103,32 @@ impl std::hash::Hash for EventProperty {
 }
 
 impl_icalendar_entity_traits!(EventProperty);
+
+#[derive(Debug, Eq, PartialEq, Clone)]
+pub struct EventProperties(pub Vec<EventProperty>);
+
+impl FromStr for EventProperties {
+    type Err = String;
+
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        let parsed_properties =
+            all_consuming(separated_list1(wsp, EventProperty::parse_ical))(input.into());
+
+        match parsed_properties {
+            Ok((_remaining, properties)) => {
+                Ok(EventProperties(properties))
+            },
+
+            Err(error) => {
+                if let nom::Err::Error(error) = error {
+                    Err(convert_error(input, error))
+                } else {
+                    Err(error.to_string())
+                }
+            }
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
