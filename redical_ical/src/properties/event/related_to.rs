@@ -10,7 +10,7 @@ use crate::value_data_types::text::Text;
 
 use crate::grammar::{tag, semicolon, colon, comma, x_name, iana_token, param_value};
 
-use crate::properties::define_property_params_ical_parser;
+use crate::properties::{ICalendarProperty, ICalendarPropertyParams, define_property_params_ical_parser};
 
 use crate::content_line::{ContentLineParams, ContentLine};
 
@@ -80,20 +80,22 @@ impl ICalendarEntity for RelatedToPropertyParams {
         ),
     );
 
-    fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
-        ContentLineParams::from(self).render_ical()
+    fn render_ical_with_context(&self, context: Option<&RenderingContext>) -> String {
+        self.to_content_line_params_with_context(context).render_ical()
     }
 }
 
-impl From<&RelatedToPropertyParams> for ContentLineParams {
-    fn from(related_to_params: &RelatedToPropertyParams) -> Self {
+impl ICalendarPropertyParams for RelatedToPropertyParams {
+    /// Build a `ContentLineParams` instance with consideration to the optionally provided
+    /// `RenderingContext`.
+    fn to_content_line_params_with_context(&self, _context: Option<&RenderingContext>) -> ContentLineParams {
         let mut content_line_params = ContentLineParams::default();
 
-        for (key, value) in related_to_params.other.to_owned().into_iter().sorted() {
+        for (key, value) in self.other.to_owned().into_iter().sorted() {
             content_line_params.insert(key.to_owned(), value.to_owned());
         }
 
-        if let Some(reltype) = related_to_params.reltype.as_ref() {
+        if let Some(reltype) = self.reltype.as_ref() {
             content_line_params.insert(String::from("RELTYPE"), reltype.render_ical());
         }
 
@@ -177,20 +179,8 @@ impl ICalendarEntity for RelatedToProperty {
     }
 
 
-    fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
-        ContentLine::from(self).render_ical()
-    }
-}
-
-impl From<&RelatedToProperty> for ContentLine {
-    fn from(related_to_property: &RelatedToProperty) -> Self {
-        ContentLine::from((
-            "RELATED-TO",
-            (
-                ContentLineParams::from(&related_to_property.params),
-                related_to_property.uid.to_string(),
-            )
-        ))
+    fn render_ical_with_context(&self, context: Option<&RenderingContext>) -> String {
+        self.to_content_line_with_context(context).render_ical()
     }
 }
 
@@ -211,6 +201,19 @@ impl RelatedToProperty {
     }
 }
 
+impl ICalendarProperty for RelatedToProperty {
+    /// Build a `ContentLineParams` instance with consideration to the optionally provided
+    /// `RenderingContext`.
+    fn to_content_line_with_context(&self, _context: Option<&RenderingContext>) -> ContentLine {
+        ContentLine::from((
+            "RELATED-TO",
+            (
+                ContentLineParams::from(&self.params),
+                self.uid.to_string(),
+            )
+        ))
+    }
+}
 
 impl std::hash::Hash for RelatedToProperty {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {

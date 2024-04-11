@@ -120,8 +120,8 @@ impl ICalendarEntity for RRuleProperty {
         )(input)
     }
 
-    fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
-        ContentLine::from(self).render_ical()
+    fn render_ical_with_context(&self, context: Option<&RenderingContext>) -> String {
+        self.to_content_line_with_context(context).render_ical()
     }
 }
 

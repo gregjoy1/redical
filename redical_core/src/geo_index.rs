@@ -7,8 +7,8 @@ use rstar::primitives::GeomWithData;
 
 use std::hash::{Hash, Hasher};
 
-use crate::ical::properties::GeoProperty;
 use crate::{IndexedConclusion, InvertedCalendarIndexTerm};
+use redical_ical::properties::GeoProperty;
 
 #[derive(Debug, PartialOrd, PartialEq, Eq, Clone)]
 pub enum GeoDistance {

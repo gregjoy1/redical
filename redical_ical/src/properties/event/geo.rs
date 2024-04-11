@@ -10,7 +10,7 @@ use crate::value_data_types::float::Float;
 
 use crate::grammar::{tag, semicolon, colon, comma, x_name, iana_token, param_value};
 
-use crate::properties::define_property_params_ical_parser;
+use crate::properties::{ICalendarProperty, ICalendarPropertyParams, define_property_params_ical_parser};
 
 use crate::content_line::{ContentLineParams, ContentLine};
 
@@ -32,16 +32,18 @@ impl ICalendarEntity for GeoPropertyParams {
         ),
     );
 
-    fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
-        ContentLineParams::from(self).render_ical()
+    fn render_ical_with_context(&self, context: Option<&RenderingContext>) -> String {
+        self.to_content_line_params_with_context(context).render_ical()
     }
 }
 
-impl From<&GeoPropertyParams> for ContentLineParams {
-    fn from(class_params: &GeoPropertyParams) -> Self {
+impl ICalendarPropertyParams for GeoPropertyParams {
+    /// Build a `ContentLineParams` instance with consideration to the optionally provided
+    /// `RenderingContext`.
+    fn to_content_line_params_with_context(&self, _context: Option<&RenderingContext>) -> ContentLineParams {
         let mut content_line_params = ContentLineParams::default();
 
-        for (key, value) in class_params.other.to_owned().into_iter().sorted() {
+        for (key, value) in self.other.to_owned().into_iter().sorted() {
             content_line_params.insert(key.to_owned(), value.to_owned());
         }
 
@@ -50,8 +52,8 @@ impl From<&GeoPropertyParams> for ContentLineParams {
 }
 
 impl From<GeoPropertyParams> for ContentLineParams {
-    fn from(class_params: GeoPropertyParams) -> Self {
-        ContentLineParams::from(&class_params)
+    fn from(geo_params: GeoPropertyParams) -> Self {
+        geo_params.to_content_line_params()
     }
 }
 
@@ -123,18 +125,20 @@ impl ICalendarEntity for GeoProperty {
         )(input)
     }
 
-    fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
-        ContentLine::from(self).render_ical()
+    fn render_ical_with_context(&self, context: Option<&RenderingContext>) -> String {
+        self.to_content_line_with_context(context).render_ical()
     }
 }
 
-impl From<&GeoProperty> for ContentLine {
-    fn from(geo_property: &GeoProperty) -> Self {
+impl ICalendarProperty for GeoProperty {
+    /// Build a `ContentLineParams` instance with consideration to the optionally provided
+    /// `RenderingContext`.
+    fn to_content_line_with_context(&self, _context: Option<&RenderingContext>) -> ContentLine {
         ContentLine::from((
             "GEO",
             (
-                ContentLineParams::from(&geo_property.params),
-                format!("{};{}", geo_property.latitude.render_ical(), geo_property.longitude.render_ical()),
+                ContentLineParams::from(&self.params),
+                format!("{};{}", self.latitude.render_ical(), self.longitude.render_ical()),
             )
         ))
     }

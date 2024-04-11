@@ -8,7 +8,7 @@ use nom::combinator::{recognize, map, cut, opt};
 
 use crate::grammar::{tag, semicolon, colon, comma, x_name, iana_token, param_value};
 
-use crate::properties::define_property_params_ical_parser;
+use crate::properties::{ICalendarProperty, ICalendarPropertyParams, define_property_params_ical_parser};
 
 use crate::content_line::{ContentLineParams, ContentLine};
 
@@ -69,16 +69,18 @@ impl ICalendarEntity for ClassPropertyParams {
         ),
     );
 
-    fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
-        ContentLineParams::from(self).render_ical()
+    fn render_ical_with_context(&self, context: Option<&RenderingContext>) -> String {
+        self.to_content_line_params_with_context(context).render_ical()
     }
 }
 
-impl From<&ClassPropertyParams> for ContentLineParams {
-    fn from(class_params: &ClassPropertyParams) -> Self {
+impl ICalendarPropertyParams for ClassPropertyParams {
+    /// Build a `ContentLineParams` instance with consideration to the optionally provided
+    /// `RenderingContext`.
+    fn to_content_line_params_with_context(&self, _context: Option<&RenderingContext>) -> ContentLineParams {
         let mut content_line_params = ContentLineParams::default();
 
-        for (key, value) in class_params.other.to_owned().into_iter().sorted() {
+        for (key, value) in self.other.to_owned().into_iter().sorted() {
             content_line_params.insert(key.to_owned(), value.to_owned());
         }
 
@@ -124,7 +126,7 @@ impl From<ClassPropertyParams> for ContentLineParams {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ClassProperty {
     pub params: ClassPropertyParams,
-    pub value: ClassValue,
+    pub class: ClassValue,
 }
 
 impl ICalendarEntity for ClassProperty {
@@ -139,10 +141,10 @@ impl ICalendarEntity for ClassProperty {
                             opt(ClassPropertyParams::parse_ical),
                             preceded(colon, ClassValue::parse_ical),
                         ),
-                        |(params, value)| {
+                        |(params, class)| {
                             ClassProperty {
                                 params: params.unwrap_or(ClassPropertyParams::default()),
-                                value,
+                                class,
                             }
                         }
                     )
@@ -151,18 +153,20 @@ impl ICalendarEntity for ClassProperty {
         )(input)
     }
 
-    fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
-        ContentLine::from(self).render_ical()
+    fn render_ical_with_context(&self, context: Option<&RenderingContext>) -> String {
+        self.to_content_line_with_context(context).render_ical()
     }
 }
 
-impl From<&ClassProperty> for ContentLine {
-    fn from(class_property: &ClassProperty) -> Self {
+impl ICalendarProperty for ClassProperty {
+    /// Build a `ContentLineParams` instance with consideration to the optionally provided
+    /// `RenderingContext`.
+    fn to_content_line_with_context(&self, _context: Option<&RenderingContext>) -> ContentLine {
         ContentLine::from((
             "CLASS",
             (
-                ContentLineParams::from(&class_property.params),
-                class_property.value.to_string(),
+                ContentLineParams::from(&self.params),
+                self.class.to_string(),
             )
         ))
     }
@@ -190,7 +194,7 @@ mod tests {
                 " DESCRIPTION:Description text",
                 ClassProperty {
                     params: ClassPropertyParams::default(),
-                    value: ClassValue::Private,
+                    class: ClassValue::Private,
                 },
             ),
         );
@@ -201,7 +205,7 @@ mod tests {
                 "",
                 ClassProperty {
                     params: ClassPropertyParams::default(),
-                    value: ClassValue::XName(String::from("X-HIDDEN")),
+                    class: ClassValue::XName(String::from("X-HIDDEN")),
                 },
             ),
         );
@@ -217,7 +221,7 @@ mod tests {
                             (String::from("TEST"), String::from("VALUE")),
                         ]),
                     },
-                    value: ClassValue::IanaToken(String::from("IANA-TOKEN")),
+                    class: ClassValue::IanaToken(String::from("IANA-TOKEN")),
                 },
             ),
         );
@@ -230,7 +234,7 @@ mod tests {
         assert_eq!(
             ClassProperty {
                 params: ClassPropertyParams::default(),
-                value: ClassValue::Private,
+                class: ClassValue::Private,
             }.render_ical(),
             String::from("CLASS:PRIVATE"),
         );
@@ -238,7 +242,7 @@ mod tests {
         assert_eq!(
             ClassProperty {
                 params: ClassPropertyParams::default(),
-                value: ClassValue::XName(String::from("X-HIDDEN")),
+                class: ClassValue::XName(String::from("X-HIDDEN")),
             }.render_ical(),
             String::from("CLASS:X-HIDDEN"),
         );
@@ -251,7 +255,7 @@ mod tests {
                         (String::from("TEST"), String::from("VALUE")),
                     ]),
                 },
-                value: ClassValue::IanaToken(String::from("IANA-TOKEN")),
+                class: ClassValue::IanaToken(String::from("IANA-TOKEN")),
             }.render_ical(),
             String::from("CLASS;TEST=VALUE;X-TEST=X_VALUE:IANA-TOKEN"),
         );

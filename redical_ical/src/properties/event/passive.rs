@@ -4,8 +4,9 @@ use nom::combinator::map;
 use crate::content_line::{ContentLine, ContentLineParams};
 
 use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
+use crate::properties::ICalendarProperty;
 
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, Ord, PartialOrd)]
 pub enum PassiveProperty {
     Calscale(ContentLineParams, String),
     Method(ContentLineParams, String),
@@ -140,20 +141,22 @@ impl ICalendarEntity for PassiveProperty {
         ))(input)
     }
 
-    fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
-        ContentLine::from(self).render_ical()
-    }
-}
-
-impl From<&PassiveProperty> for ContentLine {
-    fn from(property: &PassiveProperty) -> Self {
-        ContentLine::from(property.to_owned())
+    fn render_ical_with_context(&self, context: Option<&RenderingContext>) -> String {
+        self.to_content_line_with_context(context).render_ical()
     }
 }
 
 impl From<PassiveProperty> for ContentLine {
     fn from(property: PassiveProperty) -> Self {
-        match property {
+        property.to_content_line()
+    }
+}
+
+impl ICalendarProperty for PassiveProperty {
+    /// Build a `ContentLine` instance with consideration to the optionally provided
+    /// `RenderingContext`.
+    fn to_content_line_with_context(&self, _context: Option<&RenderingContext>) -> ContentLine {
+        match self.to_owned() {
             PassiveProperty::Calscale(params, value)          => ContentLine::from(("CALSCALE", (params, value))),
             PassiveProperty::Method(params, value)            => ContentLine::from(("METHOD", (params, value))),
             PassiveProperty::Prodid(params, value)            => ContentLine::from(("PRODID", (params, value))),

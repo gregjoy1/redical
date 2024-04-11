@@ -415,7 +415,7 @@ impl IndexedProperties {
     pub fn extract_class(&self) -> Option<String> {
         self.class
             .as_ref()
-            .and_then(|class_property| Some(class_property.class.clone()))
+            .and_then(|class_property| Some(class_property.class.to_string()))
     }
 
     pub fn insert(&mut self, property: EventProperty) -> Result<&Self, String> {
@@ -468,7 +468,7 @@ impl PassiveProperties {
         let mut key_value_pairs = HashSet::new();
 
         for property in &self.properties {
-            key_value_pairs.insert(property.serialize_to_ical_key_value_pair(None));
+            key_value_pairs.insert(property.to_content_line().into());
         }
 
         key_value_pairs
@@ -476,7 +476,8 @@ impl PassiveProperties {
 
     pub fn insert(&mut self, property: EventProperty) -> Result<&Self, String> {
         match property {
-            EventProperty::Class(_)
+            EventProperty::UID(_)
+            | EventProperty::Class(_)
             | EventProperty::Geo(_)
             | EventProperty::Categories(_)
             | EventProperty::RelatedTo(_)
@@ -493,8 +494,8 @@ impl PassiveProperties {
                 ));
             }
 
-            _ => {
-                self.properties.insert(property);
+            EventProperty::Passive(passive_property) => {
+                self.properties.insert(passive_property);
             }
         };
 
@@ -571,7 +572,7 @@ impl Event {
             EventProperty::UID(property) => {
                 if self.uid != property {
                     return Err(
-                        format!("Inserted event UID: {} does not match existing UID: {}", property.uid, self.uid.uid)
+                        format!("Inserted event UID: {} does not match existing UID: {}", property.uid.to_string(), self.uid.uid.to_string())
                     );
                 }
             },

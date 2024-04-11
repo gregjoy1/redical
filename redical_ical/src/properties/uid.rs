@@ -10,7 +10,7 @@ use crate::value_data_types::text::Text;
 
 use crate::grammar::{tag, semicolon, colon, comma, x_name, iana_token, param_value};
 
-use crate::properties::define_property_params_ical_parser;
+use crate::properties::{ICalendarProperty, ICalendarPropertyParams, define_property_params_ical_parser};
 
 use crate::content_line::{ContentLineParams, ContentLine};
 
@@ -32,16 +32,18 @@ impl ICalendarEntity for UIDPropertyParams {
         ),
     );
 
-    fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
-        ContentLineParams::from(self).render_ical()
+    fn render_ical_with_context(&self, context: Option<&RenderingContext>) -> String {
+        self.to_content_line_params_with_context(context).render_ical()
     }
 }
 
-impl From<&UIDPropertyParams> for ContentLineParams {
-    fn from(uid_params: &UIDPropertyParams) -> Self {
+impl ICalendarPropertyParams for UIDPropertyParams {
+    /// Build a `ContentLineParams` instance with consideration to the optionally provided
+    /// `RenderingContext`.
+    fn to_content_line_params_with_context(&self, _context: Option<&RenderingContext>) -> ContentLineParams {
         let mut content_line_params = ContentLineParams::default();
 
-        for (key, value) in uid_params.other.to_owned().into_iter().sorted() {
+        for (key, value) in self.other.to_owned().into_iter().sorted() {
             content_line_params.insert(key.to_owned(), value.to_owned());
         }
 
@@ -51,7 +53,7 @@ impl From<&UIDPropertyParams> for ContentLineParams {
 
 impl From<UIDPropertyParams> for ContentLineParams {
     fn from(uid_params: UIDPropertyParams) -> Self {
-        ContentLineParams::from(&uid_params)
+        uid_params.to_content_line_params()
     }
 }
 
@@ -83,7 +85,7 @@ impl From<UIDPropertyParams> for ContentLineParams {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct UIDProperty {
     pub params: UIDPropertyParams,
-    pub value: Text,
+    pub uid: Text,
 }
 
 impl ICalendarEntity for UIDProperty {
@@ -98,10 +100,10 @@ impl ICalendarEntity for UIDProperty {
                             opt(UIDPropertyParams::parse_ical),
                             preceded(colon, Text::parse_ical),
                         ),
-                        |(params, value)| {
+                        |(params, uid)| {
                             UIDProperty {
                                 params: params.unwrap_or(UIDPropertyParams::default()),
-                                value,
+                                uid,
                             }
                         }
                     )
@@ -110,20 +112,31 @@ impl ICalendarEntity for UIDProperty {
         )(input)
     }
 
-    fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
-        ContentLine::from(self).render_ical()
+    fn render_ical_with_context(&self, context: Option<&RenderingContext>) -> String {
+        self.to_content_line_with_context(context).render_ical()
     }
 }
 
-impl From<&UIDProperty> for ContentLine {
-    fn from(uid_property: &UIDProperty) -> Self {
+impl ICalendarProperty for UIDProperty {
+    /// Build a `ContentLineParams` instance with consideration to the optionally provided
+    /// `RenderingContext`.
+    fn to_content_line_with_context(&self, _context: Option<&RenderingContext>) -> ContentLine {
         ContentLine::from((
             "UID",
             (
-                ContentLineParams::from(&uid_property.params),
-                uid_property.value.to_string(),
+                ContentLineParams::from(&self.params),
+                self.uid.to_string(),
             )
         ))
+    }
+}
+
+impl From<String> for UIDProperty {
+    fn from(uid: String) -> Self {
+        UIDProperty {
+            params: UIDPropertyParams::default(),
+            uid: uid.into(),
+        }
     }
 }
 
@@ -151,7 +164,7 @@ mod tests {
                 " DESCRIPTION:Description text",
                 UIDProperty {
                     params: UIDPropertyParams::default(),
-                    value: Text(String::from("19960401T080045Z-4000F192713-0052@example.com")),
+                    uid: Text(String::from("19960401T080045Z-4000F192713-0052@example.com")),
                 },
             ),
         );
@@ -167,7 +180,7 @@ mod tests {
                             (String::from("TEST"), String::from("VALUE")),
                         ]),
                     },
-                    value: Text(String::from("19960401T080045Z-4000F192713-0052@example.com")),
+                    uid: Text(String::from("19960401T080045Z-4000F192713-0052@example.com")),
                 },
             ),
         );
@@ -180,7 +193,7 @@ mod tests {
         assert_eq!(
             UIDProperty {
                 params: UIDPropertyParams::default(),
-                value: Text(String::from("19960401T080045Z-4000F192713-0052@example.com")),
+                uid: Text(String::from("19960401T080045Z-4000F192713-0052@example.com")),
             }.render_ical(),
             String::from("UID:19960401T080045Z-4000F192713-0052@example.com"),
         );
@@ -193,7 +206,7 @@ mod tests {
                         (String::from("TEST"), String::from("VALUE")),
                     ]),
                 },
-                value: Text(String::from("19960401T080045Z-4000F192713-0052@example.com")),
+                uid: Text(String::from("19960401T080045Z-4000F192713-0052@example.com")),
             }.render_ical(),
             String::from("UID;TEST=VALUE;X-TEST=X_VALUE:19960401T080045Z-4000F192713-0052@example.com"),
         );

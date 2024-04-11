@@ -11,7 +11,7 @@ use crate::grammar::{tag, semicolon, colon, comma, x_name, iana_token, param_val
 use crate::value_data_types::text::Text;
 use crate::value_data_types::list::List;
 
-use crate::properties::define_property_params_ical_parser;
+use crate::properties::{ICalendarProperty, ICalendarPropertyParams, define_property_params_ical_parser};
 
 use crate::content_line::{ContentLineParams, ContentLine};
 
@@ -38,20 +38,22 @@ impl ICalendarEntity for CategoriesPropertyParams {
         ),
     );
 
-    fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
-        ContentLineParams::from(self).render_ical()
+    fn render_ical_with_context(&self, context: Option<&RenderingContext>) -> String {
+        self.to_content_line_params_with_context(context).render_ical()
     }
 }
 
-impl From<&CategoriesPropertyParams> for ContentLineParams {
-    fn from(categories_params: &CategoriesPropertyParams) -> Self {
+impl ICalendarPropertyParams for CategoriesPropertyParams {
+    /// Build a `ContentLineParams` instance with consideration to the optionally provided
+    /// `RenderingContext`.
+    fn to_content_line_params_with_context(&self, _context: Option<&RenderingContext>) -> ContentLineParams {
         let mut content_line_params = ContentLineParams::default();
 
-        for (key, value) in categories_params.other.to_owned().into_iter().sorted() {
+        for (key, value) in self.other.to_owned().into_iter().sorted() {
             content_line_params.insert(key.to_owned(), value.to_owned());
         }
 
-        if let Some(language) = categories_params.language.as_ref() {
+        if let Some(language) = self.language.as_ref() {
             content_line_params.insert(String::from("LANGUAGE"), language.to_owned());
         }
 
@@ -135,18 +137,20 @@ impl ICalendarEntity for CategoriesProperty {
         )(input)
     }
 
-    fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
-        ContentLine::from(self).render_ical()
+    fn render_ical_with_context(&self, context: Option<&RenderingContext>) -> String {
+        self.to_content_line_with_context(context).render_ical()
     }
 }
 
-impl From<&CategoriesProperty> for ContentLine {
-    fn from(categories_property: &CategoriesProperty) -> Self {
+impl ICalendarProperty for CategoriesProperty {
+    /// Build a `ContentLineParams` instance with consideration to the optionally provided
+    /// `RenderingContext`.
+    fn to_content_line_with_context(&self, _context: Option<&RenderingContext>) -> ContentLine {
         ContentLine::from((
             "CATEGORIES",
             (
-                ContentLineParams::from(&categories_property.params),
-                categories_property.categories.to_string(),
+                ContentLineParams::from(&self.params),
+                self.categories.to_string(),
             )
         ))
     }
