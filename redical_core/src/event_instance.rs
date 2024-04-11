@@ -26,6 +26,7 @@ use redical_ical::{
         RelatedToProperty,
         UIDProperty,
         PassiveProperty,
+        RecurrenceIDProperty,
     },
 };
 
@@ -207,7 +208,7 @@ impl EventInstance {
     // TODO: Verify that reckless assertion above:
     //       - https://icalendar.org/iCalendar-RFC-5545/3-8-4-4-recurrence-id.html
     fn build_recurrence_id_from_dtstart(&self) -> RecurrenceIDProperty {
-        RecurrenceIDProperty::from(&self.dtstart)
+        RecurrenceIDProperty::new_from(&self.dtstart)
     }
 }
 

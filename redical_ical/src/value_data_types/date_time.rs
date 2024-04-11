@@ -52,6 +52,14 @@ impl ValueType {
             _ => Err(String::from("VALUE incompatible with parsed DATE-TIME/DATE value")),
         }
     }
+
+    pub fn new_from_date_time(date_time: &DateTime) -> Self {
+        match date_time {
+            DateTime::UtcDateTime(_) => ValueType::DateTime,
+            DateTime::LocalDateTime(_) => ValueType::DateTime,
+            DateTime::LocalDate(_) => ValueType::Date,
+        }
+    }
 }
 
 impl_icalendar_entity_traits!(ValueType);

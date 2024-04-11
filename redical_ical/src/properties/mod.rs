@@ -1,9 +1,11 @@
 mod uid;
+mod recurrence_id;
 
 pub mod event;
 pub mod calendar;
 
 pub use uid::*;
+pub use recurrence_id::*;
 
 pub use event::*;
 pub use calendar::*;
