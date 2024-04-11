@@ -21,5 +21,4 @@ pub use geo_index::*;
 pub use inverted_index::*;
 pub use utils::*;
 
-pub mod ical;
 pub mod queries;

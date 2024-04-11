@@ -361,7 +361,7 @@ impl<'a> Iterator for EventOccurrenceIterator<'a> {
 mod test {
     use super::*;
 
-    use crate::ical::properties::{DTEndProperty, DTStartProperty, RRuleProperty};
+    use redical_ical::properties::{DTEndProperty, DTStartProperty, RRuleProperty};
 
     use crate::testing::macros::build_property_from_ical;
 
