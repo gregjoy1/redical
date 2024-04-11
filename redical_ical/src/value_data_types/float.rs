@@ -47,6 +47,12 @@ impl ICalendarEntity for Float {
     }
 }
 
+impl Into<f64> for Float {
+    fn into(self) -> f64 {
+        self.0.to_owned()
+    }
+}
+
 impl_icalendar_entity_traits!(Float);
 
 #[cfg(test)]
