@@ -95,6 +95,15 @@ pub struct DurationProperty {
     pub duration: Duration,
 }
 
+impl DurationProperty {
+    pub fn new_from_seconds(duration_in_seconds: &i64) -> Self {
+        DurationProperty {
+            params: DurationPropertyParams::default(),
+            duration: Duration::from(duration_in_seconds.to_owned()),
+        }
+    }
+}
+
 impl ICalendarEntity for DurationProperty {
     fn parse_ical(input: ParserInput) -> ParserResult<Self> {
         context(

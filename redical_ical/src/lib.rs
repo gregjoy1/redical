@@ -234,6 +234,18 @@ where
 }
 
 pub trait ICalendarComponent {
+    fn to_rendered_content_lines_with_context(&self, context: Option<&RenderingContext>) -> Vec<String> {
+        Vec::from_iter(
+            self.to_content_line_set_with_context(context)
+                .into_iter()
+                .map(|content_line| content_line.render_ical())
+        )
+    }
+
+    fn to_rendered_content_lines(&self) -> Vec<String> {
+        self.to_rendered_content_lines_with_context(None)
+    }
+
     fn to_content_line_set(&self) -> BTreeSet<ContentLine> {
         self.to_content_line_set_with_context(None)
     }

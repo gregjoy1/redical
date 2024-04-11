@@ -1,15 +1,8 @@
-use chrono::TimeZone;
-use chrono_tz::Tz;
-
 use std::cmp::Ordering;
 
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeSet, HashSet};
 
-use crate::{Event, EventOccurrenceOverride, GeoPoint, IndexedConclusion, KeyValuePair};
-
-use crate::ical::serializer::{
-    SerializableICalComponent, SerializableICalProperty, SerializationPreferences,
-};
+use crate::{Event, EventOccurrenceOverride, IndexedConclusion};
 
 use crate::event_occurrence_iterator::{
     EventOccurrenceIterator, LowerBoundFilterCondition, UpperBoundFilterCondition,
@@ -17,9 +10,23 @@ use crate::event_occurrence_iterator::{
 
 use crate::event::{IndexedProperties, PassiveProperties};
 
-use crate::ical::properties::{
-    CategoriesProperty, ClassProperty, DTEndProperty, DTStartProperty, DurationProperty,
-    GeoProperty, Property, RecurrenceIDProperty, RelatedToProperty, UIDProperty,
+use redical_ical::{
+    ICalendarComponent,
+    RenderingContext,
+    content_line::ContentLine,
+    properties::{
+        ICalendarProperty,
+        ICalendarDateTimeProperty,
+        CategoriesProperty,
+        ClassProperty,
+        DTEndProperty,
+        DTStartProperty,
+        DurationProperty,
+        GeoProperty,
+        RelatedToProperty,
+        UIDProperty,
+        PassiveProperty,
+    },
 };
 
 #[derive(Debug, Eq, PartialEq, Clone)]
@@ -39,21 +46,29 @@ impl EventInstance {
         event: &Event,
         event_occurrence_override: Option<&EventOccurrenceOverride>,
     ) -> Self {
+        let uid = event.uid.clone();
+        let dtstart = DTStartProperty::new_from_utc_timestamp(dtstart_timestamp);
+        let dtend = DTEndProperty::new_from_utc_timestamp(&Self::get_dtend_timestamp(dtstart_timestamp, event, event_occurrence_override));
+        let duration = DurationProperty::new_from_seconds(&Self::get_duration_in_seconds(event, event_occurrence_override));
+
+        let indexed_properties = IndexedProperties {
+            geo: Self::get_geo(event, event_occurrence_override),
+            categories: Self::get_categories(event, event_occurrence_override),
+            related_to: Self::get_related_to(event, event_occurrence_override),
+            class: Self::get_class(event, event_occurrence_override),
+        };
+
+        let passive_properties = PassiveProperties {
+            properties: Self::get_passive_properties(event, event_occurrence_override),
+        };
+
         EventInstance {
-            uid: event.uid.clone(),
-            dtstart: dtstart_timestamp.clone().into(),
-            dtend: Self::get_dtend_timestamp(dtstart_timestamp, event, event_occurrence_override)
-                .into(),
-            duration: Self::get_duration_in_seconds(event, event_occurrence_override).into(),
-            indexed_properties: IndexedProperties {
-                geo: Self::get_geo(event, event_occurrence_override),
-                categories: Self::get_categories(event, event_occurrence_override),
-                related_to: Self::get_related_to(event, event_occurrence_override),
-                class: Self::get_class(event, event_occurrence_override),
-            },
-            passive_properties: PassiveProperties {
-                properties: Self::get_passive_properties(event, event_occurrence_override),
-            },
+            uid,
+            dtstart,
+            dtend,
+            duration,
+            indexed_properties,
+            passive_properties,
         }
     }
 
@@ -142,7 +157,7 @@ impl EventInstance {
     fn get_passive_properties(
         event: &Event,
         event_occurrence_override: Option<&EventOccurrenceOverride>,
-    ) -> BTreeSet<Property> {
+    ) -> BTreeSet<PassiveProperty> {
         let mut passive_properties = BTreeSet::new();
 
         if let Some(event_occurrence_override) = event_occurrence_override {
@@ -196,45 +211,42 @@ impl EventInstance {
     }
 }
 
-impl SerializableICalComponent for EventInstance {
-    fn serialize_to_ical_set(
-        &self,
-        preferences: Option<&SerializationPreferences>,
-    ) -> BTreeSet<String> {
-        let mut serializable_properties: BTreeSet<String> = BTreeSet::new();
+impl ICalendarComponent for EventInstance {
+    fn to_content_line_set_with_context(&self, context: Option<&RenderingContext>) -> BTreeSet<ContentLine> {
+        let mut serializable_properties: BTreeSet<ContentLine> = BTreeSet::new();
 
-        serializable_properties.insert(self.uid.serialize_to_ical(preferences));
-        serializable_properties.insert(self.dtstart.serialize_to_ical(preferences));
-        serializable_properties.insert(self.dtend.serialize_to_ical(preferences));
-        serializable_properties.insert(self.duration.serialize_to_ical(preferences));
+        serializable_properties.insert(self.uid.to_content_line_with_context(context));
+        serializable_properties.insert(self.dtstart.to_content_line_with_context(context));
+        serializable_properties.insert(self.dtend.to_content_line_with_context(context));
+        serializable_properties.insert(self.duration.to_content_line_with_context(context));
 
         if let Some(geo_property) = &self.indexed_properties.geo {
-            serializable_properties.insert(geo_property.serialize_to_ical(preferences));
+            serializable_properties.insert(geo_property.to_content_line_with_context(context));
         }
 
         if let Some(class_property) = &self.indexed_properties.class {
-            serializable_properties.insert(class_property.serialize_to_ical(preferences));
+            serializable_properties.insert(class_property.to_content_line_with_context(context));
         }
 
         if let Some(related_to_properties) = &self.indexed_properties.related_to {
             for related_to_property in related_to_properties {
-                serializable_properties.insert(related_to_property.serialize_to_ical(preferences));
+                serializable_properties.insert(related_to_property.to_content_line_with_context(context));
             }
         }
 
         if let Some(categories_properties) = &self.indexed_properties.categories {
             for categories_property in categories_properties {
-                serializable_properties.insert(categories_property.serialize_to_ical(preferences));
+                serializable_properties.insert(categories_property.to_content_line_with_context(context));
             }
         }
 
         for passive_property in &self.passive_properties.properties {
-            serializable_properties.insert(passive_property.serialize_to_ical(preferences));
+            serializable_properties.insert(passive_property.to_content_line_with_context(context));
         }
 
         serializable_properties.insert(
             self.build_recurrence_id_from_dtstart()
-                .serialize_to_ical(preferences),
+                .to_content_line_with_context(context),
         );
 
         serializable_properties
@@ -245,13 +257,13 @@ impl PartialOrd for EventInstance {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         let dtstart_timestamp_comparison = self
             .dtstart
-            .utc_timestamp
-            .partial_cmp(&other.dtstart.utc_timestamp);
+            .get_utc_timestamp()
+            .partial_cmp(&other.dtstart.get_utc_timestamp());
 
         if dtstart_timestamp_comparison.is_some_and(|comparison| comparison.is_eq()) {
             self.dtend
-                .utc_timestamp
-                .partial_cmp(&other.dtend.utc_timestamp)
+                .get_utc_timestamp()
+                .partial_cmp(&other.dtend.get_utc_timestamp())
         } else {
             dtstart_timestamp_comparison
         }
@@ -261,10 +273,10 @@ impl PartialOrd for EventInstance {
 impl Ord for EventInstance {
     fn cmp(&self, other: &Self) -> Ordering {
         let dtstart_timestamp_comparison =
-            self.dtstart.utc_timestamp.cmp(&other.dtstart.utc_timestamp);
+            self.dtstart.get_utc_timestamp().cmp(&other.dtstart.get_utc_timestamp());
 
         if dtstart_timestamp_comparison.is_eq() {
-            self.dtend.utc_timestamp.cmp(&other.dtend.utc_timestamp)
+            self.dtend.get_utc_timestamp().cmp(&other.dtend.get_utc_timestamp())
         } else {
             dtstart_timestamp_comparison
         }
@@ -323,12 +335,18 @@ impl<'a> Iterator for EventInstanceIterator<'a> {
 mod test {
     use super::*;
 
+    use std::str::FromStr;
+
+    use chrono_tz::Tz;
+
+    use std::collections::{BTreeSet, HashMap, HashSet};
+
+    use crate::IndexedConclusion;
 
     use crate::testing::utils::{build_event_and_overrides_from_ical, build_event_from_ical};
     use crate::testing::macros::build_property_from_ical;
-    use pretty_assertions_sorted::{assert_eq, assert_eq_sorted};
 
-    use crate::ical::properties::{DescriptionProperty, LocationProperty};
+    use pretty_assertions_sorted::{assert_eq, assert_eq_sorted};
 
     #[test]
     fn test_event_instance_without_override() {
@@ -369,7 +387,7 @@ mod test {
                     categories: Some(HashSet::from([build_property_from_ical!(
                         CategoriesProperty,
                         "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,CATEGORY THREE"
-                    ),])),
+                    )])),
                     related_to: Some(HashSet::from([
                         build_property_from_ical!(
                             RelatedToProperty,
@@ -399,26 +417,19 @@ mod test {
                 },
                 passive_properties: PassiveProperties {
                     properties: BTreeSet::from([
-                        Property::Description(build_property_from_ical!(
-                            DescriptionProperty,
-                            "DESCRIPTION:Event description text."
-                        )),
-                        Property::Location(build_property_from_ical!(
-                            LocationProperty,
-                            "LOCATION:Event address text."
-                        )),
+                        build_property_from_ical!(PassiveProperty, "DESCRIPTION:Event description text."),
+                        build_property_from_ical!(PassiveProperty, "LOCATION:Event address text."),
                     ])
                 },
             }
         );
 
-        let serialization_preferences = SerializationPreferences {
-            timezone: Some(Tz::Europe__London),
-            distance_unit: None,
+        let rendering_context = RenderingContext {
+            tz: Some(Tz::Europe__London),
         };
 
         assert_eq!(
-            event_instance.serialize_to_ical(Some(&serialization_preferences)),
+            event_instance.to_rendered_content_lines_with_context(Some(&rendering_context)),
             vec![
                 String::from("CATEGORIES:CATEGORY THREE,CATEGORY_ONE,CATEGORY_TWO"),
                 String::from("CLASS:PRIVATE"),
@@ -514,21 +525,15 @@ mod test {
                 },
                 passive_properties: PassiveProperties {
                     properties: BTreeSet::from([
-                        Property::Description(build_property_from_ical!(
-                            DescriptionProperty,
-                            "DESCRIPTION:Event description text."
-                        )),
-                        Property::Location(build_property_from_ical!(
-                            LocationProperty,
-                            "LOCATION:Overridden Event address text."
-                        )),
+                        build_property_from_ical!(PassiveProperty, "DESCRIPTION:Event description text."),
+                        build_property_from_ical!(PassiveProperty, "LOCATION:Overridden Event address text."),
                     ])
                 },
             }
         );
 
         assert_eq!(
-            event_instance.serialize_to_ical(None),
+            event_instance.to_rendered_content_lines(),
             vec![
                 String::from("CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE"),
                 String::from("DESCRIPTION:Event description text."),
@@ -666,35 +671,35 @@ mod test {
         assert_eq!(
             event_instance_iterator
                 .next()
-                .and_then(|event_instance| Some(event_instance.serialize_to_ical(None))),
+                .and_then(|event_instance| Some(event_instance.to_rendered_content_lines())),
             Some(expected_event_instances_ical[&1609871400].clone())
         );
 
         assert_eq!(
             event_instance_iterator
                 .next()
-                .and_then(|event_instance| Some(event_instance.serialize_to_ical(None))),
+                .and_then(|event_instance| Some(event_instance.to_rendered_content_lines())),
             Some(expected_event_instances_ical[&1610476200].clone())
         );
 
         assert_eq!(
             event_instance_iterator
                 .next()
-                .and_then(|event_instance| Some(event_instance.serialize_to_ical(None))),
+                .and_then(|event_instance| Some(event_instance.to_rendered_content_lines())),
             Some(expected_event_instances_ical[&1611081000].clone())
         );
 
         assert_eq!(
             event_instance_iterator
                 .next()
-                .and_then(|event_instance| Some(event_instance.serialize_to_ical(None))),
+                .and_then(|event_instance| Some(event_instance.to_rendered_content_lines())),
             Some(expected_event_instances_ical[&1611685800].clone())
         );
 
         assert_eq!(
             event_instance_iterator
                 .next()
-                .and_then(|event_instance| Some(event_instance.serialize_to_ical(None))),
+                .and_then(|event_instance| Some(event_instance.to_rendered_content_lines())),
             Some(expected_event_instances_ical[&1612290600].clone())
         );
 
@@ -713,35 +718,35 @@ mod test {
         assert_eq!(
             event_instance_iterator
                 .next()
-                .and_then(|event_instance| Some(event_instance.serialize_to_ical(None))),
+                .and_then(|event_instance| Some(event_instance.to_rendered_content_lines())),
             Some(expected_event_instances_ical[&1609871400].clone())
         );
 
         assert_eq!(
             event_instance_iterator
                 .next()
-                .and_then(|event_instance| Some(event_instance.serialize_to_ical(None))),
+                .and_then(|event_instance| Some(event_instance.to_rendered_content_lines())),
             Some(expected_event_instances_ical[&1610476200].clone())
         );
 
         assert_eq!(
             event_instance_iterator
                 .next()
-                .and_then(|event_instance| Some(event_instance.serialize_to_ical(None))),
+                .and_then(|event_instance| Some(event_instance.to_rendered_content_lines())),
             Some(expected_event_instances_ical[&1611081000].clone())
         );
 
         assert_eq!(
             event_instance_iterator
                 .next()
-                .and_then(|event_instance| Some(event_instance.serialize_to_ical(None))),
+                .and_then(|event_instance| Some(event_instance.to_rendered_content_lines())),
             Some(expected_event_instances_ical[&1611685800].clone())
         );
 
         assert_eq!(
             event_instance_iterator
                 .next()
-                .and_then(|event_instance| Some(event_instance.serialize_to_ical(None))),
+                .and_then(|event_instance| Some(event_instance.to_rendered_content_lines())),
             Some(expected_event_instances_ical[&1612290600].clone())
         );
 
@@ -762,14 +767,14 @@ mod test {
         assert_eq!(
             event_instance_iterator
                 .next()
-                .and_then(|event_instance| Some(event_instance.serialize_to_ical(None))),
+                .and_then(|event_instance| Some(event_instance.to_rendered_content_lines())),
             Some(expected_event_instances_ical[&1610476200].clone())
         );
 
         assert_eq!(
             event_instance_iterator
                 .next()
-                .and_then(|event_instance| Some(event_instance.serialize_to_ical(None))),
+                .and_then(|event_instance| Some(event_instance.to_rendered_content_lines())),
             Some(expected_event_instances_ical[&1611685800].clone())
         );
 
@@ -804,21 +809,21 @@ mod test {
         assert_eq!(
             event_instance_iterator
                 .next()
-                .and_then(|event_instance| Some(event_instance.serialize_to_ical(None))),
+                .and_then(|event_instance| Some(event_instance.to_rendered_content_lines())),
             Some(expected_event_instances_ical[&1609871400].clone())
         );
 
         assert_eq!(
             event_instance_iterator
                 .next()
-                .and_then(|event_instance| Some(event_instance.serialize_to_ical(None))),
+                .and_then(|event_instance| Some(event_instance.to_rendered_content_lines())),
             Some(expected_event_instances_ical[&1611081000].clone())
         );
 
         assert_eq!(
             event_instance_iterator
                 .next()
-                .and_then(|event_instance| Some(event_instance.serialize_to_ical(None))),
+                .and_then(|event_instance| Some(event_instance.to_rendered_content_lines())),
             Some(expected_event_instances_ical[&1612290600].clone())
         );
 

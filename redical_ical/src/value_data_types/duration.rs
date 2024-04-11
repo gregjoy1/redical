@@ -270,6 +270,61 @@ impl Default for Duration {
     }
 }
 
+impl From<i64> for Duration {
+    fn from(duration_in_seconds: i64) -> Self {
+        let mut remaining_seconds = duration_in_seconds;
+
+        let mut weeks = None;
+        let mut days = None;
+        let mut hours = None;
+        let mut minutes = None;
+        let mut seconds = None;
+
+        if remaining_seconds >= SECONDS_IN_WEEK {
+            weeks = Some(remaining_seconds / SECONDS_IN_WEEK);
+
+            remaining_seconds = remaining_seconds % SECONDS_IN_WEEK;
+        }
+
+        if remaining_seconds >= SECONDS_IN_DAY {
+            days = Some(remaining_seconds / SECONDS_IN_DAY);
+
+            remaining_seconds = remaining_seconds % SECONDS_IN_DAY;
+        }
+
+        if remaining_seconds >= SECONDS_IN_HOUR {
+            hours = Some(remaining_seconds / SECONDS_IN_HOUR);
+
+            remaining_seconds = remaining_seconds % SECONDS_IN_HOUR;
+        }
+
+        if remaining_seconds >= SECONDS_IN_MINUTE {
+            minutes = Some(remaining_seconds / SECONDS_IN_MINUTE);
+
+            remaining_seconds = remaining_seconds % SECONDS_IN_MINUTE;
+        }
+
+        if remaining_seconds > 0 || duration_in_seconds == 0 {
+            seconds = Some(remaining_seconds);
+        }
+
+        let mut positive_negative = None;
+
+        if duration_in_seconds < 0 {
+            positive_negative = Some(PositiveNegative::Negative)
+        }
+
+        Duration {
+            weeks,
+            days,
+            hours,
+            minutes,
+            seconds,
+            positive_negative,
+        }
+    }
+}
+
 impl_icalendar_entity_traits!(Duration);
 
 #[cfg(test)]
@@ -278,6 +333,58 @@ mod test {
     use super::*;
 
     use crate::tests::assert_parser_output;
+
+    #[test]
+    fn test_from_seconds_int() {
+        assert_eq!(
+            Duration::from(1483506),
+            Duration {
+                weeks: Some(2),
+                days: Some(3),
+                hours: Some(4),
+                minutes: Some(5),
+                seconds: Some(6),
+                positive_negative: None,
+            }
+        );
+
+        assert_eq!(
+            Duration::from(25),
+            Duration {
+                weeks: None,
+                days: None,
+                hours: None,
+                minutes: None,
+                seconds: Some(25),
+                positive_negative: None,
+            }
+        );
+
+        assert_eq!(
+            Duration::from(0),
+            Duration {
+                weeks: None,
+                days: None,
+                hours: None,
+                minutes: None,
+                seconds: Some(0),
+                positive_negative: None,
+            }
+        );
+
+
+        assert_eq!(
+            Duration::from(-100),
+            Duration {
+                weeks: None,
+                days: None,
+                hours: None,
+                minutes: None,
+                seconds: None,
+                positive_negative: Some(PositiveNegative::Negative),
+            }
+        );
+    }
 
     #[test]
     fn test_parse_ical() {
