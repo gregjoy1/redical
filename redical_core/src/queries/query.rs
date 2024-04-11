@@ -14,6 +14,9 @@ use crate::queries::results_range_bounds::{
     LowerBoundRangeCondition, UpperBoundRangeCondition,
 };
 
+use redical_ical::properties::ICalendarDateTimeProperty;
+
+// TODO: replace with redical_ical
 use crate::ical::parser::error::convert_error;
 
 use nom::combinator::all_consuming;
@@ -219,14 +222,14 @@ impl Query {
         for (_, event_instance) in merged_iterator {
             let is_unique_dtstart_timestamp =
                 previous_dtstart_timestamp.is_some_and(|dtstart_timestamp| {
-                    dtstart_timestamp != event_instance.dtstart.utc_timestamp
+                    dtstart_timestamp != event_instance.dtstart.get_utc_timestamp()
                 });
 
             if is_unique_dtstart_timestamp && query_results.len() >= self.limit {
                 break;
             }
 
-            previous_dtstart_timestamp = Some(event_instance.dtstart.utc_timestamp.clone());
+            previous_dtstart_timestamp = Some(event_instance.dtstart.get_utc_timestamp().clone());
 
             query_results.push(event_instance);
         }
@@ -302,7 +305,7 @@ impl Query {
     ) -> Result<(), String> {
         let limit = if self.distinct_uids { Some(1) } else { None };
 
-        let event_uid: String = event.uid.clone().into();
+        let event_uid: String = event.uid.uid.to_string();
 
         let event_instance_iterator = EventInstanceIterator::new(
             event,
