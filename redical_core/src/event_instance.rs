@@ -427,6 +427,7 @@ mod test {
 
         let rendering_context = RenderingContext {
             tz: Some(Tz::Europe__London),
+            distance_unit: None,
         };
 
         assert_eq!(

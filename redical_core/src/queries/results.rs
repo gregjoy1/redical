@@ -65,7 +65,7 @@ impl QueryResults {
         // EventInstance to the lookup set so that any future EventInstances sharing the same
         // UID are excluded.
         if let Some(distinct_uid_lookup) = &mut self.distinct_uid_lookup {
-            distinct_uid_lookup.insert(event_instance_uid);
+            distinct_uid_lookup.insert(event_instance_uid.to_string());
         }
 
         self.count += 1;
@@ -84,7 +84,7 @@ impl QueryResults {
             .distinct_uid_lookup
             .as_ref()
             .is_some_and(|distinct_uid_lookup| {
-                distinct_uid_lookup.contains(&event_instance.uid.uid)
+                distinct_uid_lookup.contains(&event_instance.uid.uid.to_string())
             })
         {
             return false;

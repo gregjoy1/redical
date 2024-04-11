@@ -1,17 +1,22 @@
 use std::cmp::Ordering;
 use std::collections::BTreeSet;
 
-use chrono_tz::Tz;
-
-use crate::ical::serializer::{
-    DistanceUnit, SerializableICalComponent, SerializableICalProperty, SerializationPreferences,
-};
-
 use geo::HaversineDistance;
 
 use crate::{EventInstance, GeoDistance, GeoPoint, KeyValuePair};
 
-use crate::ical::properties::{DTStartProperty, XProperty};
+use redical_ical::{
+    ICalendarComponent,
+    RenderingContext,
+    DistanceUnit,
+    content_line::ContentLine,
+    properties::{
+        ICalendarProperty,
+        DTStartProperty,
+    },
+};
+
+use redical_ical::properties::ICalendarDateTimeProperty;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum OrderingCondition {
@@ -27,11 +32,11 @@ impl OrderingCondition {
     ) -> QueryResultOrdering {
         match &self {
             OrderingCondition::DtStart => {
-                QueryResultOrdering::DtStart(event_instance.dtstart.utc_timestamp.clone())
+                QueryResultOrdering::DtStart(event_instance.dtstart.get_utc_timestamp().clone())
             }
 
             OrderingCondition::DtStartGeoDist(ordering_geo_point) => {
-                let dtstart_timestamp = event_instance.dtstart.utc_timestamp.clone();
+                let dtstart_timestamp = event_instance.dtstart.get_utc_timestamp().clone();
                 let geo_distance =
                     event_instance
                         .indexed_properties
@@ -49,7 +54,7 @@ impl OrderingCondition {
             }
 
             OrderingCondition::GeoDistDtStart(ordering_geo_point) => {
-                let dtstart_timestamp = event_instance.dtstart.utc_timestamp.clone();
+                let dtstart_timestamp = event_instance.dtstart.get_utc_timestamp().clone();
                 let geo_distance =
                     event_instance
                         .indexed_properties
@@ -76,91 +81,61 @@ pub enum QueryResultOrdering {
     GeoDistDtStart(Option<GeoDistance>, i64),
 }
 
-impl SerializableICalComponent for QueryResultOrdering {
-    fn serialize_to_ical_set(
-        &self,
-        preferences: Option<&SerializationPreferences>,
-    ) -> BTreeSet<String> {
-        let timezone = if let Some(preferences) = preferences {
-            rrule::Tz::Tz(preferences.get_timezone())
-        } else {
-            rrule::Tz::UTC
-        };
+impl ICalendarComponent for QueryResultOrdering {
+    fn to_content_line_set_with_context(&self, context: Option<&RenderingContext>) -> BTreeSet<ContentLine> {
+        let timezone =
+            context.and_then(|context| context.tz)
+                   .map_or(rrule::Tz::UTC, |tz| rrule::Tz::Tz(tz));
 
         let mut serialized_ical_set = BTreeSet::new();
 
         match self {
             QueryResultOrdering::DtStart(dtstart_timestamp) => {
-                let dtstart_property = DTStartProperty {
-                    timezone: None,
-                    value_type: None,
-                    utc_timestamp: dtstart_timestamp.to_owned(),
-                    x_params: None,
-                };
+                let dtstart_property = DTStartProperty::new_from_utc_timestamp(dtstart_timestamp);
 
-                serialized_ical_set.insert(dtstart_property.serialize_to_ical(preferences));
+                serialized_ical_set.insert(dtstart_property.to_content_line_with_context(context));
             }
 
             QueryResultOrdering::DtStartGeoDist(dtstart_timestamp, geo_distance) => {
-                let dtstart_property = DTStartProperty {
-                    timezone: None,
-                    value_type: None,
-                    utc_timestamp: dtstart_timestamp.to_owned(),
-                    x_params: None,
-                };
+                let dtstart_property = DTStartProperty::new_from_utc_timestamp(dtstart_timestamp);
 
-                serialized_ical_set.insert(dtstart_property.serialize_to_ical(preferences));
+                serialized_ical_set.insert(dtstart_property.to_content_line_with_context(context));
 
                 if let Some(geo_distance) = geo_distance {
-                    let geo_distance = match preferences
+                    let geo_distance = match context
                         .cloned()
-                        .and_then(|preferences| preferences.distance_unit)
+                        .and_then(|context| context.distance_unit)
                         .unwrap_or(DistanceUnit::Kilometers)
                     {
                         DistanceUnit::Kilometers => geo_distance.to_kilometers(),
                         DistanceUnit::Miles => geo_distance.to_miles(),
                     };
 
-                    let x_geo_dist_property = XProperty {
-                        language: None,
-                        name: String::from("X-GEO-DIST"),
-                        value: geo_distance.to_string(),
-                        x_params: None,
-                    };
+                    let x_geo_dist_property = ContentLine::from((String::from("X-GEO-DIST"), Vec::new(), geo_distance.to_string()));
 
-                    serialized_ical_set.insert(x_geo_dist_property.serialize_to_ical(preferences));
+                    serialized_ical_set.insert(x_geo_dist_property);
                 }
             }
 
             QueryResultOrdering::GeoDistDtStart(geo_distance, dtstart_timestamp) => {
                 if let Some(geo_distance) = geo_distance {
-                    let geo_distance = match preferences
+                    let geo_distance = match context
                         .cloned()
-                        .and_then(|preferences| preferences.distance_unit)
+                        .and_then(|context| context.distance_unit)
                         .unwrap_or(DistanceUnit::Kilometers)
                     {
                         DistanceUnit::Kilometers => geo_distance.to_kilometers(),
                         DistanceUnit::Miles => geo_distance.to_miles(),
                     };
 
-                    let x_geo_dist_property = XProperty {
-                        language: None,
-                        name: String::from("X-GEO-DIST"),
-                        value: geo_distance.to_string(),
-                        x_params: None,
-                    };
+                    let x_geo_dist_property = ContentLine::from((String::from("X-GEO-DIST"), Vec::new(), geo_distance.to_string()));
 
-                    serialized_ical_set.insert(x_geo_dist_property.serialize_to_ical(preferences));
+                    serialized_ical_set.insert(x_geo_dist_property);
                 }
 
-                let dtstart_property = DTStartProperty {
-                    timezone: None,
-                    value_type: None,
-                    utc_timestamp: dtstart_timestamp.to_owned(),
-                    x_params: None,
-                };
+                let dtstart_property = DTStartProperty::new_from_utc_timestamp(dtstart_timestamp);
 
-                serialized_ical_set.insert(dtstart_property.serialize_to_ical(preferences));
+                serialized_ical_set.insert(dtstart_property.to_content_line_with_context(context));
             }
         }
 

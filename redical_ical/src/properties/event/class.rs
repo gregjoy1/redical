@@ -19,7 +19,7 @@ use std::collections::HashMap;
 // classvalue = "PUBLIC" / "PRIVATE" / "CONFIDENTIAL" / iana-token
 //            / x-name
 // ;Default is PUBLIC
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum ClassValue {
     Public,
     Private,

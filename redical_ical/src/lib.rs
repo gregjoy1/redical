@@ -92,8 +92,15 @@ pub fn convert_error<I: core::ops::Deref<Target = str>>(_input: I, error: Parser
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
+pub enum DistanceUnit {
+    Kilometers,
+    Miles,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Default)]
 pub struct RenderingContext {
     pub tz: Option<chrono_tz::Tz>,
+    pub distance_unit: Option<DistanceUnit>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]

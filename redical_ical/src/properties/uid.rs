@@ -88,6 +88,18 @@ pub struct UIDProperty {
     pub uid: Text,
 }
 
+impl PartialOrd for UIDProperty {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.uid.to_string().partial_cmp(&other.uid.to_string())
+    }
+}
+
+impl Ord for UIDProperty {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.uid.to_string().cmp(&other.uid.to_string())
+    }
+}
+
 impl ICalendarEntity for UIDProperty {
     fn parse_ical(input: ParserInput) -> ParserResult<Self> {
         context(

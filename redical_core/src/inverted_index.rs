@@ -1,4 +1,3 @@
-use crate::ical::serializer::SerializableICalProperty;
 use std::collections::{HashMap, HashSet};
 
 use crate::event::Event;
@@ -209,7 +208,7 @@ where
         if let Some(categories_properties) = event.indexed_properties.categories.as_ref() {
             for categories_property in categories_properties {
                 for category in &categories_property.categories {
-                    indexed_categories.insert(category);
+                    indexed_categories.insert(&category.to_string());
                 }
             }
         }
@@ -233,7 +232,7 @@ where
 
         if let Some(related_to_properties) = event.indexed_properties.related_to.as_ref() {
             for related_to_property in related_to_properties {
-                indexed_related_to.insert(&related_to_property.to_key_value_pair());
+                indexed_related_to.insert(&related_to_property.to_reltype_uid_pair().into());
             }
         }
 
@@ -276,14 +275,14 @@ where
         };
 
         if let Some(class_property) = event.indexed_properties.class.as_ref() {
-            indexed_class.insert(&class_property.class);
+            indexed_class.insert(&class_property.class.to_string());
         }
 
         for (timestamp, event_override) in event.overrides.iter() {
             if let Some(overridden_class) = &event_override.indexed_properties.extract_class() {
                 indexed_class.insert_override(
                     timestamp.clone(),
-                    &HashSet::from([overridden_class.clone()]),
+                    &HashSet::from([overridden_class.to_string()]),
                 );
             }
         }
