@@ -1,10 +1,12 @@
 mod uid;
 
 pub mod event;
+pub mod calendar;
 
 pub use uid::*;
 
 pub use event::*;
+pub use calendar::*;
 
 use crate::{ICalendarEntity, RenderingContext};
 

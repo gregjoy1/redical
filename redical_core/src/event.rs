@@ -811,8 +811,6 @@ mod test {
 
     use crate::testing::macros::build_property_from_ical;
 
-    use crate::ical::properties::DescriptionProperty;
-
     use std::collections::BTreeMap;
 
     use pretty_assertions_sorted::assert_eq;

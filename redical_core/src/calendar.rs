@@ -1,4 +1,3 @@
-use serde::{Deserialize, Serialize};
 use std::collections::{BTreeSet, BTreeMap};
 
 use crate::inverted_index::{IndexedConclusion, InvertedCalendarIndex};
@@ -9,10 +8,16 @@ use crate::geo_index::{GeoPoint, GeoSpatialCalendarIndex};
 
 use crate::event::Event;
 
-use crate::ical::properties::{Property, UIDProperty};
-
-use crate::ical::serializer::{
-    SerializableICalComponent, SerializableICalProperty, SerializationPreferences,
+use redical_ical::{
+    ICalendarComponent,
+    ICalendarEntity,
+    RenderingContext,
+    content_line::ContentLine,
+    properties::{
+        ICalendarProperty,
+        CalendarProperty,
+        UIDProperty,
+    },
 };
 
 #[derive(Debug, PartialEq, Clone)]
@@ -39,19 +44,19 @@ impl Calendar {
         }
     }
 
-    pub fn insert(&mut self, property: Property) -> Result<&Self, String> {
+    pub fn insert(&mut self, property: CalendarProperty) -> Result<&Self, String> {
         match property {
-            Event::UID(uid_property) => {
+            CalendarProperty::UID(uid_property) => {
                 if self.uid != uid_property {
                     return Err(
-                        format!("Inserted calendar UID: {} does not match existing UID: {}", uid_property.uid, self.uid.value)
+                        format!("Inserted calendar UID: {} does not match existing UID: {}", uid_property.uid.to_string(), self.uid.uid.to_string())
                     );
                 }
             },
 
             _ => {
                 return Err(
-                    format!("Calendar does not expect inserted property: {}", property.serialize_to_ical(None))
+                    format!("Calendar does not expect inserted property: {}", property.render_ical())
                 );
             }
         }
@@ -66,7 +71,7 @@ impl Calendar {
     pub fn insert_event(&mut self, event: Event) -> Option<Event> {
         use std::collections::btree_map::Entry;
 
-        match self.events.entry(event.uid.value.to_owned()) {
+        match self.events.entry(event.uid.uid.to_string()) {
             Entry::Occupied(mut entry) => {
                 let boxed_event = entry.get_mut();
 
@@ -123,7 +128,7 @@ impl Calendar {
         let indexed_class = &mut self.indexed_class;
 
         for event in self.events.values_mut() {
-            let event_uid = event.uid.value.to_owned();
+            let event_uid = event.uid.uid.to_string();
 
             event.rebuild_indexes()?;
 
@@ -156,14 +161,11 @@ impl Calendar {
     }
 }
 
-impl SerializableICalComponent for Calendar {
-    fn serialize_to_ical_set(
-        &self,
-        preferences: Option<&SerializationPreferences>,
-    ) -> BTreeSet<String> {
-        let mut serializable_properties: BTreeSet<String> = BTreeSet::new();
+impl ICalendarComponent for Calendar {
+    fn to_content_line_set_with_context(&self, context: Option<&RenderingContext>) -> BTreeSet<ContentLine> {
+        let mut serializable_properties: BTreeSet<ContentLine> = BTreeSet::new();
 
-        serializable_properties.insert(self.uid.serialize_to_ical(preferences));
+        serializable_properties.insert(self.uid.to_content_line_with_context(context));
 
         serializable_properties
     }
