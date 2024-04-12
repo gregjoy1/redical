@@ -4,7 +4,7 @@ pub mod x_distinct;
 pub mod x_from;
 pub mod x_until;
 pub mod x_tzid;
-// "X-ORDER"
+pub mod x_order_by;
 // "X-CATEGORIES"
 // "X-RELATED-TO"
 // "X-GEO"
