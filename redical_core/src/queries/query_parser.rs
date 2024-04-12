@@ -23,8 +23,8 @@ use crate::queries::results_range_bounds::{
 };
 use crate::{GeoDistance, GeoPoint, KeyValuePair};
 
-use crate::ical::parser::common;
-use crate::ical::parser::common::ParserResult;
+use redical_ical::grammar;
+use redical_ical::{ParserInput, ParserResult};
 
 fn parse_list_values(input: &str) -> ParserResult<&str, &str> {
     alt((common::quoted_string, param_text))(input)

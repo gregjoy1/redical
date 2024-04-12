@@ -3,12 +3,14 @@ mod recurrence_id;
 
 pub mod event;
 pub mod calendar;
+pub mod query;
 
 pub use uid::*;
 pub use recurrence_id::*;
 
 pub use event::*;
 pub use calendar::*;
+pub use query::*;
 
 use crate::{ICalendarEntity, RenderingContext};
 
