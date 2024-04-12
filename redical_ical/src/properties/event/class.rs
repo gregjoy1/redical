@@ -12,48 +12,11 @@ use crate::properties::{ICalendarProperty, ICalendarPropertyParams, define_prope
 
 use crate::content_line::{ContentLineParams, ContentLine};
 
+use crate::value_data_types::class::ClassValue;
+
 use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
 
 use std::collections::HashMap;
-
-// classvalue = "PUBLIC" / "PRIVATE" / "CONFIDENTIAL" / iana-token
-//            / x-name
-// ;Default is PUBLIC
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub enum ClassValue {
-    Public,
-    Private,
-    Confidential,
-    XName(String),
-    IanaToken(String),
-}
-
-impl ICalendarEntity for ClassValue {
-    fn parse_ical(input: ParserInput) -> ParserResult<Self> {
-        context(
-            "CLASSVALUE",
-            alt((
-                map(tag("PUBLUC"), |_| ClassValue::Public),
-                map(tag("PRIVATE"), |_| ClassValue::Private),
-                map(tag("CONFIDENTIAL"), |_| ClassValue::Confidential),
-                map(x_name, |value| ClassValue::XName(value.to_string())),
-                map(iana_token, |value| ClassValue::IanaToken(value.to_string())),
-            )),
-        )(input)
-    }
-
-    fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
-        match self {
-           Self::Public => String::from("PUBLIC"),
-           Self::Private => String::from("PRIVATE"),
-           Self::Confidential => String::from("CONFIDENTIAL"),
-           Self::XName(name) => name.to_owned(),
-           Self::IanaToken(name) => name.to_owned(),
-        }
-    }
-}
-
-impl_icalendar_entity_traits!(ClassValue);
 
 #[derive(Debug, Clone, Eq, PartialEq, Default)]
 pub struct ClassPropertyParams {

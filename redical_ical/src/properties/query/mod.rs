@@ -8,5 +8,5 @@ pub mod x_order_by;
 pub mod x_categories;
 pub mod x_related_to;
 pub mod x_geo;
-// "X-CLASS"
+pub mod x_class;
 // Where group
