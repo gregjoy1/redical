@@ -89,10 +89,7 @@ impl Default for XCategoriesPropertyParams {
     }
 }
 
-/// Query order property, orders by:
-/// * DTSTART
-/// * DTSTART / GEO-DIST
-/// * GEO-DIST / DTSTART
+/// Query CATEGORIES where condition property.
 ///
 /// Example:
 ///

@@ -6,7 +6,7 @@ pub mod x_until;
 pub mod x_tzid;
 pub mod x_order_by;
 pub mod x_categories;
-// "X-RELATED-TO"
+pub mod x_related_to;
 // "X-GEO"
 // "X-CLASS"
 // Where group
