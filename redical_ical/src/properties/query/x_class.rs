@@ -1,5 +1,4 @@
 use nom::error::context;
-use nom::branch::alt;
 use nom::sequence::{pair, preceded};
 use nom::combinator::{map, cut, opt};
 
@@ -10,52 +9,23 @@ use crate::value_data_types::list::List;
 use crate::properties::{ICalendarProperty, ICalendarPropertyParams, define_property_params_ical_parser};
 
 use crate::value_data_types::class::ClassValue;
+use crate::value_data_types::where_operator::WhereOperator;
 
 use crate::content_line::{ContentLineParams, ContentLine};
 
 use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
 
-// OP = "OR" / "AND"
-//
-// ;Default is AND
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub enum OpValue {
-    Or,
-    And,
-}
-
-impl ICalendarEntity for OpValue {
-    fn parse_ical(input: ParserInput) -> ParserResult<Self> {
-        context(
-            "OP",
-            alt((
-                map(tag("OR"), |_| OpValue::Or),
-                map(tag("AND"), |_| OpValue::And),
-            )),
-        )(input)
-    }
-
-    fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
-        match self {
-           Self::Or => String::from("OR"),
-           Self::And => String::from("AND"),
-        }
-    }
-}
-
-impl_icalendar_entity_traits!(OpValue);
-
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct XClassPropertyParams {
-    pub op: OpValue,
+    pub op: WhereOperator,
 }
 
 impl ICalendarEntity for XClassPropertyParams {
     define_property_params_ical_parser!(
         XClassPropertyParams,
         (
-            pair(tag("OP"), cut(preceded(tag("="), OpValue::parse_ical))),
-            |params: &mut XClassPropertyParams, (_key, value): (ParserInput, OpValue)| params.op = value,
+            pair(tag("OP"), cut(preceded(tag("="), WhereOperator::parse_ical))),
+            |params: &mut XClassPropertyParams, (_key, value): (ParserInput, WhereOperator)| params.op = value,
         ),
     );
 
@@ -85,7 +55,7 @@ impl From<XClassPropertyParams> for ContentLineParams {
 impl Default for XClassPropertyParams {
     fn default() -> Self {
         XClassPropertyParams {
-            op: OpValue::And,
+            op: WhereOperator::And,
         }
     }
 }
@@ -168,7 +138,7 @@ mod tests {
             (
                 " DESCRIPTION:Description text",
                 XClassProperty {
-                    params: XClassPropertyParams { op: OpValue::And },
+                    params: XClassPropertyParams { op: WhereOperator::And },
                     classes: List::from(vec![ClassValue::Public, ClassValue::Private]),
                 },
             ),
@@ -179,7 +149,7 @@ mod tests {
             (
                 " DESCRIPTION:Description text",
                 XClassProperty {
-                    params: XClassPropertyParams { op: OpValue::And },
+                    params: XClassPropertyParams { op: WhereOperator::And },
                     classes: List::from(vec![ClassValue::Public, ClassValue::Private]),
                 },
             ),
@@ -190,7 +160,7 @@ mod tests {
             (
                 " DESCRIPTION:Description text",
                 XClassProperty {
-                    params: XClassPropertyParams { op: OpValue::Or },
+                    params: XClassPropertyParams { op: WhereOperator::Or },
                     classes: List::from(vec![ClassValue::Public, ClassValue::Private]),
                 },
             ),
@@ -204,7 +174,7 @@ mod tests {
     fn render_ical() {
         assert_eq!(
             XClassProperty {
-                params: XClassPropertyParams { op: OpValue::And },
+                params: XClassPropertyParams { op: WhereOperator::And },
                 classes: List::from(vec![ClassValue::Public, ClassValue::Private]),
             }.render_ical(),
             String::from("X-CLASS;OP=AND:PRIVATE,PUBLIC"),
@@ -212,7 +182,7 @@ mod tests {
 
         assert_eq!(
             XClassProperty {
-                params: XClassPropertyParams { op: OpValue::Or },
+                params: XClassPropertyParams { op: WhereOperator::Or },
                 classes: List::from(vec![ClassValue::Public, ClassValue::Private]),
             }.render_ical(),
             String::from("X-CLASS;OP=OR:PRIVATE,PUBLIC"),

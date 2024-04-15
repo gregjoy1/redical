@@ -48,18 +48,18 @@ impl_icalendar_entity_traits!(PropValue);
 //
 // ;Default is LT
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub enum OpValue {
+pub enum UntilRangeOperator {
     LessThan,
     LessEqualThan,
 }
 
-impl ICalendarEntity for OpValue {
+impl ICalendarEntity for UntilRangeOperator {
     fn parse_ical(input: ParserInput) -> ParserResult<Self> {
         context(
             "OP",
             alt((
-                map(tag("LTE"), |_| OpValue::LessEqualThan),
-                map(tag("LT"), |_| OpValue::LessThan),
+                map(tag("LTE"), |_| UntilRangeOperator::LessEqualThan),
+                map(tag("LT"), |_| UntilRangeOperator::LessThan),
             )),
         )(input)
     }
@@ -72,12 +72,12 @@ impl ICalendarEntity for OpValue {
     }
 }
 
-impl_icalendar_entity_traits!(OpValue);
+impl_icalendar_entity_traits!(UntilRangeOperator);
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct XUntilPropertyParams {
     pub prop: PropValue,
-    pub op: OpValue,
+    pub op: UntilRangeOperator,
     pub tzid: Option<Tzid>,
 }
 
@@ -89,8 +89,8 @@ impl ICalendarEntity for XUntilPropertyParams {
             |params: &mut XUntilPropertyParams, (_key, value): (ParserInput, PropValue)| params.prop = value,
         ),
         (
-            pair(tag("OP"), cut(preceded(tag("="), OpValue::parse_ical))),
-            |params: &mut XUntilPropertyParams, (_key, value): (ParserInput, OpValue)| params.op = value,
+            pair(tag("OP"), cut(preceded(tag("="), UntilRangeOperator::parse_ical))),
+            |params: &mut XUntilPropertyParams, (_key, value): (ParserInput, UntilRangeOperator)| params.op = value,
         ),
         (
             pair(tag("TZID"), cut(preceded(tag("="), Tzid::parse_ical))),
@@ -146,7 +146,7 @@ impl Default for XUntilPropertyParams {
     fn default() -> Self {
         XUntilPropertyParams {
             prop: PropValue::DTStart,
-            op: OpValue::LessThan,
+            op: UntilRangeOperator::LessThan,
             tzid: None,
         }
     }
@@ -163,7 +163,7 @@ impl XUntilProperty {
         self.params.prop.to_owned()
     }
 
-    pub fn get_op(&self) -> OpValue {
+    pub fn get_op(&self) -> UntilRangeOperator {
         self.params.op.to_owned()
     }
 }
@@ -300,7 +300,7 @@ mod tests {
                 XUntilProperty {
                     params: XUntilPropertyParams {
                         prop: PropValue::DTStart,
-                        op: OpValue::LessThan,
+                        op: UntilRangeOperator::LessThan,
                         tzid: Some(Tzid(Tz::Europe__London)),
                     },
                     date_time: DateTime::LocalDateTime(
@@ -320,7 +320,7 @@ mod tests {
                 XUntilProperty {
                     params: XUntilPropertyParams {
                         prop: PropValue::DTEnd,
-                        op: OpValue::LessEqualThan,
+                        op: UntilRangeOperator::LessEqualThan,
                         tzid: None,
                     },
                     date_time: DateTime::LocalDate(
@@ -352,7 +352,7 @@ mod tests {
             XUntilProperty {
                 params: XUntilPropertyParams {
                     prop: PropValue::DTStart,
-                    op: OpValue::LessThan,
+                    op: UntilRangeOperator::LessThan,
                     tzid: Some(Tzid(Tz::Europe__London)),
                 },
                 date_time: DateTime::LocalDateTime(
@@ -369,7 +369,7 @@ mod tests {
             XUntilProperty {
                 params: XUntilPropertyParams {
                     prop: PropValue::DTEnd,
-                    op: OpValue::LessEqualThan,
+                    op: UntilRangeOperator::LessEqualThan,
                     tzid: None,
                 },
                 date_time: DateTime::LocalDate(

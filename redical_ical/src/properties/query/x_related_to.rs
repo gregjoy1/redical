@@ -1,11 +1,11 @@
 use nom::error::context;
-use nom::branch::alt;
 use nom::sequence::{pair, preceded};
 use nom::combinator::{map, cut, opt};
 
 use crate::value_data_types::text::Text;
 use crate::value_data_types::list::List;
 use crate::value_data_types::reltype::Reltype;
+use crate::value_data_types::where_operator::WhereOperator;
 
 use crate::grammar::{tag, semicolon, colon};
 
@@ -15,40 +15,10 @@ use crate::content_line::{ContentLineParams, ContentLine};
 
 use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
 
-// OP = "OR" / "AND"
-//
-// ;Default is AND
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub enum OpValue {
-    Or,
-    And,
-}
-
-impl ICalendarEntity for OpValue {
-    fn parse_ical(input: ParserInput) -> ParserResult<Self> {
-        context(
-            "OP",
-            alt((
-                map(tag("OR"), |_| OpValue::Or),
-                map(tag("AND"), |_| OpValue::And),
-            )),
-        )(input)
-    }
-
-    fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
-        match self {
-           Self::Or => String::from("OR"),
-           Self::And => String::from("AND"),
-        }
-    }
-}
-
-impl_icalendar_entity_traits!(OpValue);
-
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct XRelatedToPropertyParams {
     pub reltype: Reltype,
-    pub op: OpValue,
+    pub op: WhereOperator,
 }
 
 impl ICalendarEntity for XRelatedToPropertyParams {
@@ -59,8 +29,8 @@ impl ICalendarEntity for XRelatedToPropertyParams {
             |params: &mut XRelatedToPropertyParams, (_key, reltype): (ParserInput, Reltype)| params.reltype = reltype,
         ),
         (
-            pair(tag("OP"), cut(preceded(tag("="), OpValue::parse_ical))),
-            |params: &mut XRelatedToPropertyParams, (_key, value): (ParserInput, OpValue)| params.op = value,
+            pair(tag("OP"), cut(preceded(tag("="), WhereOperator::parse_ical))),
+            |params: &mut XRelatedToPropertyParams, (_key, value): (ParserInput, WhereOperator)| params.op = value,
         ),
     );
 
@@ -92,7 +62,7 @@ impl Default for XRelatedToPropertyParams {
     fn default() -> Self {
         XRelatedToPropertyParams {
             reltype: Reltype::Parent,
-            op: OpValue::And,
+            op: WhereOperator::And,
         }
     }
 }
@@ -180,7 +150,7 @@ mod tests {
                 XRelatedToProperty {
                     params: XRelatedToPropertyParams {
                         reltype: Reltype::Parent,
-                        op: OpValue::And,
+                        op: WhereOperator::And,
                     },
                     uids: List::from(vec![Text(String::from("parent.uid.one")), Text(String::from("parent.uid.two"))]),
                 },
@@ -194,7 +164,7 @@ mod tests {
                 XRelatedToProperty {
                     params: XRelatedToPropertyParams {
                         reltype: Reltype::XName(String::from("X-RELTYPE")),
-                        op: OpValue::Or,
+                        op: WhereOperator::Or,
                     },
                     uids: List::from(vec![Text(String::from("x-reltype.uid.one")), Text(String::from("x-reltype.uid.two"))]),
                 },
@@ -210,7 +180,7 @@ mod tests {
             XRelatedToProperty {
                 params: XRelatedToPropertyParams {
                     reltype: Reltype::Parent,
-                    op: OpValue::And,
+                    op: WhereOperator::And,
                 },
                 uids: List::from(vec![Text(String::from("parent.uid.one")), Text(String::from("parent.uid.two"))]),
             }.render_ical(),
@@ -221,7 +191,7 @@ mod tests {
             XRelatedToProperty {
                 params: XRelatedToPropertyParams {
                     reltype: Reltype::XName(String::from("X-RELTYPE")),
-                    op: OpValue::Or,
+                    op: WhereOperator::Or,
                 },
                 uids: List::from(vec![Text(String::from("x-reltype.uid.one")), Text(String::from("x-reltype.uid.two"))]),
             }.render_ical(),

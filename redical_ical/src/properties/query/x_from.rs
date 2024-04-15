@@ -48,18 +48,18 @@ impl_icalendar_entity_traits!(PropValue);
 //
 // ;Default is GT
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub enum OpValue {
+pub enum FromRangeOperator {
     GreaterThan,
     GreaterEqualThan,
 }
 
-impl ICalendarEntity for OpValue {
+impl ICalendarEntity for FromRangeOperator {
     fn parse_ical(input: ParserInput) -> ParserResult<Self> {
         context(
             "OP",
             alt((
-                map(tag("GTE"), |_| OpValue::GreaterEqualThan),
-                map(tag("GT"), |_| OpValue::GreaterThan),
+                map(tag("GTE"), |_| FromRangeOperator::GreaterEqualThan),
+                map(tag("GT"), |_| FromRangeOperator::GreaterThan),
             )),
         )(input)
     }
@@ -72,12 +72,12 @@ impl ICalendarEntity for OpValue {
     }
 }
 
-impl_icalendar_entity_traits!(OpValue);
+impl_icalendar_entity_traits!(FromRangeOperator);
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct XFromPropertyParams {
     pub prop: PropValue,
-    pub op: OpValue,
+    pub op: FromRangeOperator,
     pub tzid: Option<Tzid>,
 }
 
@@ -89,8 +89,8 @@ impl ICalendarEntity for XFromPropertyParams {
             |params: &mut XFromPropertyParams, (_key, value): (ParserInput, PropValue)| params.prop = value,
         ),
         (
-            pair(tag("OP"), cut(preceded(tag("="), OpValue::parse_ical))),
-            |params: &mut XFromPropertyParams, (_key, value): (ParserInput, OpValue)| params.op = value,
+            pair(tag("OP"), cut(preceded(tag("="), FromRangeOperator::parse_ical))),
+            |params: &mut XFromPropertyParams, (_key, value): (ParserInput, FromRangeOperator)| params.op = value,
         ),
         (
             pair(tag("TZID"), cut(preceded(tag("="), Tzid::parse_ical))),
@@ -146,7 +146,7 @@ impl Default for XFromPropertyParams {
     fn default() -> Self {
         XFromPropertyParams {
             prop: PropValue::DTStart,
-            op: OpValue::GreaterThan,
+            op: FromRangeOperator::GreaterThan,
             tzid: None,
         }
     }
@@ -163,7 +163,7 @@ impl XFromProperty {
         self.params.prop.to_owned()
     }
 
-    pub fn get_op(&self) -> OpValue {
+    pub fn get_op(&self) -> FromRangeOperator {
         self.params.op.to_owned()
     }
 }
@@ -300,7 +300,7 @@ mod tests {
                 XFromProperty {
                     params: XFromPropertyParams {
                         prop: PropValue::DTStart,
-                        op: OpValue::GreaterThan,
+                        op: FromRangeOperator::GreaterThan,
                         tzid: Some(Tzid(Tz::Europe__London)),
                     },
                     date_time: DateTime::LocalDateTime(
@@ -320,7 +320,7 @@ mod tests {
                 XFromProperty {
                     params: XFromPropertyParams {
                         prop: PropValue::DTEnd,
-                        op: OpValue::GreaterEqualThan,
+                        op: FromRangeOperator::GreaterEqualThan,
                         tzid: None,
                     },
                     date_time: DateTime::LocalDate(
@@ -352,7 +352,7 @@ mod tests {
             XFromProperty {
                 params: XFromPropertyParams {
                     prop: PropValue::DTStart,
-                    op: OpValue::GreaterThan,
+                    op: FromRangeOperator::GreaterThan,
                     tzid: Some(Tzid(Tz::Europe__London)),
                 },
                 date_time: DateTime::LocalDateTime(
@@ -369,7 +369,7 @@ mod tests {
             XFromProperty {
                 params: XFromPropertyParams {
                     prop: PropValue::DTEnd,
-                    op: OpValue::GreaterEqualThan,
+                    op: FromRangeOperator::GreaterEqualThan,
                     tzid: None,
                 },
                 date_time: DateTime::LocalDate(

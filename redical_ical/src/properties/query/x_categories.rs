@@ -1,5 +1,4 @@
 use nom::error::context;
-use nom::branch::alt;
 use nom::sequence::{pair, preceded};
 use nom::combinator::{map, cut, opt};
 
@@ -7,6 +6,7 @@ use crate::grammar::{tag, semicolon, colon};
 
 use crate::value_data_types::text::Text;
 use crate::value_data_types::list::List;
+use crate::value_data_types::where_operator::WhereOperator;
 
 use crate::properties::{ICalendarProperty, ICalendarPropertyParams, define_property_params_ical_parser};
 
@@ -14,47 +14,17 @@ use crate::content_line::{ContentLineParams, ContentLine};
 
 use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
 
-// OP = "OR" / "AND"
-//
-// ;Default is AND
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub enum OpValue {
-    Or,
-    And,
-}
-
-impl ICalendarEntity for OpValue {
-    fn parse_ical(input: ParserInput) -> ParserResult<Self> {
-        context(
-            "OP",
-            alt((
-                map(tag("OR"), |_| OpValue::Or),
-                map(tag("AND"), |_| OpValue::And),
-            )),
-        )(input)
-    }
-
-    fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
-        match self {
-           Self::Or => String::from("OR"),
-           Self::And => String::from("AND"),
-        }
-    }
-}
-
-impl_icalendar_entity_traits!(OpValue);
-
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct XCategoriesPropertyParams {
-    pub op: OpValue,
+    pub op: WhereOperator,
 }
 
 impl ICalendarEntity for XCategoriesPropertyParams {
     define_property_params_ical_parser!(
         XCategoriesPropertyParams,
         (
-            pair(tag("OP"), cut(preceded(tag("="), OpValue::parse_ical))),
-            |params: &mut XCategoriesPropertyParams, (_key, value): (ParserInput, OpValue)| params.op = value,
+            pair(tag("OP"), cut(preceded(tag("="), WhereOperator::parse_ical))),
+            |params: &mut XCategoriesPropertyParams, (_key, value): (ParserInput, WhereOperator)| params.op = value,
         ),
     );
 
@@ -84,7 +54,7 @@ impl From<XCategoriesPropertyParams> for ContentLineParams {
 impl Default for XCategoriesPropertyParams {
     fn default() -> Self {
         XCategoriesPropertyParams {
-            op: OpValue::And,
+            op: WhereOperator::And,
         }
     }
 }
@@ -167,7 +137,7 @@ mod tests {
             (
                 " DESCRIPTION:Description text",
                 XCategoriesProperty {
-                    params: XCategoriesPropertyParams { op: OpValue::And },
+                    params: XCategoriesPropertyParams { op: WhereOperator::And },
                     categories: List::from(vec![Text(String::from("APPOINTMENT")), Text(String::from("EDUCATION"))]),
                 },
             ),
@@ -178,7 +148,7 @@ mod tests {
             (
                 " DESCRIPTION:Description text",
                 XCategoriesProperty {
-                    params: XCategoriesPropertyParams { op: OpValue::And },
+                    params: XCategoriesPropertyParams { op: WhereOperator::And },
                     categories: List::from(vec![Text(String::from("APPOINTMENT")), Text(String::from("EDUCATION"))]),
                 },
             ),
@@ -189,7 +159,7 @@ mod tests {
             (
                 " DESCRIPTION:Description text",
                 XCategoriesProperty {
-                    params: XCategoriesPropertyParams { op: OpValue::Or },
+                    params: XCategoriesPropertyParams { op: WhereOperator::Or },
                     categories: List::from(vec![Text(String::from("APPOINTMENT")), Text(String::from("EDUCATION"))]),
                 },
             ),
@@ -203,7 +173,7 @@ mod tests {
     fn render_ical() {
         assert_eq!(
             XCategoriesProperty {
-                params: XCategoriesPropertyParams { op: OpValue::And },
+                params: XCategoriesPropertyParams { op: WhereOperator::And },
                 categories: List::from(vec![Text(String::from("APPOINTMENT")), Text(String::from("EDUCATION"))]),
             }.render_ical(),
             String::from("X-CATEGORIES;OP=AND:APPOINTMENT,EDUCATION"),
@@ -211,7 +181,7 @@ mod tests {
 
         assert_eq!(
             XCategoriesProperty {
-                params: XCategoriesPropertyParams { op: OpValue::Or },
+                params: XCategoriesPropertyParams { op: WhereOperator::Or },
                 categories: List::from(vec![Text(String::from("APPOINTMENT")), Text(String::from("EDUCATION"))]),
             }.render_ical(),
             String::from("X-CATEGORIES;OP=OR:APPOINTMENT,EDUCATION"),
