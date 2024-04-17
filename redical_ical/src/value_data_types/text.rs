@@ -86,6 +86,9 @@ impl ICalendarEntity for Text {
         Self: Sized
     {
         map(
+            // Prevent greedily over consuming the text including following properties by looking
+            // ahead for properties relevant to the parsing context and terminating where they
+            // begin.
             terminated_lookahead(
                 text,
                 input.extra.terminating_property_lookahead(),

@@ -107,6 +107,7 @@ pub struct RenderingContext {
 pub enum ParserContext {
     None,
     Event,
+    Query,
 }
 
 impl Copy for ParserContext {}
@@ -128,6 +129,21 @@ impl ParserContext {
                         nom::sequence::preceded(
                             grammar::wsp,
                             properties::event::EventProperty::parse_ical,
+                        )
+                    )(input)
+                },
+
+                ParserContext::Query => {
+                    nom::combinator::recognize(
+                        nom::sequence::preceded(
+                            grammar::wsp,
+                            nom::branch::alt((
+                                nom::combinator::recognize(nom::sequence::tuple((nom::combinator::opt(grammar::wsp), nom::combinator::opt(grammar::tag("(")), nom::combinator::opt(grammar::wsp), properties::query::WhereProperty::parse_ical))),
+                                nom::combinator::recognize(nom::sequence::tuple((nom::combinator::opt(grammar::wsp), nom::multi::many1(grammar::tag(")")), nom::combinator::opt(grammar::wsp), properties::query::WhereProperty::parse_ical))),
+                                nom::combinator::recognize(nom::sequence::tuple((nom::combinator::opt(grammar::wsp), nom::multi::many1(grammar::tag(")")), nom::combinator::opt(grammar::wsp), properties::query::QueryProperty::parse_ical))),
+                                nom::combinator::recognize(nom::sequence::tuple((nom::combinator::opt(grammar::wsp), nom::multi::many1(grammar::tag(")")), nom::combinator::opt(grammar::wsp), nom::combinator::eof))),
+                                nom::combinator::recognize(properties::query::QueryProperty::parse_ical),
+                            )),
                         )
                     )(input)
                 },
@@ -190,11 +206,13 @@ impl UnicodeSegmentation for &str {
 /// assert_eq!(parser(""), Err(Err::Error(("", ErrorKind::Alpha))));
 /// assert_eq!(parser("123"), Err(Err::Error(("123", ErrorKind::Alpha))));
 /// ```
-pub fn terminated_lookahead<I, O, E, F, F2>(
+pub fn terminated_lookahead<I, O, O2, E, F, F2>(
     mut parser: F,
     mut look_ahead_parser: F2,
-) -> impl FnMut(I) -> nom::IResult<I, I, E>
+) -> impl FnMut(I) -> nom::IResult<I, O, E>
 where
+    O: std::fmt::Debug,
+    E: std::fmt::Debug,
     I: Clone
         + UnicodeSegmentation
         + nom::InputLength
@@ -202,8 +220,8 @@ where
         + nom::Slice<std::ops::RangeFrom<usize>>
         + std::fmt::Debug
         + Copy,
-    F: nom::Parser<I, I, E>,
-    F2: nom::Parser<I, O, E>,
+    F: nom::Parser<I, O, E>,
+    F2: nom::Parser<I, O2, E>,
 {
     move |input: I| {
         let (remaining, output) = parser.parse(input.clone())?;
@@ -229,12 +247,22 @@ where
             }
         }
 
+        // Return early if the parser terminates before the lookahead parser does (or at the same point).
         if look_ahead_max_index >= max_index || look_ahead_max_index >= (input.input_len() - 1) {
+            dbg!(&input, &remaining, &output);
             return Ok((remaining, output));
         }
 
-        let refined_output = input.slice(0..look_ahead_max_index);
+        // If the lookahead parser finds a match before the parser terminates, then we terminate
+        // the input to the point the lookahead parser matches, provide that to the parser so it
+        // does not overrun, then return the result and the remaining input sliced from the point
+        // of the lookahead parser match.
+        let look_ahead_restricted_input = input.slice(0..look_ahead_max_index);
+
+        let (_, refined_output) = parser.parse(look_ahead_restricted_input)?;
         let refined_remaining = input.slice(look_ahead_max_index..);
+
+        dbg!(&input, &refined_remaining, &refined_output);
 
         Ok((refined_remaining, refined_output))
     }

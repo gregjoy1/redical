@@ -103,6 +103,10 @@ impl ICalendarEntity for ContentLineParams {
 }
 
 impl ContentLineParams {
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
     pub fn insert(&mut self, key: String, value: String) {
         self.0.push(
             ContentLineParam(key, value)
@@ -181,6 +185,10 @@ impl ICalendarEntity for ContentLine {
     }
 
     fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
+        if self.is_unstructured() {
+            return self.2.to_owned();
+        }
+
         format!("{}{}:{}", self.0, self.1.render_ical(), self.2)
     }
 }
@@ -244,6 +252,16 @@ impl ContentLine {
 
             Ok((remaining, value))
         }
+    }
+}
+
+impl ContentLine {
+    pub fn is_unstructured(&self) -> bool {
+        self.0.is_empty() && self.1.is_empty()
+    }
+
+    pub fn new_unstructured(value: String) -> ContentLine {
+        ContentLine(String::new(), ContentLineParams::default(), value)
     }
 }
 
