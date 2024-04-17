@@ -127,17 +127,14 @@ impl ICalendarEntity for WherePropertiesGroup {
             "GROUP",
             map(
                 delimited(
-                    tag("("),
+                    tag("GRP(("),
                     cut(
-                        terminated_lookahead(
-                            separated_list0(
-                                wsp,
-                                WhereProperty::parse_ical,
-                            ),
-                            tag(")"),
+                        separated_list0(
+                            wsp,
+                            WhereProperty::parse_ical,
                         ),
                     ),
-                    tag(")"),
+                    tag("))GRP"),
                 ),
                 |properties| {
                     WherePropertiesGroup { properties }
@@ -197,7 +194,7 @@ mod tests {
     #[test]
     fn parse_ical() {
         assert_parser_output!(
-            WherePropertiesGroup::parse_ical(ParserInput::new_extra("() X-CATEGORIES:Categories text", ParserContext::Query)),
+            WherePropertiesGroup::parse_ical(ParserInput::new_extra("GRP(())GRP X-CATEGORIES:Categories text", ParserContext::Query)),
             (
                 " X-CATEGORIES:Categories text",
                 WherePropertiesGroup { properties: vec![] },
@@ -205,7 +202,7 @@ mod tests {
         );
 
         assert_parser_output!(
-            WherePropertiesGroup::parse_ical(ParserInput::new_extra("(X-CLASS:PUBLIC,PRIVATE) X-CATEGORIES:Categories text", ParserContext::Query)),
+            WherePropertiesGroup::parse_ical(ParserInput::new_extra("GRP((X-CLASS:PUBLIC,PRIVATE))GRP X-CATEGORIES:Categories text", ParserContext::Query)),
             (
                 " X-CATEGORIES:Categories text",
                 WherePropertiesGroup {
@@ -223,7 +220,7 @@ mod tests {
         );
 
         assert_parser_output!(
-            WherePropertiesGroup::parse_ical(ParserInput::new_extra("(X-CLASS:PUBLIC,PRIVATE OR X-CATEGORIES:APPOINTMENT,EDUCATION) X-CATEGORIES:Categories text", ParserContext::Query)),
+            WherePropertiesGroup::parse_ical(ParserInput::new_extra("GRP((X-CLASS:PUBLIC,PRIVATE OR X-CATEGORIES:APPOINTMENT,EDUCATION))GRP X-CATEGORIES:Categories text", ParserContext::Query)),
             (
                 " X-CATEGORIES:Categories text",
                 WherePropertiesGroup {
@@ -247,9 +244,8 @@ mod tests {
             ),
         );
 
-        /*
         assert_parser_output!(
-            WherePropertiesGroup::parse_ical(ParserInput::new_extra("(X-CLASS:PUBLIC X-CATEGORIES:APPOINTMENT (X-CLASS:PRIVATE X-CATEGORIES:EDUCATION)) X-CATEGORIES:Categories text", ParserContext::Query)),
+            WherePropertiesGroup::parse_ical(ParserInput::new_extra("GRP((X-CLASS:PUBLIC X-CATEGORIES:APPOINTMENT GRP((X-CLASS:PRIVATE X-CATEGORIES:EDUCATION))GRP))GRP X-CATEGORIES:Categories text", ParserContext::Query)),
             (
                 " X-CATEGORIES:Categories text",
                 WherePropertiesGroup {
@@ -293,10 +289,9 @@ mod tests {
                 },
             ),
         );
-        */
 
         assert_parser_output!(
-            WherePropertiesGroup::parse_ical(ParserInput::new_extra("(X-CLASS:PUBLIC OR X-CATEGORIES:APPOINTMENT AND (X-CLASS:PRIVATE OR X-CATEGORIES:EDUCATION)) X-CATEGORIES:Categories text", ParserContext::Query)),
+            WherePropertiesGroup::parse_ical(ParserInput::new_extra("GRP((X-CLASS:PUBLIC OR X-CATEGORIES:APPOINTMENT AND GRP((X-CLASS:PRIVATE OR X-CATEGORIES:EDUCATION))GRP))GRP X-CATEGORIES:Categories text", ParserContext::Query)),
             (
                 " X-CATEGORIES:Categories text",
                 WherePropertiesGroup {

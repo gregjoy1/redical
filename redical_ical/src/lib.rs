@@ -136,12 +136,15 @@ impl ParserContext {
                 ParserContext::Query => {
                     nom::combinator::recognize(
                         nom::sequence::preceded(
-                            grammar::wsp,
+                            nom::combinator::opt(grammar::wsp),
                             nom::branch::alt((
-                                nom::combinator::recognize(nom::sequence::tuple((nom::combinator::opt(grammar::wsp), nom::combinator::opt(grammar::tag("(")), nom::combinator::opt(grammar::wsp), properties::query::WhereProperty::parse_ical))),
-                                nom::combinator::recognize(nom::sequence::tuple((nom::combinator::opt(grammar::wsp), nom::multi::many1(grammar::tag(")")), nom::combinator::opt(grammar::wsp), properties::query::WhereProperty::parse_ical))),
-                                nom::combinator::recognize(nom::sequence::tuple((nom::combinator::opt(grammar::wsp), nom::multi::many1(grammar::tag(")")), nom::combinator::opt(grammar::wsp), properties::query::QueryProperty::parse_ical))),
-                                nom::combinator::recognize(nom::sequence::tuple((nom::combinator::opt(grammar::wsp), nom::multi::many1(grammar::tag(")")), nom::combinator::opt(grammar::wsp), nom::combinator::eof))),
+                                // HACK HACK HACK HACK
+                                nom::combinator::recognize(nom::sequence::tuple((value_data_types::where_operator::WhereOperator::parse_ical, grammar::wsp, grammar::tag("GRP((")))),
+                                nom::combinator::recognize(nom::sequence::tuple((nom::combinator::opt(grammar::tag("GRP((")), nom::combinator::opt(grammar::wsp), properties::query::WhereProperty::parse_ical))),
+                                nom::combinator::recognize(nom::sequence::tuple((nom::multi::many1(grammar::tag("))GRP")), nom::combinator::opt(grammar::wsp), properties::query::WhereProperty::parse_ical))),
+                                nom::combinator::recognize(nom::sequence::tuple((nom::multi::many1(grammar::tag("))GRP")), nom::combinator::opt(grammar::wsp), properties::query::QueryProperty::parse_ical))),
+                                nom::combinator::recognize(nom::sequence::tuple((nom::multi::many1(grammar::tag("))GRP")), nom::combinator::opt(grammar::wsp), nom::combinator::eof))),
+                                nom::combinator::recognize(properties::query::WhereProperty::parse_ical),
                                 nom::combinator::recognize(properties::query::QueryProperty::parse_ical),
                             )),
                         )
@@ -262,7 +265,7 @@ where
         let (_, refined_output) = parser.parse(look_ahead_restricted_input)?;
         let refined_remaining = input.slice(look_ahead_max_index..);
 
-        dbg!(&input, &refined_remaining, &refined_output);
+        dbg!(&input, &remaining, &refined_remaining, &output, &refined_output);
 
         Ok((refined_remaining, refined_output))
     }
