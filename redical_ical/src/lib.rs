@@ -138,12 +138,10 @@ impl ParserContext {
                         nom::sequence::preceded(
                             nom::combinator::opt(grammar::wsp),
                             nom::branch::alt((
-                                // HACK HACK HACK HACK
-                                nom::combinator::recognize(nom::sequence::tuple((value_data_types::where_operator::WhereOperator::parse_ical, grammar::wsp, grammar::tag("GRP((")))),
-                                nom::combinator::recognize(nom::sequence::tuple((nom::combinator::opt(grammar::tag("GRP((")), nom::combinator::opt(grammar::wsp), properties::query::WhereProperty::parse_ical))),
-                                nom::combinator::recognize(nom::sequence::tuple((nom::multi::many1(grammar::tag("))GRP")), nom::combinator::opt(grammar::wsp), properties::query::WhereProperty::parse_ical))),
-                                nom::combinator::recognize(nom::sequence::tuple((nom::multi::many1(grammar::tag("))GRP")), nom::combinator::opt(grammar::wsp), properties::query::QueryProperty::parse_ical))),
-                                nom::combinator::recognize(nom::sequence::tuple((nom::multi::many1(grammar::tag("))GRP")), nom::combinator::opt(grammar::wsp), nom::combinator::eof))),
+                                // TODO: HACK HACK HACK HACK - tidy and consolidate
+                                nom::combinator::recognize(nom::sequence::tuple((value_data_types::where_operator::WhereOperator::parse_ical, nom::combinator::opt(grammar::wsp), grammar::tag("(")))),
+                                nom::combinator::recognize(nom::sequence::tuple((grammar::tag("("), nom::combinator::opt(grammar::wsp), properties::query::WhereProperty::parse_ical))),
+                                nom::combinator::recognize(nom::sequence::tuple((nom::multi::many1(grammar::tag(")")), nom::combinator::opt(grammar::wsp)))),
                                 nom::combinator::recognize(properties::query::WhereProperty::parse_ical),
                                 nom::combinator::recognize(properties::query::QueryProperty::parse_ical),
                             )),
@@ -252,7 +250,6 @@ where
 
         // Return early if the parser terminates before the lookahead parser does (or at the same point).
         if look_ahead_max_index >= max_index || look_ahead_max_index >= (input.input_len() - 1) {
-            dbg!(&input, &remaining, &output);
             return Ok((remaining, output));
         }
 
@@ -264,8 +261,6 @@ where
 
         let (_, refined_output) = parser.parse(look_ahead_restricted_input)?;
         let refined_remaining = input.slice(look_ahead_max_index..);
-
-        dbg!(&input, &remaining, &refined_remaining, &output, &refined_output);
 
         Ok((refined_remaining, refined_output))
     }
