@@ -22,7 +22,7 @@ use crate::properties::query::{
 };
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub enum WhereProperty {
+pub enum GroupedWhereProperty {
     XGeo(Option<WhereOperator>, XGeoProperty),
     XClass(Option<WhereOperator>, XClassProperty),
     XRelatedTo(Option<WhereOperator>, XRelatedToProperty),
@@ -30,7 +30,7 @@ pub enum WhereProperty {
     WherePropertiesGroup(Option<WhereOperator>, WherePropertiesGroup),
 }
 
-impl WhereProperty {
+impl GroupedWhereProperty {
     fn get_external_operator(&self) -> &Option<WhereOperator> {
         match self {
             Self::XGeo(external_operator, _) => external_operator,
@@ -52,34 +52,34 @@ impl WhereProperty {
     }
 }
 
-impl ICalendarEntity for WhereProperty {
+impl ICalendarEntity for GroupedWhereProperty {
     fn parse_ical(input: ParserInput) -> ParserResult<Self> {
         context(
             "PROPERTY",
             alt((
                 map(
                     pair(opt(terminated(WhereOperator::parse_ical, wsp)), XGeoProperty::parse_ical),
-                    |(external_operator, x_geo_property)| WhereProperty::XGeo(external_operator, x_geo_property),
+                    |(external_operator, x_geo_property)| GroupedWhereProperty::XGeo(external_operator, x_geo_property),
                 ),
 
                 map(
                     pair(opt(terminated(WhereOperator::parse_ical, wsp)), XClassProperty::parse_ical),
-                    |(external_operator, x_class_property)| WhereProperty::XClass(external_operator, x_class_property),
+                    |(external_operator, x_class_property)| GroupedWhereProperty::XClass(external_operator, x_class_property),
                 ),
 
                 map(
                     pair(opt(terminated(WhereOperator::parse_ical, wsp)), XRelatedToProperty::parse_ical),
-                    |(external_operator, x_related_to_property)| WhereProperty::XRelatedTo(external_operator, x_related_to_property),
+                    |(external_operator, x_related_to_property)| GroupedWhereProperty::XRelatedTo(external_operator, x_related_to_property),
                 ),
 
                 map(
                     pair(opt(terminated(WhereOperator::parse_ical, wsp)), XCategoriesProperty::parse_ical),
-                    |(external_operator, x_categories_property)| WhereProperty::XCategories(external_operator, x_categories_property),
+                    |(external_operator, x_categories_property)| GroupedWhereProperty::XCategories(external_operator, x_categories_property),
                 ),
 
                 map(
                     pair(opt(terminated(WhereOperator::parse_ical, wsp)), WherePropertiesGroup::parse_ical),
-                    |(external_operator, where_properties_group)| WhereProperty::WherePropertiesGroup(external_operator, where_properties_group),
+                    |(external_operator, where_properties_group)| GroupedWhereProperty::WherePropertiesGroup(external_operator, where_properties_group),
                 ),
             )),
         )(input)
@@ -90,7 +90,7 @@ impl ICalendarEntity for WhereProperty {
     }
 }
 
-impl ICalendarProperty for WhereProperty {
+impl ICalendarProperty for GroupedWhereProperty {
     /// Build a `ContentLineParams` instance with consideration to the optionally provided
     /// `RenderingContext`.
     fn to_content_line_with_context(&self, context: Option<&RenderingContext>) -> ContentLine {
@@ -108,7 +108,7 @@ impl ICalendarProperty for WhereProperty {
     }
 }
 
-impl_icalendar_entity_traits!(WhereProperty);
+impl_icalendar_entity_traits!(GroupedWhereProperty);
 
 /// Query CLASS where condition property.
 ///
@@ -118,7 +118,7 @@ impl_icalendar_entity_traits!(WhereProperty);
 /// (X-CLASS:PUBLIC AND X-RELATED-TO;RELTYPE=PARENT:parent.uid OR X-GEO;DIST=1.5KM:48.85299;2.36885)
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct WherePropertiesGroup {
-    pub properties: Vec<WhereProperty>,
+    pub properties: Vec<GroupedWhereProperty>,
 }
 
 impl ICalendarEntity for WherePropertiesGroup {
@@ -132,7 +132,7 @@ impl ICalendarEntity for WherePropertiesGroup {
                     cut(
                         separated_list0(
                             wsp,
-                            WhereProperty::parse_ical,
+                            GroupedWhereProperty::parse_ical,
                         ),
                     ),
                     tag(")"),
@@ -208,7 +208,7 @@ mod tests {
                 " X-CATEGORIES:Categories text",
                 WherePropertiesGroup {
                     properties: vec![
-                        WhereProperty::XClass(
+                        GroupedWhereProperty::XClass(
                             None,
                             XClassProperty {
                                 params: XClassPropertyParams::default(),
@@ -226,14 +226,14 @@ mod tests {
                 " X-CATEGORIES:Categories text",
                 WherePropertiesGroup {
                     properties: vec![
-                        WhereProperty::XClass(
+                        GroupedWhereProperty::XClass(
                             None,
                             XClassProperty {
                                 params: XClassPropertyParams::default(),
                                 classes: List::from(vec![ClassValue::Public, ClassValue::Private]),
                             },
                         ),
-                        WhereProperty::XCategories(
+                        GroupedWhereProperty::XCategories(
                             Some(WhereOperator::Or),
                             XCategoriesProperty {
                                 params: XCategoriesPropertyParams::default(),
@@ -251,32 +251,32 @@ mod tests {
                 " X-CATEGORIES:Categories text",
                 WherePropertiesGroup {
                     properties: vec![
-                        WhereProperty::XClass(
+                        GroupedWhereProperty::XClass(
                             None,
                             XClassProperty {
                                 params: XClassPropertyParams::default(),
                                 classes: List::from(vec![ClassValue::Public]),
                             },
                         ),
-                        WhereProperty::XCategories(
+                        GroupedWhereProperty::XCategories(
                             None,
                             XCategoriesProperty {
                                 params: XCategoriesPropertyParams::default(),
                                 categories: List::from(vec![Text(String::from("APPOINTMENT"))]),
                             },
                         ),
-                        WhereProperty::WherePropertiesGroup(
+                        GroupedWhereProperty::WherePropertiesGroup(
                             None,
                             WherePropertiesGroup {
                                 properties: vec![
-                                    WhereProperty::XClass(
+                                    GroupedWhereProperty::XClass(
                                         None,
                                         XClassProperty {
                                             params: XClassPropertyParams::default(),
                                             classes: List::from(vec![ClassValue::Private]),
                                         },
                                     ),
-                                    WhereProperty::XCategories(
+                                    GroupedWhereProperty::XCategories(
                                         None,
                                         XCategoriesProperty {
                                             params: XCategoriesPropertyParams::default(),
@@ -297,32 +297,32 @@ mod tests {
                 " X-CATEGORIES:Categories text",
                 WherePropertiesGroup {
                     properties: vec![
-                        WhereProperty::XClass(
+                        GroupedWhereProperty::XClass(
                             None,
                             XClassProperty {
                                 params: XClassPropertyParams::default(),
                                 classes: List::from(vec![ClassValue::Public]),
                             },
                         ),
-                        WhereProperty::XCategories(
+                        GroupedWhereProperty::XCategories(
                             Some(WhereOperator::Or),
                             XCategoriesProperty {
                                 params: XCategoriesPropertyParams::default(),
                                 categories: List::from(vec![Text(String::from("APPOINTMENT"))]),
                             },
                         ),
-                        WhereProperty::WherePropertiesGroup(
+                        GroupedWhereProperty::WherePropertiesGroup(
                             Some(WhereOperator::And),
                             WherePropertiesGroup {
                                 properties: vec![
-                                    WhereProperty::XClass(
+                                    GroupedWhereProperty::XClass(
                                         None,
                                         XClassProperty {
                                             params: XClassPropertyParams::default(),
                                             classes: List::from(vec![ClassValue::Private]),
                                         },
                                     ),
-                                    WhereProperty::XCategories(
+                                    GroupedWhereProperty::XCategories(
                                         Some(WhereOperator::Or),
                                         XCategoriesProperty {
                                             params: XCategoriesPropertyParams::default(),
@@ -351,7 +351,7 @@ mod tests {
         assert_eq!(
             WherePropertiesGroup {
                 properties: vec![
-                    WhereProperty::XClass(
+                    GroupedWhereProperty::XClass(
                         None,
                         XClassProperty {
                             params: XClassPropertyParams::default(),
@@ -366,14 +366,14 @@ mod tests {
         assert_eq!(
             WherePropertiesGroup {
                 properties: vec![
-                    WhereProperty::XClass(
+                    GroupedWhereProperty::XClass(
                         None,
                         XClassProperty {
                             params: XClassPropertyParams::default(),
                             classes: List::from(vec![ClassValue::Public, ClassValue::Private]),
                         },
                     ),
-                    WhereProperty::XCategories(
+                    GroupedWhereProperty::XCategories(
                         Some(WhereOperator::Or),
                         XCategoriesProperty {
                             params: XCategoriesPropertyParams::default(),
@@ -388,32 +388,32 @@ mod tests {
         assert_eq!(
             WherePropertiesGroup {
                 properties: vec![
-                    WhereProperty::XClass(
+                    GroupedWhereProperty::XClass(
                         None,
                         XClassProperty {
                             params: XClassPropertyParams::default(),
                             classes: List::from(vec![ClassValue::Public]),
                         },
                     ),
-                    WhereProperty::XCategories(
+                    GroupedWhereProperty::XCategories(
                         None,
                         XCategoriesProperty {
                             params: XCategoriesPropertyParams::default(),
                             categories: List::from(vec![Text(String::from("APPOINTMENT"))]),
                         },
                     ),
-                    WhereProperty::WherePropertiesGroup(
+                    GroupedWhereProperty::WherePropertiesGroup(
                         None,
                         WherePropertiesGroup {
                             properties: vec![
-                                WhereProperty::XClass(
+                                GroupedWhereProperty::XClass(
                                     None,
                                     XClassProperty {
                                         params: XClassPropertyParams::default(),
                                         classes: List::from(vec![ClassValue::Private]),
                                     },
                                 ),
-                                WhereProperty::XCategories(
+                                GroupedWhereProperty::XCategories(
                                     None,
                                     XCategoriesProperty {
                                         params: XCategoriesPropertyParams::default(),
@@ -431,32 +431,32 @@ mod tests {
         assert_eq!(
             WherePropertiesGroup {
                 properties: vec![
-                    WhereProperty::XClass(
+                    GroupedWhereProperty::XClass(
                         None,
                         XClassProperty {
                             params: XClassPropertyParams::default(),
                             classes: List::from(vec![ClassValue::Public]),
                         },
                     ),
-                    WhereProperty::XCategories(
+                    GroupedWhereProperty::XCategories(
                         Some(WhereOperator::Or),
                         XCategoriesProperty {
                             params: XCategoriesPropertyParams::default(),
                             categories: List::from(vec![Text(String::from("APPOINTMENT"))]),
                         },
                     ),
-                    WhereProperty::WherePropertiesGroup(
+                    GroupedWhereProperty::WherePropertiesGroup(
                         Some(WhereOperator::And),
                         WherePropertiesGroup {
                             properties: vec![
-                                WhereProperty::XClass(
+                                GroupedWhereProperty::XClass(
                                     None,
                                     XClassProperty {
                                         params: XClassPropertyParams::default(),
                                         classes: List::from(vec![ClassValue::Private]),
                                     },
                                 ),
-                                WhereProperty::XCategories(
+                                GroupedWhereProperty::XCategories(
                                     Some(WhereOperator::Or),
                                     XCategoriesProperty {
                                         params: XCategoriesPropertyParams::default(),

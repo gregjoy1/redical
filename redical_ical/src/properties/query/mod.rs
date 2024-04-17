@@ -32,7 +32,7 @@ pub use x_categories::{XCategoriesProperty, XCategoriesPropertyParams};
 pub use x_related_to::{XRelatedToProperty, XRelatedToPropertyParams};
 pub use x_geo::{DistValue, XGeoProperty, XGeoPropertyParams};
 pub use x_class::{XClassProperty, XClassPropertyParams};
-pub use where_properties_group::{WherePropertiesGroup, WhereProperty};
+pub use where_properties_group::{WherePropertiesGroup, GroupedWhereProperty};
 
 use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits, convert_error};
 

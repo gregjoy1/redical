@@ -140,9 +140,9 @@ impl ParserContext {
                             nom::branch::alt((
                                 // TODO: HACK HACK HACK HACK - tidy and consolidate
                                 nom::combinator::recognize(nom::sequence::tuple((value_data_types::where_operator::WhereOperator::parse_ical, nom::combinator::opt(grammar::wsp), grammar::tag("(")))),
-                                nom::combinator::recognize(nom::sequence::tuple((grammar::tag("("), nom::combinator::opt(grammar::wsp), properties::query::WhereProperty::parse_ical))),
+                                nom::combinator::recognize(nom::sequence::tuple((grammar::tag("("), nom::combinator::opt(grammar::wsp), properties::query::GroupedWhereProperty::parse_ical))),
                                 nom::combinator::recognize(nom::sequence::tuple((nom::multi::many1(grammar::tag(")")), nom::combinator::opt(grammar::wsp)))),
-                                nom::combinator::recognize(properties::query::WhereProperty::parse_ical),
+                                nom::combinator::recognize(properties::query::GroupedWhereProperty::parse_ical),
                                 nom::combinator::recognize(properties::query::QueryProperty::parse_ical),
                             )),
                         )
