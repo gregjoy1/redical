@@ -123,10 +123,18 @@ impl ParserContext {
         move |mut input: ParserInput| {
             input.extra = ParserContext::None;
 
+            use nom::combinator::{recognize, eof, opt, not};
+            use nom::sequence::{tuple, preceded};
+            use nom::multi::many1;
+            use nom::branch::alt;
+            use grammar::{wsp, tag, contentline};
+            use value_data_types::where_operator::WhereOperator;
+            use properties::query::{GroupedWhereProperty, QueryProperty};
+
             match self {
                 ParserContext::Event => {
-                    nom::combinator::recognize(
-                        nom::sequence::preceded(
+                    recognize(
+                        preceded(
                             grammar::wsp,
                             properties::event::EventProperty::parse_ical,
                         )
@@ -134,26 +142,26 @@ impl ParserContext {
                 },
 
                 ParserContext::Query => {
-                    nom::combinator::recognize(
-                        nom::sequence::preceded(
-                            nom::combinator::opt(grammar::wsp),
-                            nom::branch::alt((
+                    recognize(
+                        preceded(
+                            opt(wsp),
+                            alt((
                                 // TODO: HACK HACK HACK HACK - tidy and consolidate
-                                nom::combinator::recognize(nom::sequence::tuple((value_data_types::where_operator::WhereOperator::parse_ical, nom::combinator::opt(grammar::wsp), grammar::tag("(")))),
-                                nom::combinator::recognize(nom::sequence::tuple((grammar::tag("("), nom::combinator::opt(grammar::wsp), properties::query::GroupedWhereProperty::parse_ical))),
-                                nom::combinator::recognize(nom::sequence::tuple((nom::multi::many1(grammar::tag(")")), nom::combinator::opt(grammar::wsp)))),
-                                nom::combinator::recognize(properties::query::GroupedWhereProperty::parse_ical),
-                                nom::combinator::recognize(properties::query::QueryProperty::parse_ical),
+                                recognize(tuple((WhereOperator::parse_ical, opt(wsp), tag("(")))),
+                                recognize(tuple((tag("("), opt(wsp), GroupedWhereProperty::parse_ical))),
+                                recognize(tuple((not(contentline), many1(tag(")")), alt((wsp, eof))))),
+                                recognize(GroupedWhereProperty::parse_ical),
+                                recognize(QueryProperty::parse_ical),
                             )),
                         )
                     )(input)
                 },
 
                 _ => {
-                    nom::combinator::recognize(
-                        nom::sequence::preceded(
-                            grammar::wsp,
-                            grammar::contentline,
+                    recognize(
+                        preceded(
+                            wsp,
+                            contentline,
                         )
                     )(input)
                 },
