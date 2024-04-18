@@ -24,8 +24,8 @@ use crate::grammar::wsp;
 pub use x_offset::XOffsetProperty;
 pub use x_limit::XLimitProperty;
 pub use x_distinct::XDistinctProperty;
-pub use x_from::{FromRangeOperator, XFromProperty, XFromPropertyParams};
-pub use x_until::{UntilRangeOperator, XUntilProperty, XUntilPropertyParams};
+pub use x_from::{XFromProperty, XFromPropertyParams};
+pub use x_until::{XUntilProperty, XUntilPropertyParams};
 pub use x_tzid::XTzidProperty;
 pub use x_order_by::XOrderByProperty;
 pub use x_categories::{XCategoriesProperty, XCategoriesPropertyParams};
@@ -34,7 +34,7 @@ pub use x_geo::{DistValue, XGeoProperty, XGeoPropertyParams};
 pub use x_class::{XClassProperty, XClassPropertyParams};
 pub use where_properties_group::{WherePropertiesGroup, GroupedWhereProperty};
 
-use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits, convert_error};
+use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, ParserContext, impl_icalendar_entity_traits, convert_error};
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum QueryProperty {
@@ -99,16 +99,30 @@ impl_icalendar_entity_traits!(QueryProperty);
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct QueryProperties(pub Vec<QueryProperty>);
 
+impl ICalendarEntity for QueryProperties {
+    fn parse_ical(input: ParserInput) -> ParserResult<Self> {
+        map(separated_list1(wsp, QueryProperty::parse_ical), QueryProperties)(input)
+    }
+
+    fn render_ical_with_context(&self, context: Option<&RenderingContext>) -> String {
+        self.0
+            .iter()
+            .map(|property| property.render_ical_with_context(context))
+            .collect::<Vec<String>>()
+            .join(" ")
+    }
+}
+
 impl FromStr for QueryProperties {
     type Err = String;
 
     fn from_str(input: &str) -> Result<Self, Self::Err> {
         let parsed_properties =
-            all_consuming(separated_list1(wsp, QueryProperty::parse_ical))(input.into());
+            all_consuming(Self::parse_ical)(ParserInput::new_extra(input, ParserContext::Query));
 
         match parsed_properties {
-            Ok((_remaining, properties)) => {
-                Ok(QueryProperties(properties))
+            Ok((_remaining, query_properties)) => {
+                Ok(query_properties)
             },
 
             Err(error) => {

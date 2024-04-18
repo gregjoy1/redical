@@ -28,6 +28,12 @@ impl Into<usize> for XOffsetProperty {
     }
 }
 
+impl Into<usize> for &XOffsetProperty {
+    fn into(self) -> usize {
+        self.to_owned().into()
+    }
+}
+
 impl ICalendarEntity for XOffsetProperty {
     fn parse_ical(input: ParserInput) -> ParserResult<Self> {
         context(

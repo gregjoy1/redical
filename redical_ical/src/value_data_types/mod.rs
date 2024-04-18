@@ -11,3 +11,5 @@ pub mod list;
 pub mod reltype;
 pub mod class;
 pub mod where_operator;
+pub mod where_range_property;
+pub mod where_range_operator;

@@ -1,10 +1,11 @@
 use nom::error::context;
-use nom::branch::alt;
 use nom::sequence::{pair, preceded};
 use nom::combinator::{map, cut, opt};
 
 use crate::value_data_types::date_time::{DateTime, ValueType};
 use crate::value_data_types::tzid::Tzid;
+use crate::value_data_types::where_range_property::WhereRangeProperty;
+use crate::value_data_types::where_range_operator::WhereUntilRangeOperator;
 
 use crate::grammar::{tag, semicolon, colon};
 
@@ -14,70 +15,10 @@ use crate::content_line::{ContentLineParams, ContentLine};
 
 use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
 
-// prop = "DTSTART" / "DTEND"
-//
-// ;Default is DTSTART
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub enum PropValue {
-    DTStart,
-    DTEnd,
-}
-
-impl ICalendarEntity for PropValue {
-    fn parse_ical(input: ParserInput) -> ParserResult<Self> {
-        context(
-            "PROP",
-            alt((
-                map(tag("DTSTART"), |_| PropValue::DTStart),
-                map(tag("DTEND"), |_| PropValue::DTEnd),
-            )),
-        )(input)
-    }
-
-    fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
-        match self {
-           Self::DTStart => String::from("DTSTART"),
-           Self::DTEnd => String::from("DTEND"),
-        }
-    }
-}
-
-impl_icalendar_entity_traits!(PropValue);
-
-// OP = "LT" / "LTE"
-//
-// ;Default is LT
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub enum UntilRangeOperator {
-    LessThan,
-    LessEqualThan,
-}
-
-impl ICalendarEntity for UntilRangeOperator {
-    fn parse_ical(input: ParserInput) -> ParserResult<Self> {
-        context(
-            "OP",
-            alt((
-                map(tag("LTE"), |_| UntilRangeOperator::LessEqualThan),
-                map(tag("LT"), |_| UntilRangeOperator::LessThan),
-            )),
-        )(input)
-    }
-
-    fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
-        match self {
-           Self::LessThan => String::from("LT"),
-           Self::LessEqualThan => String::from("LTE"),
-        }
-    }
-}
-
-impl_icalendar_entity_traits!(UntilRangeOperator);
-
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct XUntilPropertyParams {
-    pub prop: PropValue,
-    pub op: UntilRangeOperator,
+    pub prop: WhereRangeProperty,
+    pub op: WhereUntilRangeOperator,
     pub tzid: Option<Tzid>,
 }
 
@@ -85,12 +26,12 @@ impl ICalendarEntity for XUntilPropertyParams {
     define_property_params_ical_parser!(
         XUntilPropertyParams,
         (
-            pair(tag("PROP"), cut(preceded(tag("="), PropValue::parse_ical))),
-            |params: &mut XUntilPropertyParams, (_key, value): (ParserInput, PropValue)| params.prop = value,
+            pair(tag("PROP"), cut(preceded(tag("="), WhereRangeProperty::parse_ical))),
+            |params: &mut XUntilPropertyParams, (_key, value): (ParserInput, WhereRangeProperty)| params.prop = value,
         ),
         (
-            pair(tag("OP"), cut(preceded(tag("="), UntilRangeOperator::parse_ical))),
-            |params: &mut XUntilPropertyParams, (_key, value): (ParserInput, UntilRangeOperator)| params.op = value,
+            pair(tag("OP"), cut(preceded(tag("="), WhereUntilRangeOperator::parse_ical))),
+            |params: &mut XUntilPropertyParams, (_key, value): (ParserInput, WhereUntilRangeOperator)| params.op = value,
         ),
         (
             pair(tag("TZID"), cut(preceded(tag("="), Tzid::parse_ical))),
@@ -145,8 +86,8 @@ impl XUntilPropertyParams {
 impl Default for XUntilPropertyParams {
     fn default() -> Self {
         XUntilPropertyParams {
-            prop: PropValue::DTStart,
-            op: UntilRangeOperator::LessThan,
+            prop: WhereRangeProperty::DTStart,
+            op: WhereUntilRangeOperator::LessThan,
             tzid: None,
         }
     }
@@ -159,11 +100,11 @@ pub struct XUntilProperty {
 }
 
 impl XUntilProperty {
-    pub fn get_prop(&self) -> PropValue {
+    pub fn get_prop(&self) -> WhereRangeProperty {
         self.params.prop.to_owned()
     }
 
-    pub fn get_op(&self) -> UntilRangeOperator {
+    pub fn get_op(&self) -> WhereUntilRangeOperator {
         self.params.op.to_owned()
     }
 }
@@ -299,8 +240,8 @@ mod tests {
                 "",
                 XUntilProperty {
                     params: XUntilPropertyParams {
-                        prop: PropValue::DTStart,
-                        op: UntilRangeOperator::LessThan,
+                        prop: WhereRangeProperty::DTStart,
+                        op: WhereUntilRangeOperator::LessThan,
                         tzid: Some(Tzid(Tz::Europe__London)),
                     },
                     date_time: DateTime::LocalDateTime(
@@ -319,8 +260,8 @@ mod tests {
                 "",
                 XUntilProperty {
                     params: XUntilPropertyParams {
-                        prop: PropValue::DTEnd,
-                        op: UntilRangeOperator::LessEqualThan,
+                        prop: WhereRangeProperty::DTEnd,
+                        op: WhereUntilRangeOperator::LessEqualThan,
                         tzid: None,
                     },
                     date_time: DateTime::LocalDate(
@@ -351,8 +292,8 @@ mod tests {
         assert_eq!(
             XUntilProperty {
                 params: XUntilPropertyParams {
-                    prop: PropValue::DTStart,
-                    op: UntilRangeOperator::LessThan,
+                    prop: WhereRangeProperty::DTStart,
+                    op: WhereUntilRangeOperator::LessThan,
                     tzid: Some(Tzid(Tz::Europe__London)),
                 },
                 date_time: DateTime::LocalDateTime(
@@ -368,8 +309,8 @@ mod tests {
         assert_eq!(
             XUntilProperty {
                 params: XUntilPropertyParams {
-                    prop: PropValue::DTEnd,
-                    op: UntilRangeOperator::LessEqualThan,
+                    prop: WhereRangeProperty::DTEnd,
+                    op: WhereUntilRangeOperator::LessEqualThan,
                     tzid: None,
                 },
                 date_time: DateTime::LocalDate(

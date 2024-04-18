@@ -28,6 +28,12 @@ impl Into<usize> for XLimitProperty {
     }
 }
 
+impl Into<usize> for &XLimitProperty {
+    fn into(self) -> usize {
+        self.to_owned().into()
+    }
+}
+
 impl ICalendarEntity for XLimitProperty {
     fn parse_ical(input: ParserInput) -> ParserResult<Self> {
         context(
