@@ -42,6 +42,18 @@ impl ICalendarEntity for Tzid {
     }
 }
 
+impl From<Tzid> for Tz {
+    fn from(tzid: Tzid) -> Self {
+        tzid.0.to_owned()
+    }
+}
+
+impl From<&Tzid> for Tz {
+    fn from(tzid: &Tzid) -> Self {
+        Tz::from(tzid.to_owned())
+    }
+}
+
 impl_icalendar_entity_traits!(Tzid);
 
 #[cfg(test)]

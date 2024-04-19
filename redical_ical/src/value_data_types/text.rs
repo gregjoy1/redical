@@ -1,3 +1,5 @@
+use std::string::ToString;
+
 use nom::combinator::{recognize, map};
 use nom::multi::many0;
 use nom::branch::alt;

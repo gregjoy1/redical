@@ -1,3 +1,5 @@
+use chrono_tz::Tz;
+
 use nom::error::context;
 use nom::sequence::preceded;
 use nom::combinator::{map, cut};
@@ -63,6 +65,18 @@ impl ICalendarProperty for XTzidProperty {
 impl std::hash::Hash for XTzidProperty {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.render_ical().hash(state)
+    }
+}
+
+impl From<XTzidProperty> for Tz {
+    fn from(x_tzid_property: XTzidProperty) -> Self {
+        Tz::from(x_tzid_property.tzid)
+    }
+}
+
+impl From<&XTzidProperty> for Tz {
+    fn from(x_tzid_property: &XTzidProperty) -> Self {
+        Tz::from(x_tzid_property.tzid.to_owned())
     }
 }
 

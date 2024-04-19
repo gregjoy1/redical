@@ -125,6 +125,21 @@ impl ICalendarProperty for XRelatedToProperty {
     }
 }
 
+impl XRelatedToProperty {
+    /// Returns the RELTYPE for this property, if not present we return the default
+    /// `Reltype::Parent`.
+    pub fn get_reltype(&self) -> Reltype {
+        self.params.reltype.to_owned()
+    }
+
+    pub fn get_uids(&self) -> Vec<String> {
+        self.uids
+            .iter()
+            .map(|text| text.to_string())
+            .collect::<Vec<String>>()
+    }
+}
+
 impl std::hash::Hash for XRelatedToProperty {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.render_ical().hash(state)

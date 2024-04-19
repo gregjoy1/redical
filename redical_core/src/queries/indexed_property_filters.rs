@@ -1,11 +1,20 @@
-use std::time::Duration;
-
 use crate::{Calendar, GeoDistance, GeoPoint, InvertedCalendarIndexTerm, KeyValuePair};
+
+use redical_ical::value_data_types::where_operator as ical_where_operator;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum WhereOperator {
     Or,
     And,
+}
+
+impl From<ical_where_operator::WhereOperator> for WhereOperator {
+    fn from(where_operator: ical_where_operator::WhereOperator) -> Self {
+        match where_operator {
+            ical_where_operator::WhereOperator::Or => WhereOperator::Or,
+            ical_where_operator::WhereOperator::And => WhereOperator::And,
+        }
+    }
 }
 
 impl WhereOperator {

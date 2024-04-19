@@ -53,6 +53,11 @@ where
     }
 }
 
+pub trait ICalendarGeoProperty {
+    fn get_latitude(&self) -> f64;
+    fn get_longitude(&self) -> f64;
+}
+
 pub trait ICalendarDateTimeProperty {
     fn new_from<P>(from_property: &P) -> Self
     where

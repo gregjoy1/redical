@@ -9,7 +9,7 @@ use crate::value_data_types::float::Float;
 
 use crate::content_line::{ContentLine, ContentLineParams};
 
-use crate::properties::{ICalendarProperty, ICalendarPropertyParams, define_property_params_ical_parser};
+use crate::properties::{ICalendarProperty, ICalendarPropertyParams, ICalendarGeoProperty, define_property_params_ical_parser};
 
 use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
 
@@ -140,6 +140,16 @@ impl ICalendarProperty for XGeoProperty {
                 format!("{};{}", self.latitude.render_ical(), self.longitude.render_ical()),
             )
         ))
+    }
+}
+
+impl ICalendarGeoProperty for XGeoProperty {
+    fn get_latitude(&self) -> f64 {
+        self.latitude.to_owned().into()
+    }
+
+    fn get_longitude(&self) -> f64 {
+        self.longitude.to_owned().into()
     }
 }
 

@@ -8,7 +8,7 @@ use rstar::primitives::GeomWithData;
 use std::hash::{Hash, Hasher};
 
 use crate::{IndexedConclusion, InvertedCalendarIndexTerm};
-use redical_ical::properties::GeoProperty;
+use redical_ical::properties::ICalendarGeoProperty;
 
 #[derive(Debug, PartialOrd, PartialEq, Eq, Clone)]
 pub enum GeoDistance {
@@ -144,24 +144,16 @@ pub struct GeoPoint {
     pub lat: f64,
 }
 
-impl From<GeoProperty> for GeoPoint {
+impl<P> From<&P> for GeoPoint
+where
+    P: ICalendarGeoProperty,
+{
     #[inline]
-    fn from(property: GeoProperty) -> Self {
-        let latitude: f64 = property.latitude.into();
-        let longitude: f64 = property.longitude.into();
-
-        GeoPoint::new(latitude, longitude)
-    }
-}
-
-impl From<&GeoProperty> for GeoPoint {
-    #[inline]
-    fn from(property: &GeoProperty) -> Self {
-        let property = property.to_owned();
-        let latitude: f64 = property.latitude.into();
-        let longitude: f64 = property.longitude.into();
-
-        GeoPoint::new(latitude, longitude)
+    fn from(property: &P) -> Self {
+        GeoPoint::new(
+            property.get_latitude(),
+            property.get_longitude(),
+        )
     }
 }
 

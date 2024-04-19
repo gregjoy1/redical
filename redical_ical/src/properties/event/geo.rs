@@ -10,7 +10,7 @@ use crate::value_data_types::float::Float;
 
 use crate::grammar::{tag, semicolon, colon, comma, x_name, iana_token, param_value};
 
-use crate::properties::{ICalendarProperty, ICalendarPropertyParams, define_property_params_ical_parser};
+use crate::properties::{ICalendarProperty, ICalendarPropertyParams, ICalendarGeoProperty, define_property_params_ical_parser};
 
 use crate::content_line::{ContentLineParams, ContentLine};
 
@@ -141,6 +141,16 @@ impl ICalendarProperty for GeoProperty {
                 format!("{};{}", self.latitude.render_ical(), self.longitude.render_ical()),
             )
         ))
+    }
+}
+
+impl ICalendarGeoProperty for GeoProperty {
+    fn get_latitude(&self) -> f64 {
+        self.latitude.to_owned().into()
+    }
+
+    fn get_longitude(&self) -> f64 {
+        self.longitude.to_owned().into()
     }
 }
 
