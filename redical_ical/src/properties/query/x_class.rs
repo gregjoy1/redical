@@ -117,6 +117,15 @@ impl ICalendarProperty for XClassProperty {
     }
 }
 
+impl XClassProperty {
+    pub fn get_classifications(&self) -> Vec<String> {
+        self.classes
+            .iter()
+            .map(|text| text.to_string())
+            .collect::<Vec<String>>()
+    }
+}
+
 impl std::hash::Hash for XClassProperty {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.render_ical().hash(state)

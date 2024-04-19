@@ -13,6 +13,7 @@ use redical_ical::{
     properties::{
         ICalendarProperty,
         DTStartProperty,
+        query::x_order_by::XOrderByProperty,
     },
 };
 
@@ -23,6 +24,34 @@ pub enum OrderingCondition {
     DtStart,
     DtStartGeoDist(GeoPoint),
     GeoDistDtStart(GeoPoint),
+}
+
+impl From<XOrderByProperty> for OrderingCondition {
+    fn from(x_order_by_property: XOrderByProperty) -> Self {
+        match x_order_by_property {
+            XOrderByProperty::DTStart => {
+                OrderingCondition::DtStart
+            },
+
+            XOrderByProperty::DTStartGeoDist(latitude, longitude) => {
+                OrderingCondition::DtStartGeoDist(
+                    GeoPoint::new(latitude.into(), longitude.into())
+                )
+            },
+
+            XOrderByProperty::GeoDistDTStart(latitude, longitude) => {
+                OrderingCondition::GeoDistDtStart(
+                    GeoPoint::new(latitude.into(), longitude.into())
+                )
+            },
+        }
+    }
+}
+
+impl From<&XOrderByProperty> for OrderingCondition {
+    fn from(x_order_by_property: &XOrderByProperty) -> Self {
+        OrderingCondition::from(x_order_by_property.to_owned())
+    }
 }
 
 impl OrderingCondition {
@@ -36,14 +65,15 @@ impl OrderingCondition {
             }
 
             OrderingCondition::DtStartGeoDist(ordering_geo_point) => {
-                let dtstart_timestamp = event_instance.dtstart.get_utc_timestamp().clone();
+                let dtstart_timestamp = event_instance.dtstart.get_utc_timestamp();
+
                 let geo_distance =
                     event_instance
                         .indexed_properties
                         .geo
                         .clone()
                         .and_then(|event_instance_geo| {
-                            let event_instance_geo_point = GeoPoint::from(event_instance_geo);
+                            let event_instance_geo_point = GeoPoint::from(&event_instance_geo);
 
                             Some(GeoDistance::new_from_meters_float(
                                 event_instance_geo_point.haversine_distance(&ordering_geo_point),
@@ -54,14 +84,15 @@ impl OrderingCondition {
             }
 
             OrderingCondition::GeoDistDtStart(ordering_geo_point) => {
-                let dtstart_timestamp = event_instance.dtstart.get_utc_timestamp().clone();
+                let dtstart_timestamp = event_instance.dtstart.get_utc_timestamp();
+
                 let geo_distance =
                     event_instance
                         .indexed_properties
                         .geo
                         .clone()
                         .and_then(|event_instance_geo| {
-                            let event_instance_geo_point = GeoPoint::from(event_instance_geo);
+                            let event_instance_geo_point = GeoPoint::from(&event_instance_geo);
 
                             Some(GeoDistance::new_from_meters_float(
                                 event_instance_geo_point.haversine_distance(&ordering_geo_point),

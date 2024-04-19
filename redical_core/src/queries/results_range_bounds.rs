@@ -1,5 +1,10 @@
 use crate::{FilterProperty, LowerBoundFilterCondition, UpperBoundFilterCondition};
 
+use redical_ical::properties::ICalendarDateTimeProperty;
+use redical_ical::properties::query::{XFromProperty, XFromPropertyParams, XUntilProperty, XUntilPropertyParams};
+use redical_ical::value_data_types::where_range_operator::{WhereFromRangeOperator, WhereUntilRangeOperator};
+use redical_ical::value_data_types::where_range_property::WhereRangeProperty;
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum RangeConditionProperty {
     DtStart(i64),
@@ -36,6 +41,37 @@ impl RangeConditionProperty {
 pub enum LowerBoundRangeCondition {
     GreaterThan(RangeConditionProperty),
     GreaterEqualThan(RangeConditionProperty),
+}
+
+impl From<XFromProperty> for LowerBoundRangeCondition {
+    fn from(x_from_property: XFromProperty) -> Self {
+        let range_condition_property =
+            match x_from_property.params.prop {
+                WhereRangeProperty::DTStart => {
+                    RangeConditionProperty::DtStart(x_from_property.get_utc_timestamp())
+                },
+
+                WhereRangeProperty::DTEnd => {
+                    RangeConditionProperty::DtEnd(x_from_property.get_utc_timestamp())
+                },
+            };
+
+        match x_from_property.params.op {
+            WhereFromRangeOperator::GreaterThan => {
+                LowerBoundRangeCondition::GreaterThan(range_condition_property)
+            },
+
+            WhereFromRangeOperator::GreaterEqualThan => {
+                LowerBoundRangeCondition::GreaterEqualThan(range_condition_property)
+            },
+        }
+    }
+}
+
+impl From<&XFromProperty> for LowerBoundRangeCondition {
+    fn from(x_from_property: &XFromProperty) -> Self {
+        Self::from(x_from_property.to_owned())
+    }
 }
 
 impl Into<LowerBoundFilterCondition> for LowerBoundRangeCondition {
@@ -76,6 +112,37 @@ impl LowerBoundRangeCondition {
 pub enum UpperBoundRangeCondition {
     LessThan(RangeConditionProperty),
     LessEqualThan(RangeConditionProperty),
+}
+
+impl From<XUntilProperty> for UpperBoundRangeCondition {
+    fn from(x_until_property: XUntilProperty) -> Self {
+        let range_condition_property =
+            match x_until_property.params.prop {
+                WhereRangeProperty::DTStart => {
+                    RangeConditionProperty::DtStart(x_until_property.get_utc_timestamp())
+                },
+
+                WhereRangeProperty::DTEnd => {
+                    RangeConditionProperty::DtEnd(x_until_property.get_utc_timestamp())
+                },
+            };
+
+        match x_until_property.params.op {
+            WhereUntilRangeOperator::LessThan => {
+                UpperBoundRangeCondition::LessThan(range_condition_property)
+            },
+
+            WhereUntilRangeOperator::LessEqualThan => {
+                UpperBoundRangeCondition::LessEqualThan(range_condition_property)
+            },
+        }
+    }
+}
+
+impl From<&XUntilProperty> for UpperBoundRangeCondition {
+    fn from(x_until_property: &XUntilProperty) -> Self {
+        Self::from(x_until_property.to_owned())
+    }
 }
 
 impl Into<UpperBoundFilterCondition> for UpperBoundRangeCondition {

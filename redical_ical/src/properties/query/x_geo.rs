@@ -27,8 +27,8 @@ impl ICalendarEntity for DistValue {
         context(
             "OP",
             alt((
-                map(terminated(Float::parse_ical, tag("KM")), |value| DistValue::Kilometers(value)),
-                map(terminated(Float::parse_ical, tag("MI")), |value| DistValue::Miles(value)),
+                map(terminated(Float::parse_ical, tag("KM")), DistValue::Kilometers),
+                map(terminated(Float::parse_ical, tag("MI")), DistValue::Miles),
             )),
         )(input)
     }

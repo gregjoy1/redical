@@ -16,11 +16,6 @@ use crate::queries::results_range_bounds::{
 
 use redical_ical::properties::ICalendarDateTimeProperty;
 
-// TODO: replace with redical_ical
-use crate::ical::parser::error::convert_error;
-
-use nom::combinator::all_consuming;
-
 use crate::MergedIterator;
 
 #[derive(Debug, PartialEq, Clone)]
@@ -39,19 +34,9 @@ impl FromStr for Query {
     type Err = String;
 
     fn from_str(input: &str) -> Result<Self, Self::Err> {
-        let parsed_query = all_consuming(parse_query_string)(input.trim());
+        let parsed_query = parse_query_string(input.trim())?;
 
-        match parsed_query {
-            Ok((_remaining, query)) => Ok(query),
-
-            Err(nom::Err::Error(error)) | Err(nom::Err::Failure(error)) => {
-                Err(convert_error(input, error))
-            },
-
-            Err(error) => {
-                Err(error.to_string())
-            },
-        }
+        Ok(parsed_query)
     }
 }
 
