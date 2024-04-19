@@ -3,12 +3,12 @@ use redis_module::{Context, NextArg, NotifyEvent, RedisError, RedisResult, Redis
 use redical_core::Calendar;
 use crate::datatype::CALENDAR_DATA_TYPE;
 
-use crate::core::ical::serializer::SerializableICalComponent;
+use redical_ical::ICalendarComponent;
 
 fn serialize_calendar(calendar: &Calendar) -> RedisValue {
     RedisValue::Array(
         calendar
-            .serialize_to_ical(None)
+            .to_rendered_content_lines()
             .into_iter()
             .map(RedisValue::SimpleString)
             .collect(),

@@ -1,16 +1,17 @@
+use std::str::FromStr;
+
 use redis_module::{Context, NextArg, NotifyEvent, RedisError, RedisResult, RedisString, Status, RedisValue};
 
 use crate::core::{Calendar, CalendarIndexUpdater, EventOccurrenceOverride, InvertedEventIndex};
 use crate::datatype::CALENDAR_DATA_TYPE;
 
-use crate::core::ical::serializer::SerializableICalComponent;
-
-use crate::core::ical::parser::datetime::datestring_to_date;
+use redical_ical::ICalendarComponent;
+use redical_ical::value_data_types::date_time::DateTime;
 
 fn serialize_event_occurrence_override(event_occurrence_override: &EventOccurrenceOverride) -> RedisValue {
     RedisValue::Array(
         event_occurrence_override
-            .serialize_to_ical(None)
+            .to_rendered_content_lines()
             .into_iter()
             .map(RedisValue::SimpleString)
             .collect()
@@ -30,7 +31,7 @@ pub fn redical_event_override_set(ctx: &Context, args: Vec<RedisString>) -> Redi
     let event_uid = args.next_arg()?.to_string();
     let override_date_string = args.next_arg()?.try_as_str()?;
 
-    if datestring_to_date(override_date_string, None, "").is_err() {
+    if DateTime::from_str(override_date_string).is_err() {
         return Err(RedisError::String(format!("`{override_date_string}` is not a valid datetime format.")));
     }
 

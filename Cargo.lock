@@ -1010,6 +1010,7 @@ dependencies = [
  "libc",
  "pretty_assertions_sorted",
  "redical_core",
+ "redical_ical",
  "redis",
  "redis-module",
  "redis-module-macros",

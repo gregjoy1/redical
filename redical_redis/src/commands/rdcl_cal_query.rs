@@ -2,7 +2,7 @@ use redis_module::{Context, NextArg, RedisError, RedisResult, RedisString, Redis
 
 use std::str::FromStr;
 
-use crate::core::ical::serializer::{SerializableICalComponent, SerializationPreferences};
+use redical_ical::{ICalendarComponent, RenderingContext};
 use crate::core::queries::query::Query;
 use redical_core::Calendar;
 use crate::datatype::CALENDAR_DATA_TYPE;
@@ -61,13 +61,16 @@ pub fn redical_calendar_query(ctx: &Context, args: Vec<RedisString>) -> RedisRes
         .results
         .iter()
         .map(|query_result| {
-            let serialization_preferences = SerializationPreferences::from(&parsed_query);
+            let rendering_context = RenderingContext {
+                tz: Some(parsed_query.in_timezone.to_owned()),
+                distance_unit: None,
+            };
 
             RedisValue::Array(vec![
                 RedisValue::Array(
                     query_result
                         .result_ordering
-                        .serialize_to_ical(Some(&serialization_preferences))
+                        .to_rendered_content_lines_with_context(Some(&rendering_context))
                         .iter()
                         .map(|ical_part| RedisValue::SimpleString(ical_part.to_owned()))
                         .collect(),
@@ -75,7 +78,7 @@ pub fn redical_calendar_query(ctx: &Context, args: Vec<RedisString>) -> RedisRes
                 RedisValue::Array(
                     query_result
                         .event_instance
-                        .serialize_to_ical(Some(&serialization_preferences))
+                        .to_rendered_content_lines_with_context(Some(&rendering_context))
                         .iter()
                         .map(|ical_part| RedisValue::SimpleString(ical_part.to_owned()))
                         .collect(),

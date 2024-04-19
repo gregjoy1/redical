@@ -3,7 +3,7 @@ use redis_module::{Context, NextArg, RedisError, RedisResult, RedisString, Redis
 use crate::core::Calendar;
 use crate::datatype::CALENDAR_DATA_TYPE;
 
-use crate::core::ical::serializer::SerializableICalComponent;
+use redical_ical::ICalendarComponent;
 
 pub fn redical_event_get(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     if args.len() < 2 {
@@ -38,7 +38,7 @@ pub fn redical_event_get(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
                 Ok(
                     RedisValue::Array(
                         event
-                            .serialize_to_ical(None)
+                            .to_rendered_content_lines()
                             .into_iter()
                             .map(RedisValue::SimpleString)
                             .collect(),

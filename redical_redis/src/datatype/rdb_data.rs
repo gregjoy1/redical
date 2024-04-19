@@ -6,7 +6,7 @@ use std::str::FromStr;
 
 use crate::core::ical::properties::Property;
 
-use crate::core::ical::serializer::SerializableICalComponent;
+use redical_ical::ICalendarComponent;
 
 #[derive(Debug, PartialEq)]
 pub enum ParseRDBEntityError {

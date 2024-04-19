@@ -5,7 +5,7 @@ use crate::core::{
 };
 use crate::datatype::CALENDAR_DATA_TYPE;
 
-use crate::core::ical::serializer::SerializableICalComponent;
+use redical_ical::ICalendarComponent;
 
 pub fn redical_event_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     // TODO: Add option to "rebase" overrides against changes, i.e. add/remove all
@@ -55,7 +55,7 @@ pub fn redical_event_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     let event_diff = if let Some(existing_event) = existing_event.as_ref() {
         EventDiff::new(existing_event, &event)
     } else {
-        EventDiff::new(&Event::new(event.uid.clone().into()), &event)
+        EventDiff::new(&Event::new(event.uid.uid.to_string()), &event)
     };
 
     if let Some(existing_event) = existing_event.as_ref() {
@@ -120,7 +120,7 @@ pub fn redical_event_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
             .map_err(RedisError::String)?;
     }
 
-    let serialized_event_ical = event.serialize_to_ical(None);
+    let serialized_event_ical = event.to_rendered_content_lines();
 
     println!("rdcl.evt_set: key: {calendar_uid} event uid: {event_uid} - count: {}", calendar.events.len());
 

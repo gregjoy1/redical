@@ -3,7 +3,7 @@ use redis_module::{Context, NextArg, RedisError, RedisResult, RedisString, Redis
 use crate::core::{Calendar, Event, EventOccurrenceOverride};
 use crate::datatype::CALENDAR_DATA_TYPE;
 
-use crate::core::ical::serializer::SerializableICalComponent;
+use redical_ical::ICalendarComponent;
 
 fn serialize_event_overrides(event: &Event, offset: usize, count: usize) -> RedisValue {
     RedisValue::Array(
@@ -20,7 +20,7 @@ fn serialize_event_overrides(event: &Event, offset: usize, count: usize) -> Redi
 fn serialize_event_occurrence_override(event_occurrence_override: &EventOccurrenceOverride) -> RedisValue {
     RedisValue::Array(
         event_occurrence_override
-            .serialize_to_ical(None)
+            .to_rendered_content_lines()
             .into_iter()
             .map(RedisValue::SimpleString)
             .collect()

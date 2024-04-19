@@ -18,6 +18,7 @@ libc = "0.2"
 chrono = { workspace = true }
 chrono-tz = { workspace = true }
 redical_core = { path = "../redical_core" }
+redical_ical = { path = "../redical_ical" }
 
 [dev-dependencies]
 pretty_assertions_sorted = { workspace = true }

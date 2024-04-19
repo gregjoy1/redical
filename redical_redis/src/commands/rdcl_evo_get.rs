@@ -1,16 +1,17 @@
+use std::str::FromStr;
+
 use redis_module::{Context, NextArg, RedisError, RedisResult, RedisString, RedisValue};
 
 use crate::core::{Calendar, EventOccurrenceOverride};
 use crate::datatype::CALENDAR_DATA_TYPE;
 
-use crate::core::ical::serializer::SerializableICalComponent;
-
-use crate::core::ical::parser::datetime::datestring_to_date;
+use redical_ical::ICalendarComponent;
+use redical_ical::value_data_types::date_time::DateTime;
 
 fn serialize_event_occurrence_override(event_occurrence_override: &EventOccurrenceOverride) -> RedisValue {
     RedisValue::Array(
         event_occurrence_override
-            .serialize_to_ical(None)
+            .to_rendered_content_lines()
             .into_iter()
             .map(RedisValue::SimpleString)
             .collect()
@@ -31,9 +32,7 @@ pub fn redical_event_override_get(ctx: &Context, args: Vec<RedisString>) -> Redi
     let override_date_string = args.next_arg()?.try_as_str()?;
 
     let override_timestamp =
-        datestring_to_date(override_date_string, None, "")
-        .map(|datetime| datetime.timestamp())
-        .map_err(|error| RedisError::String(format!("{:#?}", error)))?;
+        DateTime::from_str(override_date_string).map(|datetime| datetime.get_utc_timestamp(None)).map_err(|error| RedisError::String(format!("{:#?}", error)))?;
 
     ctx.log_debug(
         format!("rdcl.evo_get: calendar_uid: {calendar_uid} event_uid: {event_uid} occurrence date string: {override_date_string}").as_str()
