@@ -4,9 +4,8 @@ use serde::{Deserialize, Serialize};
 
 use std::str::FromStr;
 
-use crate::core::ical::properties::Property;
-
 use redical_ical::ICalendarComponent;
+use redical_ical::properties::{EventProperty, CalendarProperty};
 
 #[derive(Debug, PartialEq)]
 pub enum ParseRDBEntityError {
@@ -57,9 +56,9 @@ impl TryFrom<&Calendar> for RDBCalendar {
     type Error = String;
 
     fn try_from(calendar: &Calendar) -> Result<Self, Self::Error> {
-        let uid = calendar.uid.uid.to_owned();
+        let uid = calendar.uid.uid.to_string();
 
-        let properties: Vec<String> = calendar.serialize_to_ical_set(None).into_iter().collect();
+        let properties: Vec<String> = calendar.to_rendered_content_lines().into_iter().collect();
 
         let mut rdb_events: Vec<RDBEvent> = Vec::new();
 
@@ -84,30 +83,30 @@ impl TryFrom<&RDBCalendar> for Calendar {
         let mut calendar = Calendar::new(rdb_calendar_uid.clone());
 
         for rdb_property in &rdb_calendar.1 {
-            let property = Property::from_str(rdb_property.as_str()).map_err(|error| ParseRDBEntityError::OnSelf(rdb_calendar_uid.to_owned(), error))?;
+            let property = CalendarProperty::from_str(rdb_property.as_str()).map_err(|error| ParseRDBEntityError::OnSelf(rdb_calendar_uid.to_string(), error))?;
 
-            calendar.insert(property).map_err(|error| ParseRDBEntityError::OnSelf(rdb_calendar_uid.to_owned(), error))?;
+            calendar.insert(property).map_err(|error| ParseRDBEntityError::OnSelf(rdb_calendar_uid.to_string(), error))?;
         }
 
-        let parsed_calendar_uid = calendar.uid.uid.to_owned();
+        let parsed_calendar_uid = calendar.uid.uid.to_string();
 
         if rdb_calendar_uid != parsed_calendar_uid {
             return Err(
                 ParseRDBEntityError::OnSelf(
-                    rdb_calendar_uid.to_owned(),
+                    rdb_calendar_uid.to_string(),
                     format!("Calendar UID property: {} does not match stored UID key: {}", parsed_calendar_uid, rdb_calendar_uid),
                 )
             );
         }
 
         for rdb_event in rdb_calendar.2.iter() {
-            let event = Event::try_from(rdb_event).map_err(|error| ParseRDBEntityError::OnChild(rdb_calendar_uid.to_owned(), Box::new(error)))?;
-            let event_uid = event.uid.uid.to_owned();
+            let event = Event::try_from(rdb_event).map_err(|error| ParseRDBEntityError::OnChild(rdb_calendar_uid.to_string(), Box::new(error)))?;
+            let event_uid = event.uid.uid.to_string();
 
             calendar.insert_event(event);
         }
 
-        calendar.rebuild_indexes().map_err(|error| ParseRDBEntityError::OnSelf(rdb_calendar_uid.to_owned(), error))?;
+        calendar.rebuild_indexes().map_err(|error| ParseRDBEntityError::OnSelf(rdb_calendar_uid.to_string(), error))?;
 
         Ok(
             calendar
@@ -122,9 +121,9 @@ impl TryFrom<&Event> for RDBEvent {
     type Error = String;
 
     fn try_from(event: &Event) -> Result<Self, Self::Error> {
-        let uid = event.uid.uid.to_owned();
+        let uid = event.uid.uid.to_string();
 
-        let properties: Vec<String> = event.serialize_to_ical_set(None).into_iter().collect();
+        let properties: Vec<String> = event.to_rendered_content_lines().into_iter().collect();
 
         let mut rdb_event_occurrence_overrides: Vec<RDBEventOccurrenceOverride> = Vec::new();
 
@@ -150,19 +149,19 @@ impl TryFrom<&RDBEvent> for Event {
 
         for rdb_property in &rdb_event.1 {
             let property =
-                Property::from_str(rdb_property.as_str())
-                    .map_err(|error| ParseRDBEntityError::OnSelf(rdb_event_uid.to_owned(), error))?;
+                EventProperty::from_str(rdb_property.as_str())
+                    .map_err(|error| ParseRDBEntityError::OnSelf(rdb_event_uid.to_string(), error))?;
 
             event.insert(property)
-                 .map_err(|error| ParseRDBEntityError::OnSelf(rdb_event_uid.to_owned(), error))?;
+                 .map_err(|error| ParseRDBEntityError::OnSelf(rdb_event_uid.to_string(), error))?;
         }
 
-        let parsed_event_uid = event.uid.uid.to_owned();
+        let parsed_event_uid = event.uid.uid.to_string();
 
         if rdb_event_uid != parsed_event_uid {
             return Err(
                 ParseRDBEntityError::OnSelf(
-                    rdb_event_uid.to_owned(),
+                    rdb_event_uid.to_string(),
                     format!("Event UID property: {} does not match stored UID key: {}", parsed_event_uid, rdb_event_uid),
                 )
             );
@@ -171,18 +170,18 @@ impl TryFrom<&RDBEvent> for Event {
         event.validate().map_err(|error| {
             dbg!(&rdb_event);
 
-            ParseRDBEntityError::OnSelf(rdb_event_uid.to_owned(), error)
+            ParseRDBEntityError::OnSelf(rdb_event_uid.to_string(), error)
         })?;
 
         for rdb_event_occurrence_override in rdb_event.2.iter() {
             let event_occurrence_override =
                 EventOccurrenceOverride::try_from(rdb_event_occurrence_override)
-                    .map_err(|error| ParseRDBEntityError::OnChild(rdb_event_uid.to_owned(), Box::new(error)))?;
+                    .map_err(|error| ParseRDBEntityError::OnChild(rdb_event_uid.to_string(), Box::new(error)))?;
 
-            event.override_occurrence(&event_occurrence_override, false).map_err(|error| ParseRDBEntityError::OnSelf(rdb_event_uid.to_owned(), error))?;
+            event.override_occurrence(&event_occurrence_override, false).map_err(|error| ParseRDBEntityError::OnSelf(rdb_event_uid.to_string(), error))?;
         }
 
-        event.rebuild_indexes().map_err(|error| ParseRDBEntityError::OnSelf(rdb_event_uid.to_owned(), error))?;
+        event.rebuild_indexes().map_err(|error| ParseRDBEntityError::OnSelf(rdb_event_uid.to_string(), error))?;
 
         Ok(
             event
@@ -201,9 +200,9 @@ impl TryFrom<&EventOccurrenceOverride> for RDBEventOccurrenceOverride {
             return Err(String::from("EventOccurrenceOverride is invalid, requires defined DTSTART property"));
         };
 
-        let occurrence_date_string = dtstart_property.serialize_datestring_value(None);
+        let occurrence_date_string = dtstart_property.date_time.render_formatted_date_time(None);
 
-        let properties: Vec<String> = event_occurrence_override.serialize_to_ical_set(None).into_iter().collect();
+        let properties: Vec<String> = event_occurrence_override.to_rendered_content_lines().into_iter().collect();
 
         Ok(
             RDBEventOccurrenceOverride(occurrence_date_string, properties)
@@ -220,7 +219,7 @@ impl TryFrom<&RDBEventOccurrenceOverride> for EventOccurrenceOverride {
         let mut event_occurrence_override = EventOccurrenceOverride::default();
 
         for rdb_property in &rdb_event_occurrence_override.1 {
-            let property = Property::from_str(rdb_property.as_str()).map_err(|error| ParseRDBEntityError::OnSelf(rdb_date_time_string.to_owned(), error))?;
+            let property = EventProperty::from_str(rdb_property.as_str()).map_err(|error| ParseRDBEntityError::OnSelf(rdb_date_time_string.to_owned(), error))?;
 
             event_occurrence_override.insert(property).map_err(|error| ParseRDBEntityError::OnSelf(rdb_date_time_string.to_owned(), error))?;
         }
@@ -228,7 +227,7 @@ impl TryFrom<&RDBEventOccurrenceOverride> for EventOccurrenceOverride {
         event_occurrence_override.validate().map_err(|error| ParseRDBEntityError::OnSelf(rdb_date_time_string.to_owned(), error))?;
 
         if let Some(dtstart) = event_occurrence_override.dtstart.as_ref() {
-            let parsed_date_time_string = dtstart.serialize_datestring_value(None);
+            let parsed_date_time_string = dtstart.date_time.render_formatted_date_time(None);
 
             if rdb_date_time_string != parsed_date_time_string {
                 return Err(
