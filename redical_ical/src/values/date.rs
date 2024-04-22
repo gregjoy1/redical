@@ -11,7 +11,7 @@ use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, Parser
 /// # Examples
 ///
 /// ```rust
-/// use redical_ical::value_data_types::date::date;
+/// use redical_ical::values::date::date;
 ///
 /// assert!(date("19970714".into()).is_ok());
 ///
@@ -33,7 +33,7 @@ pub fn date(input: ParserInput) -> ParserResult<ParserInput> {
 /// # Examples
 ///
 /// ```rust
-/// use redical_ical::value_data_types::date::date_value;
+/// use redical_ical::values::date::date_value;
 ///
 /// assert!(date_value("19970714".into()).is_ok());
 ///
@@ -58,7 +58,7 @@ pub fn date_value(input: ParserInput) -> ParserResult<(i32, u32, u32)> {
 /// # Examples
 ///
 /// ```rust
-/// use redical_ical::value_data_types::date::date_fullyear;
+/// use redical_ical::values::date::date_fullyear;
 ///
 /// assert!(date_fullyear("2007".into()).is_ok());
 /// assert!(date_fullyear("0000".into()).is_ok());
@@ -89,7 +89,7 @@ pub fn date_fullyear(input: ParserInput) -> ParserResult<i32> {
 /// # Examples
 ///
 /// ```rust
-/// use redical_ical::value_data_types::date::date_month;
+/// use redical_ical::values::date::date_month;
 ///
 /// assert!(date_month("01".into()).is_ok());
 /// assert!(date_month("06".into()).is_ok());
@@ -129,7 +129,7 @@ pub fn date_month(input: ParserInput) -> ParserResult<u32> {
 /// # Examples
 ///
 /// ```rust
-/// use redical_ical::value_data_types::date::date_mday;
+/// use redical_ical::values::date::date_mday;
 ///
 /// assert!(date_mday("01".into()).is_ok());
 /// assert!(date_mday("15".into()).is_ok());

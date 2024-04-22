@@ -2,10 +2,10 @@ use nom::error::context;
 use nom::sequence::{pair, preceded};
 use nom::combinator::{map, cut, opt};
 
-use crate::value_data_types::date_time::{DateTime, ValueType};
-use crate::value_data_types::tzid::Tzid;
-use crate::value_data_types::where_range_property::WhereRangeProperty;
-use crate::value_data_types::where_range_operator::WhereFromRangeOperator;
+use crate::values::date_time::{DateTime, ValueType};
+use crate::values::tzid::Tzid;
+use crate::values::where_range_property::WhereRangeProperty;
+use crate::values::where_range_operator::WhereFromRangeOperator;
 
 use crate::grammar::{tag, semicolon, colon};
 

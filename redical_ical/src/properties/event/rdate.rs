@@ -6,8 +6,8 @@ use nom::sequence::{pair, preceded};
 use nom::multi::separated_list1;
 use nom::combinator::{recognize, map, cut, opt};
 
-use crate::value_data_types::date_time::{DateTime, ValueType};
-use crate::value_data_types::tzid::Tzid;
+use crate::values::date_time::{DateTime, ValueType};
+use crate::values::tzid::Tzid;
 
 use crate::grammar::{tag, semicolon, colon, comma, x_name, iana_token, param_value};
 

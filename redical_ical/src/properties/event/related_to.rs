@@ -6,8 +6,8 @@ use nom::sequence::{pair, preceded};
 use nom::multi::separated_list1;
 use nom::combinator::{recognize, map, cut, opt};
 
-use crate::value_data_types::text::Text;
-use crate::value_data_types::reltype::Reltype;
+use crate::values::text::Text;
+use crate::values::reltype::Reltype;
 
 use crate::grammar::{tag, semicolon, colon, comma, x_name, iana_token, param_value};
 

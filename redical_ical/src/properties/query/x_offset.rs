@@ -10,7 +10,7 @@ use crate::content_line::{ContentLine, ContentLineParams};
 
 use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, ParserError, impl_icalendar_entity_traits};
 
-use crate::value_data_types::integer::Integer;
+use crate::values::integer::Integer;
 
 /// Query offset property, does what it says on the tin.
 ///

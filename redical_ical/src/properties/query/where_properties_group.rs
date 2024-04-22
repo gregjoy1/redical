@@ -8,7 +8,7 @@ use crate::grammar::{tag, wsp};
 
 use crate::properties::ICalendarProperty;
 
-use crate::value_data_types::where_operator::WhereOperator;
+use crate::values::where_operator::WhereOperator;
 
 use crate::content_line::ContentLine;
 
@@ -188,9 +188,9 @@ mod tests {
         x_categories::XCategoriesPropertyParams,
     };
 
-    use crate::value_data_types::list::List;
-    use crate::value_data_types::text::Text;
-    use crate::value_data_types::class::ClassValue;
+    use crate::values::list::List;
+    use crate::values::text::Text;
+    use crate::values::class::ClassValue;
 
     #[test]
     fn parse_ical() {

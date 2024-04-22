@@ -5,7 +5,7 @@ use nom::combinator::{map, cut};
 use crate::grammar::{tag, colon, semicolon};
 
 use crate::properties::ICalendarProperty;
-use crate::value_data_types::float::Float;
+use crate::values::float::Float;
 
 use crate::content_line::{ContentLine, ContentLineParams};
 

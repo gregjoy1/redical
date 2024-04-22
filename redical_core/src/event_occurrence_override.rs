@@ -19,7 +19,7 @@ use redical_ical::{
     },
 };
 
-use redical_ical::value_data_types::date_time::DateTime as ICalDateTime;
+use redical_ical::values::date_time::DateTime as ICalDateTime;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct EventOccurrenceOverride {

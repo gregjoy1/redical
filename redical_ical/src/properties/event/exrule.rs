@@ -6,7 +6,7 @@ use nom::sequence::{pair, preceded};
 use nom::multi::separated_list1;
 use nom::combinator::{recognize, map, cut, opt};
 
-use crate::value_data_types::recur::Recur;
+use crate::values::recur::Recur;
 
 use crate::grammar::{tag, semicolon, colon, comma, x_name, iana_token, param_value};
 
@@ -148,10 +148,10 @@ mod tests {
 
     use crate::tests::assert_parser_output;
 
-    use crate::value_data_types::integer::Integer;
-    use crate::value_data_types::list::List;
+    use crate::values::integer::Integer;
+    use crate::values::list::List;
 
-    use crate::value_data_types::recur::{FreqParam, Frequency, IntervalParam, ByminuteParam, ByhourParam, BydayParam, BymonthParam, WeekDayNum, WeekDay};
+    use crate::values::recur::{FreqParam, Frequency, IntervalParam, ByminuteParam, ByhourParam, BydayParam, BymonthParam, WeekDayNum, WeekDay};
 
     #[test]
     fn parse_ical() {

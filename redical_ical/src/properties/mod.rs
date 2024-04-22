@@ -14,8 +14,8 @@ pub use query::*;
 
 use crate::{ICalendarEntity, RenderingContext};
 
-use crate::value_data_types::tzid::Tzid;
-use crate::value_data_types::date_time::{DateTime, ValueType};
+use crate::values::tzid::Tzid;
+use crate::values::date_time::{DateTime, ValueType};
 
 use crate::content_line::{ContentLine, ContentLineParams};
 

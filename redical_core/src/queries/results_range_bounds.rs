@@ -2,8 +2,8 @@ use crate::{FilterProperty, LowerBoundFilterCondition, UpperBoundFilterCondition
 
 use redical_ical::properties::ICalendarDateTimeProperty;
 use redical_ical::properties::query::{XFromProperty, XFromPropertyParams, XUntilProperty, XUntilPropertyParams};
-use redical_ical::value_data_types::where_range_operator::{WhereFromRangeOperator, WhereUntilRangeOperator};
-use redical_ical::value_data_types::where_range_property::WhereRangeProperty;
+use redical_ical::values::where_range_operator::{WhereFromRangeOperator, WhereUntilRangeOperator};
+use redical_ical::values::where_range_property::WhereRangeProperty;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum RangeConditionProperty {

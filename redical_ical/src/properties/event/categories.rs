@@ -8,8 +8,8 @@ use nom::combinator::{recognize, map, cut, opt};
 
 use crate::grammar::{tag, semicolon, colon, comma, x_name, iana_token, param_value};
 
-use crate::value_data_types::text::Text;
-use crate::value_data_types::list::List;
+use crate::values::text::Text;
+use crate::values::list::List;
 
 use crate::properties::{ICalendarProperty, ICalendarPropertyParams, define_property_params_ical_parser};
 

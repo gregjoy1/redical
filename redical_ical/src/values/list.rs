@@ -16,8 +16,8 @@ use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult};
 ///
 /// use std::collections::HashSet;
 ///
-/// use redical_ical::value_data_types::list::List;
-/// use redical_ical::value_data_types::integer::Integer;
+/// use redical_ical::values::list::List;
+/// use redical_ical::values::integer::Integer;
 /// use redical_ical::ICalendarEntity;
 ///
 /// // Testing zero values

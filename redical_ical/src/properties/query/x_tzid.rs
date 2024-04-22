@@ -7,7 +7,7 @@ use nom::combinator::{map, cut};
 use crate::grammar::{tag, colon};
 
 use crate::properties::ICalendarProperty;
-use crate::value_data_types::tzid::Tzid;
+use crate::values::tzid::Tzid;
 
 use crate::content_line::{ContentLine, ContentLineParams};
 

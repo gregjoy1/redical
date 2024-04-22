@@ -4,12 +4,12 @@ use nom::combinator::{map, cut, opt};
 
 use crate::grammar::{tag, semicolon, colon};
 
-use crate::value_data_types::list::List;
+use crate::values::list::List;
 
 use crate::properties::{ICalendarProperty, ICalendarPropertyParams, define_property_params_ical_parser};
 
-use crate::value_data_types::class::ClassValue;
-use crate::value_data_types::where_operator::WhereOperator;
+use crate::values::class::ClassValue;
+use crate::values::where_operator::WhereOperator;
 
 use crate::content_line::{ContentLineParams, ContentLine};
 

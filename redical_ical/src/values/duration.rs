@@ -21,7 +21,7 @@ const SECONDS_IN_WEEK: i64 = SECONDS_IN_DAY * 7;
 /// # Examples
 ///
 /// ```rust
-/// use redical_ical::value_data_types::duration::duration;
+/// use redical_ical::values::duration::duration;
 ///
 /// assert!(duration("P15DT5H0M20S".into()).is_ok());
 /// assert!(duration("-P7W".into()).is_ok());

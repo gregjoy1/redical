@@ -11,7 +11,7 @@ use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, Parser
 /// # Examples
 ///
 /// ```rust
-/// use redical_ical::value_data_types::time::time;
+/// use redical_ical::values::time::time;
 ///
 /// assert!(time("083000".into()).is_ok());
 /// assert!(time("133000Z".into()).is_ok());
@@ -43,7 +43,7 @@ pub fn time(input: ParserInput) -> ParserResult<ParserInput> {
 /// # Examples
 ///
 /// ```rust
-/// use redical_ical::value_data_types::time::time_hour;
+/// use redical_ical::values::time::time_hour;
 ///
 /// assert!(time_hour("00".into()).is_ok());
 /// assert!(time_hour("06".into()).is_ok());
@@ -82,7 +82,7 @@ pub fn time_hour(input: ParserInput) -> ParserResult<u32> {
 /// # Examples
 ///
 /// ```rust
-/// use redical_ical::value_data_types::time::time_minute;
+/// use redical_ical::values::time::time_minute;
 ///
 /// assert!(time_minute("00".into()).is_ok());
 /// assert!(time_minute("06".into()).is_ok());
@@ -121,7 +121,7 @@ pub fn time_minute(input: ParserInput) -> ParserResult<u32> {
 /// # Examples
 ///
 /// ```rust
-/// use redical_ical::value_data_types::time::time_second;
+/// use redical_ical::values::time::time_second;
 ///
 /// assert!(time_second("00".into()).is_ok());
 /// assert!(time_second("06".into()).is_ok());

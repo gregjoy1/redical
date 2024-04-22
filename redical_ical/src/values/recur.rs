@@ -10,9 +10,9 @@ use crate::grammar::{comma, semicolon};
 
 use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, ParserError, impl_icalendar_entity_traits};
 
-use crate::value_data_types::date_time::DateTime;
-use crate::value_data_types::integer::Integer;
-use crate::value_data_types::list::List;
+use crate::values::date_time::DateTime;
+use crate::values::integer::Integer;
+use crate::values::list::List;
 
 #[macro_export]
 macro_rules! build_ical_param {
@@ -269,7 +269,7 @@ pub fn bysplist(input: ParserInput) -> ParserResult<List<Integer>> {
 ///
 /// ```rust
 /// use std::str::FromStr;
-/// use redical_ical::value_data_types::recur::Frequency;
+/// use redical_ical::values::recur::Frequency;
 /// use redical_ical::ICalendarEntity;
 ///
 /// assert_eq!(Frequency::from_str("SECONDLY"), Ok(Frequency::Secondly));
@@ -342,8 +342,8 @@ impl_icalendar_entity_traits!(Frequency);
 ///
 /// ```rust
 /// use std::str::FromStr;
-/// use redical_ical::value_data_types::recur::{WeekDayNum, WeekDay};
-/// use redical_ical::value_data_types::integer::Integer;
+/// use redical_ical::values::recur::{WeekDayNum, WeekDay};
+/// use redical_ical::values::integer::Integer;
 /// use redical_ical::ICalendarEntity;
 ///
 /// assert_eq!(WeekDayNum::from_str("SU"), Ok(WeekDayNum(None, WeekDay::Sunday)));
@@ -411,7 +411,7 @@ impl_icalendar_entity_traits!(WeekDayNum);
 ///
 /// ```rust
 /// use std::str::FromStr;
-/// use redical_ical::value_data_types::recur::WeekDay;
+/// use redical_ical::values::recur::WeekDay;
 /// use redical_ical::ICalendarEntity;
 ///
 /// assert_eq!(WeekDay::from_str("SU"), Ok(WeekDay::Sunday));

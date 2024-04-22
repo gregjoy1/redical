@@ -6,7 +6,7 @@ use crate::core::{Calendar, EventOccurrenceOverride};
 use crate::datatype::CALENDAR_DATA_TYPE;
 
 use redical_ical::ICalendarComponent;
-use redical_ical::value_data_types::date_time::DateTime;
+use redical_ical::values::date_time::DateTime;
 
 fn serialize_event_occurrence_override(event_occurrence_override: &EventOccurrenceOverride) -> RedisValue {
     RedisValue::Array(

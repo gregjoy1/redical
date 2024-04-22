@@ -12,7 +12,7 @@ use crate::properties::{ICalendarProperty, ICalendarPropertyParams, define_prope
 
 use crate::content_line::{ContentLineParams, ContentLine};
 
-use crate::value_data_types::class::ClassValue;
+use crate::values::class::ClassValue;
 
 use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
 

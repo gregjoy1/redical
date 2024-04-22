@@ -1,6 +1,6 @@
 use crate::{Calendar, GeoDistance, GeoPoint, InvertedCalendarIndexTerm, KeyValuePair};
 
-use redical_ical::value_data_types::where_operator as ical_where_operator;
+use redical_ical::values::where_operator as ical_where_operator;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum WhereOperator {

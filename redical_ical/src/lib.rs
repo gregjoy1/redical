@@ -2,7 +2,7 @@ use std::collections::BTreeSet;
 
 pub mod grammar;
 pub mod content_line;
-pub mod value_data_types;
+pub mod values;
 pub mod properties;
 
 use content_line::ContentLine;
@@ -128,7 +128,7 @@ impl ParserContext {
             use nom::multi::many1;
             use nom::branch::alt;
             use grammar::{wsp, tag, contentline};
-            use value_data_types::where_operator::WhereOperator;
+            use values::where_operator::WhereOperator;
             use properties::query::{GroupedWhereProperty, QueryProperty};
 
             match self {

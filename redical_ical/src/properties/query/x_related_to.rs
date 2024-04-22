@@ -2,10 +2,10 @@ use nom::error::context;
 use nom::sequence::{pair, preceded};
 use nom::combinator::{map, cut, opt};
 
-use crate::value_data_types::text::Text;
-use crate::value_data_types::list::List;
-use crate::value_data_types::reltype::Reltype;
-use crate::value_data_types::where_operator::WhereOperator;
+use crate::values::text::Text;
+use crate::values::list::List;
+use crate::values::reltype::Reltype;
+use crate::values::where_operator::WhereOperator;
 
 use crate::grammar::{tag, semicolon, colon};
 
