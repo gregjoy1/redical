@@ -313,10 +313,7 @@ mod test {
             },
 
             indexed_properties: IndexedProperties {
-                geo: Some(build_property_from_ical!(
-                    GeoProperty,
-                    "GEO:51.5074;-0.1278"
-                )),
+                geo: Some(build_property_from_ical!(GeoProperty, "GEO:51.5074;-0.1278")),
                 class: Some(build_property_from_ical!(ClassProperty, "CLASS:PRIVATE")),
                 related_to: None,
                 categories: Some(HashSet::from([build_property_from_ical!(
@@ -354,7 +351,7 @@ mod test {
                     added: HashSet::new(),
                 }),
                 indexed_geo: Some(UpdatedAttribute::Added(GeoPoint::from((
-                    -0.1278f64, 51.5074f64
+                    51.5074_f64, -0.1278_f64
                 )))),
                 indexed_class: Some(UpdatedAttribute::Added(String::from("PRIVATE"))),
                 passive_properties: Some(UpdatedSetMembers {
@@ -460,7 +457,7 @@ mod test {
                     added: HashSet::new()
                 }),
                 indexed_geo: Some(UpdatedAttribute::Added(GeoPoint::from((
-                    -0.1278f64, 51.5074f64
+                    51.5074_f64, -0.1278_f64
                 )))),
                 indexed_class: Some(UpdatedAttribute::Added(String::from("PRIVATE"))),
                 passive_properties: Some(UpdatedSetMembers {

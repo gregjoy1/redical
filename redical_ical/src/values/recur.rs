@@ -548,19 +548,19 @@ impl ICalendarEntity for Recur {
 
         let mut parts: Vec<String> = Vec::new();
 
-        push_rendered_ical_if_present(&self.freq, &mut parts);
-        push_rendered_ical_if_present(&self.until, &mut parts);
-        push_rendered_ical_if_present(&self.count, &mut parts);
-        push_rendered_ical_if_present(&self.interval, &mut parts);
-        push_rendered_ical_if_present(&self.bysecond, &mut parts);
-        push_rendered_ical_if_present(&self.byminute, &mut parts);
-        push_rendered_ical_if_present(&self.byhour, &mut parts);
         push_rendered_ical_if_present(&self.byday, &mut parts);
-        push_rendered_ical_if_present(&self.bymonthday, &mut parts);
-        push_rendered_ical_if_present(&self.byyearday, &mut parts);
-        push_rendered_ical_if_present(&self.byweekno, &mut parts);
+        push_rendered_ical_if_present(&self.byhour, &mut parts);
+        push_rendered_ical_if_present(&self.byminute, &mut parts);
         push_rendered_ical_if_present(&self.bymonth, &mut parts);
+        push_rendered_ical_if_present(&self.bymonthday, &mut parts);
+        push_rendered_ical_if_present(&self.bysecond, &mut parts);
         push_rendered_ical_if_present(&self.bysetpos, &mut parts);
+        push_rendered_ical_if_present(&self.byweekno, &mut parts);
+        push_rendered_ical_if_present(&self.byyearday, &mut parts);
+        push_rendered_ical_if_present(&self.count, &mut parts);
+        push_rendered_ical_if_present(&self.freq, &mut parts);
+        push_rendered_ical_if_present(&self.interval, &mut parts);
+        push_rendered_ical_if_present(&self.until, &mut parts);
         push_rendered_ical_if_present(&self.wkst, &mut parts);
 
         parts.join(";")

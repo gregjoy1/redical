@@ -140,8 +140,8 @@ impl Ord for GeoDistance {
 
 #[derive(Debug, Clone)]
 pub struct GeoPoint {
-    pub long: f64,
     pub lat: f64,
+    pub long: f64,
 }
 
 impl<P> From<&P> for GeoPoint
@@ -172,12 +172,12 @@ impl From<GeoPoint> for Point {
 }
 
 impl GeoPoint {
-    pub fn new(long: f64, lat: f64) -> Self {
-        GeoPoint { long, lat }
+    pub fn new(lat: f64, long: f64) -> Self {
+        GeoPoint { lat, long }
     }
 
     pub fn to_point(&self) -> Point {
-        Point::new(self.long, self.lat)
+        Point::new(self.lat, self.long)
     }
 
     pub fn validate(&self) -> Result<&Self, String> {
@@ -199,7 +199,7 @@ impl GeoPoint {
     }
 
     pub fn to_string(&self) -> String {
-        format!("{};{}", self.long, self.lat)
+        format!("{};{}", self.lat, self.long)
     }
 
     pub fn geohash(&self) -> Result<String, String> {

@@ -28,7 +28,7 @@ impl KeyValuePair {
 impl From<ContentLine> for KeyValuePair {
     fn from(content_line: ContentLine) -> Self {
         let key = content_line.0;
-        let value = format!("{}{}", content_line.1.render_ical(), content_line.2);
+        let value = format!("{}:{}", content_line.1.render_ical(), content_line.2);
 
         Self::new(key, value)
     }
