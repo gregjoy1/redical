@@ -88,7 +88,11 @@ where
 /// line errors which are more redis friendly.
 pub fn convert_error<I: core::ops::Deref<Target = str>>(_input: I, error: ParserError) -> std::string::String {
     // TODO: Implement this...
-    format!("Error - {:#?}", error)
+    if error.context.is_empty() {
+        format!("Error - {} at {}", error.message.unwrap_or(String::from("no error")), error.span.to_string().trim())
+    } else {
+        format!("Error - context {} - {} at {}", error.context.join(" -> "), error.message.unwrap_or(String::from("no error")), error.span.to_string().trim())
+    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -123,6 +127,7 @@ impl ParserContext {
         move |mut input: ParserInput| {
             input.extra = ParserContext::None;
 
+            use nom::error::context;
             use nom::combinator::{recognize, eof, opt, not};
             use nom::sequence::{tuple, preceded};
             use nom::multi::many1;
@@ -133,36 +138,45 @@ impl ParserContext {
 
             match self {
                 ParserContext::Event => {
-                    recognize(
-                        preceded(
-                            grammar::wsp,
-                            properties::event::EventProperty::parse_ical,
-                        )
+                    context(
+                        "EVENT PARSER CONTEXT",
+                        recognize(
+                            preceded(
+                                grammar::wsp,
+                                properties::event::EventProperty::parse_ical,
+                            )
+                        ),
                     )(input)
                 },
 
                 ParserContext::Query => {
-                    recognize(
-                        preceded(
-                            opt(wsp),
-                            alt((
-                                // TODO: HACK HACK HACK HACK - tidy and consolidate
-                                recognize(tuple((WhereOperator::parse_ical, opt(wsp), tag("(")))),
-                                recognize(tuple((tag("("), opt(wsp), GroupedWhereProperty::parse_ical))),
-                                recognize(tuple((not(contentline), many1(tag(")")), alt((wsp, eof))))),
-                                recognize(GroupedWhereProperty::parse_ical),
-                                recognize(QueryProperty::parse_ical),
-                            )),
-                        )
+                    context(
+                        "QUERY PARSER CONTEXT",
+                        recognize(
+                            preceded(
+                                opt(wsp),
+                                alt((
+                                    // TODO: HACK HACK HACK HACK - tidy and consolidate
+                                    recognize(tuple((WhereOperator::parse_ical, opt(wsp), tag("(")))),
+                                    recognize(tuple((opt(wsp), tag("("), opt(wsp), GroupedWhereProperty::parse_ical))),
+                                    recognize(tuple((not(contentline), many1(tag(")")), alt((wsp, eof))))),
+                                    recognize(GroupedWhereProperty::parse_ical),
+                                    recognize(QueryProperty::parse_ical),
+                                )),
+                            )
+                        ),
                     )(input)
                 },
 
                 _ => {
-                    recognize(
-                        preceded(
-                            wsp,
-                            contentline,
-                        )
+                    context(
+                        "UNDEFINED PARSER CONTEXT",
+                        recognize(
+                            preceded(
+                                wsp,
+                                contentline,
+                            )
+                        ),
                     )(input)
                 },
             }

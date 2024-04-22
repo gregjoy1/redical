@@ -299,7 +299,7 @@ mod test {
                             RDBEventOccurrenceOverride(
                                 String::from("19700101T000500Z"),
                                 vec![
-                                    String::from("CATEGORIES:CATEGORY THREE,CATEGORY_ONE,CATEGORY_TWO"),
+                                    String::from("CATEGORIES:\"CATEGORY THREE\",CATEGORY_ONE,CATEGORY_TWO"),
                                     String::from("CLASS:PRIVATE"),
                                     String::from("DTSTART:19700101T000500Z"),
                                 ],
@@ -365,7 +365,7 @@ mod test {
 
         assert_eq!(
             Calendar::try_from(&invalid_rdb_calendar).map_err(String::from),
-            Err(String::from("Error at CALENDAR_UID -> EVENT_UID:[0]: in Eof at '' ")),
+            Err(String::from("Error at CALENDAR_UID -> EVENT_UID:Error - parse error Eof at ")),
         );
     }
 
@@ -383,7 +383,7 @@ mod test {
 
         assert_eq!(
             EventOccurrenceOverride::try_from(&invalid_rdb_event_occurrence_override).map_err(String::from),
-            Err(String::from("Error at 19700101T000500Z:[0]: in Eof at '' ")),
+            Err(String::from("Error at 19700101T000500Z:Error - parse error Eof at ")),
         );
     }
 

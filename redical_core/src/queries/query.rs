@@ -404,14 +404,14 @@ mod test {
         assert_eq!(
             Query::from_str("X-LIMIT:50 UNCONSUMED_ENDING"),
             Err(
-                String::from("[0]: where expected '(', found U at 'UNCONSUMED_ENDING' [1]: in Alt at 'UNCONSUMED_ENDING' [2]: outer parse query string at 'X-LIMIT:50 UNCONSUMED_ENDING' ")
+                String::from("Error - parse error Eof at UNCONSUMED_ENDING")
             )
         );
 
         assert_eq!(
             Query::from_str("INVALID"),
             Err(
-                String::from("[0]: where expected '(', found I at 'INVALID' [1]: in Alt at 'INVALID' [2]: outer parse query string at 'INVALID' ")
+                String::from("Error - context GROUP - expected '(' at INVALID")
             )
         );
 
@@ -423,7 +423,7 @@ mod test {
             "X-RELATED-TO:PARENT_UID",
             "X-LIMIT:50",
             "X-TZID:Europe/Vilnius",
-            "X-ORDER-BY;GEO=48.85299;2.36885:DTSTART-GEO-DIST",
+            "X-ORDER-BY:DTSTART-GEO-DIST;48.85299;2.36885",
             "   ",
         ]
         .join(" ");

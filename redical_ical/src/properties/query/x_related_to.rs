@@ -132,10 +132,12 @@ impl XRelatedToProperty {
         self.params.reltype.to_owned()
     }
 
+    /// Return all UID Strings (blanks stripped out).
     pub fn get_uids(&self) -> Vec<String> {
         self.uids
             .iter()
             .map(|text| text.to_string())
+            .skip_while(|text| text.is_empty())
             .collect::<Vec<String>>()
     }
 }

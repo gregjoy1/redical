@@ -700,7 +700,7 @@ mod tests {
                 bysetpos: None,
                 wkst: None,
             }.render_ical(),
-            String::from("FREQ=YEARLY;INTERVAL=2;BYMINUTE=30;BYHOUR=8,9;BYDAY=-1MO,SU;BYMONTH=1"),
+            String::from("BYDAY=-1MO,SU;BYHOUR=8,9;BYMINUTE=30;BYMONTH=1;FREQ=YEARLY;INTERVAL=2"),
         );
 
         assert_eq!(
@@ -720,7 +720,7 @@ mod tests {
                 bysetpos: None,
                 wkst: None,
             }.render_ical(),
-            String::from("FREQ=DAILY;COUNT=10;INTERVAL=2"),
+            String::from("COUNT=10;FREQ=DAILY;INTERVAL=2"),
         );
     }
 

@@ -242,7 +242,7 @@ mod tests {
                     wkst: None,
                 },
             }.render_ical(),
-            String::from("RRULE:FREQ=YEARLY;INTERVAL=2;BYMINUTE=30;BYHOUR=8,9;BYDAY=-1MO,SU;BYMONTH=1"),
+            String::from("RRULE:BYDAY=-1MO,SU;BYHOUR=8,9;BYMINUTE=30;BYMONTH=1;FREQ=YEARLY;INTERVAL=2"),
         );
 
         assert_eq!(
@@ -270,7 +270,7 @@ mod tests {
                     wkst: None,
                 },
             }.render_ical(),
-            String::from("RRULE;TEST=VALUE;X-TEST=X_VALUE:FREQ=YEARLY;INTERVAL=2;BYMINUTE=30;BYHOUR=8,9;BYDAY=-1MO,SU;BYMONTH=1"),
+            String::from("RRULE;TEST=VALUE;X-TEST=X_VALUE:BYDAY=-1MO,SU;BYHOUR=8,9;BYMINUTE=30;BYMONTH=1;FREQ=YEARLY;INTERVAL=2"),
         );
     }
 }

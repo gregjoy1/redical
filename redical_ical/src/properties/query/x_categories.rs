@@ -117,10 +117,12 @@ impl ICalendarProperty for XCategoriesProperty {
 }
 
 impl XCategoriesProperty {
+    /// Return all category Strings (blanks stripped out).
     pub fn get_categories(&self) -> Vec<String> {
         self.categories
             .iter()
             .map(|text| text.to_string())
+            .skip_while(|text| text.is_empty())
             .collect::<Vec<String>>()
     }
 }

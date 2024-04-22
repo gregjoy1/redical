@@ -505,7 +505,7 @@ mod test {
             "X-CLASS:PRIVATE",
             "X-LIMIT:50",
             "X-TZID:Europe/Vilnius",
-            "X-ORDER-BY;GEO=48.85299;2.36885:DTSTART-GEO-DIST",
+            "X-ORDER-BY:DTSTART-GEO-DIST;48.85299;2.36885",
         ]
         .join(" ");
 
@@ -599,7 +599,7 @@ mod test {
             "X-OFFSET:10",
             "X-DISTINCT:UID",
             "X-TZID:Europe/Vilnius",
-            "X-ORDER-BY;GEO=48.85299;2.36885:DTSTART-GEO-DIST",
+            "X-ORDER-BY:DTSTART-GEO-DIST;48.85299;2.36885",
         ]
         .join(" ");
 

@@ -10,7 +10,6 @@ use crate::event::Event;
 
 use redical_ical::{
     ICalendarComponent,
-    ICalendarEntity,
     RenderingContext,
     content_line::ContentLine,
     properties::{
@@ -53,12 +52,6 @@ impl Calendar {
                     );
                 }
             },
-
-            _ => {
-                return Err(
-                    format!("Calendar does not expect inserted property: {}", property.render_ical())
-                );
-            }
         }
 
         Ok(self)

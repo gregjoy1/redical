@@ -1,7 +1,7 @@
 use nom::error::context;
 use nom::branch::alt;
-use nom::multi::separated_list0;
-use nom::sequence::{pair, terminated, delimited};
+use nom::multi::{many0, separated_list0};
+use nom::sequence::{pair, preceded, terminated, delimited};
 use nom::combinator::{map, cut, opt};
 
 use crate::grammar::{tag, wsp};
@@ -56,32 +56,35 @@ impl ICalendarEntity for GroupedWhereProperty {
     fn parse_ical(input: ParserInput) -> ParserResult<Self> {
         context(
             "PROPERTY",
-            alt((
-                map(
-                    pair(opt(terminated(WhereOperator::parse_ical, wsp)), XGeoProperty::parse_ical),
-                    |(external_operator, x_geo_property)| GroupedWhereProperty::XGeo(external_operator, x_geo_property),
-                ),
+            preceded(
+                opt(wsp),
+                alt((
+                    map(
+                        pair(opt(terminated(WhereOperator::parse_ical, wsp)), WherePropertiesGroup::parse_ical),
+                        |(external_operator, where_properties_group)| GroupedWhereProperty::WherePropertiesGroup(external_operator, where_properties_group),
+                    ),
 
-                map(
-                    pair(opt(terminated(WhereOperator::parse_ical, wsp)), XClassProperty::parse_ical),
-                    |(external_operator, x_class_property)| GroupedWhereProperty::XClass(external_operator, x_class_property),
-                ),
+                    map(
+                        pair(opt(terminated(WhereOperator::parse_ical, wsp)), XGeoProperty::parse_ical),
+                        |(external_operator, x_geo_property)| GroupedWhereProperty::XGeo(external_operator, x_geo_property),
+                    ),
 
-                map(
-                    pair(opt(terminated(WhereOperator::parse_ical, wsp)), XRelatedToProperty::parse_ical),
-                    |(external_operator, x_related_to_property)| GroupedWhereProperty::XRelatedTo(external_operator, x_related_to_property),
-                ),
+                    map(
+                        pair(opt(terminated(WhereOperator::parse_ical, wsp)), XClassProperty::parse_ical),
+                        |(external_operator, x_class_property)| GroupedWhereProperty::XClass(external_operator, x_class_property),
+                    ),
 
-                map(
-                    pair(opt(terminated(WhereOperator::parse_ical, wsp)), XCategoriesProperty::parse_ical),
-                    |(external_operator, x_categories_property)| GroupedWhereProperty::XCategories(external_operator, x_categories_property),
-                ),
+                    map(
+                        pair(opt(terminated(WhereOperator::parse_ical, wsp)), XRelatedToProperty::parse_ical),
+                        |(external_operator, x_related_to_property)| GroupedWhereProperty::XRelatedTo(external_operator, x_related_to_property),
+                    ),
 
-                map(
-                    pair(opt(terminated(WhereOperator::parse_ical, wsp)), WherePropertiesGroup::parse_ical),
-                    |(external_operator, where_properties_group)| GroupedWhereProperty::WherePropertiesGroup(external_operator, where_properties_group),
-                ),
-            )),
+                    map(
+                        pair(opt(terminated(WhereOperator::parse_ical, wsp)), XCategoriesProperty::parse_ical),
+                        |(external_operator, x_categories_property)| GroupedWhereProperty::XCategories(external_operator, x_categories_property),
+                    ),
+                )),
+            )
         )(input)
     }
 
@@ -128,14 +131,14 @@ impl ICalendarEntity for WherePropertiesGroup {
             "GROUP",
             map(
                 delimited(
-                    tag("("),
+                    delimited(opt(wsp), tag("("), opt(wsp)),
                     cut(
                         separated_list0(
                             wsp,
                             GroupedWhereProperty::parse_ical,
                         ),
                     ),
-                    tag(")"),
+                    preceded(opt(wsp), tag(")")),
                 ),
                 |properties| {
                     WherePropertiesGroup { properties }
