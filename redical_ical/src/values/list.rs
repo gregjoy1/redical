@@ -52,7 +52,7 @@ use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult};
 /// ```
 /// [plus / minus] 1*digit
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct List<T>(pub HashSet<T>)
+pub struct List<T>(pub Vec<T>)
 where
     T: std::fmt::Debug + Clone + ICalendarEntity + Eq + PartialEq + std::hash::Hash,
 ;
@@ -61,7 +61,7 @@ impl<T> Deref for List<T>
 where
     T: std::fmt::Debug + Clone + ICalendarEntity + Eq + PartialEq + std::hash::Hash,
 {
-    type Target = HashSet<T>;
+    type Target = Vec<T>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -79,7 +79,7 @@ where
         map(
             separated_list0(comma, T::parse_ical),
             |parsed_list| {
-                List(HashSet::from_iter(parsed_list.into_iter()))
+                List(parsed_list)
             },
         )(input)
     }
@@ -134,7 +134,7 @@ where
     T: std::fmt::Debug + Clone + ICalendarEntity + Eq + PartialEq + std::hash::Hash,
 {
     fn from(value: Vec<T>) -> Self {
-        List(HashSet::from_iter(value.into_iter()))
+        List(value)
     }
 }
 
@@ -143,7 +143,7 @@ where
     T: std::fmt::Debug + Clone + ICalendarEntity + Eq + PartialEq + std::hash::Hash,
 {
     type Item = T;
-    type IntoIter = std::collections::hash_set::IntoIter<T>;
+    type IntoIter = std::vec::IntoIter<T>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
@@ -155,7 +155,7 @@ where
     T: std::fmt::Debug + Clone + ICalendarEntity + Eq + PartialEq + std::hash::Hash,
 {
     type Item = T;
-    type IntoIter = std::collections::hash_set::IntoIter<T>;
+    type IntoIter = std::vec::IntoIter<T>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.to_owned().into_iter()
