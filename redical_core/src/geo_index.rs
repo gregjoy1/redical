@@ -177,7 +177,9 @@ impl GeoPoint {
     }
 
     pub fn to_point(&self) -> Point {
-        Point::new(self.lat, self.long)
+        // Long -> x
+        // Lat  -> y
+        Point::new(self.long, self.lat)
     }
 
     pub fn validate(&self) -> Result<&Self, String> {
@@ -377,8 +379,8 @@ mod test {
     fn test_geo_spatial_calendar_index() {
         let mut geo_spatial_calendar_index = GeoSpatialCalendarIndex::new();
 
-        let london = GeoPoint::new(-0.1278_f64, 51.5074_f64);
-        let oxford = GeoPoint::new(-1.2475878_f64, 51.8773_f64);
+        let london = GeoPoint::new(51.5074_f64, -0.1278_f64);
+        let oxford = GeoPoint::new(51.8773_f64, -1.2475878_f64);
 
         assert_eq!(
             geo_spatial_calendar_index,
@@ -558,12 +560,12 @@ mod test {
     fn test_geo_spatial_calendar_index_locate_within_distance() {
         let mut geo_spatial_calendar_index = GeoSpatialCalendarIndex::new();
 
-        let random = GeoPoint::new(-1.4701705_f64, 51.7854972_f64);
-        let random_plus_offset = GeoPoint::new(-1.470240_f64, 51.785341_f64);
-        let new_york_city = GeoPoint::new(-74.006_f64, 40.7128_f64);
-        let churchdown = GeoPoint::new(-2.1686_f64, 51.8773_f64);
-        let london = GeoPoint::new(-0.1278_f64, 51.5074_f64);
-        let oxford = GeoPoint::new(-1.2475878_f64, 51.8773_f64);
+        let random = GeoPoint::new(51.7854972_f64, -1.4701705_f64);
+        let random_plus_offset = GeoPoint::new(51.785341_f64, -1.470240_f64);
+        let new_york_city = GeoPoint::new(40.7128_f64, -74.006_f64);
+        let churchdown = GeoPoint::new(51.8773_f64, -2.1686_f64);
+        let london = GeoPoint::new(51.5074_f64, -0.1278_f64);
+        let oxford = GeoPoint::new(51.8773_f64, -1.2475878_f64);
 
         assert!(geo_spatial_calendar_index
             .insert(
@@ -753,12 +755,12 @@ mod test {
     fn test_geo_distance_rtree() {
         let mut tree = RTree::new();
 
-        let random = GeoPoint::new(-1.4701705_f64, 51.7854972_f64);
-        let random_plus_offset = GeoPoint::new(-1.470240_f64, 51.785341_f64);
-        let new_york_city = GeoPoint::new(-74.006_f64, 40.7128_f64);
-        let churchdown = GeoPoint::new(-2.1686_f64, 51.8773_f64);
-        let london = GeoPoint::new(-0.1278_f64, 51.5074_f64);
-        let oxford = GeoPoint::new(-1.2475878_f64, 51.8773_f64);
+        let random = GeoPoint::new(51.7854972_f64, -1.4701705_f64);
+        let random_plus_offset = GeoPoint::new(51.785341_f64, -1.470240_f64);
+        let new_york_city = GeoPoint::new(40.7128_f64, -74.006_f64);
+        let churchdown = GeoPoint::new(51.8773_f64, -2.1686_f64);
+        let london = GeoPoint::new(51.5074_f64, -0.1278_f64);
+        let oxford = GeoPoint::new(51.8773_f64, -1.2475878_f64);
 
         tree.insert(random.clone());
         tree.insert(random_plus_offset.clone());

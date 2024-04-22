@@ -495,7 +495,7 @@ mod test {
     fn test_query_results_dtstart_geo_dist_ordering() {
         let mut query_results: QueryResults = QueryResults::new(
             OrderingCondition::DtStartGeoDist(
-                GeoPoint::new(-0.0758252, 51.5055296), // London
+                GeoPoint::new(51.5055296_f64, -0.0758252_f64), // London
             ),
             0,
             false,
@@ -586,7 +586,7 @@ mod test {
     fn test_query_results_geo_dist_dtstart_ordering() {
         let mut query_results: QueryResults = QueryResults::new(
             OrderingCondition::GeoDistDtStart(
-                GeoPoint::new(-0.0758252, 51.5055296), // London
+                GeoPoint::new(51.5055296_f64, -0.0758252_f64), // London
             ),
             0,
             false,

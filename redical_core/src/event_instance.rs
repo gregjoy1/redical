@@ -208,7 +208,7 @@ impl EventInstance {
     // TODO: Verify that reckless assertion above:
     //       - https://icalendar.org/iCalendar-RFC-5545/3-8-4-4-recurrence-id.html
     fn build_recurrence_id_from_dtstart(&self) -> RecurrenceIDProperty {
-        RecurrenceIDProperty::new_from(&self.dtstart)
+        RecurrenceIDProperty::new_from_utc_timestamp(&self.dtstart.get_utc_timestamp())
     }
 }
 
@@ -441,7 +441,7 @@ mod test {
                 String::from("DURATION:PT1M"),
                 String::from("GEO:48.85299;2.36885"),
                 String::from("LOCATION:Event address text."),
-                String::from("RECURRENCE-ID;VALUE=DATE-TIME:19700101T000140Z"),
+                String::from("RECURRENCE-ID;VALUE=DATE-TIME;TZID=Europe/London:19700101T010140"),
                 String::from("RELATED-TO;RELTYPE=CHILD:ChildUID"),
                 String::from("RELATED-TO;RELTYPE=PARENT:ParentUID_One"),
                 String::from("RELATED-TO;RELTYPE=PARENT:ParentUID_Two"),

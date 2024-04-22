@@ -90,9 +90,9 @@ impl OrderingCondition {
                     event_instance
                         .indexed_properties
                         .geo
-                        .clone()
+                        .as_ref()
                         .and_then(|event_instance_geo| {
-                            let event_instance_geo_point = GeoPoint::from(&event_instance_geo);
+                            let event_instance_geo_point = GeoPoint::from(event_instance_geo);
 
                             Some(GeoDistance::new_from_meters_float(
                                 event_instance_geo_point.haversine_distance(&ordering_geo_point),

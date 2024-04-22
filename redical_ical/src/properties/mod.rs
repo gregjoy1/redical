@@ -82,7 +82,6 @@ pub trait ICalendarDateTimeProperty {
         )
     }
 
-
     fn new(value_type: Option<&ValueType>, tzid: Option<&Tzid>, date_time: &DateTime) -> Self;
 
     fn get_tzid(&self) -> Option<&Tzid>;
