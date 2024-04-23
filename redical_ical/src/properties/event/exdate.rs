@@ -63,7 +63,9 @@ impl ICalendarPropertyParams for ExDatePropertyParams {
         }
 
         if let Some(tz) = self.get_context_tz(context) {
-            content_line_params.insert(String::from("TZID"), tz.to_string());
+            if tz != chrono_tz::Tz::UTC {
+                content_line_params.insert(String::from("TZID"), tz.to_string());
+            }
         }
 
         content_line_params

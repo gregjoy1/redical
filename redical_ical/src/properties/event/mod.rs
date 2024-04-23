@@ -39,7 +39,7 @@ pub use passive::PassiveProperty;
 
 use crate::properties::uid::UIDProperty;
 
-use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits, convert_error};
+use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserContext, ParserResult, impl_icalendar_entity_traits, convert_error};
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum EventProperty {
@@ -102,7 +102,31 @@ impl std::hash::Hash for EventProperty {
     }
 }
 
-impl_icalendar_entity_traits!(EventProperty);
+impl std::str::FromStr for EventProperty {
+    type Err = String;
+
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        let parser_result = all_consuming(Self::parse_ical)(ParserInput::new_extra(input, ParserContext::Event));
+
+        match parser_result {
+            Ok((_remaining, value)) => Ok(value),
+
+            Err(error) => {
+                if let nom::Err::Error(error) = error {
+                    Err(crate::convert_error(input, error))
+                } else {
+                    Err(error.to_string())
+                }
+            }
+        }
+    }
+}
+
+impl ToString for EventProperty {
+    fn to_string(&self) -> String {
+        self.render_ical()
+    }
+}
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct EventProperties(pub Vec<EventProperty>);
@@ -112,19 +136,19 @@ impl FromStr for EventProperties {
 
     fn from_str(input: &str) -> Result<Self, Self::Err> {
         let parsed_properties =
-            all_consuming(separated_list1(wsp, EventProperty::parse_ical))(input.into());
+            all_consuming(separated_list1(wsp, EventProperty::parse_ical))(ParserInput::new_extra(input, ParserContext::Event));
 
         match parsed_properties {
-            Ok((_remaining, properties)) => {
-                Ok(EventProperties(properties))
+            Ok((_remaining, event_properties)) => {
+                Ok(EventProperties(event_properties))
+            },
+
+            Err(nom::Err::Error(error)) | Err(nom::Err::Failure(error)) => {
+                Err(convert_error(input, error))
             },
 
             Err(error) => {
-                if let nom::Err::Error(error) = error {
-                    Err(convert_error(input, error))
-                } else {
-                    Err(error.to_string())
-                }
+                Err(error.to_string())
             }
         }
     }

@@ -467,7 +467,7 @@ mod integration {
             "EVENT_IN_CHELTENHAM_TUE_THU",
             [
                 "SUMMARY:Event in Cheltenham on Tuesdays and Thursdays at 6:30PM",
-                "RRULE:BYDAY=TU,TH;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
+                "RRULE:BYDAY=TH,TU;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
                 "DTSTART:20201231T183000Z",
                 "DTEND:20201231T190000Z",
                 "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
@@ -482,7 +482,7 @@ mod integration {
             "OVERRIDDEN_EVENT_IN_BRISTOL_TUE_THU",
             [
                 "SUMMARY:Event in Bristol on Tuesdays and Thursdays at 6:30PM",
-                "RRULE:BYDAY=TU,TH;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
+                "RRULE:BYDAY=TH,TU;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
                 "DTSTART:20201231T183000Z",
                 "DTEND:20201231T190000Z",
                 "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
@@ -687,7 +687,7 @@ mod integration {
             "EVENT_IN_READING_TUE_THU",
             [
                 "SUMMARY:Event in Reading on Tuesdays and Thursdays at 6:00PM",
-                "RRULE:BYDAY=TU,TH;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
+                "RRULE:BYDAY=TH,TU;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
                 "DTSTART:20201231T180000Z",
                 "DTEND:20201231T183000Z",
                 "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
@@ -702,7 +702,7 @@ mod integration {
             "EVENT_IN_LONDON_TUE_THU",
             [
                 "SUMMARY:Event in London on Tuesdays and Thursdays at 6:30PM",
-                "RRULE:BYDAY=TU,TH;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
+                "RRULE:BYDAY=TH,TU;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
                 "DTSTART:20201231T183000Z",
                 "DTEND:20201231T190000Z",
                 "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
@@ -737,7 +737,7 @@ mod integration {
                 "X-OFFSET:0",
                 "X-DISTINCT:UID",
                 "X-TZID:Europe/Vilnius",
-                "X-ORDER-BY;GEO=51.55577390;-1.77971760:DTSTART-GEO-DIST",
+                "X-ORDER-BY:DTSTART-GEO-DIST;51.55577390;-1.77971760",
             ],
             [
                 [
@@ -749,7 +749,7 @@ mod integration {
                         "DTEND;TZID=Europe/Vilnius:20210106T190000",
                         "DTSTART;TZID=Europe/Vilnius:20210106T180000",
                         "DURATION:PT1H",
-                        "RECURRENCE-ID;VALUE=DATE-TIME:20210106T160000Z",
+                        "RECURRENCE-ID;VALUE=DATE-TIME;TZID=Europe/Vilnius:20210106T180000",
                         "RELATED-TO;RELTYPE=PARENT:PARENT_UUID_ONLINE",
                         "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM",
                         "UID:ONLINE_EVENT_MON_WED",
@@ -766,7 +766,7 @@ mod integration {
                         "DTSTART;TZID=Europe/Vilnius:20210106T190000",
                         "DURATION:PT30M",
                         "GEO:51.751365550307604;-1.2601196837753945",
-                        "RECURRENCE-ID;VALUE=DATE-TIME:20210106T170000Z",
+                        "RECURRENCE-ID;VALUE=DATE-TIME;TZID=Europe/Vilnius:20210106T190000",
                         "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
                         "SUMMARY:Event in Oxford on Mondays and Wednesdays at 5:00PM",
                         "UID:EVENT_IN_OXFORD_MON_WED",

@@ -94,7 +94,31 @@ impl std::hash::Hash for QueryProperty {
     }
 }
 
-impl_icalendar_entity_traits!(QueryProperty);
+impl std::str::FromStr for QueryProperty {
+    type Err = String;
+
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        let parser_result = all_consuming(Self::parse_ical)(ParserInput::new_extra(input, ParserContext::Query));
+
+        match parser_result {
+            Ok((_remaining, value)) => Ok(value),
+
+            Err(error) => {
+                if let nom::Err::Error(error) = error {
+                    Err(crate::convert_error(input, error))
+                } else {
+                    Err(error.to_string())
+                }
+            }
+        }
+    }
+}
+
+impl ToString for QueryProperty {
+    fn to_string(&self) -> String {
+        self.render_ical()
+    }
+}
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct QueryProperties(pub Vec<QueryProperty>);
@@ -125,12 +149,12 @@ impl FromStr for QueryProperties {
                 Ok(query_properties)
             },
 
+            Err(nom::Err::Error(error)) | Err(nom::Err::Failure(error)) => {
+                Err(convert_error(input, error))
+            },
+
             Err(error) => {
-                if let nom::Err::Error(error) = error {
-                    Err(convert_error(input, error))
-                } else {
-                    Err(error.to_string())
-                }
+                Err(error.to_string())
             }
         }
     }
