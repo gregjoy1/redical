@@ -16,10 +16,7 @@ pub struct ParserError<'a> {
 
 impl <'a> std::fmt::Display for ParserError<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let message = self.message.clone().unwrap_or(String::from("-"));
-        let context = self.context.join(" <- ");
-
-        write!(f, "Error: {message} in {context}")
+        write!(f, "{}", convert_error(self.span.into_fragment(), self.to_owned()))
     }
 }
 

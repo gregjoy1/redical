@@ -28,7 +28,7 @@ use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult};
 /// };
 ///
 /// assert_eq!(remaining.to_string(), String::from(" TESTING"));
-/// assert_eq!(parsed_list, List(HashSet::from([])));
+/// assert_eq!(parsed_list, List(vec![]));
 ///
 /// // Testing single value
 /// let result = List::<Integer>::parse_ical("10 TESTING".into());
@@ -38,7 +38,7 @@ use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult};
 /// };
 ///
 /// assert_eq!(remaining.to_string(), String::from(" TESTING"));
-/// assert_eq!(parsed_list, List(HashSet::from([Integer(10)])));
+/// assert_eq!(parsed_list, List(vec![Integer(10)]));
 ///
 /// // Testing multiple values
 /// let result = List::<Integer>::parse_ical("10,20,30 TESTING".into());
@@ -48,7 +48,7 @@ use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult};
 /// };
 ///
 /// assert_eq!(remaining.to_string(), String::from(" TESTING"));
-/// assert_eq!(parsed_list, List(HashSet::from([Integer(10), Integer(20), Integer(30)])));
+/// assert_eq!(parsed_list, List(vec![Integer(10), Integer(20), Integer(30)]));
 /// ```
 /// [plus / minus] 1*digit
 #[derive(Debug, Clone, Eq, PartialEq)]

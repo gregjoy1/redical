@@ -249,14 +249,14 @@ impl TryFrom<&RDBEventOccurrenceOverride> for EventOccurrenceOverride {
 mod test {
     use super::*;
 
-    use pretty_assertions_sorted::assert_eq;
+    use pretty_assertions_sorted::{assert_eq, assert_eq_sorted};
 
     #[test]
     fn test_calendar_rdb_entity() {
         let event_occurrence_override =
             EventOccurrenceOverride::parse_ical(
                 "19700101T000500Z",
-                "CLASS:PRIVATE CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,\"CATEGORY THREE\"",
+                "CLASS:PRIVATE CATEGORIES:\"CATEGORY THREE\",CATEGORY_ONE,CATEGORY_TWO",
             ).unwrap();
 
         let mut event =
@@ -375,7 +375,7 @@ mod test {
             RDBEventOccurrenceOverride(
                 String::from("19700101T000500Z"),
                 vec![
-                    String::from("CATEGORIES:CATEGORY THREE,CATEGORY_ONE,CATEGORY_TWO"),
+                    String::from("CATEGORIES:\"CATEGORY THREE\",CATEGORY_ONE,CATEGORY_TWO"),
                     String::from("CLASS:PRIVATE   "),
                     String::from("DTSTART:19700101T000500Z"),
                 ],
