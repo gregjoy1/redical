@@ -14,8 +14,8 @@ mod integration {
     use pretty_assertions_sorted::{assert_eq, assert_eq_sorted};
 
     // Run with:
-    //  cargo build && cargo test -- --include-ignored
-    //  cargo build && cargo test --ignored
+    //  cargo build && cargo test --all
+    //  cargo build && cargo test --all integration
 
     fn test_calendar_get_set_del(connection: &mut Connection) -> Result<()> {
         let calendar_uid = "TEST_CALENDAR_UID";

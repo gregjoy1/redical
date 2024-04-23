@@ -26,13 +26,13 @@ cargo build --release
 To run all unit tests, run:
 
 ```bash
-cargo test
+cargo test --all
 ```
 
 To include integration tests, run:
 
 ```bash
-cargo build && RUST_BACKTRACE=1 cargo test integration:: -- --nocapture
+cargo build && RUST_BACKTRACE=1 cargo test --all integration:: -- --nocapture
 ```
 
 ## Run

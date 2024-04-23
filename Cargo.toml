@@ -31,11 +31,18 @@ pretty_assertions_sorted = { workspace = true }
 anyhow = { workspace = true }
 redis = { workspace = true }
 
+
 [features]
 as-library = []
 
 [workspace]
 members = [
+    "redical_core",
+    "redical_ical",
+    "redical_redis",
+]
+
+default-members = [
     "redical_core",
     "redical_ical",
     "redical_redis",

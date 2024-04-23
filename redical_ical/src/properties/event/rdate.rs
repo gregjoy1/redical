@@ -427,7 +427,7 @@ mod tests {
                     )
                 ),
             }.render_ical_with_context(Some(&RenderingContext { tz: Some(Tz::UTC), distance_unit: None })),
-            String::from("RDATE;TZID=UTC:19960401T140000Z"),
+            String::from("RDATE:19960401T140000Z"),
         );
 
         // UTC (implied) -> America/Phoenix (UTC -07:00 MST)
