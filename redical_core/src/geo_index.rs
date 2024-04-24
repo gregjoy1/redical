@@ -771,7 +771,9 @@ mod test {
         let mut results = tree.nearest_neighbor_iter_with_distance_2(&oxford.to_point().clone());
 
         let (point, distance) = results.next().unwrap();
-        assert_eq!((point, distance), (&random, 18388.59700968325_f64));
+
+        // Cast all f64 distances to f32 so tests pass under both MacOS and Linux.
+        assert_eq!((point, distance as f32), (&random, 18388.597009683246_f32));
 
         let (point, distance) = results.next().unwrap();
 
@@ -782,7 +784,8 @@ mod test {
 
         let (point, distance) = results.next().unwrap();
 
-        assert_eq!((point, distance), (&churchdown, 63223.39709694926_f64));
+        // Cast all f64 distances to f32 so tests pass under both MacOS and Linux.
+        assert_eq!((point, distance as f32), (&churchdown, 63223.39709694925_f32));
 
         let (point, distance) = results.next().unwrap();
 
@@ -790,7 +793,8 @@ mod test {
 
         let (point, distance) = results.next().unwrap();
 
-        assert_eq!((point, distance), (&new_york_city, 5484158.985172745_f64));
+        // Cast all f64 distances to f32 so tests pass under both MacOS and Linux.
+        assert_eq!((point, distance as f32), (&new_york_city, 5484158.985172745_f32));
 
         assert_eq!(results.next(), None);
 
