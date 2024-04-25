@@ -122,4 +122,4 @@ Query all the combined extrapolated event instances for all events in the calend
   ```
 
 ## Documentation
-For more information, read the docs [here](docs/docs/commands.md)
+For more information, read the [command docs here](docs/docs/commands.md) or the [technical overview docs here](docs/docs/technical_overview.md).
