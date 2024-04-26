@@ -17,7 +17,7 @@ the key to modify.
 
 ## Return value 
 
-`<COMMAND>` returns an [array](https://redis.io/docs/reference/protocol-spec/#resp-arrays) of string replies for each ICalendar property, or `error`, if unsuccessful.
+`<COMMAND>` returns an [array](https://redis.io/docs/reference/protocol-spec/#arrays) of string replies for each ICalendar property, or `error`, if unsuccessful.
 
 For more information about replies, see [Redis serialization protocol specification](https://redis.io/docs/reference/protocol-spec). 
 

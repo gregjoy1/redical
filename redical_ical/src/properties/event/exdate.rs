@@ -141,6 +141,8 @@ impl ExDatePropertyParams {
 // Example:  The following is an example of this property:
 //
 //     EXDATE:19960402T010000Z,19960403T010000Z,19960404T010000Z
+//
+// TODO: Implement List of DateTimes.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ExDateProperty {
     pub params: ExDatePropertyParams,

@@ -22,7 +22,7 @@ The number of results returned at once (defaulting to 50).
 
 ## Return value 
 
-`RDCL.EVT_LIST` returns a nested [array](https://redis.io/docs/reference/protocol-spec/#resp-arrays) of string replies for each event component with each iCalendar property, or `error`, if unsuccessful.
+`RDCL.EVT_LIST` returns a nested [array](https://redis.io/docs/reference/protocol-spec/#arrays) of string replies for each event component with each iCalendar property, or `error`, if unsuccessful.
 
 For more information about replies, see [Redis serialization protocol specification](https://redis.io/docs/reference/protocol-spec).
 
@@ -30,17 +30,17 @@ For more information about replies, see [Redis serialization protocol specificat
 
 Get first 50 event for an event:
 ```bash
-redis> RDCL.EVT_LIST key event_uid
+redis> RDCL.EVT_LIST CALENDAR_UID EVENT_UID
 ```
 
 Get second 50 event for an event:
 ```bash
-redis> RDCL.EVT_LIST key event_uid 49 50
+redis> RDCL.EVT_LIST CALENDAR_UID EVENT_UID 49 50
 ```
 
 Get second 20 event for an event:
 ```bash
-redis> RDCL.EVT_LIST key event_uid 19 20
+redis> RDCL.EVT_LIST CALENDAR_UID EVENT_UID 19 20
 ```
 
 ## See also

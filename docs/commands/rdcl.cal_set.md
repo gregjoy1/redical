@@ -14,7 +14,7 @@ The key to store the calendar (also representing it's UID).
 
 ## Return value 
 
-`RDCL.CAL_SET` returns an [array](https://redis.io/docs/reference/protocol-spec/#resp-arrays) of string replies for each iCalendar property, or `error`, if the key matching value is not present or not a Calendar.
+`RDCL.CAL_SET` returns an [array](https://redis.io/docs/reference/protocol-spec/#arrays) of string replies for each iCalendar property, or `error`, if the key matching value is not present or not a Calendar.
 
 For more information about replies, see [Redis serialization protocol specification](https://redis.io/docs/reference/protocol-spec).
 

@@ -1,33 +1,47 @@
-> [!NOTE]
-> TODO
-
-# <COMMAND>
+# RDCL.EVT_GET
 
 ### Syntax
 ```bash
-<COMMAND> key value
+RDCL.EVT_GET key event-uid
 ```
 
-Description text.
+Get the Event with the specified `event-uid` stored within the Calendar stored on `key`.
 
 ## Required arguments
 
 ### key
-the key to modify.
+The key of the stored calendar (also representing it's UID).
+
+### event-uid
+The UID of the desired event stored within the calendar.
 
 ## Return value 
 
-`<COMMAND>` returns an [array](https://redis.io/docs/reference/protocol-spec/#resp-arrays) of string replies for each ICalendar property, or `error`, if unsuccessful.
+`RDCL.EVT_GET` returns an [array](https://redis.io/docs/reference/protocol-spec/#arrays) of string replies for each ICalendar event property, or `error`, if unsuccessful.
 
 For more information about replies, see [Redis serialization protocol specification](https://redis.io/docs/reference/protocol-spec). 
 
 ## Examples
 
-Example text.
+Get an event stored within calendar:
 ```bash
-redis> <COMMAND> key
+redis> RDCL.EVT_GET CALENDAR_UID EVENT_IN_BRISTOL_TUE_THU
+1) CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE
+2) DTEND:20201231T190000Z
+3) DTSTART:20201231T183000Z
+4) GEO:51.454481838260214;-2.588329192623361
+5) RELATED-TO;RELTYPE=PARENT:PARENT_UUID
+6) RRULE:BYDAY=TH,TU;COUNT=3;FREQ=WEEKLY;INTERVAL=1
+7) SUMMARY:Event in Bristol on Tuesdays and Thursdays at 6:30PM
+8) UID:EVENT_IN_BRISTOL_TUE_THU
+```
+
+Get a non-existent event within a calendar:
+```bash
+redis> RDCL.EVT_GET CALENDAR_UID NON_EXISTENT_UID
+(nil)
 ```
 
 ## See also
 
-[`COMMAND`](doc.path.md) | [`COMMAND`](doc.path.md)
+[`RDCL.EVI_SET`](rdcl.evi_set.md) | [`RDCL.EVT_LIST`](rdcl.evt_list.md) | [`RDCL.EVT_LIST`](rdcl.evt_list.md) | [`RDCL.EVO_SET`](rdcl.evo_set.md) | [`RDCL.EVO_GET`](rdcl.evo_get.md) | [`RDCL.EVO_LIST`](rdcl.evo_list.md)
