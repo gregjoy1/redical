@@ -45,4 +45,4 @@ redis> RDCL.EVT_LIST CALENDAR_UID EVENT_UID 19 20
 
 ## See also
 
-[`RDCL.EVI_SET`](rdcl.evi_set.md) | [`RDCL.EVT_GET`](rdcl.evt_get.md) | [`RDCL.EVT_LIST`](rdcl.evt_list.md) | [`RDCL.EVO_SET`](rdcl.evo_set.md) | [`RDCL.EVO_GET`](rdcl.evo_get.md) | [`RDCL.EVO_LIST`](rdcl.evo_list.md)
+[`RDCL.EVI_SET`](rdcl.evi_set.md) | [`RDCL.EVT_LIST`](rdcl.evt_list.md) | [`RDCL.EVT_LIST`](rdcl.evt_list.md) | [`RDCL.EVT_SET`](rdcl.evt_set.md) | [`RDCL.EVT_DEL`](rdcl.evt_del.md) | [`RDCL.EVO_SET`](rdcl.evo_set.md) | [`RDCL.EVO_DEL`](rdcl.evo_del.md) | [`RDCL.EVO_GET`](rdcl.evo_get.md) | [`RDCL.EVO_LIST`](rdcl.evo_list.md)
