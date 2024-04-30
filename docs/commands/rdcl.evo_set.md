@@ -389,6 +389,15 @@ This property defines the status code returned for a scheduling request.
 
 Example: `REQUEST-STATUS:2.0;Success`
 
+##### [Non-Standard `X-` prefixed property](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.8.2)
+Any property name with a "X-" prefix definines any vendor specific non-standard properties.
+
+Examples:
+```
+X-ABC-MMSUBJ;VALUE=URI;FMTTYPE=audio/basic:http://www.example.org/mysubj.au
+X-ONLINE-MEETING-URL;PROVIDER=XYZ:https://xyz.com/meeting/abc123
+```
+
 ## Return value 
 
 `RDCL.EVO_SET` returns an [array](https://redis.io/docs/reference/protocol-spec/#arrays) of string replies for each ICalendar property of the created/updated event occurrence override, or `error`, if unsuccessful.
