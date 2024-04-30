@@ -5,7 +5,7 @@
 RDCL.EVT_SET key event-uid property [property ...]
 ```
 
-Description text.
+Create (or update if the `event-uid` is already in use) an event on the specified calendar with the provided iCalendar properties.
 
 ## Required arguments
 
@@ -50,7 +50,7 @@ DTSTART;VALUE=DATE;TZ=Europe/London:19980118
 ```
 
 ##### [`DTEND` property](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.2.2) - optional
-This property specifies the date and time that a calendar component ends.
+This property specifies the date and time that a calendar event ends.
 
 The `DURATION` of the event is calculated from this property relative to the `DTSTART` property.
 
@@ -175,7 +175,7 @@ These properties are actively indexed, this means that any events (or overrides)
 At the time of writing, there are only a handful of indexed properties, but if used carefully these can offer a lot of flexibility.
 
 ##### [`CATEGORIES` property](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.1.2)
-This property defines the categories for a calendar component.
+This property defines the categories for a calendar event.
 
 We can use this to specify "tags", for example `ONLINE`, `OFFLINE`, `INSTRUCTOR_ABC123`, `FITNESS`, etc.
 
@@ -223,7 +223,7 @@ RELATED-TO:SOME_UID_ABC123
 ```
 
 ##### [`CLASS` property](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.1.3)
-This property defines the access classification for a calendar component.
+This property defines the access classification for a calendar event.
 
 Essentially, is access to this event public, private, or exclusive.
 
@@ -258,7 +258,7 @@ Essentially, we use this to record the latitude and longitude of the event so th
 
 ###### Examples:
 
-We can use this to the latitude and longitude of an event (or an override):
+We can use this to define the latitude and longitude of an event (or an override):
 
 ```
 GEO:37.386013;-122.082932
@@ -273,17 +273,17 @@ If present on an event (or an event override), these are simply blindly and naiv
 This is useful for properties like `DESCRIPTION`, `LOCATION`, and `IMAGE` that can enrich event instances for re-consumption later for faster access to information instead.
 
 ##### [`SUMMARY` property](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.1.12)
-This property defines a short summary or subject for the calendar component.
+This property defines a short summary or subject for the calendar event.
 
 Example: `SUMMARY;LANGUAGE=en-US:Company Holiday Party`
 
 ##### [`DESCRIPTION` property](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.1.5)
-This property provides a more complete description of the calendar component than that provided by the "SUMMARY" property.
+This property provides a more complete description of the calendar event than that provided by the "SUMMARY" property.
 
 Example: `DESCRIPTION:This is a long description that exists on a long line.`
 
 ##### [`LOCATION` property](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.1.7)
-This property defines the intended venue for the activity defined by a calendar component.
+This property defines the intended venue for the activity defined by a calendar event.
 
 Example: `LOCATION;LANGUAGE=en:Germany`
 
@@ -308,7 +308,7 @@ This property specifies the identifier corresponding to the highest version numb
 Example: `VERSION:2.0`
 
 ##### [`ATTACH` property](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.1.1)
-This property provides the capability to associate a document object with a calendar component.
+This property provides the capability to associate a document object with a calendar event.
 
 Example: `ATTACH:http://example.com/public/quarterly-report.doc`
 
@@ -323,12 +323,12 @@ This property is used by an assignee or delegatee of a to-do to convey the perce
 Example: `PERCENT-COMPLETE:39`
 
 ##### [`PRIORITY` property](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.1.9)
-This property defines the relative priority for a calendar component.
+This property defines the relative priority for a calendar event.
 
 Example: `PRIORITY:1`
 
 ##### [`STATUS` property](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.1.11)
-This property defines the overall status or confirmation for the calendar component.
+This property defines the overall status or confirmation for the calendar event.
 
 Example: `STATUS:NEEDS-ACTION`
 
@@ -353,7 +353,7 @@ This property defines whether or not an event is transparent to busy time search
 Example: `TRANSP:TRANSPARENT`
 
 ##### [`TZID` property](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.3.1)
-This property specifies the text value that uniquely identifies the "VTIMEZONE" calendar component in the scope of an iCalendar object.
+This property specifies the text value that uniquely identifies the "VTIMEZONE" calendar event in the scope of an iCalendar object.
 
 Example: `TZID:America/New_York`
 
@@ -378,17 +378,17 @@ This property provides a means for a "VTIMEZONE" component to point to a network
 Example: `TZURL:http://zones.example.com/tz/America-New_York.ics`
 
 ##### [`ATTENDEE` property](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.4.1)
-This property defines an "Attendee" within a calendar component.
+This property defines an "Attendee" within a calendar event.
 
 Example: `ATTENDEE;RSVP=TRUE;ROLE=REQ-PARTICIPANT:mailto:person@email.com`
 
 ##### [`ORGANIZER` property](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.4.2)
-This property is used to represent contact information or alternately a reference to contact information associated with the calendar component.
+This property is used to represent contact information or alternately a reference to contact information associated with the calendar event.
 
 Example: `CONTACT:Jim Dolittle\, ABC Industries\, +1-919-555-1234`
 
 ##### [`ORGANIZER` property](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.4.3)
-This property defines the organizer for a calendar component.
+This property defines the organizer for a calendar event.
 
 Example: `ORGANIZER;CN="John Smith":mailto:jsmith@example.com`
 
@@ -423,12 +423,12 @@ In the case of an iCalendar object that specifies a "METHOD" property, this prop
 Example: `DTSTAMP:19970610T172345Z`
 
 ##### [`LAST-MODIFIED` property](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.7.3)
-This property specifies the date and time that the information associated with the calendar component was last revised in the calendar store.
+This property specifies the date and time that the information associated with the calendar event was last revised in the calendar store.
 
 Example: `LAST-MODIFIED:20050809T050000Z`
 
 ##### [`SEQUENCE` property](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.7.4)
-This property defines the revision sequence number of the calendar component within a sequence of revisions.
+This property defines the revision sequence number of the calendar event within a sequence of revisions.
 
 Example: `SEQUENCE:0`
 
@@ -445,17 +445,31 @@ For more information about replies, see [Redis serialization protocol specificat
 
 ## Examples
 
-Create/update an event stored within a calendar:
+Create/update a recurring event (every Tuesday and Thursday for three weeks excluding the first Tuesday) stored within a calendar:
 ```bash
-redis> RDCL.EVT_SET CALENDAR_UID EVENT_IN_BRISTOL_TUE_THU SUMMARY:Event in Bristol on Tuesdays and Thursdays at 6:30PM RRULE:BYDAY=TU,TH;COUNT=3;FREQ=WEEKLY;INTERVAL=1 DTSTART:20201231T183000Z DTEND:20201231T190000Z RELATED-TO;RELTYPE=PARENT:PARENT_UUID CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE GEO:51.454481838260214;-2.588329192623361
+redis> RDCL.EVT_SET CALENDAR_UID EVENT_IN_BRISTOL_TUE_THU SUMMARY:Event in Bristol on Tuesdays and Thursdays at 6:30PM RRULE:BYDAY=TU,TH;COUNT=3;FREQ=WEEKLY;INTERVAL=1 EXDATE:20210105T183000Z DTSTART:20201231T183000Z DTEND:20201231T190000Z RELATED-TO;RELTYPE=PARENT:PARENT_UUID CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE GEO:51.454481838260214;-2.588329192623361
 1) CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE
 2) DTEND:20201231T190000Z
 3) DTSTART:20201231T183000Z
+3) EXDATE:20210105T183000Z
 4) GEO:51.454481838260214;-2.588329192623361
 5) RELATED-TO;RELTYPE=PARENT:PARENT_UUID
 6) RRULE:BYDAY=TH,TU;COUNT=3;FREQ=WEEKLY;INTERVAL=1
 7) SUMMARY:Event in Bristol on Tuesdays and Thursdays at 6:30PM
 8) UID:EVENT_IN_BRISTOL_TUE_THU
+```
+
+Create/update an unpublished one off online event stored within a calendar with duration:
+```bash
+redis> RDCL.EVT_SET CALENDAR_UID ONLINE_EVENT_ON_WED SUMMARY:Online meeting on Wednesday at 6:30PM DTSTART:20210106T183000Z DURATION:PT1H RELATED-TO;RELTYPE=PARENT:PARENT_UUID CATEGORIES:CATEGORY_ONE,ONLINE_EVENT LOCATION:Online meeting - check your email for a link! CLASS:PRIVATE
+1) CATEGORIES:CATEGORY_ONE,ONLINE_EVENT
+2) CLASS:PRIVATE
+3) DTSTART:20210106T183000Z
+4) DURATION:PT1H
+5) LOCATION:Online meeting - check your email for a link!
+6) RELATED-TO;RELTYPE=PARENT:PARENT_UUID
+7) SUMMARY:Online meeting on Wednesday at 6:30PM
+8) UID:ONLINE_EVENT_ON_WED
 ```
 
 ## See also
