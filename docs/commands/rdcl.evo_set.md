@@ -423,7 +423,7 @@ redis> RDCL.EVO_SET CALENDAR_UID EVENT_IN_BRISTOL_TUE_THU 20210105T183000Z SUMMA
 ```
 
 This override is reflected in the second occurrence of the extrapolated event instances for the stored calendar event:
-```
+```bash
 redis> RDCL.EVI_LIST CALENDAR_UID EVENT_IN_BRISTOL_TUE_THU
 1) 1) CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE
    2) DTEND:20201231T190000Z
