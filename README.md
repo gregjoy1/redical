@@ -59,67 +59,67 @@ loadmodule /path/to/modules/libredical.so
 
 Add a new calendar to the `DEMO_CALENDAR_UID` key:
 
-```
+```bash
 redis> RDCL.CAL_SET DEMO_CALENDAR_UID
 ```
 
 Add a simple recurring event to the newly added calendar:
 
-```
+```bash
 redis> RDCL.EVT_SET DEMO_CALENDAR_UID EVENT_IN_OXFORD_MON_WED SUMMARY:Event in Oxford on Mondays and Wednesdays at 5:00PM RRULE:BYDAY=MO,WE;COUNT=4;FREQ=WEEKLY;INTERVAL=1 DTSTART:20201231T170000Z DTEND:20201231T173000Z RELATED-TO;RELTYPE=PARENT:PARENT_UUID CATEGORIES:CATEGORY TWO,CATEGORY_ONE GEO:51.751365550307604;-1.2601196837753945
 ```
 
 Override the properties for the initial occurrence of the newly added event:
 
-```
+```bash
 redis> RDCL.EVO_SET DEMO_CALENDAR_UID EVENT_IN_OXFORD_MON_WED 20210104T170000Z SUMMARY:Overridden event in Oxford summary text RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_PARENT_UUID CATEGORIES:OVERRIDDEN_CATEGORY
 ```
 
 View all overrides for the newly added event:
 
-```
+```bash
 redis> RDCL.EVO_LIST DEMO_CALENDAR_UID EVENT_IN_OXFORD_MON_WED
 ```
 
 View all extrapolated event instances (including the override) for the newly added event:
 
-```
+```bash
 redis> RDCL.EVI_LIST DEMO_CALENDAR_UID EVENT_IN_OXFORD_MON_WED
 ```
 
 Add an additional event to the calendar:
 
-```
+```bash
 redis> RDCL.EVT_SET DEMO_CALENDAR_UID EVENT_IN_BRISTOL_TUE_THU SUMMARY:Event in Bristol on Tuesdays and Thursdays at 6:30PM RRULE:BYDAY=TU,TH;COUNT=3;FREQ=WEEKLY;INTERVAL=1 DTSTART:20201231T183000Z DTEND:20201231T190000Z RELATED-TO;RELTYPE=PARENT:PARENT_UUID CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE GEO:51.454481838260214;-2.588329192623361
 ```
 
 List all events present in the calendar:
 
-```
+```bash
 redis> RDCL.EVT_LIST DEMO_CALENDAR_UID
 ```
 
 Query all the combined extrapolated event instances for all events in the calendar:
 
 * Empty query -- returns everything
-  ```
+  ```bash
   redis> RDCL.CAL_QUERY DEMO_CALENDAR_UID
   ```
 
 * Empty query -- returns everything ordered by distance to Reading
-  ```
+  ```bash
   redis> RDCL.CAL_QUERY DEMO_CALENDAR_UID X-ORDER-BY:GEO-DIST-DTSTART;51.4514278;-1.078448
   ```
 
 * Empty query -- returns everything ordered by distance to Reading (grouped by UID)
-  ```
+  ```bash
   redis> RDCL.CAL_QUERY DEMO_CALENDAR_UID X-ORDER-BY:GEO-DIST-DTSTART;51.4514278;-1.078448 X-DISTINCT:UID
   ```
 
-* Find all events within 60KM of Western-Super-Mare OR with the OVERRIDDEN_CATEGORY:
-  ```
+* Find all events within 60KM of Western-Super-Mare OR with the `OVERRIDDEN_CATEGORY`:
+  ```bash
   redis> RDCL.CAL_QUERY DEMO_CALENDAR_UID (X-GEO;DIST=60KM:51.3432622;-3.1608606 OR X-CATEGORIES:OVERRIDDEN_CATEGORY) X-ORDER-BY:GEO-DIST-DTSTART;51.4514278;-1.078448
   ```
 
 ## Documentation
-For more information, read the docs [here](docs/docs/commands.md)
+For more information, read the [command docs here](docs/docs/commands.md) or the [technical overview docs here](docs/docs/technical_overview.md).

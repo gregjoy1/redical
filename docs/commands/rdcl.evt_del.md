@@ -1,45 +1,40 @@
-> [!NOTE]
-> TODO
-
-# <COMMAND>
+# RDCL.EVT_DEL
 
 ### Syntax
 ```bash
-<COMMAND> key value [value ...]
+RDCL.EVT_DEL key event-uid
 ```
 
-Description text.
+Delete the Event with the specified `event-uid` stored within the Calendar stored on `key`.
 
 ## Required arguments
 
 ### key
-the key to modify.
+The key of the stored calendar (also representing it's UID).
 
-### value
-one or more values to append
+### event-uid
+The UID of the desired event stored within the calendar.
 
 ## Return value 
 
-`<COMMAND>` returns an [array](https://redis.io/docs/reference/protocol-spec/#resp-arrays) of integer replies for each path, the array's new size, or `nil`, if the matching value is not an array. 
+`RDCL.EVT_DEL` returns an [integer](https://redis.io/docs/reference/protocol-spec/#integers) representing a boolean, `1` if successful and `0` if not.
+
 For more information about replies, see [Redis serialization protocol specification](https://redis.io/docs/reference/protocol-spec). 
 
 ## Examples
 
-Create a map with a sub-array.
+Delete an event stored within calendar:
 ```bash
-# path: ["$"] 
-# value: {"foo":["a","b","c"]}
-redis> <COMMAND> key "\x81\x61$" "\xa1\x63foo\x83\x61a\x61b\x61c"
-OK
+redis> RDCL.EVT_DEL CALENDAR_UID EVENT_IN_BRISTOL_TUE_THU
+(integer) 1
 ```
 
-Get the updated document.
+Delete a non-existent event within a calendar:
 ```bash
-# result: {"foo":["a","b","c","d"]}
-redis> <COMMAND> key
-"\x81\xa1cfoo\x84aaabacad"
+redis> RDCL.EVT_DEL CALENDAR_UID NON_EXISTENT_UID
+(integer) 0
 ```
 
 ## See also
 
-[`COMMAND`](doc.path.md) | [`COMMAND`](doc.path.md)
+[`RDCL.EVI_SET`](rdcl.evi_set.md) | [`RDCL.EVT_LIST`](rdcl.evt_list.md) | [`RDCL.EVT_LIST`](rdcl.evt_list.md) | [`RDCL.EVT_SET`](rdcl.evt_set.md) | [`RDCL.EVT_DEL`](rdcl.evt_del.md) | [`RDCL.EVO_SET`](rdcl.evo_set.md) | [`RDCL.EVO_DEL`](rdcl.evo_del.md) | [`RDCL.EVO_GET`](rdcl.evo_get.md) | [`RDCL.EVO_LIST`](rdcl.evo_list.md)

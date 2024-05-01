@@ -148,7 +148,7 @@ impl RDatePropertyParams {
 //     RDATE;VALUE=DATE:19970101,19970120,19970217,19970421
 //      19970526,19970704,19970901,19971014,19971128,19971129,19971225
 //
-// TODO: Implement PERIOD VALUE type.
+// TODO: Implement List of DateTimes and PERIOD VALUE type.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct RDateProperty {
     pub params: RDatePropertyParams,
