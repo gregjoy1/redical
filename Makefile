@@ -3,7 +3,7 @@
 module_name=libredical.so
 
 # override
-OSNICK?=ubuntu22.04
+OSNICK?=$(shell /bin/cat /etc/os-release|/bin/grep -Po '(?<=PRETTY_NAME=")(.*)(?=")'|/bin/tr ' ' '_'|/bin/tr '[:upper:]' '[:lower:]')
 ARCH?=x86_64
 OS?=Linux
 REDISVERSION?=7.2.4
