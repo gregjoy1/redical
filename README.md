@@ -36,6 +36,14 @@ cargo build && RUST_BACKTRACE=1 cargo test --all integration:: -- --nocapture
 ```
 
 ## Run
+
+### Via Docker
+You can build and run RediCal within docker by running the following:
+```bash
+docker build --tag gregjoy1/redical:latest .
+docker run -p 6379:6379 -it gregjoy1/redical:latest
+```
+
 ### From Source
 Run Redis pointing to the newly built module:
 
@@ -53,7 +61,6 @@ Alternatively add the following to a redis.conf file:
 ```bash
 loadmodule /path/to/modules/libredical.so
 ```
-
 
 ## Getting started
 

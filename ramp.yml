@@ -1,0 +1,20 @@
+display_name: RediCal
+description: Store, extrapolate, and query overridable calendar events in Redis.
+author: Greg Joy
+homepage: 'https://github.com/gregjoy1/redical'
+license: MIT
+command_line_args: libredical.so
+min_redis_version: '7.0.0'
+min_redis_pack_version: '6.2.18'
+capabilities:
+  - types
+  - no_multi_key
+  - replica_of
+  - backup_restore
+  - ipv6
+  - intershard_tls
+  - intershard_tls_pass
+  - persistence_rdb
+  - persistence_aof
+  - failover_migrate
+  - clustering
