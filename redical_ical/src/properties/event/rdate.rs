@@ -8,6 +8,7 @@ use nom::combinator::{recognize, map, cut, opt};
 
 use crate::values::date_time::{DateTime, ValueType};
 use crate::values::tzid::Tzid;
+use crate::values::list::List;
 
 use crate::grammar::{tag, semicolon, colon, comma, x_name, iana_token, param_value};
 
@@ -148,11 +149,11 @@ impl RDatePropertyParams {
 //     RDATE;VALUE=DATE:19970101,19970120,19970217,19970421
 //      19970526,19970704,19970901,19971014,19971128,19971129,19971225
 //
-// TODO: Implement List of DateTimes and PERIOD VALUE type.
+// TODO: Implement PERIOD VALUE type.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct RDateProperty {
     pub params: RDatePropertyParams,
-    pub date_time: DateTime,
+    pub date_times: List<DateTime>,
 }
 
 impl ICalendarDateTimeProperty for RDateProperty {
@@ -164,7 +165,7 @@ impl ICalendarDateTimeProperty for RDateProperty {
 
         RDateProperty {
             params,
-            date_time: date_time.to_owned(),
+            date_times: vec![date_time.to_owned()].into(),
         }
     }
 
@@ -177,7 +178,13 @@ impl ICalendarDateTimeProperty for RDateProperty {
     }
 
     fn get_date_time(&self) -> &DateTime {
-        &self.date_time
+        &self.date_times.first().unwrap()
+    }
+}
+
+impl RDateProperty {
+    pub fn get_date_times(&self) -> Vec<DateTime> {
+        self.date_times.to_vec()
     }
 }
 
@@ -191,12 +198,18 @@ impl ICalendarEntity for RDateProperty {
                     map(
                         pair(
                             opt(RDatePropertyParams::parse_ical),
-                            preceded(colon, DateTime::parse_ical),
+                            preceded(
+                                colon,
+                                map(
+                                    separated_list1(comma, DateTime::parse_ical),
+                                    List,
+                                ),
+                            ),
                         ),
-                        |(params, date_time)| {
+                        |(params, date_times)| {
                             RDateProperty {
                                 params: params.unwrap_or(RDatePropertyParams::default()),
-                                date_time,
+                                date_times,
                             }
                         }
                     )
@@ -210,14 +223,18 @@ impl ICalendarEntity for RDateProperty {
     }
 
     fn validate(&self) -> Result<(), String> {
-        self.date_time.validate()?;
+        for date_time in self.date_times.iter() {
+            date_time.validate()?;
+        }
 
         if let Some(tzid) = self.params.tzid.as_ref() {
             tzid.validate()?;
         };
 
         if let Some(value_type) = self.params.value_type.as_ref() {
-            value_type.validate_against_date_time(&self.date_time)?;
+            for date_time in self.date_times.iter() {
+                value_type.validate_against_date_time(&date_time)?;
+            }
         }
 
         Ok(())
@@ -238,13 +255,21 @@ impl ICalendarProperty for RDateProperty {
         let current_tz = self.get_tz().unwrap_or(&chrono_tz::UTC);
         let context_tz = context.and_then(|context| context.tz.as_ref()).unwrap_or(current_tz);
 
-        let context_adjusted_date_time = self.date_time.with_timezone(Some(current_tz), context_tz);
+        let context_adjusted_rendered_date_times =
+            self.date_times
+                .iter()
+                .map(|date_time| {
+                    date_time.with_timezone(Some(current_tz), context_tz)
+                             .render_formatted_date_time(Some(context_tz))
+                })
+                .collect::<Vec<String>>()
+                .join(",");
 
         ContentLine::from((
             "RDATE",
             (
                 self.params.to_content_line_params_with_context(context),
-                context_adjusted_date_time.render_formatted_date_time(Some(context_tz)),
+                context_adjusted_rendered_date_times,
             )
         ))
     }
@@ -275,12 +300,38 @@ mod tests {
                 " DESCRIPTION:Description text",
                 RDateProperty {
                     params: RDatePropertyParams::default(),
-                    date_time: DateTime::UtcDateTime(
-                        NaiveDateTime::new(
-                            NaiveDate::from_ymd_opt(1996_i32, 4_u32, 1_u32).unwrap(),
-                            NaiveTime::from_hms_opt(15_u32, 0_u32, 0_u32).unwrap(),
-                        )
-                    ),
+                    date_times: vec![
+                        DateTime::UtcDateTime(
+                            NaiveDateTime::new(
+                                NaiveDate::from_ymd_opt(1996_i32, 4_u32, 1_u32).unwrap(),
+                                NaiveTime::from_hms_opt(15_u32, 0_u32, 0_u32).unwrap(),
+                            )
+                        ),
+                    ].into(),
+                },
+            ),
+        );
+
+        assert_parser_output!(
+            RDateProperty::parse_ical("RDATE:19960401T150000Z,19960403T180000Z DESCRIPTION:Description text".into()),
+            (
+                " DESCRIPTION:Description text",
+                RDateProperty {
+                    params: RDatePropertyParams::default(),
+                    date_times: vec![
+                        DateTime::UtcDateTime(
+                            NaiveDateTime::new(
+                                NaiveDate::from_ymd_opt(1996_i32, 4_u32, 1_u32).unwrap(),
+                                NaiveTime::from_hms_opt(15_u32, 0_u32, 0_u32).unwrap(),
+                            )
+                        ),
+                        DateTime::UtcDateTime(
+                            NaiveDateTime::new(
+                                NaiveDate::from_ymd_opt(1996_i32, 4_u32, 3_u32).unwrap(),
+                                NaiveTime::from_hms_opt(18_u32, 0_u32, 0_u32).unwrap(),
+                            )
+                        ),
+                    ].into(),
                 },
             ),
         );
@@ -295,18 +346,20 @@ mod tests {
                         tzid: Some(Tzid(Tz::Europe__London)),
                         other: HashMap::new(),
                     },
-                    date_time: DateTime::LocalDateTime(
-                        NaiveDateTime::new(
-                            NaiveDate::from_ymd_opt(1996_i32, 4_u32, 1_u32).unwrap(),
-                            NaiveTime::from_hms_opt(15_u32, 0_u32, 0_u32).unwrap(),
-                        )
-                    ),
+                    date_times: vec![
+                        DateTime::LocalDateTime(
+                            NaiveDateTime::new(
+                                NaiveDate::from_ymd_opt(1996_i32, 4_u32, 1_u32).unwrap(),
+                                NaiveTime::from_hms_opt(15_u32, 0_u32, 0_u32).unwrap(),
+                            )
+                        ),
+                    ].into(),
                 },
             ),
         );
 
         assert_parser_output!(
-            RDateProperty::parse_ical("RDATE;X-TEST=X_VALUE;TEST=VALUE;VALUE=DATE:19960401".into()),
+            RDateProperty::parse_ical("RDATE;X-TEST=X_VALUE;TEST=VALUE;VALUE=DATE:19960401,19960403,19960405".into()),
             (
                 "",
                 RDateProperty {
@@ -318,9 +371,17 @@ mod tests {
                             (String::from("TEST"), String::from("VALUE")),
                         ]),
                     },
-                    date_time: DateTime::LocalDate(
-                        NaiveDate::from_ymd_opt(1996_i32, 4_u32, 1_u32).unwrap()
-                    ),
+                    date_times: vec![
+                        DateTime::LocalDate(
+                            NaiveDate::from_ymd_opt(1996_i32, 4_u32, 1_u32).unwrap()
+                        ),
+                        DateTime::LocalDate(
+                            NaiveDate::from_ymd_opt(1996_i32, 4_u32, 3_u32).unwrap()
+                        ),
+                        DateTime::LocalDate(
+                            NaiveDate::from_ymd_opt(1996_i32, 4_u32, 5_u32).unwrap()
+                        ),
+                    ].into(),
                 },
             ),
         );
@@ -333,14 +394,22 @@ mod tests {
         assert_eq!(
             RDateProperty {
                 params: RDatePropertyParams::default(),
-                date_time: DateTime::UtcDateTime(
-                    NaiveDateTime::new(
-                        NaiveDate::from_ymd_opt(1996_i32, 4_u32, 1_u32).unwrap(),
-                        NaiveTime::from_hms_opt(15_u32, 0_u32, 0_u32).unwrap(),
-                    )
-                ),
+                date_times: vec![
+                    DateTime::UtcDateTime(
+                        NaiveDateTime::new(
+                            NaiveDate::from_ymd_opt(1996_i32, 4_u32, 1_u32).unwrap(),
+                            NaiveTime::from_hms_opt(15_u32, 0_u32, 0_u32).unwrap(),
+                        )
+                    ),
+                    DateTime::UtcDateTime(
+                        NaiveDateTime::new(
+                            NaiveDate::from_ymd_opt(1996_i32, 4_u32, 3_u32).unwrap(),
+                            NaiveTime::from_hms_opt(18_u32, 0_u32, 0_u32).unwrap(),
+                        )
+                    ),
+                ].into(),
             }.render_ical(),
-            String::from("RDATE:19960401T150000Z"),
+            String::from("RDATE:19960401T150000Z,19960403T180000Z"),
         );
 
         assert_eq!(
@@ -350,12 +419,14 @@ mod tests {
                     tzid: Some(Tzid(Tz::Europe__London)),
                     other: HashMap::new(),
                 },
-                date_time: DateTime::LocalDateTime(
-                    NaiveDateTime::new(
-                        NaiveDate::from_ymd_opt(1996_i32, 4_u32, 1_u32).unwrap(),
-                        NaiveTime::from_hms_opt(15_u32, 0_u32, 0_u32).unwrap(),
-                    )
-                ),
+                date_times: vec![
+                    DateTime::LocalDateTime(
+                        NaiveDateTime::new(
+                            NaiveDate::from_ymd_opt(1996_i32, 4_u32, 1_u32).unwrap(),
+                            NaiveTime::from_hms_opt(15_u32, 0_u32, 0_u32).unwrap(),
+                        )
+                    ),
+                ].into(),
             }.render_ical(),
             String::from("RDATE;TZID=Europe/London:19960401T150000"),
         );
@@ -370,9 +441,11 @@ mod tests {
                         (String::from("TEST"), String::from("VALUE")),
                     ]),
                 },
-                date_time: DateTime::LocalDate(
-                    NaiveDate::from_ymd_opt(1996_i32, 4_u32, 1_u32).unwrap()
-                ),
+                date_times: vec![
+                    DateTime::LocalDate(
+                        NaiveDate::from_ymd_opt(1996_i32, 4_u32, 1_u32).unwrap()
+                    ),
+                ].into(),
             }.render_ical(),
             String::from("RDATE;TEST=VALUE;X-TEST=X_VALUE;VALUE=DATE:19960401"),
         );
@@ -384,14 +457,22 @@ mod tests {
         assert_eq!(
             RDateProperty {
                 params: RDatePropertyParams::default(),
-                date_time: DateTime::UtcDateTime(
-                    NaiveDateTime::new(
-                        NaiveDate::from_ymd_opt(1996_i32, 4_u32, 1_u32).unwrap(),
-                        NaiveTime::from_hms_opt(15_u32, 0_u32, 0_u32).unwrap(),
-                    )
-                ),
+                date_times: vec![
+                    DateTime::UtcDateTime(
+                        NaiveDateTime::new(
+                            NaiveDate::from_ymd_opt(1996_i32, 4_u32, 1_u32).unwrap(),
+                            NaiveTime::from_hms_opt(15_u32, 0_u32, 0_u32).unwrap(),
+                        )
+                    ),
+                    DateTime::UtcDateTime(
+                        NaiveDateTime::new(
+                            NaiveDate::from_ymd_opt(1996_i32, 4_u32, 3_u32).unwrap(),
+                            NaiveTime::from_hms_opt(18_u32, 0_u32, 0_u32).unwrap(),
+                        )
+                    ),
+                ].into(),
             }.render_ical_with_context(Some(&RenderingContext { tz: Some(Tz::Europe__Warsaw), distance_unit: None })),
-            String::from("RDATE;TZID=Europe/Warsaw:19960401T170000"),
+            String::from("RDATE;TZID=Europe/Warsaw:19960401T170000,19960403T200000"),
         );
 
         // Europe/London (UTC +01:00 BST) -> America/Phoenix (UTC -07:00 MST)
@@ -402,12 +483,14 @@ mod tests {
                     tzid: Some(Tzid(Tz::Europe__London)),
                     other: HashMap::new(),
                 },
-                date_time: DateTime::LocalDateTime(
-                    NaiveDateTime::new(
-                        NaiveDate::from_ymd_opt(1996_i32, 4_u32, 1_u32).unwrap(),
-                        NaiveTime::from_hms_opt(15_u32, 0_u32, 0_u32).unwrap(),
-                    )
-                ),
+                date_times: vec![
+                    DateTime::LocalDateTime(
+                        NaiveDateTime::new(
+                            NaiveDate::from_ymd_opt(1996_i32, 4_u32, 1_u32).unwrap(),
+                            NaiveTime::from_hms_opt(15_u32, 0_u32, 0_u32).unwrap(),
+                        )
+                    ),
+                ].into(),
             }.render_ical_with_context(Some(&RenderingContext { tz: Some(Tz::America__Phoenix), distance_unit: None })),
             String::from("RDATE;TZID=America/Phoenix:19960401T070000"),
         );
@@ -420,14 +503,22 @@ mod tests {
                     tzid: Some(Tzid(Tz::Europe__London)),
                     other: HashMap::new(),
                 },
-                date_time: DateTime::LocalDateTime(
-                    NaiveDateTime::new(
-                        NaiveDate::from_ymd_opt(1996_i32, 4_u32, 1_u32).unwrap(),
-                        NaiveTime::from_hms_opt(15_u32, 0_u32, 0_u32).unwrap(),
-                    )
-                ),
+                date_times: vec![
+                    DateTime::LocalDateTime(
+                        NaiveDateTime::new(
+                            NaiveDate::from_ymd_opt(1996_i32, 4_u32, 1_u32).unwrap(),
+                            NaiveTime::from_hms_opt(15_u32, 0_u32, 0_u32).unwrap(),
+                        )
+                    ),
+                    DateTime::LocalDateTime(
+                        NaiveDateTime::new(
+                            NaiveDate::from_ymd_opt(1996_i32, 4_u32, 3_u32).unwrap(),
+                            NaiveTime::from_hms_opt(18_u32, 0_u32, 0_u32).unwrap(),
+                        )
+                    ),
+                ].into(),
             }.render_ical_with_context(Some(&RenderingContext { tz: Some(Tz::UTC), distance_unit: None })),
-            String::from("RDATE:19960401T140000Z"),
+            String::from("RDATE:19960401T140000Z,19960403T170000Z"),
         );
 
         // UTC (implied) -> America/Phoenix (UTC -07:00 MST)
@@ -442,9 +533,11 @@ mod tests {
                         (String::from("TEST"), String::from("VALUE")),
                     ]),
                 },
-                date_time: DateTime::LocalDate(
-                    NaiveDate::from_ymd_opt(1996_i32, 4_u32, 1_u32).unwrap()
-                ),
+                date_times: vec![
+                    DateTime::LocalDate(
+                        NaiveDate::from_ymd_opt(1996_i32, 4_u32, 1_u32).unwrap()
+                    ),
+                ].into(),
             }.render_ical_with_context(Some(&RenderingContext { tz: Some(Tz::America__Phoenix), distance_unit: None })),
             String::from("RDATE;TEST=VALUE;X-TEST=X_VALUE;VALUE=DATE;TZID=America/Phoenix:19960331"),
         );
