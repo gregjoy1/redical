@@ -39,7 +39,7 @@ pub use passive::PassiveProperty;
 
 use crate::properties::uid::UIDProperty;
 
-use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserContext, ParserResult, impl_icalendar_entity_traits, convert_error};
+use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserContext, ParserResult, convert_error};
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum EventProperty {

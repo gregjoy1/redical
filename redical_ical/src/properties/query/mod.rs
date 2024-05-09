@@ -34,7 +34,7 @@ pub use x_geo::{DistValue, XGeoProperty, XGeoPropertyParams};
 pub use x_class::{XClassProperty, XClassPropertyParams};
 pub use where_properties_group::{WherePropertiesGroup, GroupedWhereProperty};
 
-use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, ParserContext, impl_icalendar_entity_traits, convert_error};
+use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, ParserContext, convert_error};
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum QueryProperty {
@@ -171,10 +171,10 @@ mod tests {
     #[test]
     fn parse_ical() {
         assert_parser_output!(
-            WherePropertiesGroup::parse_ical("() DESCRIPTION:Description text".into()),
+            QueryProperty::parse_ical("() DESCRIPTION:Description text".into()),
             (
                 " DESCRIPTION:Description text",
-                WherePropertiesGroup::from_str("()").unwrap(),
+                QueryProperty::WherePropertiesGroup(WherePropertiesGroup::from_str("()").unwrap()),
             ),
         );
 
