@@ -371,6 +371,27 @@ macro_rules! impl_icalendar_entity_traits {
 
 #[cfg(test)]
 mod tests {
+
+    #[macro_export]
+    macro_rules! assert_finishes_within_duration {
+        ($duration_ms:expr, $process:expr $(,)*) => {
+            let (done_tx, done_rx) = std::sync::mpsc::channel();
+
+            let handle = std::thread::spawn(move || {
+                let _ = $process;
+
+                done_tx.send(()).expect("Unable to send completion signal");
+            });
+
+            match done_rx.recv_timeout(std::time::Duration::from_millis($duration_ms)) {
+                Ok(_) => handle.join().expect("Thread panicked"),
+                Err(_) => panic!("Thread took too long"),
+            }
+        }
+    }
+
+    pub use assert_finishes_within_duration;
+
     #[macro_export]
     macro_rules! assert_parser_output {
         ($subject:expr, ($remaining:expr, $expected:expr $(,)*) $(,)*) => {

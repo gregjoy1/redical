@@ -158,9 +158,24 @@ impl FromStr for EventProperties {
 mod tests {
     use super::*;
 
-    use crate::tests::assert_parser_output;
+    use crate::tests::{assert_parser_output, assert_finishes_within_duration};
 
     use std::str::FromStr;
+
+    #[test]
+    fn parse_ical_fuzzing_hang_test() {
+        let message: String = std::fs::read_to_string("./tests/fuzz_finds/hangs/id:000073,src:004696,time:25281347,execs:141302627,op:havoc,rep:1").unwrap();
+
+        dbg!(EventProperties::from_str(message.as_str()));
+
+        /*
+        assert_finishes_within_duration(std::time::Duration::from_millis(250), move || {
+            let _ = EventProperties::from_str(message.as_str());
+        });
+        */
+
+        // assert_finishes_within_duration!(250, EventProperties::from_str(message.as_str()));
+    }
 
     #[test]
     fn parse_ical() {
