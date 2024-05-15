@@ -125,45 +125,15 @@ impl ParserContext {
             input.extra = ParserContext::None;
 
             use nom::error::context;
-            use nom::combinator::{recognize, eof, opt, not};
-            use nom::sequence::{tuple, preceded};
-            use nom::multi::many1;
-            use nom::branch::alt;
-            use grammar::{wsp, tag, contentline};
-            use values::where_operator::WhereOperator;
-            use properties::query::{GroupedWhereProperty, QueryProperty};
+            use nom::combinator::recognize;
+            use nom::sequence::preceded;
+            use grammar::{wsp, contentline};
+            use properties::event::EventProperty;
+            use properties::query::QueryProperty;
 
             match self {
-                ParserContext::Event => {
-                    context(
-                        "EVENT PARSER CONTEXT",
-                        recognize(
-                            preceded(
-                                grammar::wsp,
-                                properties::event::EventProperty::parse_ical,
-                            )
-                        ),
-                    )(input)
-                },
-
-                ParserContext::Query => {
-                    context(
-                        "QUERY PARSER CONTEXT",
-                        recognize(
-                            preceded(
-                                opt(wsp),
-                                alt((
-                                    // TODO: HACK HACK HACK HACK - tidy and consolidate
-                                    recognize(tuple((WhereOperator::parse_ical, opt(wsp), tag("(")))),
-                                    recognize(tuple((opt(wsp), tag("("), opt(wsp), GroupedWhereProperty::parse_ical))),
-                                    recognize(tuple((not(contentline), many1(tag(")")), alt((wsp, eof))))),
-                                    recognize(GroupedWhereProperty::parse_ical),
-                                    recognize(QueryProperty::parse_ical),
-                                )),
-                            )
-                        ),
-                    )(input)
-                },
+                ParserContext::Event => EventProperty::parser_context_property_lookahead(input),
+                ParserContext::Query => QueryProperty::parser_context_property_lookahead(input),
 
                 _ => {
                     context(
