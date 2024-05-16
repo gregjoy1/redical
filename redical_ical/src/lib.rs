@@ -64,7 +64,7 @@ impl<'a> nom::error::ParseError<ParserInput<'a>> for ParserError<'a> {
 
 impl<'a> nom::error::ContextError<ParserInput<'a>> for ParserError<'a> {
     fn add_context(_input: ParserInput, context: &'static str, mut other: Self) -> Self {
-        other.context.push(String::from(context));
+        other.context.insert(0, String::from(context));
         other
     }
 }
@@ -85,10 +85,13 @@ where
 /// line errors which are more redis friendly.
 pub fn convert_error<I: core::ops::Deref<Target = str>>(_input: I, error: ParserError) -> std::string::String {
     // TODO: Implement this...
+    let error_message = error.message.unwrap_or(String::from("no error"));
+    let invalid_span = error.span.trim().to_string();
+
     if error.context.is_empty() {
-        format!("Error - {} at {}", error.message.unwrap_or(String::from("no error")), error.span.to_string().trim())
+        format!("Error - \"{}\" at \"{}\"", error_message, invalid_span)
     } else {
-        format!("Error - context {} - {} at {}", error.context.join(" -> "), error.message.unwrap_or(String::from("no error")), error.span.to_string().trim())
+        format!("Error: \"{}\" at \"{}\" -- Context: {}", error_message, invalid_span, error.context.join(" -> "))
     }
 }
 
