@@ -135,8 +135,13 @@ impl ParserContext {
             use properties::query::QueryProperty;
 
             match self {
-                ParserContext::Event => EventProperty::parser_context_property_lookahead(input),
-                ParserContext::Query => QueryProperty::parser_context_property_lookahead(input),
+                ParserContext::Event => {
+                    EventProperty::parser_context_property_lookahead(input)
+                },
+
+                ParserContext::Query => {
+                    QueryProperty::parser_context_property_lookahead(input)
+                },
 
                 _ => {
                     context(

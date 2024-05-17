@@ -20,7 +20,7 @@ pub mod x_class;
 pub mod where_properties_group;
 
 
-use crate::grammar::{tag, wsp, contentline};
+use crate::grammar::{tag, wsp, wsp_1_1, contentline};
 
 pub use x_offset::XOffsetProperty;
 pub use x_limit::XLimitProperty;
@@ -60,7 +60,7 @@ impl QueryProperty {
             "QUERY PARSER CONTEXT",
             recognize(
                 preceded(
-                    opt(wsp),
+                    opt(wsp_1_1),
                     alt((
                         // TODO: HACK HACK HACK HACK - tidy and consolidate
                         recognize(tuple((WhereOperator::parse_ical, opt(wsp), tag("(")))),

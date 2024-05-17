@@ -24,7 +24,7 @@ use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, Parser
 /// time         = time-hour time-minute time-second [time-utc]
 pub fn time(input: ParserInput) -> ParserResult<ParserInput> {
     context(
-        "time",
+        "TIME",
         recognize(
             tuple(
                 (
@@ -190,7 +190,7 @@ impl ICalendarEntity for Time {
         Self: Sized
     {
         context(
-            "time",
+            "TIME",
             map_res(
                 tuple(
                     (

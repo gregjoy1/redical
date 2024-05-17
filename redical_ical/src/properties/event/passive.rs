@@ -1,9 +1,9 @@
 use nom::branch::alt;
-use nom::combinator::map;
+use nom::combinator::{map, all_consuming};
 
 use crate::content_line::{ContentLine, ContentLineParams};
 
-use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
+use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, ParserContext};
 use crate::properties::ICalendarProperty;
 
 #[derive(Debug, Eq, PartialEq, Clone, Ord, PartialOrd)]
@@ -231,7 +231,31 @@ impl std::hash::Hash for PassiveProperty {
     }
 }
 
-impl_icalendar_entity_traits!(PassiveProperty);
+impl std::str::FromStr for PassiveProperty {
+    type Err = String;
+
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        let parser_result = all_consuming(Self::parse_ical)(ParserInput::new_extra(input, ParserContext::Event));
+
+        match parser_result {
+            Ok((_remaining, value)) => Ok(value),
+
+            Err(error) => {
+                if let nom::Err::Error(error) = error {
+                    Err(crate::convert_error(input, error))
+                } else {
+                    Err(error.to_string())
+                }
+            }
+        }
+    }
+}
+
+impl ToString for PassiveProperty {
+    fn to_string(&self) -> String {
+        self.render_ical()
+    }
+}
 
 #[cfg(test)]
 mod tests {

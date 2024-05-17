@@ -1168,7 +1168,7 @@ pub fn value_char(input: ParserInput) -> ParserResult<ParserInput> {
     take_while1(is_value_char)(input)
 }
 
-/// Parses whitespace char.
+/// Parses one or more whitespace chars.
 ///
 /// # Examples
 ///
@@ -1182,6 +1182,33 @@ pub fn value_char(input: ParserInput) -> ParserResult<ParserInput> {
 /// WSP  = HTAB | CR | LF | SPACE | FF
 pub fn wsp(input: ParserInput) -> ParserResult<ParserInput> {
     take_while1(is_wsp_char)(input)
+}
+
+/// Parses single whitespace char.
+///
+/// # Examples
+///
+/// ```rust
+/// use redical_ical::grammar::wsp_1_1;
+///
+/// assert!(wsp_1_1("\tTEST".into()).is_ok());
+/// assert!(wsp_1_1("\rTEST".into()).is_ok());
+/// assert!(wsp_1_1("\nTEST".into()).is_ok());
+/// assert!(wsp_1_1("\x0CTEST".into()).is_ok());
+/// assert!(wsp_1_1(" TEST".into()).is_ok());
+///
+/// assert!(wsp_1_1("A".into()).is_err());
+/// ```
+///
+/// WSP  = HTAB | CR | LF | SPACE | FF
+pub fn wsp_1_1(input: ParserInput) -> ParserResult<ParserInput> {
+    alt((
+        tag("\t"),
+        tag("\r"),
+        tag("\n"),
+        tag("\x0C"),
+        tag(" ")
+    ))(input)
 }
 
 /// Returns if whitespace char.
