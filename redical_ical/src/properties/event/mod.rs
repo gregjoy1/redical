@@ -1,9 +1,10 @@
 use std::str::FromStr;
 
+use nom::error::context;
 use nom::branch::alt;
-use nom::combinator::map;
-use nom::combinator::all_consuming;
+use nom::combinator::{map, all_consuming, recognize};
 use nom::multi::separated_list1;
+use nom::sequence::preceded;
 
 mod dtstart;
 mod dtend;
@@ -20,7 +21,7 @@ mod related_to;
 
 mod passive;
 
-use crate::grammar::wsp;
+use crate::grammar::{wsp, wsp_1_1};
 
 pub use dtstart::{DTStartProperty, DTStartPropertyParams};
 pub use dtend::{DTEndProperty, DTEndPropertyParams};
@@ -35,11 +36,13 @@ pub use class::{ClassProperty, ClassPropertyParams};
 pub use geo::{GeoProperty, GeoPropertyParams};
 pub use related_to::{RelatedToProperty, RelatedToPropertyParams};
 
+use crate::content_line::ContentLine;
+
 pub use passive::PassiveProperty;
 
 use crate::properties::uid::UIDProperty;
 
-use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserContext, ParserResult, impl_icalendar_entity_traits, convert_error};
+use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserContext, ParserResult, convert_error};
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum EventProperty {
@@ -56,6 +59,33 @@ pub enum EventProperty {
     Geo(GeoProperty),
     RelatedTo(RelatedToProperty),
     Passive(PassiveProperty),
+}
+
+impl EventProperty {
+    pub fn parser_context_property_lookahead(input: ParserInput) -> ParserResult<ParserInput> {
+        // dbg!(&input.len(), &input.extra);
+        context(
+            "EVENT PARSER CONTEXT",
+            preceded(
+                wsp_1_1,
+                alt((
+                    recognize(ContentLine::parse_ical_for_property("UID")),
+                    recognize(ContentLine::parse_ical_for_property("DTSTART")),
+                    recognize(ContentLine::parse_ical_for_property("DTEND")),
+                    recognize(ContentLine::parse_ical_for_property("EXDATE")),
+                    recognize(ContentLine::parse_ical_for_property("RDATE")),
+                    recognize(ContentLine::parse_ical_for_property("DURATION")),
+                    recognize(ContentLine::parse_ical_for_property("RRULE")),
+                    recognize(ContentLine::parse_ical_for_property("EXRULE")),
+                    recognize(ContentLine::parse_ical_for_property("CATEGORIES")),
+                    recognize(ContentLine::parse_ical_for_property("CLASS")),
+                    recognize(ContentLine::parse_ical_for_property("GEO")),
+                    recognize(ContentLine::parse_ical_for_property("RELATED-TO")),
+                    recognize(PassiveProperty::parse_ical),
+                )),
+            ),
+        )(input)
+    }
 }
 
 impl ICalendarEntity for EventProperty {
@@ -161,6 +191,40 @@ mod tests {
     use crate::tests::assert_parser_output;
 
     use std::str::FromStr;
+
+    #[test]
+    fn parse_ical_fuzzing_hang_test() {
+        /*
+        let message: String = std::fs::read_to_string("./tests/fuzz_finds/hangs/id:000005,src:003038,time:3327034,execs:26454896,op:havoc,rep:2").unwrap();
+        dbg!(EventProperties::from_str(message.as_str()));
+        let message: String = std::fs::read_to_string("./tests/fuzz_finds/hangs/id:000065,src:004524,time:12952877,execs:78555536,op:havoc,rep:2").unwrap();
+        dbg!(EventProperties::from_str(message.as_str()));
+        */
+
+        /*
+        let paths = std::fs::read_dir("./tests/fuzz_finds/hangs/").unwrap();
+
+        for path in paths {
+            dbg!(&path);
+            let path = path.unwrap().path();
+
+            let message: String = std::fs::read_to_string(&path).unwrap();
+
+            let (done_tx, done_rx) = std::sync::mpsc::channel();
+
+            let handle = std::thread::spawn(move || {
+                let _ = EventProperties::from_str(message.as_str());
+
+                done_tx.send(()).expect("Unable to send completion signal");
+            });
+
+            match done_rx.recv_timeout(std::time::Duration::from_millis(1000)) {
+                Ok(_) => handle.join().expect("Thread panicked"),
+                Err(_) => panic!("Thread took too long -- hang file: {}", &path.display()),
+            }
+        }
+        */
+    }
 
     #[test]
     fn parse_ical() {
@@ -275,11 +339,11 @@ mod tests {
         );
 
         assert_parser_output!(
-            EventProperty::parse_ical("DESCRIPTION:Description text DTSTART:19960401T150000Z".into()),
+            EventProperty::parse_ical(ParserInput::new_extra("DESCRIPTION:Description text TEST:ING DTSTART:19960401T150000Z", ParserContext::Event)),
             (
                 " DTSTART:19960401T150000Z",
                 EventProperty::Passive(
-                    PassiveProperty::from_str("DESCRIPTION:Description text").unwrap()
+                    PassiveProperty::from_str("DESCRIPTION:Description text TEST:ING").unwrap()
                 ),
             ),
         );

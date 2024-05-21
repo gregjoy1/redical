@@ -64,7 +64,7 @@ impl<'a> nom::error::ParseError<ParserInput<'a>> for ParserError<'a> {
 
 impl<'a> nom::error::ContextError<ParserInput<'a>> for ParserError<'a> {
     fn add_context(_input: ParserInput, context: &'static str, mut other: Self) -> Self {
-        other.context.push(String::from(context));
+        other.context.insert(0, String::from(context));
         other
     }
 }
@@ -85,10 +85,13 @@ where
 /// line errors which are more redis friendly.
 pub fn convert_error<I: core::ops::Deref<Target = str>>(_input: I, error: ParserError) -> std::string::String {
     // TODO: Implement this...
+    let error_message = error.message.unwrap_or(String::from("no error"));
+    let invalid_span = error.span.trim().to_string();
+
     if error.context.is_empty() {
-        format!("Error - {} at {}", error.message.unwrap_or(String::from("no error")), error.span.to_string().trim())
+        format!("Error - \"{}\" at \"{}\"", error_message, invalid_span)
     } else {
-        format!("Error - context {} - {} at {}", error.context.join(" -> "), error.message.unwrap_or(String::from("no error")), error.span.to_string().trim())
+        format!("Error: \"{}\" at \"{}\" -- Context: {}", error_message, invalid_span, error.context.join(" -> "))
     }
 }
 
@@ -125,44 +128,19 @@ impl ParserContext {
             input.extra = ParserContext::None;
 
             use nom::error::context;
-            use nom::combinator::{recognize, eof, opt, not};
-            use nom::sequence::{tuple, preceded};
-            use nom::multi::many1;
-            use nom::branch::alt;
-            use grammar::{wsp, tag, contentline};
-            use values::where_operator::WhereOperator;
-            use properties::query::{GroupedWhereProperty, QueryProperty};
+            use nom::combinator::recognize;
+            use nom::sequence::preceded;
+            use grammar::{wsp, contentline};
+            use properties::event::EventProperty;
+            use properties::query::QueryProperty;
 
             match self {
                 ParserContext::Event => {
-                    context(
-                        "EVENT PARSER CONTEXT",
-                        recognize(
-                            preceded(
-                                grammar::wsp,
-                                properties::event::EventProperty::parse_ical,
-                            )
-                        ),
-                    )(input)
+                    EventProperty::parser_context_property_lookahead(input)
                 },
 
                 ParserContext::Query => {
-                    context(
-                        "QUERY PARSER CONTEXT",
-                        recognize(
-                            preceded(
-                                opt(wsp),
-                                alt((
-                                    // TODO: HACK HACK HACK HACK - tidy and consolidate
-                                    recognize(tuple((WhereOperator::parse_ical, opt(wsp), tag("(")))),
-                                    recognize(tuple((opt(wsp), tag("("), opt(wsp), GroupedWhereProperty::parse_ical))),
-                                    recognize(tuple((not(contentline), many1(tag(")")), alt((wsp, eof))))),
-                                    recognize(GroupedWhereProperty::parse_ical),
-                                    recognize(QueryProperty::parse_ical),
-                                )),
-                            )
-                        ),
-                    )(input)
+                    QueryProperty::parser_context_property_lookahead(input)
                 },
 
                 _ => {
@@ -371,6 +349,27 @@ macro_rules! impl_icalendar_entity_traits {
 
 #[cfg(test)]
 mod tests {
+
+    #[macro_export]
+    macro_rules! assert_finishes_within_duration {
+        ($duration_ms:expr, $process:expr $(,)*) => {
+            let (done_tx, done_rx) = std::sync::mpsc::channel();
+
+            let handle = std::thread::spawn(move || {
+                let _ = $process;
+
+                done_tx.send(()).expect("Unable to send completion signal");
+            });
+
+            match done_rx.recv_timeout(std::time::Duration::from_millis($duration_ms)) {
+                Ok(_) => handle.join().expect("Thread panicked"),
+                Err(_) => panic!("Thread took too long"),
+            }
+        }
+    }
+
+    pub use assert_finishes_within_duration;
+
     #[macro_export]
     macro_rules! assert_parser_output {
         ($subject:expr, ($remaining:expr, $expected:expr $(,)*) $(,)*) => {

@@ -40,6 +40,7 @@ members = [
     "redical_core",
     "redical_ical",
     "redical_redis",
+    "redical_ical_afl_fuzz_targets",
 ]
 
 default-members = [

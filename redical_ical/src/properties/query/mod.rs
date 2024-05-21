@@ -1,9 +1,10 @@
 use std::str::FromStr;
 
+use nom::error::context;
+use nom::combinator::{recognize, eof, opt, not, map, all_consuming};
+use nom::sequence::{tuple, preceded};
+use nom::multi::{many1, separated_list1};
 use nom::branch::alt;
-use nom::combinator::map;
-use nom::combinator::all_consuming;
-use nom::multi::separated_list1;
 
 pub mod x_offset;
 pub mod x_limit;
@@ -19,7 +20,7 @@ pub mod x_class;
 pub mod where_properties_group;
 
 
-use crate::grammar::wsp;
+use crate::grammar::{tag, wsp, wsp_1_1, contentline};
 
 pub use x_offset::XOffsetProperty;
 pub use x_limit::XLimitProperty;
@@ -34,7 +35,8 @@ pub use x_geo::{DistValue, XGeoProperty, XGeoPropertyParams};
 pub use x_class::{XClassProperty, XClassPropertyParams};
 pub use where_properties_group::{WherePropertiesGroup, GroupedWhereProperty};
 
-use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, ParserContext, impl_icalendar_entity_traits, convert_error};
+use crate::values::where_operator::WhereOperator;
+use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, ParserContext, convert_error};
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum QueryProperty {
@@ -50,6 +52,27 @@ pub enum QueryProperty {
     XGeo(XGeoProperty),
     XClass(XClassProperty),
     WherePropertiesGroup(WherePropertiesGroup),
+}
+
+impl QueryProperty {
+    pub fn parser_context_property_lookahead(input: ParserInput) -> ParserResult<ParserInput> {
+        context(
+            "QUERY PARSER CONTEXT",
+            recognize(
+                preceded(
+                    opt(wsp_1_1),
+                    alt((
+                        // TODO: HACK HACK HACK HACK - tidy and consolidate
+                        recognize(tuple((WhereOperator::parse_ical, opt(wsp), tag("(")))),
+                        recognize(tuple((opt(wsp), tag("("), opt(wsp), GroupedWhereProperty::parse_ical))),
+                        recognize(tuple((not(contentline), many1(tag(")")), alt((wsp, eof))))),
+                        recognize(GroupedWhereProperty::parse_ical),
+                        recognize(QueryProperty::parse_ical),
+                    )),
+                )
+            ),
+        )(input)
+    }
 }
 
 impl ICalendarEntity for QueryProperty {
@@ -171,10 +194,10 @@ mod tests {
     #[test]
     fn parse_ical() {
         assert_parser_output!(
-            WherePropertiesGroup::parse_ical("() DESCRIPTION:Description text".into()),
+            QueryProperty::parse_ical("() DESCRIPTION:Description text".into()),
             (
                 " DESCRIPTION:Description text",
-                WherePropertiesGroup::from_str("()").unwrap(),
+                QueryProperty::WherePropertiesGroup(WherePropertiesGroup::from_str("()").unwrap()),
             ),
         );
 

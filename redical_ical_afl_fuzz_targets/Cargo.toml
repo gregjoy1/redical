@@ -1,0 +1,16 @@
+[package]
+name = "redical_ical_afl_fuzz_target"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+afl = "*"
+redical_ical = { path = "../redical_ical" }
+
+[[bin]]
+name = "event_properties_afl_fuzz_target"
+
+[[bin]]
+name = "query_properties_afl_fuzz_target"
