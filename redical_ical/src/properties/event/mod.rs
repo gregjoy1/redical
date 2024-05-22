@@ -358,4 +358,39 @@ mod tests {
             ),
         );
     }
+
+    #[test]
+    fn parse_ical_error() {
+        let mut mapped_err_parser =
+            crate::map_err(
+                nom::bytes::complete::tag("-"),
+                |mut error: crate::ParserError| {
+                    error.message = Some(String::from("TESTING SOMETHING"));
+
+                    error
+                },
+            );
+
+        if let Err(nom::Err::Error(error)) = mapped_err_parser(":".into()) {
+            assert_eq!(error.message, Some(String::from("TESTING SOMETHING")));
+        } else {
+            panic!("Expected map_err to return transformed nom::Err::Error(ParserError).");
+        }
+
+        let mut non_mapped_err_parser =
+            crate::map_err(
+                nom::combinator::cut(nom::bytes::complete::tag("-")),
+                |mut error: crate::ParserError| {
+                    error.message = Some(String::from("TESTING SOMETHING"));
+
+                    error
+                },
+            );
+
+        if let Err(nom::Err::Failure(error)) = non_mapped_err_parser(":".into()) {
+            assert_eq!(error.message, Some(String::from("parse error Tag")));
+        } else {
+            panic!("Expected map_err to return non-transformed nom::Err::Error(ParserError).");
+        }
+    }
 }

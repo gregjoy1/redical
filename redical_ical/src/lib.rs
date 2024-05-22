@@ -10,7 +10,7 @@ use content_line::ContentLine;
 #[derive(Clone, Debug, PartialEq)]
 pub struct ParserError<'a> {
     span: ParserInput<'a>,
-    message: Option<String>,
+    pub message: Option<String>,
     context: Vec<String>,
 }
 
@@ -181,6 +181,67 @@ impl UnicodeSegmentation for &str {
     #[inline]
     fn wrapped_grapheme_indices(&self, is_extended: bool) -> unicode_segmentation::GraphemeIndices {
         unicode_segmentation::UnicodeSegmentation::grapheme_indices(*self, is_extended)
+    }
+}
+
+/// Maps a nom Err::Error ParserError so it can be transformed and reworded.
+///
+/// This will only allow the transformation of errors wrapped in nom::Err::Error. Anything
+/// wrapped in either nom::Err::Failure, nom::Err::Incomplete, or anything else will not be
+/// transformable. The intention is to enrich errors that are not hard failing.
+///
+/// # Arguments
+/// * `first` The first parser to apply.
+/// * `second` The error transformation function.
+///
+/// ```rust
+/// use nom::bytes::complete::tag;
+/// use nom::combinator::cut;
+/// use redical_ical::{ParserError, map_err};
+///
+/// let mut mapped_err_parser =
+///     map_err(
+///         tag("-"),
+///         |mut error: ParserError| {
+///             error.message = Some(String::from("Transformed Error Message"));
+///
+///             error
+///         },
+///     );
+///
+/// if let Err(nom::Err::Error(error)) = mapped_err_parser(":".into()) {
+///     assert_eq!(error.message, Some(String::from("Transformed Error Message")));
+/// } else {
+///     panic!("Expected map_err to return transformed nom::Err::Error(ParserError).");
+/// }
+///
+/// let mut non_mapped_err_parser =
+///     map_err(
+///         cut(tag("-")),
+///         |mut error: ParserError| {
+///             error.message = Some(String::from("Transformed Error Message"));
+///
+///             error
+///         },
+///     );
+///
+/// if let Err(nom::Err::Failure(error)) = non_mapped_err_parser(":".into()) {
+///     assert_eq!(error.message, Some(String::from("parse error Tag")));
+/// } else {
+///     panic!("Expected map_err to return non-transformed nom::Err::Error(ParserError).");
+/// }
+/// ```
+pub fn map_err<I, O, E, F, G>(mut parser: F, mut error_handler: G) -> impl FnMut(I) -> nom::IResult<I, O, E>
+where
+    F: nom::Parser<I, O, E>,
+    G: FnMut(E) -> E,
+{
+    move |input: I| {
+        match parser.parse(input) {
+            Ok((remainder, value)) => Ok((remainder, value)),
+            Err(nom::Err::Error(error)) => Err(nom::Err::Error(error_handler(error))),
+            Err(error) => Err(error),
+        }
     }
 }
 
