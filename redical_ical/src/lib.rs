@@ -378,6 +378,20 @@ where
 }
 
 #[macro_export]
+macro_rules! map_err_message {
+    ($parser:expr, $error_message:expr $(,)*) => {
+        crate::map_err(
+            $parser,
+            |mut error: crate::ParserError| {
+                error.message = Some(String::from($error_message));
+
+                error
+            }
+        )
+    }
+}
+
+#[macro_export]
 macro_rules! impl_icalendar_entity_traits {
     ($entity:ident) => {
         impl std::str::FromStr for $entity {
