@@ -4,7 +4,7 @@ use nom::combinator::map;
 
 use crate::grammar::tag;
 
-use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
+use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits, map_err_message};
 
 // OP = "OR" / "AND"
 //
@@ -19,10 +19,13 @@ impl ICalendarEntity for WhereOperator {
     fn parse_ical(input: ParserInput) -> ParserResult<Self> {
         context(
             "OP",
-            alt((
-                map(tag("OR"), |_| WhereOperator::Or),
-                map(tag("AND"), |_| WhereOperator::And),
-            )),
+            map_err_message!(
+                alt((
+                    map(tag("OR"), |_| WhereOperator::Or),
+                    map(tag("AND"), |_| WhereOperator::And),
+                )),
+                "expected either \"OR\" or \"AND\"",
+            ),
         )(input)
     }
 

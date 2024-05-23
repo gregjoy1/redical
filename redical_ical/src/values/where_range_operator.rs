@@ -4,7 +4,7 @@ use nom::combinator::map;
 
 use crate::grammar::tag;
 
-use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
+use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits, map_err_message};
 
 // OP = "GT" / "GTE"
 //
@@ -19,10 +19,13 @@ impl ICalendarEntity for WhereFromRangeOperator {
     fn parse_ical(input: ParserInput) -> ParserResult<Self> {
         context(
             "OP",
-            alt((
-                map(tag("GTE"), |_| WhereFromRangeOperator::GreaterEqualThan),
-                map(tag("GT"), |_| WhereFromRangeOperator::GreaterThan),
-            )),
+            map_err_message!(
+                alt((
+                    map(tag("GTE"), |_| WhereFromRangeOperator::GreaterEqualThan),
+                    map(tag("GT"), |_| WhereFromRangeOperator::GreaterThan),
+                )),
+                "expected either \"GTE\" or \"GT\"",
+            ),
         )(input)
     }
 
@@ -49,10 +52,13 @@ impl ICalendarEntity for WhereUntilRangeOperator {
     fn parse_ical(input: ParserInput) -> ParserResult<Self> {
         context(
             "OP",
-            alt((
-                map(tag("LTE"), |_| WhereUntilRangeOperator::LessEqualThan),
-                map(tag("LT"), |_| WhereUntilRangeOperator::LessThan),
-            )),
+            map_err_message!(
+                alt((
+                    map(tag("LTE"), |_| WhereUntilRangeOperator::LessEqualThan),
+                    map(tag("LT"), |_| WhereUntilRangeOperator::LessThan),
+                )),
+                "expected either \"LTE\" or \"LT\"",
+            ),
         )(input)
     }
 

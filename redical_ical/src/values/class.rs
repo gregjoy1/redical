@@ -4,7 +4,7 @@ use nom::combinator::map;
 
 use crate::grammar::{tag, x_name, iana_token};
 
-use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
+use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits, map_err_message};
 
 // classvalue = "PUBLIC" / "PRIVATE" / "CONFIDENTIAL" / iana-token
 //            / x-name
@@ -22,13 +22,16 @@ impl ICalendarEntity for ClassValue {
     fn parse_ical(input: ParserInput) -> ParserResult<Self> {
         context(
             "CLASSVALUE",
-            alt((
-                map(tag("PUBLIC"), |_| ClassValue::Public),
-                map(tag("PRIVATE"), |_| ClassValue::Private),
-                map(tag("CONFIDENTIAL"), |_| ClassValue::Confidential),
-                map(x_name, |value| ClassValue::XName(value.to_string())),
-                map(iana_token, |value| ClassValue::IanaToken(value.to_string())),
-            )),
+            map_err_message!(
+                alt((
+                    map(tag("PUBLIC"), |_| ClassValue::Public),
+                    map(tag("PRIVATE"), |_| ClassValue::Private),
+                    map(tag("CONFIDENTIAL"), |_| ClassValue::Confidential),
+                    map(x_name, |value| ClassValue::XName(value.to_string())),
+                    map(iana_token, |value| ClassValue::IanaToken(value.to_string())),
+                )),
+                "expected either \"PUBLIC\", \"PRIVATE\", \"CONFIDENTIAL\" or iCalendar RFC-5545 X-NAME or IANA-TOKEN chars",
+            ),
         )(input)
     }
 

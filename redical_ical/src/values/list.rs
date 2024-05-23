@@ -1,5 +1,4 @@
 use std::ops::Deref;
-use std::collections::HashSet;
 
 use nom::multi::separated_list0;
 use nom::combinator::map;

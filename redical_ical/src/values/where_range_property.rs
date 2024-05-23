@@ -4,7 +4,7 @@ use nom::combinator::map;
 
 use crate::grammar::tag;
 
-use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
+use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits, map_err_message};
 
 // prop = "DTSTART" / "DTEND"
 //
@@ -19,10 +19,13 @@ impl ICalendarEntity for WhereRangeProperty {
     fn parse_ical(input: ParserInput) -> ParserResult<Self> {
         context(
             "PROP",
-            alt((
-                map(tag("DTSTART"), |_| WhereRangeProperty::DTStart),
-                map(tag("DTEND"), |_| WhereRangeProperty::DTEnd),
-            )),
+            map_err_message!(
+                alt((
+                    map(tag("DTSTART"), |_| WhereRangeProperty::DTStart),
+                    map(tag("DTEND"), |_| WhereRangeProperty::DTEnd),
+                )),
+                "expected either \"DTSTART\" or \"DTEND\"",
+            ),
         )(input)
     }
 

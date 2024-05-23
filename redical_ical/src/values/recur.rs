@@ -8,7 +8,7 @@ use nom::bytes::complete::{tag, take_while1};
 
 use crate::grammar::{comma, semicolon};
 
-use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, ParserError, impl_icalendar_entity_traits};
+use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, ParserError, impl_icalendar_entity_traits, map_err_message};
 
 use crate::values::date_time::DateTime;
 use crate::values::integer::Integer;
@@ -142,7 +142,7 @@ pub fn interval(input: ParserInput) -> ParserResult<Integer> {
     let Ok(parsed_interval) = interval.to_string().parse::<u64>() else {
         return Err(
             nom::Err::Error(
-                ParserError::new(String::from("Invalid interval"), input)
+                ParserError::new(String::from("invalid interval"), input)
             )
         );
     };
@@ -157,7 +157,7 @@ pub fn count(input: ParserInput) -> ParserResult<Integer> {
     let Ok(parsed_count) = count.to_string().parse::<u64>() else {
         return Err(
             nom::Err::Error(
-                ParserError::new(String::from("Invalid count"), input)
+                ParserError::new(String::from("invalid count"), input)
             )
         );
     };
@@ -309,15 +309,18 @@ impl ICalendarEntity for Frequency {
     {
         context(
             "FREQ",
-            alt((
-                map(tag("SECONDLY"), |_| Self::Secondly),
-                map(tag("MINUTELY"), |_| Self::Minutely),
-                map(tag("HOURLY"), |_| Self::Hourly),
-                map(tag("DAILY"), |_| Self::Daily),
-                map(tag("WEEKLY"), |_| Self::Weekly),
-                map(tag("MONTHLY"), |_| Self::Monthly),
-                map(tag("YEARLY"), |_| Self::Yearly),
-            )),
+            map_err_message!(
+                alt((
+                    map(tag("SECONDLY"), |_| Self::Secondly),
+                    map(tag("MINUTELY"), |_| Self::Minutely),
+                    map(tag("HOURLY"), |_| Self::Hourly),
+                    map(tag("DAILY"), |_| Self::Daily),
+                    map(tag("WEEKLY"), |_| Self::Weekly),
+                    map(tag("MONTHLY"), |_| Self::Monthly),
+                    map(tag("YEARLY"), |_| Self::Yearly),
+                )),
+                "expected iCalendar RFC-5545 FREQ (SECONDLY, MINUTELY, HOURLY, DAILY, WEEKLY, MONTHLY, or YEARLY)",
+            ),
         )(input)
     }
 
@@ -455,15 +458,18 @@ impl ICalendarEntity for WeekDay {
         // ;FRIDAY, and SATURDAY days of the week.
         context(
             "WEEKDAYNUM",
-            alt((
-                map(tag("SU"), |_| Self::Sunday),
-                map(tag("MO"), |_| Self::Monday),
-                map(tag("TU"), |_| Self::Tuesday),
-                map(tag("WE"), |_| Self::Wednesday),
-                map(tag("TH"), |_| Self::Thursday),
-                map(tag("FR"), |_| Self::Friday),
-                map(tag("SA"), |_| Self::Saturday),
-            ))
+            map_err_message!(
+                alt((
+                    map(tag("SU"), |_| Self::Sunday),
+                    map(tag("MO"), |_| Self::Monday),
+                    map(tag("TU"), |_| Self::Tuesday),
+                    map(tag("WE"), |_| Self::Wednesday),
+                    map(tag("TH"), |_| Self::Thursday),
+                    map(tag("FR"), |_| Self::Friday),
+                    map(tag("SA"), |_| Self::Saturday),
+                )),
+                "expected iCalendar RFC-5545 WEEKDAYNUM (SU, MO, TU, WE, TH, FR, or SA)",
+            ),
         )(input)
     }
 

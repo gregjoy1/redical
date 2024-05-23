@@ -8,7 +8,7 @@ use nom::sequence::{pair, preceded};
 use nom::error::context;
 use nom::combinator::{recognize, map, map_res, opt, cut};
 
-use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
+use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits, map_err_message};
 
 use crate::grammar::latin_capital_letter_t;
 
@@ -28,10 +28,13 @@ impl ICalendarEntity for ValueType {
     fn parse_ical(input: ParserInput) -> ParserResult<Self> {
         context(
             "VALUE",
-            alt((
-                map(tag("DATE-TIME"), |_| ValueType::DateTime),
-                map(tag("DATE"), |_| ValueType::Date),
-            )),
+            map_err_message!(
+                alt((
+                    map(tag("DATE-TIME"), |_| ValueType::DateTime),
+                    map(tag("DATE"), |_| ValueType::Date),
+                )),
+                "expected iCalendar RFC-5545 VALUE (\"DATE-TIME\" or \"DATE\")",
+            ),
         )(input)
     }
 

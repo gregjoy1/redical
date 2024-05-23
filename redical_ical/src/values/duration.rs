@@ -9,7 +9,7 @@ use nom::{
 
 use crate::grammar::PositiveNegative;
 
-use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
+use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits, map_err_message};
 
 const SECONDS_IN_MINUTE: i64 = 60;
 const SECONDS_IN_HOUR: i64 = SECONDS_IN_MINUTE * 60;
@@ -46,11 +46,14 @@ pub fn dur_value(input: ParserInput) -> ParserResult<(Option<PositiveNegative>, 
         preceded(
             tag("P"),
             cut(
-                alt((
-                    map(dur_week, |week| (Some(week), None, None)),
-                    map(dur_date, |(day, time)| (None, Some(day), time)),
-                    map(dur_time, |time| (None, None, Some(time))),
-                ))
+                map_err_message!(
+                    alt((
+                        map(dur_week, |week| (Some(week), None, None)),
+                        map(dur_date, |(day, time)| (None, Some(day), time)),
+                        map(dur_time, |time| (None, None, Some(time))),
+                    )),
+                    "expected either iCalendar RFC-5545 DUR-DATE, DUR-TIME, or DUR-WEEK",
+                )
             )
         ),
     ))(input)
@@ -96,11 +99,14 @@ pub fn dur_time(input: ParserInput) -> ParserResult<(Option<i64>, Option<i64>, O
     preceded(
         tag("T"),
         cut(
-            tuple((
-                opt(dur_hour),
-                opt(dur_minute),
-                opt(dur_second),
-            ))
+            map_err_message!(
+                tuple((
+                    opt(dur_hour),
+                    opt(dur_minute),
+                    opt(dur_second),
+                )),
+                "expected either iCalendar RFC-5545 DUR-DATE, DUR-TIME, or DUR-WEEK",
+            )
         ),
     )(input)
 }
