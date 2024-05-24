@@ -10,7 +10,7 @@ use content_line::ContentLine;
 #[derive(Clone, Debug, PartialEq)]
 pub struct ParserError<'a> {
     span: ParserInput<'a>,
-    pub message: Option<String>,
+    message: Option<String>,
     context: Vec<String>,
 }
 
@@ -27,6 +27,18 @@ impl<'a> ParserError<'a> {
             message: Some(message),
             context: Vec::new(),
         }
+    }
+
+    pub fn clear_context(&mut self) {
+        self.context.clear();
+    }
+
+    pub fn set_message(&mut self, message: String) {
+        self.message = Some(message);
+    }
+
+    pub fn message(&self) -> &Option<String> {
+        &self.message
     }
 
     pub fn span(&self) -> &ParserInput {
@@ -203,14 +215,14 @@ impl UnicodeSegmentation for &str {
 ///     map_err(
 ///         tag("-"),
 ///         |mut error: ParserError| {
-///             error.message = Some(String::from("Transformed Error Message"));
+///             error.set_message(String::from("Transformed Error Message"));
 ///
 ///             error
 ///         },
 ///     );
 ///
 /// if let Err(nom::Err::Error(error)) = mapped_err_parser(":".into()) {
-///     assert_eq!(error.message, Some(String::from("Transformed Error Message")));
+///     assert_eq!(error.message(), &Some(String::from("Transformed Error Message")));
 /// } else {
 ///     panic!("Expected map_err to return transformed nom::Err::Error(ParserError).");
 /// }
@@ -219,14 +231,14 @@ impl UnicodeSegmentation for &str {
 ///     map_err(
 ///         cut(tag("-")),
 ///         |mut error: ParserError| {
-///             error.message = Some(String::from("Transformed Error Message"));
+///             error.set_message(String::from("Transformed Error Message"));
 ///
 ///             error
 ///         },
 ///     );
 ///
 /// if let Err(nom::Err::Failure(error)) = non_mapped_err_parser(":".into()) {
-///     assert_eq!(error.message, Some(String::from("parse error Tag")));
+///     assert_eq!(error.message(), &Some(String::from("parse error Tag")));
 /// } else {
 ///     panic!("Expected map_err to return non-transformed nom::Err::Error(ParserError).");
 /// }
@@ -383,6 +395,7 @@ macro_rules! map_err_message {
         crate::map_err(
             $parser,
             |mut error: crate::ParserError| {
+                error.clear_context();
                 error.message = Some(String::from($error_message));
 
                 error
