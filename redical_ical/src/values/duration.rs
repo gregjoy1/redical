@@ -167,22 +167,25 @@ impl ICalendarEntity for Duration {
 where
         Self: Sized
     {
-        map(
-            dur_value,
-            |(positive_negative, (weeks, days, time)): (Option<PositiveNegative>, (Option<i64>, Option<i64>, Option<(Option<i64>, Option<i64>, Option<i64>)>))| {
-                let hours = time.and_then(|time| time.0);
-                let minutes = time.and_then(|time| time.1);
-                let seconds = time.and_then(|time| time.2);
+        context(
+            "DURATION",
+            map(
+                dur_value,
+                |(positive_negative, (weeks, days, time)): (Option<PositiveNegative>, (Option<i64>, Option<i64>, Option<(Option<i64>, Option<i64>, Option<i64>)>))| {
+                    let hours = time.and_then(|time| time.0);
+                    let minutes = time.and_then(|time| time.1);
+                    let seconds = time.and_then(|time| time.2);
 
-                Self {
-                    positive_negative,
-                    weeks,
-                    days,
-                    hours,
-                    minutes,
-                    seconds,
+                    Self {
+                        positive_negative,
+                        weeks,
+                        days,
+                        hours,
+                        minutes,
+                        seconds,
+                    }
                 }
-            }
+            )
         )(input)
     }
 
@@ -338,7 +341,7 @@ mod test {
 
     use super::*;
 
-    use crate::tests::assert_parser_output;
+    use crate::tests::{assert_parser_output, assert_parser_error};
 
     #[test]
     fn test_from_seconds_int() {
@@ -394,8 +397,6 @@ mod test {
 
     #[test]
     fn test_parse_ical() {
-        assert!(Duration::parse_ical("P15--INVALID20S".into()).is_err());
-
         assert_parser_output!(
             Duration::parse_ical("P7W SOMETHING ELSE".into()),
             (
@@ -469,6 +470,18 @@ mod test {
                     seconds: Some(25),
                 },
             )
+        );
+    }
+
+    #[test]
+    fn test_parse_ical_error() {
+        assert_parser_error!(
+            Duration::parse_ical("P15--INVALID20S".into()),
+            nom::Err::Failure(
+                span: "15--INVALID20S",
+                message: "expected either iCalendar RFC-5545 DUR-DATE, DUR-TIME, or DUR-WEEK",
+                context: ["DURATION"],
+            ),
         );
     }
 

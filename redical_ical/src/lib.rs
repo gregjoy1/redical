@@ -490,11 +490,31 @@ mod tests {
                 parser_error.context,
                 vec![
                     $(
-                        String::from($context)
+                        $context.to_string(),
                     )+
                 ],
             );
-        }
+        };
+
+        ($subject:expr, nom::Err::Failure(span: $span:expr, message: $message:expr, context: [$($context:expr $(,)*)+ $(,)*] $(,)*) $(,)*) => {
+            let result = $subject;
+
+            let Err(nom::Err::Failure(parser_error)) = result else {
+                panic!("Expected to be nom::Err::Failure Error, Actual: {:#?}", result);
+            };
+
+            pretty_assertions_sorted::assert_eq!(parser_error.span.to_string(), String::from($span));
+            pretty_assertions_sorted::assert_eq!(parser_error.message, Some(String::from($message)));
+
+            pretty_assertions_sorted::assert_eq!(
+                parser_error.context,
+                vec![
+                    $(
+                        $context.to_string(),
+                    )+
+                ],
+            );
+        };
     }
 
     pub use assert_parser_error;

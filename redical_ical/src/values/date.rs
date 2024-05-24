@@ -247,7 +247,7 @@ impl_icalendar_entity_traits!(Date);
 mod tests {
     use super::*;
 
-    use crate::tests::assert_parser_output;
+    use crate::tests::{assert_parser_output, assert_parser_error};
 
     #[test]
     fn parse_ical() {
@@ -277,6 +277,36 @@ mod tests {
                 day: 14_u32,
             }.render_ical(),
             String::from("19970714"),
+        );
+    }
+
+    #[test]
+    fn parse_ical_error() {
+        assert_parser_error!(
+            Date::parse_ical(":".into()),
+            nom::Err::Error(
+                span: ":",
+                message: "expected iCalendar RFC-5545 DATE-VALUE (DATE-FULLYEAR DATE-MONTH DATE-MDAY)",
+                context: ["DATE"],
+            ),
+        );
+
+        assert_parser_error!(
+            Date::parse_ical("20240".into()),
+            nom::Err::Error(
+                span: "0",
+                message: "expected iCalendar RFC-5545 DATE-VALUE (DATE-FULLYEAR DATE-MONTH DATE-MDAY)",
+                context: ["DATE"],
+            ),
+        );
+
+        assert_parser_error!(
+            Date::parse_ical("2024020".into()),
+            nom::Err::Error(
+                span: "0",
+                message: "expected iCalendar RFC-5545 DATE-VALUE (DATE-FULLYEAR DATE-MONTH DATE-MDAY)",
+                context: ["DATE"],
+            ),
         );
     }
 

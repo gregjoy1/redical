@@ -52,7 +52,7 @@ impl_icalendar_entity_traits!(ClassValue);
 mod tests {
     use super::*;
 
-    use crate::tests::assert_parser_output;
+    use crate::tests::{assert_parser_output, assert_parser_error};
 
     #[test]
     fn parse_ical() {
@@ -97,6 +97,18 @@ mod tests {
         );
 
         assert!(ClassValue::parse_ical(":".into()).is_err());
+    }
+
+    #[test]
+    fn parse_ical_error() {
+        assert_parser_error!(
+            ClassValue::parse_ical(":".into()),
+            nom::Err::Error(
+                span: ":",
+                message: "expected either \"PUBLIC\", \"PRIVATE\", \"CONFIDENTIAL\" or iCalendar RFC-5545 X-NAME or IANA-TOKEN chars",
+                context: ["CLASSVALUE"],
+            ),
+        );
     }
 
     #[test]
