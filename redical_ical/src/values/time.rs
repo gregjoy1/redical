@@ -259,7 +259,19 @@ impl_icalendar_entity_traits!(Time);
 mod tests {
     use super::*;
 
-    use crate::tests::assert_parser_output;
+    use crate::tests::{assert_parser_output, assert_parser_error};
+
+    #[test]
+    fn parse_ical_error() {
+        assert_parser_error!(
+            Time::parse_ical(":::: TESTING".into()),
+            nom::Err::Error(
+                span: ":::: TESTING",
+                message: "expected iCalendar RFC-5545 TIME (TIME-HOUR TIME-MINUTE TIME-SECOND [TIME-UTC])",
+                context: ["TIME"],
+            ),
+        );
+    }
 
     #[test]
     fn parse_ical() {

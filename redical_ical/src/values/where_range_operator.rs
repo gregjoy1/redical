@@ -76,7 +76,28 @@ impl_icalendar_entity_traits!(WhereUntilRangeOperator);
 mod tests {
     use super::*;
 
-    use crate::tests::assert_parser_output;
+    use crate::tests::{assert_parser_output, assert_parser_error};
+
+    #[test]
+    fn parse_ical_error() {
+        assert_parser_error!(
+            WhereFromRangeOperator::parse_ical(":::: DESCRIPTION:Description text".into()),
+            nom::Err::Error(
+                span: ":::: DESCRIPTION:Description text",
+                message: "expected either \"GTE\" or \"GT\"",
+                context: ["OP"],
+            ),
+        );
+
+        assert_parser_error!(
+            WhereUntilRangeOperator::parse_ical(":::: DESCRIPTION:Description text".into()),
+            nom::Err::Error(
+                span: ":::: DESCRIPTION:Description text",
+                message: "expected either \"LTE\" or \"LT\"",
+                context: ["OP"],
+            ),
+        );
+    }
 
     #[test]
     fn from_range_operator_parse_ical() {

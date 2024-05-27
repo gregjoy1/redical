@@ -56,7 +56,19 @@ impl_icalendar_entity_traits!(Reltype);
 mod tests {
     use super::*;
 
-    use crate::tests::assert_parser_output;
+    use crate::tests::{assert_parser_output, assert_parser_error};
+
+    #[test]
+    fn parse_ical_error() {
+        assert_parser_error!(
+            Reltype::parse_ical(r#":UNKNOWN TESTING"#.into()),
+            nom::Err::Error(
+                span: ":UNKNOWN TESTING",
+                message: "expected either \"PARENT\", \"CHILD\", \"SIBLING\" or iCalendar RFC-5545 X-NAME or IANA-TOKEN chars",
+                context: ["RELTYPE"],
+            ),
+        );
+    }
 
     #[test]
     fn parse_ical() {

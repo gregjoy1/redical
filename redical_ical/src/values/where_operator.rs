@@ -43,7 +43,19 @@ impl_icalendar_entity_traits!(WhereOperator);
 mod tests {
     use super::*;
 
-    use crate::tests::assert_parser_output;
+    use crate::tests::{assert_parser_output, assert_parser_error};
+
+    #[test]
+    fn parse_ical_error() {
+        assert_parser_error!(
+            WhereOperator::parse_ical(":::: DESCRIPTION:Description text".into()),
+            nom::Err::Error(
+                span: ":::: DESCRIPTION:Description text",
+                message: "expected either \"OR\" or \"AND\"",
+                context: ["OP"],
+            ),
+        );
+    }
 
     #[test]
     fn parse_ical() {

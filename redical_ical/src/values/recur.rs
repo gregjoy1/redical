@@ -633,7 +633,29 @@ impl_icalendar_entity_traits!(Recur);
 mod tests {
     use super::*;
 
-    use crate::tests::assert_parser_output;
+    use crate::tests::{assert_parser_output, assert_parser_error};
+
+    #[test]
+    fn parse_ical_error() {
+        assert_parser_error!(
+            Recur::parse_ical("FREQ=UNKNOWN;INTERVAL=2".into()),
+            nom::Err::Failure(
+                span: "UNKNOWN;INTERVAL=2",
+                message: "expected iCalendar RFC-5545 FREQ (SECONDLY, MINUTELY, HOURLY, DAILY, WEEKLY, MONTHLY, or YEARLY)",
+                context: ["RECUR", "RECUR-RULE-PART", "FREQ"],
+            ),
+        );
+
+        assert_parser_error!(
+            Recur::parse_ical("FREQ=YEARLY;INTERVAL=2;BYMONTH=1;BYDAY=UNKNOWN,-1MO,SU;BYHOUR=8,9;BYMINUTE=30 TESTING".into()),
+            nom::Err::Failure(
+                span: "UNKNOWN,-1MO,SU;BYHOUR=8,9;BYMINUTE=30 TESTING",
+                message: "expected iCalendar RFC-5545 WEEKDAYNUM (SU, MO, TU, WE, TH, FR, or SA)",
+                context: ["RECUR", "RECUR-RULE-PART", "WEEKDAYNUM", "WEEKDAYNUM"],
+
+            ),
+        );
+    }
 
     #[test]
     fn parse_ical() {
