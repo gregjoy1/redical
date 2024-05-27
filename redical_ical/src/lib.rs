@@ -29,6 +29,18 @@ impl<'a> ParserError<'a> {
         }
     }
 
+    pub fn clear_context(&mut self) {
+        self.context.clear();
+    }
+
+    pub fn set_message(&mut self, message: String) {
+        self.message = Some(message);
+    }
+
+    pub fn message(&self) -> &Option<String> {
+        &self.message
+    }
+
     pub fn span(&self) -> &ParserInput {
         &self.span
     }
@@ -86,12 +98,14 @@ where
 pub fn convert_error<I: core::ops::Deref<Target = str>>(_input: I, error: ParserError) -> std::string::String {
     // TODO: Implement this...
     let error_message = error.message.unwrap_or(String::from("no error"));
-    let invalid_span = error.span.trim().to_string();
+    let mut invalid_span = error.span.trim().to_string();
+
+    invalid_span.truncate(45);
 
     if error.context.is_empty() {
-        format!("Error - \"{}\" at \"{}\"", error_message, invalid_span)
+        format!("Error - {} at \"{}\"", error_message, invalid_span)
     } else {
-        format!("Error: \"{}\" at \"{}\" -- Context: {}", error_message, invalid_span, error.context.join(" -> "))
+        format!("Error - {} at \"{}\" -- Context: {}", error_message, invalid_span, error.context.join(" -> "))
     }
 }
 
@@ -181,6 +195,67 @@ impl UnicodeSegmentation for &str {
     #[inline]
     fn wrapped_grapheme_indices(&self, is_extended: bool) -> unicode_segmentation::GraphemeIndices {
         unicode_segmentation::UnicodeSegmentation::grapheme_indices(*self, is_extended)
+    }
+}
+
+/// Maps a nom Err::Error ParserError so it can be transformed and reworded.
+///
+/// This will only allow the transformation of errors wrapped in nom::Err::Error. Anything
+/// wrapped in either nom::Err::Failure, nom::Err::Incomplete, or anything else will not be
+/// transformable. The intention is to enrich errors that are not hard failing.
+///
+/// # Arguments
+/// * `first` The first parser to apply.
+/// * `second` The error transformation function.
+///
+/// ```rust
+/// use nom::bytes::complete::tag;
+/// use nom::combinator::cut;
+/// use redical_ical::{ParserError, map_err};
+///
+/// let mut mapped_err_parser =
+///     map_err(
+///         tag("-"),
+///         |mut error: ParserError| {
+///             error.set_message(String::from("Transformed Error Message"));
+///
+///             error
+///         },
+///     );
+///
+/// if let Err(nom::Err::Error(error)) = mapped_err_parser(":".into()) {
+///     assert_eq!(error.message(), &Some(String::from("Transformed Error Message")));
+/// } else {
+///     panic!("Expected map_err to return transformed nom::Err::Error(ParserError).");
+/// }
+///
+/// let mut non_mapped_err_parser =
+///     map_err(
+///         cut(tag("-")),
+///         |mut error: ParserError| {
+///             error.set_message(String::from("Transformed Error Message"));
+///
+///             error
+///         },
+///     );
+///
+/// if let Err(nom::Err::Failure(error)) = non_mapped_err_parser(":".into()) {
+///     assert_eq!(error.message(), &Some(String::from("parse error Tag")));
+/// } else {
+///     panic!("Expected map_err to return non-transformed nom::Err::Error(ParserError).");
+/// }
+/// ```
+pub fn map_err<I, O, E, F, G>(mut parser: F, mut error_handler: G) -> impl FnMut(I) -> nom::IResult<I, O, E>
+where
+    F: nom::Parser<I, O, E>,
+    G: FnMut(E) -> E,
+{
+    move |input: I| {
+        match parser.parse(input) {
+            Ok((remainder, value)) => Ok((remainder, value)),
+            Err(nom::Err::Error(error)) => Err(nom::Err::Error(error_handler(error))),
+            Err(error) => Err(error),
+        }
     }
 }
 
@@ -317,6 +392,21 @@ where
 }
 
 #[macro_export]
+macro_rules! map_err_message {
+    ($parser:expr, $error_message:expr $(,)*) => {
+        crate::map_err(
+            $parser,
+            |mut error: crate::ParserError| {
+                error.clear_context();
+                error.message = Some(String::from($error_message));
+
+                error
+            }
+        )
+    }
+}
+
+#[macro_export]
 macro_rules! impl_icalendar_entity_traits {
     ($entity:ident) => {
         impl std::str::FromStr for $entity {
@@ -402,11 +492,31 @@ mod tests {
                 parser_error.context,
                 vec![
                     $(
-                        String::from($context)
+                        $context.to_string(),
                     )+
                 ],
             );
-        }
+        };
+
+        ($subject:expr, nom::Err::Failure(span: $span:expr, message: $message:expr, context: [$($context:expr $(,)*)+ $(,)*] $(,)*) $(,)*) => {
+            let result = $subject;
+
+            let Err(nom::Err::Failure(parser_error)) = result else {
+                panic!("Expected to be nom::Err::Failure Error, Actual: {:#?}", result);
+            };
+
+            pretty_assertions_sorted::assert_eq!(parser_error.span.to_string(), String::from($span));
+            pretty_assertions_sorted::assert_eq!(parser_error.message, Some(String::from($message)));
+
+            pretty_assertions_sorted::assert_eq!(
+                parser_error.context,
+                vec![
+                    $(
+                        $context.to_string(),
+                    )+
+                ],
+            );
+        };
     }
 
     pub use assert_parser_error;

@@ -9,7 +9,7 @@ use nom::{
 
 use crate::grammar::PositiveNegative;
 
-use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
+use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits, map_err_message};
 
 const SECONDS_IN_MINUTE: i64 = 60;
 const SECONDS_IN_HOUR: i64 = SECONDS_IN_MINUTE * 60;
@@ -46,11 +46,14 @@ pub fn dur_value(input: ParserInput) -> ParserResult<(Option<PositiveNegative>, 
         preceded(
             tag("P"),
             cut(
-                alt((
-                    map(dur_week, |week| (Some(week), None, None)),
-                    map(dur_date, |(day, time)| (None, Some(day), time)),
-                    map(dur_time, |time| (None, None, Some(time))),
-                ))
+                map_err_message!(
+                    alt((
+                        map(dur_week, |week| (Some(week), None, None)),
+                        map(dur_date, |(day, time)| (None, Some(day), time)),
+                        map(dur_time, |time| (None, None, Some(time))),
+                    )),
+                    "expected either iCalendar RFC-5545 DUR-DATE, DUR-TIME, or DUR-WEEK",
+                )
             )
         ),
     ))(input)
@@ -96,11 +99,14 @@ pub fn dur_time(input: ParserInput) -> ParserResult<(Option<i64>, Option<i64>, O
     preceded(
         tag("T"),
         cut(
-            tuple((
-                opt(dur_hour),
-                opt(dur_minute),
-                opt(dur_second),
-            ))
+            map_err_message!(
+                tuple((
+                    opt(dur_hour),
+                    opt(dur_minute),
+                    opt(dur_second),
+                )),
+                "expected either iCalendar RFC-5545 DUR-DATE, DUR-TIME, or DUR-WEEK",
+            )
         ),
     )(input)
 }
@@ -161,22 +167,25 @@ impl ICalendarEntity for Duration {
 where
         Self: Sized
     {
-        map(
-            dur_value,
-            |(positive_negative, (weeks, days, time)): (Option<PositiveNegative>, (Option<i64>, Option<i64>, Option<(Option<i64>, Option<i64>, Option<i64>)>))| {
-                let hours = time.and_then(|time| time.0);
-                let minutes = time.and_then(|time| time.1);
-                let seconds = time.and_then(|time| time.2);
+        context(
+            "DURATION",
+            map(
+                dur_value,
+                |(positive_negative, (weeks, days, time)): (Option<PositiveNegative>, (Option<i64>, Option<i64>, Option<(Option<i64>, Option<i64>, Option<i64>)>))| {
+                    let hours = time.and_then(|time| time.0);
+                    let minutes = time.and_then(|time| time.1);
+                    let seconds = time.and_then(|time| time.2);
 
-                Self {
-                    positive_negative,
-                    weeks,
-                    days,
-                    hours,
-                    minutes,
-                    seconds,
+                    Self {
+                        positive_negative,
+                        weeks,
+                        days,
+                        hours,
+                        minutes,
+                        seconds,
+                    }
                 }
-            }
+            )
         )(input)
     }
 
@@ -332,7 +341,7 @@ mod test {
 
     use super::*;
 
-    use crate::tests::assert_parser_output;
+    use crate::tests::{assert_parser_output, assert_parser_error};
 
     #[test]
     fn test_from_seconds_int() {
@@ -388,8 +397,6 @@ mod test {
 
     #[test]
     fn test_parse_ical() {
-        assert!(Duration::parse_ical("P15--INVALID20S".into()).is_err());
-
         assert_parser_output!(
             Duration::parse_ical("P7W SOMETHING ELSE".into()),
             (
@@ -463,6 +470,18 @@ mod test {
                     seconds: Some(25),
                 },
             )
+        );
+    }
+
+    #[test]
+    fn test_parse_ical_error() {
+        assert_parser_error!(
+            Duration::parse_ical("P15--INVALID20S".into()),
+            nom::Err::Failure(
+                span: "15--INVALID20S",
+                message: "expected either iCalendar RFC-5545 DUR-DATE, DUR-TIME, or DUR-WEEK",
+                context: ["DURATION"],
+            ),
         );
     }
 

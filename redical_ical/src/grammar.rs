@@ -2,12 +2,12 @@ use nom::sequence::{tuple, preceded, delimited, terminated};
 use nom::error::context;
 use nom::branch::alt;
 use nom::multi::{many0, separated_list1};
-use nom::combinator::{recognize, opt, verify, map};
+use nom::combinator::{recognize, opt, verify, map, cut};
 use nom::bytes::complete::{take_while, take_while1, take_while_m_n};
 use nom::character::{is_alphabetic, is_digit};
 use nom::character::complete::{alphanumeric1, char};
 
-use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, ParserError, impl_icalendar_entity_traits};
+use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, ParserError, impl_icalendar_entity_traits, map_err_message};
 
 /// Recognizes a pattern
 ///
@@ -110,7 +110,10 @@ pub fn is_htab_char(input: char) -> bool {
 /// assert_eq!(*parsed, "\t");
 /// ```
 pub fn htab(input: ParserInput) -> ParserResult<ParserInput> {
-    take_while_m_n(1, 1, is_htab_char)(input)
+    map_err_message!(
+        take_while_m_n(1, 1, is_htab_char),
+        "expected iCalendar RFC-5545 HTAB char",
+    )(input)
 }
 
 // +------------------------+-------------------+
@@ -153,7 +156,10 @@ pub fn is_lf_char(input: char) -> bool {
 /// assert_eq!(*parsed, "\n");
 /// ```
 pub fn lf(input: ParserInput) -> ParserResult<ParserInput> {
-    take_while_m_n(1, 1, is_lf_char)(input)
+    map_err_message!(
+        take_while_m_n(1, 1, is_lf_char),
+        "expected iCalendar RFC-5545 LF char",
+    )(input)
 }
 
 // +------------------------+-------------------+
@@ -196,7 +202,10 @@ pub fn is_cr_char(input: char) -> bool {
 /// assert_eq!(*parsed, "\r");
 /// ```
 pub fn cr(input: ParserInput) -> ParserResult<ParserInput> {
-    take_while_m_n(1, 1, is_cr_char)(input)
+    map_err_message!(
+        take_while_m_n(1, 1, is_cr_char),
+        "expected iCalendar RFC-5545 CR char",
+    )(input)
 }
 
 // +------------------------+-------------------+
@@ -238,7 +247,10 @@ pub fn is_dquote_char(input: char) -> bool {
 /// assert_eq!(*parsed, "\"");
 /// ```
 pub fn dquote(input: ParserInput) -> ParserResult<ParserInput> {
-    take_while_m_n(1, 1, is_dquote_char)(input)
+    map_err_message!(
+        take_while_m_n(1, 1, is_dquote_char),
+        "expected iCalendar RFC-5545 DQUOTE char",
+    )(input)
 }
 
 // +------------------------+-------------------+
@@ -280,7 +292,10 @@ pub fn is_space_char(input: char) -> bool {
 /// assert_eq!(*parsed, " ");
 /// ```
 pub fn space(input: ParserInput) -> ParserResult<ParserInput> {
-    take_while_m_n(1, 1, is_space_char)(input)
+    map_err_message!(
+        take_while_m_n(1, 1, is_space_char),
+        "expected iCalendar RFC-5545 SPACE char",
+    )(input)
 }
 
 // +------------------------+-------------------+
@@ -322,7 +337,10 @@ pub fn is_plus_sign_char(input: char) -> bool {
 /// assert_eq!(*parsed, "+");
 /// ```
 pub fn plus_sign(input: ParserInput) -> ParserResult<ParserInput> {
-    take_while_m_n(1, 1, is_plus_sign_char)(input)
+    map_err_message!(
+        take_while_m_n(1, 1, is_plus_sign_char),
+        "expected iCalendar RFC-5545 PLUS SIGN char",
+    )(input)
 }
 
 // +------------------------+-------------------+
@@ -364,7 +382,10 @@ pub fn is_comma_char(input: char) -> bool {
 /// assert_eq!(*parsed, ",");
 /// ```
 pub fn comma(input: ParserInput) -> ParserResult<ParserInput> {
-    take_while_m_n(1, 1, is_comma_char)(input)
+    map_err_message!(
+        take_while_m_n(1, 1, is_comma_char),
+        "expected iCalendar RFC-5545 COMMA char",
+    )(input)
 }
 
 // +------------------------+-------------------+
@@ -406,7 +427,10 @@ pub fn is_hyphen_minus_char(input: char) -> bool {
 /// assert_eq!(*parsed, "-");
 /// ```
 pub fn hyphen_minus(input: ParserInput) -> ParserResult<ParserInput> {
-    take_while_m_n(1, 1, is_hyphen_minus_char)(input)
+    map_err_message!(
+        take_while_m_n(1, 1, is_hyphen_minus_char),
+        "expected iCalendar RFC-5545 HYPHEN-MINUS char",
+    )(input)
 }
 
 // +------------------------+-------------------+
@@ -448,7 +472,10 @@ pub fn is_period_char(input: char) -> bool {
 /// assert_eq!(*parsed, ".");
 /// ```
 pub fn period(input: ParserInput) -> ParserResult<ParserInput> {
-    take_while_m_n(1, 1, is_period_char)(input)
+    map_err_message!(
+        take_while_m_n(1, 1, is_period_char),
+        "expected iCalendar RFC-5545 PERIOD char",
+    )(input)
 }
 
 // +------------------------+-------------------+
@@ -490,7 +517,10 @@ pub fn is_solidus_char(input: char) -> bool {
 /// assert_eq!(*parsed, "/");
 /// ```
 pub fn solidus(input: ParserInput) -> ParserResult<ParserInput> {
-    take_while_m_n(1, 1, is_solidus_char)(input)
+    map_err_message!(
+        take_while_m_n(1, 1, is_solidus_char),
+        "expected iCalendar RFC-5545 SOLIDUS ('/') char",
+    )(input)
 }
 
 // +------------------------+-------------------+
@@ -532,7 +562,10 @@ pub fn is_colon_char(input: char) -> bool {
 /// assert_eq!(*parsed, ":");
 /// ```
 pub fn colon(input: ParserInput) -> ParserResult<ParserInput> {
-    take_while_m_n(1, 1, is_colon_char)(input)
+    map_err_message!(
+        take_while_m_n(1, 1, is_colon_char),
+        "expected iCalendar RFC-5545 COLON char",
+    )(input)
 }
 
 // +------------------------+-------------------+
@@ -574,7 +607,10 @@ pub fn is_semicolon_char(input: char) -> bool {
 /// assert_eq!(*parsed, ";");
 /// ```
 pub fn semicolon(input: ParserInput) -> ParserResult<ParserInput> {
-    take_while_m_n(1, 1, is_semicolon_char)(input)
+    map_err_message!(
+        take_while_m_n(1, 1, is_semicolon_char),
+        "expected iCalendar RFC-5545 SEMICOLON char",
+    )(input)
 }
 
 // +------------------------+-------------------+
@@ -616,7 +652,10 @@ pub fn is_latin_capital_letter_n_char(input: char) -> bool {
 /// assert_eq!(*parsed, "N");
 /// ```
 pub fn latin_capital_letter_n(input: ParserInput) -> ParserResult<ParserInput> {
-    take_while_m_n(1, 1, is_latin_capital_letter_n_char)(input)
+    map_err_message!(
+        take_while_m_n(1, 1, is_latin_capital_letter_n_char),
+        "expected iCalendar RFC-5545 LATIN CAPITAL LETTER N char",
+    )(input)
 }
 
 // +------------------------+-------------------+
@@ -658,7 +697,10 @@ pub fn is_latin_capital_letter_t_char(input: char) -> bool {
 /// assert_eq!(*parsed, "T");
 /// ```
 pub fn latin_capital_letter_t(input: ParserInput) -> ParserResult<ParserInput> {
-    take_while_m_n(1, 1, is_latin_capital_letter_t_char)(input)
+    map_err_message!(
+        take_while_m_n(1, 1, is_latin_capital_letter_t_char),
+        "expected iCalendar RFC-5545 LATIN CAPITAL LETTER T char",
+    )(input)
 }
 
 // +------------------------+-------------------+
@@ -700,7 +742,10 @@ pub fn is_latin_capital_letter_x_char(input: char) -> bool {
 /// assert_eq!(*parsed, "X");
 /// ```
 pub fn latin_capital_letter_x(input: ParserInput) -> ParserResult<ParserInput> {
-    take_while_m_n(1, 1, is_latin_capital_letter_x_char)(input)
+    map_err_message!(
+        take_while_m_n(1, 1, is_latin_capital_letter_x_char),
+        "expected iCalendar RFC-5545 LATIN CAPITAL LETTER X char",
+    )(input)
 }
 
 // +------------------------+-------------------+
@@ -742,7 +787,10 @@ pub fn is_latin_capital_letter_z_char(input: char) -> bool {
 /// assert_eq!(*parsed, "Z");
 /// ```
 pub fn latin_capital_letter_z(input: ParserInput) -> ParserResult<ParserInput> {
-    take_while_m_n(1, 1, is_latin_capital_letter_z_char)(input)
+    map_err_message!(
+        take_while_m_n(1, 1, is_latin_capital_letter_z_char),
+        "expected iCalendar RFC-5545 LATIN CAPITAL LETTER Z char",
+    )(input)
 }
 
 // +------------------------+-------------------+
@@ -784,7 +832,10 @@ pub fn is_backslash_char(input: char) -> bool {
 /// assert_eq!(*parsed, "\\");
 /// ```
 pub fn backslash(input: ParserInput) -> ParserResult<ParserInput> {
-    take_while_m_n(1, 1, is_backslash_char)(input)
+    map_err_message!(
+        take_while_m_n(1, 1, is_backslash_char),
+        "expected iCalendar RFC-5545 BACKSLASH char",
+    )(input)
 }
 
 // +------------------------+-------------------+
@@ -826,7 +877,10 @@ pub fn is_latin_small_letter_n_char(input: char) -> bool {
 /// assert_eq!(*parsed, "n");
 /// ```
 pub fn latin_small_letter_n(input: ParserInput) -> ParserResult<ParserInput> {
-    take_while_m_n(1, 1, is_latin_small_letter_n_char)(input)
+    map_err_message!(
+        take_while_m_n(1, 1, is_latin_small_letter_n_char),
+        "expected iCalendar RFC-5545 LATIN SMALL LETTER N char",
+    )(input)
 }
 
 /// Parse a CRLF line-break char sequence (CR followed by LF).
@@ -921,7 +975,10 @@ pub fn is_iana_token_char(input: char) -> bool {
 pub fn iana_token(input: ParserInput) -> ParserResult<ParserInput> {
     context(
         "IANA-TOKEN",
-        take_while1(is_iana_token_char),
+        map_err_message!(
+            take_while1(is_iana_token_char),
+            "expected iCalendar RFC-5545 IANA TOKEN chars",
+        ),
     )(input)
 }
 
@@ -945,15 +1002,18 @@ pub fn iana_token(input: ParserInput) -> ParserResult<ParserInput> {
 pub fn x_name(input: ParserInput) -> ParserResult<ParserInput> {
     context(
         "X-NAME",
-        recognize(
-            tuple(
-                (
-                    tag("X-"),
-                    opt(terminated(vendorid, char('-'))),
-                    iana_token,
+        map_err_message!(
+            recognize(
+                tuple(
+                    (
+                        tag("X-"),
+                        opt(terminated(vendorid, char('-'))),
+                        iana_token,
+                    )
                 )
-            )
-        )
+            ),
+            "expected iCalendar RFC-5545 X-NAME token chars",
+        ),
     )(input)
 }
 
@@ -980,7 +1040,10 @@ pub fn x_name(input: ParserInput) -> ParserResult<ParserInput> {
 pub fn vendorid(input: ParserInput) -> ParserResult<ParserInput> {
     context(
         "VENDORID",
-        verify(alphanumeric1, |parsed_input: &ParserInput| parsed_input.len() >= 3)
+        map_err_message!(
+            verify(alphanumeric1, |parsed_input: &ParserInput| parsed_input.len() >= 3),
+            "expected iCalendar RFC-5545 VENDORID chars",
+        ),
     )(input)
 }
 
@@ -994,7 +1057,9 @@ pub fn param(input: ParserInput) -> ParserResult<(ParserInput, ParserInput)> {
         tuple(
             (
                 terminated(param_name, char('=')),
-                recognize(separated_list1(comma, param_value)),
+                cut(
+                    recognize(separated_list1(comma, param_value)),
+                )
             )
         )
     )(input)
@@ -1002,22 +1067,46 @@ pub fn param(input: ParserInput) -> ParserResult<(ParserInput, ParserInput)> {
 
 /// param-name    = iana-token / x-name
 pub fn param_name(input: ParserInput) -> ParserResult<ParserInput> {
-    context("PARAM-NAME", alt((iana_token, x_name)))(input)
+    context(
+        "PARAM-NAME",
+        map_err_message!(
+            alt((iana_token, x_name)),
+            "expected iCalendar RFC-5545 PARAM-NAME (IANA-TOKEN or X-NAME) chars",
+        ),
+    )(input)
 }
 
 /// param-value   = paramtext / quoted-string
 pub fn param_value(input: ParserInput) -> ParserResult<ParserInput> {
-    context("PARAM-VALUE", alt((quoted_string, paramtext)))(input)
+    context(
+        "PARAM-VALUE",
+        map_err_message!(
+            alt((quoted_string, paramtext)),
+            "expected iCalendar RFC-5545 PARAM-VALUE (PARAMTEXT / QUOTED-STRING) chars",
+        ),
+    )(input)
 }
 
 /// paramtext     = *SAFE-CHAR
 pub fn paramtext(input: ParserInput) -> ParserResult<ParserInput> {
-    context("PARAMTEXT", take_while(is_safe_char))(input)
+    context(
+        "PARAMTEXT",
+        map_err_message!(
+            take_while(is_safe_char),
+            "expected iCalendar RFC-5545 PARAMTEXT (SAFE-CHAR) chars",
+        ),
+    )(input)
 }
 
 /// value         = *VALUE-CHAR
 pub fn value(input: ParserInput) -> ParserResult<ParserInput> {
-    context("VALUE", take_while(is_value_char))(input)
+    context(
+        "VALUE",
+        map_err_message!(
+            take_while(is_value_char),
+            "expected iCalendar RFC-5545 VALUE (VALUE-CHAR) chars",
+        ),
+    )(input)
 }
 
 /// quoted-string = DQUOTE *QSAFE-CHAR DQUOTE
@@ -1027,7 +1116,10 @@ pub fn quoted_string(input: ParserInput) -> ParserResult<ParserInput> {
         recognize(
             delimited(
                 dquote,
-                take_while(is_qsafe_char),
+                map_err_message!(
+                    take_while(is_qsafe_char),
+                    "expected iCalendar RFC-5545 QSAFE-CHAR chars",
+                ),
                 dquote,
             )
         )
@@ -1077,7 +1169,10 @@ pub fn is_qsafe_char(input: char) -> bool {
 /// QSAFE-CHAR    = WSP / %x21 / %x23-7E / NON-US-ASCII
 /// ; Any character except CONTROL and DQUOTE
 pub fn qsafe_char(input: ParserInput) -> ParserResult<ParserInput> {
-    take_while1(is_qsafe_char)(input)
+    map_err_message!(
+        take_while1(is_qsafe_char),
+        "expected iCalendar RFC-5545 QSAFE-CHAR chars",
+    )(input)
 }
 
 /// Returns if safe char.
@@ -1127,7 +1222,10 @@ pub fn is_safe_char(input: char) -> bool {
 ///               / NON-US-ASCII
 /// ; Any character except CONTROL, DQUOTE, ";", ":", ","
 pub fn safe_char(input: ParserInput) -> ParserResult<ParserInput> {
-    take_while1(is_safe_char)(input)
+    map_err_message!(
+        take_while1(is_safe_char),
+        "expected iCalendar RFC-5545 SAFE-CHAR chars",
+    )(input)
 }
 
 /// Returns if value char.
@@ -1165,7 +1263,10 @@ pub fn is_value_char(input: char) -> bool {
 /// VALUE-CHAR    = WSP / %x21-7E / NON-US-ASCII
 /// ; Any textual character
 pub fn value_char(input: ParserInput) -> ParserResult<ParserInput> {
-    take_while1(is_value_char)(input)
+    map_err_message!(
+        take_while1(is_value_char),
+        "expected iCalendar RFC-5545 VALUE-CHAR chars",
+    )(input)
 }
 
 /// Parses one or more whitespace chars.
@@ -1181,7 +1282,10 @@ pub fn value_char(input: ParserInput) -> ParserResult<ParserInput> {
 ///
 /// WSP  = HTAB | CR | LF | SPACE | FF
 pub fn wsp(input: ParserInput) -> ParserResult<ParserInput> {
-    take_while1(is_wsp_char)(input)
+    map_err_message!(
+        take_while1(is_wsp_char),
+        "expected iCalendar RFC-5545 WSP chars",
+    )(input)
 }
 
 /// Parses single whitespace char.
@@ -1202,13 +1306,16 @@ pub fn wsp(input: ParserInput) -> ParserResult<ParserInput> {
 ///
 /// WSP  = HTAB | CR | LF | SPACE | FF
 pub fn wsp_1_1(input: ParserInput) -> ParserResult<ParserInput> {
-    alt((
-        tag("\t"),
-        tag("\r"),
-        tag("\n"),
-        tag("\x0C"),
-        tag(" ")
-    ))(input)
+    map_err_message!(
+        alt((
+            tag("\t"),
+            tag("\r"),
+            tag("\n"),
+            tag("\x0C"),
+            tag(" ")
+        )),
+        "expected iCalendar RFC-5545 WSP char",
+    )(input)
 }
 
 /// Returns if whitespace char.
@@ -1236,6 +1343,7 @@ pub fn is_wsp_char(input: char) -> bool {
     is_space_char(input) ||
     input == '\x0C' // FF
 }
+
 /// Returns if non US ASCII char.
 ///
 /// # Examples
@@ -1270,7 +1378,10 @@ pub fn is_non_us_ascii_char(input: char) -> bool {
 /// NON-US-ASCII  = UTF8-2 / UTF8-3 / UTF8-4
 /// ; UTF8-2, UTF8-3, and UTF8-4 are defined in [RFC3629]
 pub fn non_us_ascii(input: ParserInput) -> ParserResult<ParserInput> {
-    take_while1(is_non_us_ascii_char)(input)
+    map_err_message!(
+        take_while1(is_non_us_ascii_char),
+        "expected iCalendar RFC-5545 NON-US-ASCII chars",
+    )(input)
 }
 
 /// Returns if control char.
@@ -1310,7 +1421,10 @@ pub fn is_control_char(input: char) -> bool {
 /// CONTROL       = %x00-08 / %x0A-1F / %x7F
 /// ; All the controls except HTAB
 pub fn control(input: ParserInput) -> ParserResult<ParserInput> {
-    take_while1(is_control_char)(input)
+    map_err_message!(
+        take_while1(is_control_char),
+        "expected iCalendar RFC-5545 CONTROL chars",
+    )(input)
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -1324,10 +1438,13 @@ impl ICalendarEntity for PositiveNegative {
     where
         Self: Sized
     {
-        alt((
-            map(plus_sign, |_| Self::Positive),
-            map(hyphen_minus, |_| Self::Negative),
-        ))(input)
+        map_err_message!(
+            alt((
+                map(plus_sign, |_| Self::Positive),
+                map(hyphen_minus, |_| Self::Negative),
+            )),
+            "expected either iCalendar RFC-5545 PLUS-SIGN or HYPHEN-MINUS char",
+        )(input)
     }
 
     fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
@@ -1396,7 +1513,7 @@ impl PositiveNegative {
             let Ok(mut value) = parsed_value.to_string().parse::<i32>() else {
                 return Err(
                     nom::Err::Error(
-                        ParserError::new(String::from("Invalid number"), input)
+                        ParserError::new(String::from("invalid number"), input)
                     )
                 );
             };
@@ -1404,7 +1521,7 @@ impl PositiveNegative {
             if value < min_value || value > max_value {
                 return Err(
                     nom::Err::Error(
-                        ParserError::new(format!("Expected number between {min_value}-{max_value}"), input)
+                        ParserError::new(format!("expected number between {min_value}-{max_value}"), input)
                     )
                 );
             }

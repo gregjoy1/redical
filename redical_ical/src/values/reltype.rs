@@ -4,7 +4,7 @@ use nom::combinator::map;
 
 use crate::grammar::{tag, x_name, iana_token};
 
-use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
+use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits, map_err_message};
 
 // RELTYPE = ("PARENT"    ; Parent relationship - Default
 //          / "CHILD"     ; Child relationship
@@ -26,13 +26,16 @@ impl ICalendarEntity for Reltype {
     fn parse_ical(input: ParserInput) -> ParserResult<Self> {
         context(
             "RELTYPE",
-            alt((
-                map(tag("PARENT"), |_| Reltype::Parent),
-                map(tag("CHILD"), |_| Reltype::Child),
-                map(tag("SIBLING"), |_| Reltype::Sibling),
-                map(x_name, |value| Reltype::XName(value.to_string())),
-                map(iana_token, |value| Reltype::IanaToken(value.to_string())),
-            )),
+            map_err_message!(
+                alt((
+                    map(tag("PARENT"), |_| Reltype::Parent),
+                    map(tag("CHILD"), |_| Reltype::Child),
+                    map(tag("SIBLING"), |_| Reltype::Sibling),
+                    map(x_name, |value| Reltype::XName(value.to_string())),
+                    map(iana_token, |value| Reltype::IanaToken(value.to_string())),
+                )),
+                "expected either \"PARENT\", \"CHILD\", \"SIBLING\" or iCalendar RFC-5545 X-NAME or IANA-TOKEN chars",
+            ),
         )(input)
     }
 
@@ -53,7 +56,19 @@ impl_icalendar_entity_traits!(Reltype);
 mod tests {
     use super::*;
 
-    use crate::tests::assert_parser_output;
+    use crate::tests::{assert_parser_output, assert_parser_error};
+
+    #[test]
+    fn parse_ical_error() {
+        assert_parser_error!(
+            Reltype::parse_ical(r#":UNKNOWN TESTING"#.into()),
+            nom::Err::Error(
+                span: ":UNKNOWN TESTING",
+                message: "expected either \"PARENT\", \"CHILD\", \"SIBLING\" or iCalendar RFC-5545 X-NAME or IANA-TOKEN chars",
+                context: ["RELTYPE"],
+            ),
+        );
+    }
 
     #[test]
     fn parse_ical() {

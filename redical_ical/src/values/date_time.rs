@@ -8,7 +8,7 @@ use nom::sequence::{pair, preceded};
 use nom::error::context;
 use nom::combinator::{recognize, map, map_res, opt, cut};
 
-use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
+use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits, map_err_message};
 
 use crate::grammar::latin_capital_letter_t;
 
@@ -28,10 +28,13 @@ impl ICalendarEntity for ValueType {
     fn parse_ical(input: ParserInput) -> ParserResult<Self> {
         context(
             "VALUE",
-            alt((
-                map(tag("DATE-TIME"), |_| ValueType::DateTime),
-                map(tag("DATE"), |_| ValueType::Date),
-            )),
+            map_err_message!(
+                alt((
+                    map(tag("DATE-TIME"), |_| ValueType::DateTime),
+                    map(tag("DATE"), |_| ValueType::Date),
+                )),
+                "expected iCalendar RFC-5545 VALUE (\"DATE-TIME\" or \"DATE\")",
+            ),
         )(input)
     }
 
@@ -308,7 +311,7 @@ impl_icalendar_entity_traits!(DateTime);
 mod tests {
     use super::*;
 
-    use crate::tests::assert_parser_output;
+    use crate::tests::{assert_parser_output, assert_parser_error};
 
     #[test]
     fn date_time_parse_ical() {
@@ -353,6 +356,66 @@ mod tests {
         assert!(DateTime::parse_ical("19980118T2300".into()).is_err());
         assert!(DateTime::parse_ical("c1997071/=".into()).is_err());
         assert!(DateTime::parse_ical(":".into()).is_err());
+    }
+
+    #[test]
+    fn value_type_parse_ical_error() {
+        assert_parser_error!(
+            ValueType::parse_ical(":".into()),
+            nom::Err::Error(
+                span: ":",
+                message: "expected iCalendar RFC-5545 VALUE (\"DATE-TIME\" or \"DATE\")",
+                context: ["VALUE"],
+            ),
+        );
+    }
+
+    #[test]
+    fn date_time_parse_ical_error() {
+        assert_parser_error!(
+            DateTime::parse_ical(":".into()),
+            nom::Err::Error(
+                span: ":",
+                message: "expected iCalendar RFC-5545 DATE-VALUE (DATE-FULLYEAR DATE-MONTH DATE-MDAY)",
+                context: ["DATE-TIME", "DATE"],
+            ),
+        );
+
+        assert_parser_error!(
+            DateTime::parse_ical("20240".into()),
+            nom::Err::Error(
+                span: "0",
+                message: "expected iCalendar RFC-5545 DATE-VALUE (DATE-FULLYEAR DATE-MONTH DATE-MDAY)",
+                context: ["DATE-TIME", "DATE"],
+            ),
+        );
+
+        assert_parser_error!(
+            DateTime::parse_ical("2024020".into()),
+            nom::Err::Error(
+                span: "0",
+                message: "expected iCalendar RFC-5545 DATE-VALUE (DATE-FULLYEAR DATE-MONTH DATE-MDAY)",
+                context: ["DATE-TIME", "DATE"],
+            ),
+        );
+
+        assert_parser_error!(
+            DateTime::parse_ical("20240202T0".into()),
+            nom::Err::Failure(
+                span: "0",
+                message: "expected iCalendar RFC-5545 TIME (TIME-HOUR TIME-MINUTE TIME-SECOND [TIME-UTC])",
+                context: ["DATE-TIME", "TIME"],
+            ),
+        );
+
+        assert_parser_error!(
+            DateTime::parse_ical("20240202T0202d".into()),
+            nom::Err::Failure(
+                span: "d",
+                message: "expected iCalendar RFC-5545 TIME (TIME-HOUR TIME-MINUTE TIME-SECOND [TIME-UTC])",
+                context: ["DATE-TIME", "TIME"],
+            ),
+        );
     }
 
     #[test]

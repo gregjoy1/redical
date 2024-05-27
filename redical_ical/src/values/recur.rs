@@ -4,11 +4,11 @@ use nom::branch::alt;
 use nom::combinator::{map, map_res, opt, cut};
 use nom::multi::separated_list1;
 use nom::character::is_digit;
-use nom::bytes::complete::{tag, take_while1};
+use nom::bytes::complete::take_while1;
 
-use crate::grammar::{comma, semicolon};
+use crate::grammar::{comma, semicolon, tag};
 
-use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, ParserError, impl_icalendar_entity_traits};
+use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, ParserError, impl_icalendar_entity_traits, map_err_message};
 
 use crate::values::date_time::DateTime;
 use crate::values::integer::Integer;
@@ -142,7 +142,7 @@ pub fn interval(input: ParserInput) -> ParserResult<Integer> {
     let Ok(parsed_interval) = interval.to_string().parse::<u64>() else {
         return Err(
             nom::Err::Error(
-                ParserError::new(String::from("Invalid interval"), input)
+                ParserError::new(String::from("invalid interval"), input)
             )
         );
     };
@@ -157,7 +157,7 @@ pub fn count(input: ParserInput) -> ParserResult<Integer> {
     let Ok(parsed_count) = count.to_string().parse::<u64>() else {
         return Err(
             nom::Err::Error(
-                ParserError::new(String::from("Invalid count"), input)
+                ParserError::new(String::from("invalid count"), input)
             )
         );
     };
@@ -309,15 +309,18 @@ impl ICalendarEntity for Frequency {
     {
         context(
             "FREQ",
-            alt((
-                map(tag("SECONDLY"), |_| Self::Secondly),
-                map(tag("MINUTELY"), |_| Self::Minutely),
-                map(tag("HOURLY"), |_| Self::Hourly),
-                map(tag("DAILY"), |_| Self::Daily),
-                map(tag("WEEKLY"), |_| Self::Weekly),
-                map(tag("MONTHLY"), |_| Self::Monthly),
-                map(tag("YEARLY"), |_| Self::Yearly),
-            )),
+            map_err_message!(
+                alt((
+                    map(tag("SECONDLY"), |_| Self::Secondly),
+                    map(tag("MINUTELY"), |_| Self::Minutely),
+                    map(tag("HOURLY"), |_| Self::Hourly),
+                    map(tag("DAILY"), |_| Self::Daily),
+                    map(tag("WEEKLY"), |_| Self::Weekly),
+                    map(tag("MONTHLY"), |_| Self::Monthly),
+                    map(tag("YEARLY"), |_| Self::Yearly),
+                )),
+                "expected iCalendar RFC-5545 FREQ (SECONDLY, MINUTELY, HOURLY, DAILY, WEEKLY, MONTHLY, or YEARLY)",
+            ),
         )(input)
     }
 
@@ -455,15 +458,18 @@ impl ICalendarEntity for WeekDay {
         // ;FRIDAY, and SATURDAY days of the week.
         context(
             "WEEKDAYNUM",
-            alt((
-                map(tag("SU"), |_| Self::Sunday),
-                map(tag("MO"), |_| Self::Monday),
-                map(tag("TU"), |_| Self::Tuesday),
-                map(tag("WE"), |_| Self::Wednesday),
-                map(tag("TH"), |_| Self::Thursday),
-                map(tag("FR"), |_| Self::Friday),
-                map(tag("SA"), |_| Self::Saturday),
-            ))
+            map_err_message!(
+                alt((
+                    map(tag("SU"), |_| Self::Sunday),
+                    map(tag("MO"), |_| Self::Monday),
+                    map(tag("TU"), |_| Self::Tuesday),
+                    map(tag("WE"), |_| Self::Wednesday),
+                    map(tag("TH"), |_| Self::Thursday),
+                    map(tag("FR"), |_| Self::Friday),
+                    map(tag("SA"), |_| Self::Saturday),
+                )),
+                "expected iCalendar RFC-5545 WEEKDAYNUM (SU, MO, TU, WE, TH, FR, or SA)",
+            ),
         )(input)
     }
 
@@ -627,7 +633,29 @@ impl_icalendar_entity_traits!(Recur);
 mod tests {
     use super::*;
 
-    use crate::tests::assert_parser_output;
+    use crate::tests::{assert_parser_output, assert_parser_error};
+
+    #[test]
+    fn parse_ical_error() {
+        assert_parser_error!(
+            Recur::parse_ical("FREQ=UNKNOWN;INTERVAL=2".into()),
+            nom::Err::Failure(
+                span: "UNKNOWN;INTERVAL=2",
+                message: "expected iCalendar RFC-5545 FREQ (SECONDLY, MINUTELY, HOURLY, DAILY, WEEKLY, MONTHLY, or YEARLY)",
+                context: ["RECUR", "RECUR-RULE-PART", "FREQ"],
+            ),
+        );
+
+        assert_parser_error!(
+            Recur::parse_ical("FREQ=YEARLY;INTERVAL=2;BYMONTH=1;BYDAY=UNKNOWN,-1MO,SU;BYHOUR=8,9;BYMINUTE=30 TESTING".into()),
+            nom::Err::Failure(
+                span: "UNKNOWN,-1MO,SU;BYHOUR=8,9;BYMINUTE=30 TESTING",
+                message: "expected iCalendar RFC-5545 WEEKDAYNUM (SU, MO, TU, WE, TH, FR, or SA)",
+                context: ["RECUR", "RECUR-RULE-PART", "WEEKDAYNUM", "WEEKDAYNUM"],
+
+            ),
+        );
+    }
 
     #[test]
     fn parse_ical() {

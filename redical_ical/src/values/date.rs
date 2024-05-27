@@ -4,7 +4,7 @@ use nom::combinator::{recognize, map_res};
 use nom::bytes::complete::take_while_m_n;
 use nom::character::is_digit;
 
-use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, ParserError, impl_icalendar_entity_traits};
+use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, ParserError, impl_icalendar_entity_traits, map_err_message};
 
 /// Parse date chars.
 ///
@@ -44,12 +44,15 @@ pub fn date(input: ParserInput) -> ParserResult<ParserInput> {
 ///
 /// date-value         = date-fullyear date-month date-mday
 pub fn date_value(input: ParserInput) -> ParserResult<(i32, u32, u32)> {
-    tuple(
-        (
-            date_fullyear,
-            date_month,
-            date_mday,
-        )
+    map_err_message!(
+        tuple(
+            (
+                date_fullyear,
+                date_month,
+                date_mday,
+            )
+        ),
+        "expected iCalendar RFC-5545 DATE-VALUE (DATE-FULLYEAR DATE-MONTH DATE-MDAY)",
     )(input)
 }
 
@@ -76,7 +79,7 @@ pub fn date_fullyear(input: ParserInput) -> ParserResult<i32> {
     let Ok(parsed_year) = year.to_string().parse::<i32>() else {
         return Err(
             nom::Err::Error(
-                ParserError::new(String::from("Invalid year"), input)
+                ParserError::new(String::from("invalid year"), input)
             )
         );
     };
@@ -108,7 +111,7 @@ pub fn date_month(input: ParserInput) -> ParserResult<u32> {
     let Ok(parsed_month) = month.to_string().parse::<u32>() else {
         return Err(
             nom::Err::Error(
-                ParserError::new(String::from("Invalid month"), input)
+                ParserError::new(String::from("invalid month"), input)
             )
         );
     };
@@ -116,7 +119,7 @@ pub fn date_month(input: ParserInput) -> ParserResult<u32> {
     if parsed_month < 1 || parsed_month > 12 {
         return Err(
             nom::Err::Error(
-                ParserError::new(String::from("Expected month between 01-12"), input)
+                ParserError::new(String::from("expected month between 01-12"), input)
             )
         );
     }
@@ -149,7 +152,7 @@ pub fn date_mday(input: ParserInput) -> ParserResult<u32> {
     let Ok(parsed_mday) = mday.to_string().parse::<u32>() else {
         return Err(
             nom::Err::Error(
-                ParserError::new(String::from("Invalid mday"), input)
+                ParserError::new(String::from("invalid mday"), input)
             )
         );
     };
@@ -157,7 +160,7 @@ pub fn date_mday(input: ParserInput) -> ParserResult<u32> {
     if parsed_mday < 1 || parsed_mday > 31 {
         return Err(
             nom::Err::Error(
-                ParserError::new(String::from("Expected mday between 01-31"), input)
+                ParserError::new(String::from("expected mday between 01-31"), input)
             )
         );
     }
@@ -219,7 +222,7 @@ impl ICalendarEntity for Date {
 
     fn validate(&self) -> Result<(), String> {
         if chrono::NaiveDate::from_ymd_opt(self.year, self.month, self.day).is_none() {
-            Err(String::from("Date is invalid"))
+            Err(String::from("invalid date"))
         } else {
             Ok(())
         }
@@ -233,7 +236,7 @@ impl TryFrom<Date> for chrono::NaiveDate {
         if let Some(date) = chrono::NaiveDate::from_ymd_opt(date.year, date.month, date.day) {
             Ok(date)
         } else {
-            Err(String::from("Date is invalid"))
+            Err(String::from("invalid date"))
         }
     }
 }
@@ -244,7 +247,7 @@ impl_icalendar_entity_traits!(Date);
 mod tests {
     use super::*;
 
-    use crate::tests::assert_parser_output;
+    use crate::tests::{assert_parser_output, assert_parser_error};
 
     #[test]
     fn parse_ical() {
@@ -278,6 +281,36 @@ mod tests {
     }
 
     #[test]
+    fn parse_ical_error() {
+        assert_parser_error!(
+            Date::parse_ical(":".into()),
+            nom::Err::Error(
+                span: ":",
+                message: "expected iCalendar RFC-5545 DATE-VALUE (DATE-FULLYEAR DATE-MONTH DATE-MDAY)",
+                context: ["DATE"],
+            ),
+        );
+
+        assert_parser_error!(
+            Date::parse_ical("20240".into()),
+            nom::Err::Error(
+                span: "0",
+                message: "expected iCalendar RFC-5545 DATE-VALUE (DATE-FULLYEAR DATE-MONTH DATE-MDAY)",
+                context: ["DATE"],
+            ),
+        );
+
+        assert_parser_error!(
+            Date::parse_ical("2024020".into()),
+            nom::Err::Error(
+                span: "0",
+                message: "expected iCalendar RFC-5545 DATE-VALUE (DATE-FULLYEAR DATE-MONTH DATE-MDAY)",
+                context: ["DATE"],
+            ),
+        );
+    }
+
+    #[test]
     fn validate() {
         assert_eq!(
             Date {
@@ -294,7 +327,7 @@ mod tests {
                 month: 2_u32,
                 day: 31_u32,
             }.validate(),
-            Err(String::from("Date is invalid")),
+            Err(String::from("invalid date")),
         );
     }
 }

@@ -7,7 +7,7 @@ use nom::bytes::complete::take_while1;
 
 use crate::grammar::{is_safe_char, is_wsp_char, solidus};
 
-use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
+use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits, map_err_message};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Tzid(pub Tz);
@@ -21,16 +21,19 @@ impl ICalendarEntity for Tzid {
                     pair(
                         opt(solidus),
                         // Small hack that allows paramtext chars except whitespace.
-                        take_while1(|input: char| {
-                            is_safe_char(input) && !is_wsp_char(input)
-                        }),
+                        map_err_message!(
+                            take_while1(|input: char| {
+                                is_safe_char(input) && !is_wsp_char(input)
+                            }),
+                            "expected iCalendar RFC-5545 TZID",
+                        ),
                     )
                 ),
                 |tzid: ParserInput| {
                     if let Ok(tz) = tzid.to_string().parse::<Tz>() {
                         Ok(Self(tz))
                     } else {
-                        Err(String::from("Timezone is invalid"))
+                        Err(String::from("invalid timezone"))
                     }
                 }
             )
@@ -92,7 +95,7 @@ mod tests {
             Tzid::parse_ical("INVALID TESTING".into()),
             nom::Err::Error(
                 span: "INVALID TESTING",
-                message: "Timezone is invalid",
+                message: "invalid timezone",
                 context: ["TZID"],
             )
         );

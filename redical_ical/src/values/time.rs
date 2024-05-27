@@ -4,7 +4,7 @@ use nom::combinator::{recognize, map_res, opt};
 use nom::bytes::complete::{tag, take_while_m_n};
 use nom::character::is_digit;
 
-use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, ParserError, impl_icalendar_entity_traits};
+use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, ParserError, impl_icalendar_entity_traits, map_err_message};
 
 /// Parse time chars.
 ///
@@ -26,14 +26,17 @@ pub fn time(input: ParserInput) -> ParserResult<ParserInput> {
     context(
         "TIME",
         recognize(
-            tuple(
-                (
-                    time_hour,
-                    time_minute,
-                    time_second,
-                    opt(time_utc),
-                )
-            ),
+            map_err_message!(
+                tuple(
+                    (
+                        time_hour,
+                        time_minute,
+                        time_second,
+                        opt(time_utc),
+                    )
+                ),
+                "expected iCalendar RFC-5545 TIME (TIME-HOUR TIME-MINUTE TIME-SECOND [TIME-UTC])",
+            )
         ),
     )(input)
 }
@@ -61,7 +64,7 @@ pub fn time_hour(input: ParserInput) -> ParserResult<u32> {
     let Ok(parsed_hour) = hour.to_string().parse::<u32>() else {
         return Err(
             nom::Err::Error(
-                ParserError::new(String::from("Invalid hour"), input)
+                ParserError::new(String::from("invalid hour"), input)
             )
         );
     };
@@ -69,7 +72,7 @@ pub fn time_hour(input: ParserInput) -> ParserResult<u32> {
     if parsed_hour > 23 {
         return Err(
             nom::Err::Error(
-                ParserError::new(String::from("Expected hour between 00-23"), input)
+                ParserError::new(String::from("expected hour between 00-23"), input)
             )
         );
     }
@@ -100,7 +103,7 @@ pub fn time_minute(input: ParserInput) -> ParserResult<u32> {
     let Ok(parsed_minute) = minute.to_string().parse::<u32>() else {
         return Err(
             nom::Err::Error(
-                ParserError::new(String::from("Invalid minute"), input)
+                ParserError::new(String::from("invalid minute"), input)
             )
         );
     };
@@ -108,7 +111,7 @@ pub fn time_minute(input: ParserInput) -> ParserResult<u32> {
     if parsed_minute > 59 {
         return Err(
             nom::Err::Error(
-                ParserError::new(String::from("Expected minute between 00-59"), input)
+                ParserError::new(String::from("expected minute between 00-59"), input)
             )
         );
     }
@@ -139,7 +142,7 @@ pub fn time_second(input: ParserInput) -> ParserResult<u32> {
     let Ok(parsed_second) = second.to_string().parse::<u32>() else {
         return Err(
             nom::Err::Error(
-                ParserError::new(String::from("Invalid second"), input)
+                ParserError::new(String::from("invalid second"), input)
             )
         );
     };
@@ -147,7 +150,7 @@ pub fn time_second(input: ParserInput) -> ParserResult<u32> {
     if parsed_second > 60 {
         return Err(
             nom::Err::Error(
-                ParserError::new(String::from("Expected second between 00-60"), input)
+                ParserError::new(String::from("expected second between 00-60"), input)
             )
         );
     }
@@ -192,13 +195,16 @@ impl ICalendarEntity for Time {
         context(
             "TIME",
             map_res(
-                tuple(
-                    (
-                        time_hour,
-                        time_minute,
-                        time_second,
-                        opt(time_utc),
-                    )
+                map_err_message!(
+                    tuple(
+                        (
+                            time_hour,
+                            time_minute,
+                            time_second,
+                            opt(time_utc),
+                        )
+                    ),
+                    "expected iCalendar RFC-5545 TIME (TIME-HOUR TIME-MINUTE TIME-SECOND [TIME-UTC])",
                 ),
                 |(hour, minute, second, utc)| {
                     let time = Self {
@@ -228,7 +234,7 @@ impl ICalendarEntity for Time {
 
     fn validate(&self) -> Result<(), String> {
         if chrono::NaiveTime::from_hms_opt(self.hour, self.minute, self.second).is_none() {
-            Err(String::from("Time is invalid"))
+            Err(String::from("time is invalid"))
         } else {
             Ok(())
         }
@@ -242,7 +248,7 @@ impl TryFrom<Time> for chrono::NaiveTime {
         if let Some(time) = chrono::NaiveTime::from_hms_opt(time.hour, time.minute, time.second) {
             Ok(time)
         } else {
-            Err(String::from("Time is invalid"))
+            Err(String::from("time is invalid"))
         }
     }
 }
@@ -253,7 +259,19 @@ impl_icalendar_entity_traits!(Time);
 mod tests {
     use super::*;
 
-    use crate::tests::assert_parser_output;
+    use crate::tests::{assert_parser_output, assert_parser_error};
+
+    #[test]
+    fn parse_ical_error() {
+        assert_parser_error!(
+            Time::parse_ical(":::: TESTING".into()),
+            nom::Err::Error(
+                span: ":::: TESTING",
+                message: "expected iCalendar RFC-5545 TIME (TIME-HOUR TIME-MINUTE TIME-SECOND [TIME-UTC])",
+                context: ["TIME"],
+            ),
+        );
+    }
 
     #[test]
     fn parse_ical() {
