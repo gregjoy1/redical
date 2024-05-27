@@ -4,9 +4,9 @@ use nom::branch::alt;
 use nom::combinator::{map, map_res, opt, cut};
 use nom::multi::separated_list1;
 use nom::character::is_digit;
-use nom::bytes::complete::{tag, take_while1};
+use nom::bytes::complete::take_while1;
 
-use crate::grammar::{comma, semicolon};
+use crate::grammar::{comma, semicolon, tag};
 
 use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, ParserError, impl_icalendar_entity_traits, map_err_message};
 

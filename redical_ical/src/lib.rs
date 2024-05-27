@@ -98,12 +98,14 @@ where
 pub fn convert_error<I: core::ops::Deref<Target = str>>(_input: I, error: ParserError) -> std::string::String {
     // TODO: Implement this...
     let error_message = error.message.unwrap_or(String::from("no error"));
-    let invalid_span = error.span.trim().to_string();
+    let mut invalid_span = error.span.trim().to_string();
+
+    invalid_span.truncate(45);
 
     if error.context.is_empty() {
-        format!("Error - \"{}\" at \"{}\"", error_message, invalid_span)
+        format!("Error - {} at \"{}\"", error_message, invalid_span)
     } else {
-        format!("Error: \"{}\" at \"{}\" -- Context: {}", error_message, invalid_span, error.context.join(" -> "))
+        format!("Error - {} at \"{}\" -- Context: {}", error_message, invalid_span, error.context.join(" -> "))
     }
 }
 
