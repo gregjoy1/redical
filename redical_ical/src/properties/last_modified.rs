@@ -111,24 +111,39 @@ pub struct LastModifiedProperty {
     pub date_time: DateTime,
 }
 
-/*
 impl LastModifiedProperty {
-    fn enforce_value_type_param(&mut self) {
-        if self.params.value_type.is_none() {
-            self.params.value_type = Some(ValueType::new_from_date_time(&self.date_time));
+    pub fn get_millis(&self) -> i64 {
+        self.params.millis.clone().map_or(0_i64, |millis| *millis)
+    }
+
+    pub fn new_from_now() -> Self {
+        let current_date_time = chrono::offset::Utc::now();
+
+        let millis = current_date_time.timestamp_subsec_millis() as i64;
+
+        let date_time = DateTime::UtcDateTime(current_date_time.naive_utc());
+
+        let mut params = LastModifiedPropertyParams::default();
+
+        params.millis = Some(Integer::from(millis));
+
+        LastModifiedProperty {
+            params,
+            date_time,
         }
     }
 }
-*/
 
 impl ICalendarDateTimeProperty for LastModifiedProperty {
-    fn new(value_type: Option<&ValueType>, tzid: Option<&Tzid>, date_time: &DateTime) -> Self {
-        let mut params = LastModifiedPropertyParams::default();
+    fn new(_value_type: Option<&ValueType>, tzid: Option<&Tzid>, date_time: &DateTime) -> Self {
+        let params = LastModifiedPropertyParams::default();
+
+        let current_tz = tzid.map_or(None, |tzid| Some(&tzid.0));
 
         // This property can only be UTC.
-        let date_time = date_time.with_timezone(Some(&chrono_tz::Tz::UTC), &chrono_tz::Tz::UTC);
+        let date_time = date_time.with_timezone(current_tz, &chrono_tz::Tz::UTC);
 
-        let mut last_modified_property = LastModifiedProperty {
+        let last_modified_property = LastModifiedProperty {
             params,
             date_time: date_time.to_owned(),
         };
@@ -224,6 +239,42 @@ impl ICalendarProperty for LastModifiedProperty {
 impl std::hash::Hash for LastModifiedProperty {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.render_ical().hash(state)
+    }
+}
+
+impl Ord for LastModifiedProperty {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        let ordering =
+            self.date_time
+                .get_utc_timestamp(None)
+                .cmp(
+                    &other.date_time
+                          .get_utc_timestamp(None)
+                );
+
+        if ordering.is_eq() {
+            self.get_millis().cmp(&other.get_millis())
+        } else {
+            ordering
+        }
+    }
+}
+
+impl PartialOrd for LastModifiedProperty {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        let partial_ordering =
+            self.date_time
+                .get_utc_timestamp(None)
+                .partial_cmp(
+                    &other.date_time
+                          .get_utc_timestamp(None)
+                );
+
+        if partial_ordering.is_some_and(|partial_ordering| partial_ordering.is_eq()) {
+            self.get_millis().partial_cmp(&other.get_millis())
+        } else {
+            partial_ordering
+        }
     }
 }
 
@@ -420,5 +471,18 @@ mod tests {
             }.render_ical_with_context(Some(&RenderingContext { tz: Some(Tz::America__Phoenix), distance_unit: None })),
             String::from("LAST-MODIFIED;TEST=VALUE;X-TEST=X_VALUE:19960401T000000Z"),
         );
+    }
+
+    #[test]
+    fn new_from_now() {
+        let last_modified_property = LastModifiedProperty::new_from_now();
+
+        let current_date_time = chrono::offset::Utc::now();
+
+        assert_eq!(last_modified_property.get_utc_timestamp(), current_date_time.timestamp());
+
+        let current_millis = current_date_time.timestamp_subsec_millis() as i64;
+
+        assert!(current_millis >= last_modified_property.get_millis());
     }
 }
