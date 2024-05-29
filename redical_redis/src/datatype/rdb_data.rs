@@ -262,7 +262,7 @@ mod test {
         let mut event =
             Event::parse_ical(
                 "EVENT_UID",
-                "RRULE:FREQ=WEEKLY;UNTIL=19700101T000500Z;INTERVAL=1 CLASS:PUBLIC CATEGORIES:CATEGORY_ONE DTSTART:19700101T000500Z",
+                "RRULE:FREQ=WEEKLY;UNTIL=19700101T000500Z;INTERVAL=1 CLASS:PUBLIC CATEGORIES:CATEGORY_ONE DTSTART:19700101T000500Z LAST-MODIFIED:19700101T010500Z",
             ).unwrap();
 
         event.override_occurrence(&event_occurrence_override, true).unwrap();
@@ -292,6 +292,7 @@ mod test {
                             String::from("CATEGORIES:CATEGORY_ONE"),
                             String::from("CLASS:PUBLIC"),
                             String::from("DTSTART:19700101T000500Z"),
+                            String::from("LAST-MODIFIED:19700101T010500Z"),
                             String::from("RRULE:FREQ=WEEKLY;INTERVAL=1;UNTIL=19700101T000500Z"),
                             String::from("UID:EVENT_UID"),
                         ],
@@ -365,7 +366,7 @@ mod test {
 
         assert_eq!(
             Calendar::try_from(&invalid_rdb_calendar).map_err(String::from),
-            Err(String::from("Error at CALENDAR_UID -> EVENT_UID:Error - parse error Eof at ")),
+            Err(String::from("Error at CALENDAR_UID -> EVENT_UID:Error - parse error Eof at \"\"")),
         );
     }
 
@@ -383,7 +384,7 @@ mod test {
 
         assert_eq!(
             EventOccurrenceOverride::try_from(&invalid_rdb_event_occurrence_override).map_err(String::from),
-            Err(String::from("Error at 19700101T000500Z:Error - parse error Eof at ")),
+            Err(String::from("Error at 19700101T000500Z:Error - parse error Eof at \"\"")),
         );
     }
 

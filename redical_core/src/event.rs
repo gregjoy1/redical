@@ -14,6 +14,7 @@ use redical_ical::{
         EventProperty,
         EventProperties,
         UIDProperty,
+        LastModifiedProperty,
         RRuleProperty,
         ExRuleProperty,
         RDateProperty,
@@ -478,6 +479,7 @@ impl PassiveProperties {
     pub fn insert(&mut self, property: EventProperty) -> Result<&Self, String> {
         match property {
             EventProperty::UID(_)
+            | EventProperty::LastModified(_)
             | EventProperty::Class(_)
             | EventProperty::Geo(_)
             | EventProperty::Categories(_)
@@ -507,6 +509,7 @@ impl PassiveProperties {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Event {
     pub uid: UIDProperty,
+    pub last_modified: LastModifiedProperty,
 
     pub schedule_properties: ScheduleProperties,
     pub indexed_properties: IndexedProperties,
@@ -524,6 +527,7 @@ impl Event {
     pub fn new(uid: String) -> Event {
         Event {
             uid: UIDProperty::from(uid),
+            last_modified: LastModifiedProperty::new_from_now(),
 
             schedule_properties: ScheduleProperties::new(),
             indexed_properties: IndexedProperties::new(),
@@ -576,6 +580,10 @@ impl Event {
                         format!("Inserted event UID: {} does not match existing UID: {}", property.uid.to_string(), self.uid.uid.to_string())
                     );
                 }
+            },
+
+            EventProperty::LastModified(property) => {
+                self.last_modified = property;
             },
 
             EventProperty::Class(_)
@@ -742,6 +750,7 @@ impl ICalendarComponent for Event {
         let mut serializable_properties: BTreeSet<ContentLine> = BTreeSet::new();
 
         serializable_properties.insert(self.uid.to_content_line_with_context(context));
+        serializable_properties.insert(self.last_modified.to_content_line_with_context(context));
 
         if let Some(rrule_property) = &self.schedule_properties.rrule {
             serializable_properties.insert(rrule_property.to_content_line_with_context(context));
@@ -819,6 +828,7 @@ mod test {
     fn test_indexed_categories() {
         let event = Event {
             uid: String::from("event_UID").into(),
+            last_modified: build_property_from_ical!(LastModifiedProperty, "LAST-MODIFIED:20201230T173000Z"),
 
             schedule_properties: ScheduleProperties {
                 rrule: None,
@@ -1056,12 +1066,13 @@ mod test {
 
     #[test]
     fn test_parse_ical() {
-        let ical: &str = "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas\\, NV\\, USA RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,\"CATEGORY (THREE)\"";
+        let ical: &str = "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas\\, NV\\, USA RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,\"CATEGORY (THREE)\" LAST-MODIFIED:20201230T173000Z";
 
         assert_eq!(
             Event::parse_ical("event_UID", ical).unwrap(),
             Event {
                 uid: String::from("event_UID").into(),
+                last_modified: build_property_from_ical!(LastModifiedProperty, "LAST-MODIFIED:20201230T173000Z"),
 
                 schedule_properties: ScheduleProperties {
                     rrule: Some(build_property_from_ical!(RRuleProperty, "RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH")),
@@ -1096,7 +1107,7 @@ mod test {
 
     #[test]
     fn test_build_parsed_rrule_set() {
-        let ical: &str = "RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH DTSTART:16010101T020000";
+        let ical: &str = "RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH DTSTART:16010101T020000 LAST-MODIFIED:20201230T173000Z";
 
         let mut parsed_event = Event::parse_ical("event_UID", ical).unwrap();
 
@@ -1104,6 +1115,7 @@ mod test {
             parsed_event,
             Event {
                 uid: String::from("event_UID").into(),
+                last_modified: build_property_from_ical!(LastModifiedProperty, "LAST-MODIFIED:20201230T173000Z"),
 
                 schedule_properties: ScheduleProperties {
                     rrule: Some(build_property_from_ical!(
@@ -1139,7 +1151,7 @@ mod test {
             .build_parsed_rrule_set()
             .is_ok());
 
-        let ical: &str = "RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH";
+        let ical: &str = "RRULE:FREQ=WEEKLY;UNTIL=20211231T183000Z;INTERVAL=1;BYDAY=TU,TH LAST-MODIFIED:20201230T173000Z";
 
         let mut parsed_event = Event::parse_ical("event_UID", ical).unwrap();
 
@@ -1147,6 +1159,7 @@ mod test {
             parsed_event,
             Event {
                 uid: String::from("event_UID").into(),
+                last_modified: build_property_from_ical!(LastModifiedProperty, "LAST-MODIFIED:20201230T173000Z"),
 
                 schedule_properties: ScheduleProperties {
                     rrule: Some(build_property_from_ical!(
@@ -1183,7 +1196,7 @@ mod test {
     #[test]
     fn test_occurrence_override_insertion_and_deletion() {
         let ical: &str =
-            "RRULE:FREQ=WEEKLY;UNTIL=20210331T183000Z;INTERVAL=1;BYDAY=TU DTSTART:20201231T183000Z";
+            "RRULE:FREQ=WEEKLY;UNTIL=20210331T183000Z;INTERVAL=1;BYDAY=TU DTSTART:20201231T183000Z LAST-MODIFIED:20201230T173000Z";
 
         let mut parsed_event = Event::parse_ical("event_UID", ical).unwrap();
 
@@ -1207,6 +1220,7 @@ mod test {
             Ok(
                 &Event {
                     uid: String::from("event_UID").into(),
+                    last_modified: build_property_from_ical!(LastModifiedProperty, "LAST-MODIFIED:20201230T173000Z"),
 
                     schedule_properties: ScheduleProperties {
                         rrule: Some(build_property_from_ical!(RRuleProperty, "RRULE:FREQ=WEEKLY;UNTIL=20210331T183000Z;INTERVAL=1;BYDAY=TU")),
@@ -1287,6 +1301,7 @@ mod test {
             parsed_event,
             Event {
                 uid: String::from("event_UID").into(),
+                last_modified: build_property_from_ical!(LastModifiedProperty, "LAST-MODIFIED:20201230T173000Z"),
 
                 schedule_properties: ScheduleProperties {
                     rrule: Some(build_property_from_ical!(
@@ -1331,11 +1346,11 @@ mod test {
 
     #[test]
     fn test_related_to() {
-        let ical: &str = "RELATED-TO:ParentUID_One RELATED-TO;RELTYPE=PARENT:ParentUID_Two RELATED-TO;RELTYPE=CHILD:ChildUID";
+        let ical: &str = "RELATED-TO:ParentUID_One RELATED-TO;RELTYPE=PARENT:ParentUID_Two RELATED-TO;RELTYPE=CHILD:ChildUID LAST-MODIFIED:20201230T173000Z";
 
         assert!(Event::parse_ical("event_UID", ical).is_ok());
 
-        let ical: &str = "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_One RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Two RELATED-TO:ParentUID_One RELATED-TO;RELTYPE=PARENT:ParentUID_Two RELATED-TO;RELTYPE=CHILD:ChildUID";
+        let ical: &str = "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_One RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Two RELATED-TO:ParentUID_One RELATED-TO;RELTYPE=PARENT:ParentUID_Two RELATED-TO;RELTYPE=CHILD:ChildUID LAST-MODIFIED:20201230T173000Z";
 
         let parsed_event = Event::parse_ical("event_UID", ical).unwrap();
 
@@ -1343,6 +1358,7 @@ mod test {
             parsed_event,
             Event {
                 uid: String::from("event_UID").into(),
+                last_modified: build_property_from_ical!(LastModifiedProperty, "LAST-MODIFIED:20201230T173000Z"),
 
                 schedule_properties: ScheduleProperties {
                     rrule: None,
