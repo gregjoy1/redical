@@ -9,6 +9,7 @@ use redical_ical::{
     RenderingContext,
     content_line::ContentLine,
     properties::{
+        LastModifiedProperty,
         ICalendarProperty,
         ICalendarDateTimeProperty,
         EventProperty,
@@ -23,6 +24,8 @@ use redical_ical::values::date_time::DateTime as ICalDateTime;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct EventOccurrenceOverride {
+    pub last_modified: LastModifiedProperty,
+
     pub indexed_properties: IndexedProperties,
     pub passive_properties: PassiveProperties,
 
@@ -34,6 +37,7 @@ pub struct EventOccurrenceOverride {
 impl Default for EventOccurrenceOverride {
     fn default() -> Self {
         EventOccurrenceOverride {
+            last_modified: LastModifiedProperty::new_from_now(),
             indexed_properties: IndexedProperties::new(),
             passive_properties: PassiveProperties::new(),
             dtstart: None,
@@ -108,6 +112,10 @@ impl EventOccurrenceOverride {
 
     pub fn insert(&mut self, property: EventProperty) -> Result<&Self, String> {
         match property {
+            EventProperty::LastModified(property) => {
+                self.last_modified = property;
+            },
+
             EventProperty::Class(_)
             | EventProperty::Geo(_)
             | EventProperty::Categories(_)
@@ -163,6 +171,8 @@ impl EventOccurrenceOverride {
 impl ICalendarComponent for EventOccurrenceOverride {
     fn to_content_line_set_with_context(&self, context: Option<&RenderingContext>) -> BTreeSet<ContentLine> {
         let mut serializable_properties: BTreeSet<ContentLine> = BTreeSet::new();
+
+        serializable_properties.insert(self.last_modified.to_content_line_with_context(context));
 
         if let Some(dtstart_property) = &self.dtstart {
             serializable_properties.insert(dtstart_property.to_content_line_with_context(context));
@@ -231,13 +241,14 @@ mod test {
             ))
         );
 
-        let ical_with_different_dtstart: &str = "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas\\, NV\\, USA DTSTART:19700202T000500Z";
+        let ical_with_different_dtstart: &str = "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas\\, NV\\, USA DTSTART:19700202T000500Z LAST-MODIFIED:20201230T173000Z";
 
         // Expect the DTSTART in the ical to be overridden by the date string provided to parse_ical.
         assert_eq!(
             EventOccurrenceOverride::parse_ical("19700101T000500Z", ical_with_different_dtstart),
             Ok(
                 EventOccurrenceOverride {
+                    last_modified: build_property_from_ical!(LastModifiedProperty, "LAST-MODIFIED:20201230T173000Z"),
                     indexed_properties: IndexedProperties {
                         geo: None,
                         class: None,
@@ -256,11 +267,12 @@ mod test {
             )
         );
 
-        let ical_without_rrule: &str = "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas\\, NV\\, USA CLASS:PRIVATE CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,\"CATEGORY (THREE)\"";
+        let ical_without_rrule: &str = "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas\\, NV\\, USA CLASS:PRIVATE CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,\"CATEGORY (THREE)\" LAST-MODIFIED:20201230T173000Z";
 
         assert_eq!(
             EventOccurrenceOverride::parse_ical("19700101T000500Z", ical_without_rrule).unwrap(),
             EventOccurrenceOverride {
+                last_modified: build_property_from_ical!(LastModifiedProperty, "LAST-MODIFIED:20201230T173000Z"),
                 indexed_properties: IndexedProperties {
                     geo: None,
                     class: Some(build_property_from_ical!(ClassProperty, "CLASS:PRIVATE")),

@@ -371,6 +371,8 @@ mod test {
 
     use crate::event::{IndexedProperties, PassiveProperties};
 
+    use redical_ical::properties::LastModifiedProperty;
+
     use pretty_assertions_sorted::assert_eq;
 
     fn build_schedule_properties() -> ScheduleProperties {
@@ -401,6 +403,7 @@ mod test {
 
     fn build_event_occurrence_override_300() -> EventOccurrenceOverride {
         EventOccurrenceOverride {
+            last_modified: build_property_from_ical!(LastModifiedProperty, "LAST-MODIFIED:20201230T173000Z"),
             indexed_properties: IndexedProperties {
                 geo: None,
                 class: None,
@@ -419,6 +422,7 @@ mod test {
 
     fn build_event_occurrence_override_500() -> EventOccurrenceOverride {
         EventOccurrenceOverride {
+            last_modified: build_property_from_ical!(LastModifiedProperty, "LAST-MODIFIED:20201230T173000Z"),
             indexed_properties: IndexedProperties {
                 geo: None,
                 class: None,
@@ -440,6 +444,7 @@ mod test {
 
     fn build_event_occurrence_override_700() -> EventOccurrenceOverride {
         EventOccurrenceOverride {
+            last_modified: build_property_from_ical!(LastModifiedProperty, "LAST-MODIFIED:20201230T173000Z"),
             indexed_properties: IndexedProperties {
                 geo: None,
                 class: None,
@@ -458,6 +463,7 @@ mod test {
 
     fn build_event_occurrence_override_900() -> EventOccurrenceOverride {
         EventOccurrenceOverride {
+            last_modified: build_property_from_ical!(LastModifiedProperty, "LAST-MODIFIED:20201230T173000Z"),
             indexed_properties: IndexedProperties {
                 geo: None,
                 class: None,

@@ -860,6 +860,7 @@ mod test {
                 (
                     100,
                     EventOccurrenceOverride {
+                        last_modified: build_property_from_ical!(LastModifiedProperty, "LAST-MODIFIED:20201230T173000Z"),
                         indexed_properties: IndexedProperties {
                             geo: None,
                             related_to: None,
@@ -879,6 +880,7 @@ mod test {
                 (
                     200,
                     EventOccurrenceOverride {
+                        last_modified: build_property_from_ical!(LastModifiedProperty, "LAST-MODIFIED:20201230T173000Z"),
                         indexed_properties: IndexedProperties {
                             geo: None,
                             related_to: None,
@@ -898,6 +900,7 @@ mod test {
                 (
                     300,
                     EventOccurrenceOverride {
+                        last_modified: build_property_from_ical!(LastModifiedProperty, "LAST-MODIFIED:20201230T173000Z"),
                         indexed_properties: IndexedProperties::new(),
                         passive_properties: PassiveProperties::new(),
                         dtstart: None,
@@ -909,6 +912,7 @@ mod test {
                 (
                     400,
                     EventOccurrenceOverride {
+                        last_modified: build_property_from_ical!(LastModifiedProperty, "LAST-MODIFIED:20201230T173000Z"),
                         indexed_properties: IndexedProperties {
                             geo: None,
                             related_to: None,
@@ -925,6 +929,7 @@ mod test {
                 (
                     500,
                     EventOccurrenceOverride {
+                        last_modified: build_property_from_ical!(LastModifiedProperty, "LAST-MODIFIED:20201230T173000Z"),
                         indexed_properties: IndexedProperties {
                             geo: None,
                             related_to: None,
@@ -1201,6 +1206,7 @@ mod test {
         let mut parsed_event = Event::parse_ical("event_UID", ical).unwrap();
 
         let event_occurrence_override = EventOccurrenceOverride {
+            last_modified: build_property_from_ical!(LastModifiedProperty, "LAST-MODIFIED:20201230T173000Z"),
             indexed_properties: IndexedProperties {
                 geo: None,
                 related_to: None,
@@ -1241,6 +1247,7 @@ mod test {
                         (
                             1610476200,
                             EventOccurrenceOverride {
+                                last_modified: build_property_from_ical!(LastModifiedProperty, "LAST-MODIFIED:20201230T173000Z"),
                                 indexed_properties: IndexedProperties {
                                     geo: None,
                                     related_to: None,

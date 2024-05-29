@@ -256,7 +256,7 @@ mod test {
         let event_occurrence_override =
             EventOccurrenceOverride::parse_ical(
                 "19700101T000500Z",
-                "CLASS:PRIVATE CATEGORIES:\"CATEGORY THREE\",CATEGORY_ONE,CATEGORY_TWO",
+                "CLASS:PRIVATE CATEGORIES:\"CATEGORY THREE\",CATEGORY_ONE,CATEGORY_TWO LAST-MODIFIED:19700101T020500Z",
             ).unwrap();
 
         let mut event =
@@ -303,6 +303,7 @@ mod test {
                                     String::from("CATEGORIES:\"CATEGORY THREE\",CATEGORY_ONE,CATEGORY_TWO"),
                                     String::from("CLASS:PRIVATE"),
                                     String::from("DTSTART:19700101T000500Z"),
+                                    String::from("LAST-MODIFIED:19700101T020500Z"),
                                 ],
                             ),
                         ],
