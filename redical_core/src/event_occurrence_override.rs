@@ -37,7 +37,7 @@ pub struct EventOccurrenceOverride {
 impl Default for EventOccurrenceOverride {
     fn default() -> Self {
         EventOccurrenceOverride {
-            last_modified: LastModifiedProperty::new_from_now(),
+            last_modified: LastModifiedProperty::new_from_now(false),
             indexed_properties: IndexedProperties::new(),
             passive_properties: PassiveProperties::new(),
             dtstart: None,

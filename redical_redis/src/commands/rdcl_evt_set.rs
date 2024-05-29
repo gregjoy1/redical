@@ -52,6 +52,16 @@ pub fn redical_event_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
             .get(&event_uid)
             .cloned();
 
+    // Validate new event's LAST-MODIFIED property (if provided) is more recent than that on the
+    // existing event.
+    if let Some(existing_event) = existing_event.as_ref() {
+        if event.last_modified < existing_event.last_modified {
+            println!("rdcl.evt_set: key: {calendar_uid} event uid: {event_uid} - skipped due to LAST-MODIFIED - existing: {} new: {}", existing_event.last_modified.to_string(), event.last_modified.to_string());
+
+            return Ok(RedisValue::Bool(false));
+        }
+    }
+
     let event_diff = if let Some(existing_event) = existing_event.as_ref() {
         EventDiff::new(existing_event, &event)
     } else {

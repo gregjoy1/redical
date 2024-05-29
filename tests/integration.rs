@@ -11,7 +11,7 @@ mod integration {
 
     use super::*;
 
-    use pretty_assertions_sorted::{assert_eq, assert_eq_sorted};
+    use pretty_assertions_sorted::{assert_ne, assert_eq, assert_eq_sorted};
 
     // Run with:
     //  cargo build && cargo test --all
@@ -44,6 +44,7 @@ mod integration {
                 "RRULE:BYDAY=MO,WE;FREQ=WEEKLY;INTERVAL=1;UNTIL=20211231T170000Z",
                 "DTSTART:20201231T160000Z",
                 "DTEND:20201231T170000Z",
+                "LAST-MODIFIED:20210501T090000Z",
                 "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
                 "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
             ],
@@ -58,6 +59,7 @@ mod integration {
                 "RRULE:BYDAY=MO,WE;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
                 "DTSTART:20201231T170000Z",
                 "DTEND:20201231T173000Z",
+                "LAST-MODIFIED:20210501T090000Z",
                 "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
                 "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
                 "GEO:51.751365550307604;-1.2601196837753945",
@@ -73,6 +75,7 @@ mod integration {
                     "RRULE:BYDAY=MO,WE;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
                     "DTSTART:20201231T170000Z",
                     "DTEND:20201231T173000Z",
+                    "LAST-MODIFIED:20210501T090000Z",
                     "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
                     "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
                     "GEO:51.751365550307604;-1.2601196837753945",
@@ -83,6 +86,7 @@ mod integration {
                     "RRULE:BYDAY=MO,WE;FREQ=WEEKLY;INTERVAL=1;UNTIL=20211231T170000Z",
                     "DTSTART:20201231T160000Z",
                     "DTEND:20201231T170000Z",
+                    "LAST-MODIFIED:20210501T090000Z",
                     "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
                     "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
                     "UID:ONLINE_EVENT_MON_WED",
@@ -103,6 +107,125 @@ mod integration {
         Ok(())
     }
 
+    fn test_event_set_last_modified(connection: &mut Connection) -> Result<()> {
+        set_and_assert_calendar!(connection, "TEST_CALENDAR_UID");
+
+        set_and_assert_event!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "ONLINE_EVENT_MON_WED",
+            [
+                "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM",
+                "DTSTART:20201231T160000Z",
+                "LAST-MODIFIED:20210501T090000Z",
+            ],
+        );
+
+        list_and_assert_matching_events!(
+            connection,
+            "TEST_CALENDAR_UID",
+            [
+                [
+                    "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM",
+                    "DTSTART:20201231T160000Z",
+                    "LAST-MODIFIED:20210501T090000Z",
+                    "UID:ONLINE_EVENT_MON_WED",
+                ],
+            ],
+        );
+
+        // Assert setting event with earlier LAST-MODIFIED property gets ignored.
+        set_and_assert_event_not_set!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "ONLINE_EVENT_MON_WED",
+            [
+                "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM (UPDATED)",
+                "DTSTART:20201231T160000Z",
+                "LAST-MODIFIED:20210201T090000Z", // <- Earlier LAST-MODIFIED specified!
+            ],
+        );
+
+        // Assert not having changed!
+        assert_event_present!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "ONLINE_EVENT_MON_WED",
+            [
+                "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM",
+                "DTSTART:20201231T160000Z",
+                "LAST-MODIFIED:20210501T090000Z",
+            ],
+        );
+
+        // Assert setting event with later LAST-MODIFIED property gets acknowledged.
+        set_and_assert_event!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "ONLINE_EVENT_MON_WED",
+            [
+                "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM (UPDATED ONE)",
+                "DTSTART:20201231T160000Z",
+                "LAST-MODIFIED:20210501T120000Z", // <- Later LAST-MODIFIED specified!
+            ],
+        );
+
+        // Assert event being changed!
+        assert_event_present!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "ONLINE_EVENT_MON_WED",
+            [
+                "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM (UPDATED ONE)",
+                "DTSTART:20201231T160000Z",
+                "LAST-MODIFIED:20210501T120000Z",
+            ],
+        );
+
+        // Assert setting event with later LAST-MODIFIED property (by a few milliseconds) gets
+        // acknowledged.
+        set_and_assert_event!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "ONLINE_EVENT_MON_WED",
+            [
+                "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM (UPDATED TWO)",
+                "DTSTART:20201231T160000Z",
+                "LAST-MODIFIED;X-MILLIS=123:20210501T120000Z", // <- Later LAST-MODIFIED specified (by 123 milliseconds)!
+            ],
+        );
+
+        // Assert event being changed!
+        assert_event_present!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "ONLINE_EVENT_MON_WED",
+            [
+                "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM (UPDATED TWO)",
+                "DTSTART:20201231T160000Z",
+                "LAST-MODIFIED;X-MILLIS=123:20210501T120000Z", // <- Later LAST-MODIFIED specified (by 123 milliseconds)!
+            ],
+        );
+
+        // Assert setting event with no LAST-MODIFIED property specified (defaults to now -- which
+        // is later than the existing).
+        set_and_assert_event!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "ONLINE_EVENT_MON_WED",
+            [
+                "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM (UPDATED THREE)",
+                "DTSTART:20201231T160000Z",
+            ],
+            [
+                format!("LAST-MODIFIED:{}", chrono::offset::Utc::now().format("%Y%m%dT%H%M%SZ")),
+            ],
+        );
+
+
+        Ok(())
+    }
+
     fn test_event_override_get_set_del_list(connection: &mut Connection) -> Result<()> {
         set_and_assert_calendar!(connection, "TEST_CALENDAR_UID");
 
@@ -115,6 +238,7 @@ mod integration {
                 "RRULE:BYDAY=MO,WE;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
                 "DTSTART:20201231T170000Z",
                 "DTEND:20201231T173000Z",
+                "LAST-MODIFIED:20210501T090000Z",
                 "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
                 "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
                 "GEO:51.751365550307604;-1.2601196837753945",
@@ -127,6 +251,7 @@ mod integration {
             "EVENT_IN_OXFORD_MON_WED",
             "20210102T170000Z",
             [
+                "LAST-MODIFIED:20210501T090000Z",
                 "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY",
                 "X-SPACES-BOOKED:12",
             ],
@@ -138,6 +263,7 @@ mod integration {
             "EVENT_IN_OXFORD_MON_WED",
             "20201231T170000Z",
             [
+                "LAST-MODIFIED:20210501T090000Z",
                 "SUMMARY:Overridden event in Oxford summary text",
                 "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_PARENT_UUID",
                 "CATEGORIES:OVERRIDDEN_CATEGORY",
@@ -150,12 +276,14 @@ mod integration {
             "EVENT_IN_OXFORD_MON_WED",
             [
                 [
+                    "LAST-MODIFIED:20210501T090000Z",
                     "DTSTART:20201231T170000Z",
                     "SUMMARY:Overridden event in Oxford summary text",
                     "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_PARENT_UUID",
                     "CATEGORIES:OVERRIDDEN_CATEGORY",
                 ],
                 [
+                    "LAST-MODIFIED:20210501T090000Z",
                     "DTSTART:20210102T170000Z",
                     "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY",
                     "X-SPACES-BOOKED:12",
@@ -171,6 +299,7 @@ mod integration {
             1,
             [
                 [
+                    "LAST-MODIFIED:20210501T090000Z",
                     "DTSTART:20201231T170000Z",
                     "SUMMARY:Overridden event in Oxford summary text",
                     "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_PARENT_UUID",
@@ -187,6 +316,7 @@ mod integration {
             20,
             [
                 [
+                    "LAST-MODIFIED:20210501T090000Z",
                     "DTSTART:20210102T170000Z",
                     "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY",
                     "X-SPACES-BOOKED:12",
@@ -215,6 +345,7 @@ mod integration {
             "TEST_CALENDAR_UID",
             "EVENT_IN_OXFORD_MON_WED",
             [
+                "LAST-MODIFIED:20210501T090000Z",
                 "SUMMARY:Event in Oxford on Mondays and Wednesdays at 5:00PM",
                 "RRULE:BYDAY=MO,WE;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
                 "DTSTART:20201231T170000Z",
@@ -293,6 +424,7 @@ mod integration {
             "EVENT_IN_OXFORD_MON_WED",
             "20210104T170000Z",
             [
+                "LAST-MODIFIED:20210501T090000Z",
                 "SUMMARY:Overridden event in Oxford summary text",
                 "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_PARENT_UUID",
                 "CATEGORIES:OVERRIDDEN_CATEGORY",
@@ -305,6 +437,7 @@ mod integration {
             "EVENT_IN_OXFORD_MON_WED",
             "20210111T170000Z",
             [
+                "LAST-MODIFIED:20210501T090000Z",
                 "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY",
                 "X-SPACES-BOOKED:12",
             ],
@@ -470,6 +603,7 @@ mod integration {
                 "RRULE:BYDAY=TH,TU;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
                 "DTSTART:20201231T183000Z",
                 "DTEND:20201231T190000Z",
+                "LAST-MODIFIED:20210501T090000Z",
                 "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
                 "CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE",
                 "GEO:51.89936851432488;-2.078357552295971",
@@ -485,6 +619,7 @@ mod integration {
                 "RRULE:BYDAY=TH,TU;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
                 "DTSTART:20201231T183000Z",
                 "DTEND:20201231T190000Z",
+                "LAST-MODIFIED:20210501T090000Z",
                 "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
                 "CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE",
                 "GEO:51.454481838260214;-2.588329192623361",
@@ -497,6 +632,7 @@ mod integration {
             "OVERRIDDEN_EVENT_IN_BRISTOL_TUE_THU",
             "20210105T183000Z",
             [
+                "LAST-MODIFIED:20210501T090000Z",
                 "SUMMARY:Overridden Event in Bristol on Tuesdays and Thursdays at 6:30PM",
                 "RELATED-TO;RELTYPE=PARENT:PARENT_UUID_OVERRIDE",
                 "CATEGORIES:CATEGORY_OVERRIDE",
@@ -509,6 +645,7 @@ mod integration {
             "OVERRIDDEN_EVENT_IN_BRISTOL_TUE_THU",
             "20210107T183000Z",
             [
+                "LAST-MODIFIED:20210501T090000Z",
                 "SUMMARY:Event in Bristol overridden to run in Cheltenham instead",
                 "GEO:51.89936851432488;-2.078357552295971",
             ],
@@ -520,6 +657,7 @@ mod integration {
             "OVERRIDDEN_EVENT_IN_BRISTOL_TUE_THU",
             "20210108T183000Z",
             [
+                "LAST-MODIFIED:20210501T090000Z",
                 "SUMMARY:Detatched override for Event in Bristol with invalid DTSTART",
             ],
         );
@@ -638,6 +776,7 @@ mod integration {
                 "RRULE:BYDAY=MO,WE;FREQ=WEEKLY;INTERVAL=1;UNTIL=20211231T170000Z",
                 "DTSTART:20201231T160000Z",
                 "DTEND:20201231T170000Z",
+                "LAST-MODIFIED:20210501T090000Z",
                 "RELATED-TO;RELTYPE=PARENT:PARENT_UUID_ONLINE",
                 "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
             ],
@@ -652,6 +791,7 @@ mod integration {
                 "RRULE:BYDAY=MO,WE;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
                 "DTSTART:20201231T170000Z",
                 "DTEND:20201231T173000Z",
+                "LAST-MODIFIED:20210501T090000Z",
                 "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
                 "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
                 "GEO:51.751365550307604;-1.2601196837753945",
@@ -664,6 +804,7 @@ mod integration {
             "EVENT_IN_OXFORD_MON_WED",
             "20210104T170000Z",
             [
+                "LAST-MODIFIED:20210501T090000Z",
                 "SUMMARY:Overridden event in Oxford summary text",
                 "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_PARENT_UUID",
                 "CATEGORIES:OVERRIDDEN_CATEGORY",
@@ -676,6 +817,7 @@ mod integration {
             "EVENT_IN_OXFORD_MON_WED",
             "20210111T170000Z",
             [
+                "LAST-MODIFIED:20210501T090000Z",
                 "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY",
                 "X-SPACES-BOOKED:12",
             ],
@@ -690,6 +832,7 @@ mod integration {
                 "RRULE:BYDAY=TH,TU;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
                 "DTSTART:20201231T180000Z",
                 "DTEND:20201231T183000Z",
+                "LAST-MODIFIED:20210501T090000Z",
                 "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
                 "CATEGORIES:CATEGORY_ONE,CATEGORY_THREE",
                 "GEO:51.45442303961853;-0.9792277140273513",
@@ -705,6 +848,7 @@ mod integration {
                 "RRULE:BYDAY=TH,TU;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
                 "DTSTART:20201231T183000Z",
                 "DTEND:20201231T190000Z",
+                "LAST-MODIFIED:20210501T090000Z",
                 "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
                 "CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE",
                 "GEO:51.50740017561507;-0.12698231869919185",
@@ -805,6 +949,7 @@ mod integration {
                 "RRULE:BYDAY=MO,WE;COUNT=2;FREQ=WEEKLY;INTERVAL=1",
                 "DTSTART:20201231T170000Z",
                 "DTEND:20201231T173000Z",
+                "LAST-MODIFIED:20210501T090000Z",
                 "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
                 "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
                 "GEO:51.751365550307604;-1.2601196837753945",
@@ -817,6 +962,7 @@ mod integration {
             "EVENT_IN_OXFORD_MON_WED",
             "20210104T170000Z",
             [
+                "LAST-MODIFIED:20210501T090000Z",
                 "SUMMARY:Overridden event in Oxford summary text",
                 "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_PARENT_UUID",
                 "CATEGORIES:OVERRIDDEN_CATEGORY",
@@ -907,6 +1053,7 @@ mod integration {
                 "RRULE:BYDAY=MO,WE;FREQ=WEEKLY;INTERVAL=1;UNTIL=20211231T170000Z",
                 "DTSTART:20201231T160000Z",
                 "DTEND:20201231T170000Z",
+                "LAST-MODIFIED:20210501T090000Z",
                 "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
                 "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
             ],
@@ -921,6 +1068,7 @@ mod integration {
                 "RRULE:BYDAY=MO,WE;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
                 "DTSTART:20201231T170000Z",
                 "DTEND:20201231T173000Z",
+                "LAST-MODIFIED:20210501T090000Z",
                 "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
                 "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
                 "GEO:51.751365550307604;-1.2601196837753945",
@@ -936,6 +1084,7 @@ mod integration {
                     "RRULE:BYDAY=MO,WE;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
                     "DTSTART:20201231T170000Z",
                     "DTEND:20201231T173000Z",
+                    "LAST-MODIFIED:20210501T090000Z",
                     "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
                     "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
                     "GEO:51.751365550307604;-1.2601196837753945",
@@ -946,6 +1095,7 @@ mod integration {
                     "RRULE:BYDAY=MO,WE;FREQ=WEEKLY;INTERVAL=1;UNTIL=20211231T170000Z",
                     "DTSTART:20201231T160000Z",
                     "DTEND:20201231T170000Z",
+                    "LAST-MODIFIED:20210501T090000Z",
                     "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
                     "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
                     "UID:ONLINE_EVENT_MON_WED",
@@ -964,6 +1114,7 @@ mod integration {
                     "RRULE:BYDAY=MO,WE;FREQ=WEEKLY;INTERVAL=1;UNTIL=20211231T170000Z",
                     "DTSTART:20201231T160000Z",
                     "DTEND:20201231T170000Z",
+                    "LAST-MODIFIED:20210501T090000Z",
                     "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
                     "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
                     "UID:ONLINE_EVENT_MON_WED",
@@ -985,6 +1136,7 @@ mod integration {
             "EVENT_IN_OXFORD_MON_WED",
             "20210102T170000Z",
             [
+                "LAST-MODIFIED:20210501T090000Z",
                 "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY",
                 "X-SPACES-BOOKED:12",
             ],
@@ -996,6 +1148,7 @@ mod integration {
             "EVENT_IN_OXFORD_MON_WED",
             "20201231T170000Z",
             [
+                "LAST-MODIFIED:20210501T090000Z",
                 "SUMMARY:Overridden event in Oxford summary text",
                 "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_PARENT_UUID",
                 "CATEGORIES:OVERRIDDEN_CATEGORY",
@@ -1008,12 +1161,14 @@ mod integration {
             "EVENT_IN_OXFORD_MON_WED",
             [
                 [
+                    "LAST-MODIFIED:20210501T090000Z",
                     "DTSTART:20201231T170000Z",
                     "SUMMARY:Overridden event in Oxford summary text",
                     "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_PARENT_UUID",
                     "CATEGORIES:OVERRIDDEN_CATEGORY",
                 ],
                 [
+                    "LAST-MODIFIED:20210501T090000Z",
                     "DTSTART:20210102T170000Z",
                     "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY",
                     "X-SPACES-BOOKED:12",
@@ -1055,6 +1210,7 @@ mod integration {
                     "RRULE:BYDAY=MO,WE;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
                     "DTSTART:20201231T170000Z",
                     "DTEND:20201231T173000Z",
+                    "LAST-MODIFIED:20210501T090000Z",
                     "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
                     "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
                     "GEO:51.751365550307604;-1.2601196837753945",
@@ -1065,6 +1221,7 @@ mod integration {
                     "RRULE:BYDAY=MO,WE;FREQ=WEEKLY;INTERVAL=1;UNTIL=20211231T170000Z",
                     "DTSTART:20201231T160000Z",
                     "DTEND:20201231T170000Z",
+                    "LAST-MODIFIED:20210501T090000Z",
                     "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
                     "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
                     "UID:ONLINE_EVENT_MON_WED",
@@ -1078,12 +1235,14 @@ mod integration {
             "EVENT_IN_OXFORD_MON_WED",
             [
                 [
+                    "LAST-MODIFIED:20210501T090000Z",
                     "DTSTART:20201231T170000Z",
                     "SUMMARY:Overridden event in Oxford summary text",
                     "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_PARENT_UUID",
                     "CATEGORIES:OVERRIDDEN_CATEGORY",
                 ],
                 [
+                    "LAST-MODIFIED:20210501T090000Z",
                     "DTSTART:20210102T170000Z",
                     "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY",
                     "X-SPACES-BOOKED:12",
@@ -1097,6 +1256,7 @@ mod integration {
     run_all_integration_tests_sequentially!(
         test_calendar_get_set_del,
         test_event_get_set_del_list,
+        test_event_set_last_modified,
         test_event_override_get_set_del_list,
         test_event_instance_list,
         test_calendar_query,

@@ -981,6 +981,7 @@ name = "redical"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "pretty_assertions_sorted",
  "redis",
 ]

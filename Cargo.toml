@@ -30,7 +30,7 @@ itertools = "0.12.1"
 pretty_assertions_sorted = { workspace = true }
 anyhow = { workspace = true }
 redis = { workspace = true }
-
+chrono = { workspace = true }
 
 [features]
 as-library = []

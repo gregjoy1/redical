@@ -116,7 +116,7 @@ impl LastModifiedProperty {
         self.params.millis.clone().map_or(0_i64, |millis| *millis)
     }
 
-    pub fn new_from_now() -> Self {
+    pub fn new_from_now(set_millis: bool) -> Self {
         let current_date_time = chrono::offset::Utc::now();
 
         let millis = current_date_time.timestamp_subsec_millis() as i64;
@@ -125,7 +125,9 @@ impl LastModifiedProperty {
 
         let mut params = LastModifiedPropertyParams::default();
 
-        params.millis = Some(Integer::from(millis));
+        if set_millis {
+            params.millis = Some(Integer::from(millis));
+        }
 
         LastModifiedProperty {
             params,
@@ -474,8 +476,8 @@ mod tests {
     }
 
     #[test]
-    fn new_from_now() {
-        let last_modified_property = LastModifiedProperty::new_from_now();
+    fn new_from_now_with_millis() {
+        let last_modified_property = LastModifiedProperty::new_from_now(true);
 
         let current_date_time = chrono::offset::Utc::now();
 
@@ -484,5 +486,16 @@ mod tests {
         let current_millis = current_date_time.timestamp_subsec_millis() as i64;
 
         assert!(current_millis >= last_modified_property.get_millis());
+    }
+
+    #[test]
+    fn new_from_now_without_millis() {
+        let last_modified_property = LastModifiedProperty::new_from_now(false);
+
+        let current_date_time = chrono::offset::Utc::now();
+
+        assert_eq!(last_modified_property.get_utc_timestamp(), current_date_time.timestamp());
+
+        assert_eq!(0, last_modified_property.get_millis());
     }
 }

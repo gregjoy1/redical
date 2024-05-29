@@ -3,7 +3,7 @@ use std::str::FromStr;
 use nom::error::context;
 use nom::branch::alt;
 use nom::combinator::{map, all_consuming, recognize};
-use nom::multi::separated_list1;
+use nom::multi::separated_list0;
 use nom::sequence::preceded;
 
 mod dtstart;
@@ -171,7 +171,7 @@ impl FromStr for EventProperties {
 
     fn from_str(input: &str) -> Result<Self, Self::Err> {
         let parsed_properties =
-            all_consuming(separated_list1(wsp, EventProperty::parse_ical))(ParserInput::new_extra(input, ParserContext::Event));
+            all_consuming(separated_list0(wsp, EventProperty::parse_ical))(ParserInput::new_extra(input, ParserContext::Event));
 
         match parsed_properties {
             Ok((_remaining, event_properties)) => {

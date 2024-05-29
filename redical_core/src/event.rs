@@ -527,7 +527,7 @@ impl Event {
     pub fn new(uid: String) -> Event {
         Event {
             uid: UIDProperty::from(uid),
-            last_modified: LastModifiedProperty::new_from_now(),
+            last_modified: LastModifiedProperty::new_from_now(false),
 
             schedule_properties: ScheduleProperties::new(),
             indexed_properties: IndexedProperties::new(),
