@@ -71,7 +71,13 @@ pub fn redical_event_override_set(ctx: &Context, args: Vec<RedisString>) -> Redi
     // not then we skip the insert and return false to signal this to the client.
     if let Some(existing_event_occurrence_override) = event.overrides.get(&parsed_override_datetime.get_utc_timestamp(None)) {
         if event_occurrence_override.last_modified < existing_event_occurrence_override.last_modified {
-            println!("rdcl.evo_set: key: {calendar_uid} event uid: {event_uid} - DTSTART: {override_date_string} - skipped due to existing superseding LAST-MODIFIED - existing: {} new: {}", existing_event_occurrence_override.last_modified.to_string(), event_occurrence_override.last_modified.to_string());
+            ctx.log_debug(
+                format!(
+                    "rdcl.evo_set: key: {calendar_uid} event uid: {event_uid} - DTSTART: {override_date_string} - skipped due to existing superseding LAST-MODIFIED - existing: {} new: {}",
+                    existing_event_occurrence_override.last_modified.to_string(),
+                    event_occurrence_override.last_modified.to_string(),
+                ).as_str()
+            );
 
             return Ok(RedisValue::Bool(false));
         }
@@ -135,7 +141,13 @@ pub fn redical_event_override_set(ctx: &Context, args: Vec<RedisString>) -> Redi
             .map_err(|error| RedisError::String(error.to_string()))?;
     }
 
-    println!("rdcl.evo_set: key: {calendar_uid} event uid: {event_uid} - count: {} - DTSTART: {override_date_string} - count: {}", calendar.events.len(), event.overrides.len());
+    ctx.log_debug(
+        format!(
+            "rdcl.evo_set: key: {calendar_uid} event uid: {event_uid} - count: {} - DTSTART: {override_date_string} - count: {}",
+            calendar.events.len(),
+            event.overrides.len(),
+        ).as_str()
+    );
 
     // Use this command when replicating across other Redis instances.
     ctx.replicate_verbatim();
