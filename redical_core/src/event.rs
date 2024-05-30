@@ -644,7 +644,7 @@ impl Event {
         &mut self,
         event_occurrence_override: &EventOccurrenceOverride,
         update_indexes: bool,
-    ) -> Result<&Self, String> {
+    ) -> Result<bool, String> {
         let Some(timestamp) = event_occurrence_override.get_dtstart_timestamp() else {
             return Err(String::from("Expected event occurrence override to have dtstart defined."));
         };
@@ -654,7 +654,7 @@ impl Event {
 
         // Only proceed with updating the indexes of the event if required.
         if update_indexes == false {
-            return Ok(self);
+            return Ok(true);
         }
 
         if let Some(ref mut indexed_categories) = self.indexed_categories {
@@ -701,7 +701,7 @@ impl Event {
             self.rebuild_indexed_class()?;
         }
 
-        Ok(self)
+        Ok(true)
     }
 
     pub fn remove_occurrence_override(&mut self, timestamp: i64, update_indexes: bool) -> Result<bool, String> {
@@ -1224,80 +1224,85 @@ mod test {
         assert_eq!(
             parsed_event.override_occurrence(&event_occurrence_override, true),
             Ok(
-                &Event {
-                    uid: String::from("event_UID").into(),
-                    last_modified: build_property_from_ical!(LastModifiedProperty, "LAST-MODIFIED:20201230T173000Z"),
-
-                    schedule_properties: ScheduleProperties {
-                        rrule: Some(build_property_from_ical!(RRuleProperty, "RRULE:FREQ=WEEKLY;UNTIL=20210331T183000Z;INTERVAL=1;BYDAY=TU")),
-                        exrule: None,
-                        rdates: None,
-                        exdates: None,
-                        duration: None,
-                        dtstart: Some(build_property_from_ical!(DTStartProperty, "DTSTART:20201231T183000Z")),
-                        dtend: None,
-                        parsed_rrule_set: None,
-                    },
-
-                    indexed_properties: IndexedProperties::new(),
-
-                    passive_properties: PassiveProperties::new(),
-
-                    overrides: BTreeMap::from([
-                        (
-                            1610476200,
-                            EventOccurrenceOverride {
-                                last_modified: build_property_from_ical!(LastModifiedProperty, "LAST-MODIFIED:20201230T173000Z"),
-                                indexed_properties: IndexedProperties {
-                                    geo: None,
-                                    related_to: None,
-                                    categories: Some(HashSet::from([build_property_from_ical!(CategoriesProperty, "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,CATEGORY_THREE")])),
-                                    class: None,
-                                },
-                                passive_properties: PassiveProperties {
-                                    properties: BTreeSet::from([build_property_from_ical!(PassiveProperty, "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas\\, NV\\, USA")]),
-                                },
-                                dtstart: Some(build_property_from_ical!(DTStartProperty, "DTSTART:20210112T183000Z")),
-                                dtend: None,
-                                duration: None,
-                            }
-                        )
-                    ]),
-                    indexed_categories:  Some(
-                        InvertedEventIndex {
-                            terms: HashMap::from([
-                                            (
-                                                String::from("CATEGORY_ONE"),
-                                                IndexedConclusion::Exclude(Some(HashSet::from([1610476200]))),
-                                            ),
-                                            (
-                                                String::from("CATEGORY_TWO"),
-                                                IndexedConclusion::Exclude(Some(HashSet::from([1610476200]))),
-                                            ),
-                                            (
-                                                String::from("CATEGORY_THREE"),
-                                                IndexedConclusion::Exclude(Some(HashSet::from([1610476200]))),
-                                            ),
-                                        ])
-                        }
-                    ),
-                    indexed_related_to:  Some(
-                        InvertedEventIndex {
-                            terms: HashMap::from([])
-                        }
-                    ),
-                    indexed_geo:         Some(
-                        InvertedEventIndex {
-                            terms: HashMap::from([])
-                        }
-                    ),
-                    indexed_class:       Some(
-                        InvertedEventIndex {
-                            terms: HashMap::from([])
-                        }
-                    ),
-                }
+                true,
             )
+        );
+
+        assert_eq!(
+            parsed_event,
+            Event {
+                uid: String::from("event_UID").into(),
+                last_modified: build_property_from_ical!(LastModifiedProperty, "LAST-MODIFIED:20201230T173000Z"),
+
+                schedule_properties: ScheduleProperties {
+                    rrule: Some(build_property_from_ical!(RRuleProperty, "RRULE:FREQ=WEEKLY;UNTIL=20210331T183000Z;INTERVAL=1;BYDAY=TU")),
+                    exrule: None,
+                    rdates: None,
+                    exdates: None,
+                    duration: None,
+                    dtstart: Some(build_property_from_ical!(DTStartProperty, "DTSTART:20201231T183000Z")),
+                    dtend: None,
+                    parsed_rrule_set: None,
+                },
+
+                indexed_properties: IndexedProperties::new(),
+
+                passive_properties: PassiveProperties::new(),
+
+                overrides: BTreeMap::from([
+                    (
+                        1610476200,
+                        EventOccurrenceOverride {
+                            last_modified: build_property_from_ical!(LastModifiedProperty, "LAST-MODIFIED:20201230T173000Z"),
+                            indexed_properties: IndexedProperties {
+                                geo: None,
+                                related_to: None,
+                                categories: Some(HashSet::from([build_property_from_ical!(CategoriesProperty, "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,CATEGORY_THREE")])),
+                                class: None,
+                            },
+                            passive_properties: PassiveProperties {
+                                properties: BTreeSet::from([build_property_from_ical!(PassiveProperty, "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas\\, NV\\, USA")]),
+                            },
+                            dtstart: Some(build_property_from_ical!(DTStartProperty, "DTSTART:20210112T183000Z")),
+                            dtend: None,
+                            duration: None,
+                        }
+                    )
+                ]),
+                indexed_categories:  Some(
+                    InvertedEventIndex {
+                        terms: HashMap::from([
+                                        (
+                                            String::from("CATEGORY_ONE"),
+                                            IndexedConclusion::Exclude(Some(HashSet::from([1610476200]))),
+                                        ),
+                                        (
+                                            String::from("CATEGORY_TWO"),
+                                            IndexedConclusion::Exclude(Some(HashSet::from([1610476200]))),
+                                        ),
+                                        (
+                                            String::from("CATEGORY_THREE"),
+                                            IndexedConclusion::Exclude(Some(HashSet::from([1610476200]))),
+                                        ),
+                                    ])
+                    }
+                ),
+                indexed_related_to:  Some(
+                    InvertedEventIndex {
+                        terms: HashMap::from([])
+                    }
+                ),
+                indexed_geo:         Some(
+                    InvertedEventIndex {
+                        terms: HashMap::from([])
+                    }
+                ),
+                indexed_class:       Some(
+                    InvertedEventIndex {
+                        terms: HashMap::from([])
+                    }
+                ),
+            },
         );
 
         // Assert returns Ok(true) if actually removed existing override.

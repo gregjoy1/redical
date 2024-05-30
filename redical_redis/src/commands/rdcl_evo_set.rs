@@ -31,9 +31,9 @@ pub fn redical_event_override_set(ctx: &Context, args: Vec<RedisString>) -> Redi
     let event_uid = args.next_arg()?.to_string();
     let override_date_string = args.next_arg()?.try_as_str()?;
 
-    if DateTime::from_str(override_date_string).is_err() {
+    let Ok(parsed_override_datetime) = DateTime::from_str(override_date_string) else {
         return Err(RedisError::String(format!("`{override_date_string}` is not a valid datetime format.")));
-    }
+    };
 
     let other: String = args
         .map(|arg| arg.try_as_str().unwrap_or(""))
@@ -62,6 +62,20 @@ pub fn redical_event_override_set(ctx: &Context, args: Vec<RedisString>) -> Redi
     };
 
     let event_occurrence_override = EventOccurrenceOverride::parse_ical(override_date_string, other.as_str()).map_err(RedisError::String)?;
+
+    // Validate new event occurrence override's LAST-MODIFIED property (if provided) is more
+    // recent than that on the existing event occurrence override (if present).
+    //
+    // Only proceed with inserting the newly provided event occurrence override if it is found
+    // to have a newer LAST-MODIFIED property than the existing event occurrence override, if
+    // not then we skip the insert and return false to signal this to the client.
+    if let Some(existing_event_occurrence_override) = event.overrides.get(&parsed_override_datetime.get_utc_timestamp(None)) {
+        if event_occurrence_override.last_modified < existing_event_occurrence_override.last_modified {
+            println!("rdcl.evo_set: key: {calendar_uid} event uid: {event_uid} - DTSTART: {override_date_string} - skipped due to existing superseding LAST-MODIFIED - existing: {} new: {}", existing_event_occurrence_override.last_modified.to_string(), event_occurrence_override.last_modified.to_string());
+
+            return Ok(RedisValue::Bool(false));
+        }
+    }
 
     event.override_occurrence(&event_occurrence_override, calendar.indexes_active.to_owned()).map_err(RedisError::String)?;
 

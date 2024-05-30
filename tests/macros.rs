@@ -471,13 +471,6 @@ macro_rules! assert_event_override_nil {
 #[macro_export]
 macro_rules! set_and_assert_event_override {
     ($connection:expr, $calendar_uid:expr, $event_uid:expr, $override_date_string:expr, [$($ical_property:expr),+ $(,)*] $(,)*) => {
-        assert_event_override_nil!(
-            $connection,
-            $calendar_uid,
-            $event_uid,
-            $override_date_string,
-        );
-
         let mut ical_properties: Vec<String> = vec![
             $(
                 String::from($ical_property),
@@ -513,6 +506,99 @@ macro_rules! set_and_assert_event_override {
                 )+
             ],
         );
+    };
+
+    ($connection:expr, $calendar_uid:expr, $event_uid:expr, $override_date_string:expr, [$($set_ical_property:expr),+ $(,)*], [$($get_ical_property:expr),+ $(,)*] $(,)*) => {
+        let ical_properties: Vec<String> = vec![
+            $(
+                String::from($set_ical_property),
+            )+
+        ];
+
+        let joined_ical_properties = ical_properties.join(" ");
+
+        let event_override_set_result: Vec<String> = redis::cmd("rdcl.evo_set")
+            .arg("TEST_CALENDAR_UID")
+            .arg($event_uid)
+            .arg($override_date_string)
+            .arg(joined_ical_properties)
+            .query($connection)
+            .with_context(|| {
+                format!(
+                    "failed to set override for event with UID: '{}' at '{}' via rdcl.evo_set", $event_uid, $override_date_string,
+                )
+            })?;
+
+
+        assert_matching_ical_properties!(
+            event_override_set_result,
+            [
+                $(
+                    String::from($set_ical_property),
+                )+
+                $(
+                    String::from($get_ical_property),
+                )+
+                format!("DTSTART:{}", $override_date_string),
+            ],
+        );
+
+        assert_event_override_present!(
+            $connection,
+            $calendar_uid, 
+            $event_uid,
+            $override_date_string,
+            [
+                $(
+                    $set_ical_property,
+                )+
+                $(
+                    $get_ical_property,
+                )+
+            ],
+        );
+    };
+}
+
+#[macro_export]
+macro_rules! set_and_assert_event_override_not_set {
+    ($connection:expr, $calendar_uid:expr, $event_uid:expr, $override_date_string:expr, [$($ical_property:expr),+ $(,)*] $(,)*) => {
+        let mut ical_properties: Vec<String> = vec![
+            $(
+                String::from($ical_property),
+            )+
+        ];
+
+        let joined_ical_properties = ical_properties.join(" ");
+
+        let event_override_set_result = redis::cmd("rdcl.evo_set")
+            .arg("TEST_CALENDAR_UID")
+            .arg($event_uid)
+            .arg($override_date_string)
+            .arg(joined_ical_properties)
+            .query($connection);
+
+        assert_eq!(
+            event_override_set_result,
+            RedisResult::Ok(
+                Value::Int(0)
+            )
+        );
+
+        let event_override_get_result: Vec<String> = redis::cmd("rdcl.evo_get")
+            .arg("TEST_CALENDAR_UID")
+            .arg($event_uid)
+            .arg($override_date_string)
+            .query($connection)
+            .with_context(|| {
+                format!(
+                    "failed to get event override with UID: '{}' at '{}' via rdcl.evo_get", $event_uid, $override_date_string,
+                )
+            })?;
+
+        ical_properties.push(format!("DTSTART:{}", $override_date_string));
+
+        assert_non_matching_ical_properties!(event_override_get_result, ical_properties);
     }
 }
 

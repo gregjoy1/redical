@@ -337,6 +337,150 @@ mod integration {
         Ok(())
     }
 
+    fn test_event_override_set_last_modified(connection: &mut Connection) -> Result<()> {
+        set_and_assert_calendar!(connection, "TEST_CALENDAR_UID");
+
+        set_and_assert_event!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "ONLINE_EVENT_MON_WED",
+            [
+                "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM",
+                "DTSTART:20201231T160000Z",
+                "LAST-MODIFIED:20210501T090000Z",
+            ],
+        );
+
+        set_and_assert_event_override!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "ONLINE_EVENT_MON_WED",
+            "20201231T160000Z",
+            [
+                "LAST-MODIFIED:20210501T090000Z",
+                "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY",
+                "X-SPACES-BOOKED:12",
+            ],
+        );
+
+        list_and_assert_matching_event_overrides!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "ONLINE_EVENT_MON_WED",
+            [
+                [
+                    "LAST-MODIFIED:20210501T090000Z",
+                    "DTSTART:20201231T160000Z",
+                    "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY",
+                    "X-SPACES-BOOKED:12",
+                ],
+            ],
+        );
+
+        // Assert setting event with earlier LAST-MODIFIED property gets ignored.
+        set_and_assert_event_override_not_set!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "ONLINE_EVENT_MON_WED",
+            "20201231T160000Z",
+            [
+                "LAST-MODIFIED:20210201T090000Z", // <- Earlier LAST-MODIFIED specified!
+                "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY",
+                "X-SPACES-BOOKED:12",
+            ],
+        );
+
+        // Assert not having changed!
+        list_and_assert_matching_event_overrides!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "ONLINE_EVENT_MON_WED",
+            [
+                [
+                    "LAST-MODIFIED:20210501T090000Z",
+                    "DTSTART:20201231T160000Z",
+                    "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY",
+                    "X-SPACES-BOOKED:12",
+                ],
+            ],
+        );
+
+        // Assert setting event with later LAST-MODIFIED property gets acknowledged.
+        set_and_assert_event_override!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "ONLINE_EVENT_MON_WED",
+            "20201231T160000Z",
+            [
+                "LAST-MODIFIED:20210501T120000Z", // <- Later LAST-MODIFIED specified!
+                "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY_ONE",
+                "X-SPACES-BOOKED:14",
+            ],
+        );
+
+        // Assert event being changed!
+        list_and_assert_matching_event_overrides!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "ONLINE_EVENT_MON_WED",
+            [
+                [
+                    "LAST-MODIFIED:20210501T120000Z",
+                    "DTSTART:20201231T160000Z",
+                    "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY_ONE",
+                    "X-SPACES-BOOKED:14",
+                ],
+            ],
+        );
+
+        // Assert setting event with later LAST-MODIFIED property (by a few milliseconds) gets
+        // acknowledged.
+        set_and_assert_event_override!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "ONLINE_EVENT_MON_WED",
+            "20201231T160000Z",
+            [
+                "LAST-MODIFIED;X-MILLIS=123:20210501T120000Z", // <- Later LAST-MODIFIED specified (by 123 milliseconds)!
+                "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY_TWO",
+                "X-SPACES-BOOKED:15",
+            ],
+        );
+
+        // Assert event being changed!
+        list_and_assert_matching_event_overrides!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "ONLINE_EVENT_MON_WED",
+            [
+                [
+                    "LAST-MODIFIED;X-MILLIS=123:20210501T120000Z", // <- Later LAST-MODIFIED specified (by 123 milliseconds)!
+                    "DTSTART:20201231T160000Z",
+                    "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY_TWO",
+                    "X-SPACES-BOOKED:15",
+                ],
+            ],
+        );
+
+        // Assert setting event with no LAST-MODIFIED property specified (defaults to now -- which
+        // is later than the existing).
+        set_and_assert_event_override!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "ONLINE_EVENT_MON_WED",
+            "20201231T160000Z",
+            [
+                "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY_THREE",
+                "X-SPACES-BOOKED:16",
+            ],
+            [
+                format!("LAST-MODIFIED:{}", chrono::offset::Utc::now().format("%Y%m%dT%H%M%SZ")),
+            ],
+        );
+
+        Ok(())
+    }
+
     fn test_event_instance_list(connection: &mut Connection) -> Result<()> {
         set_and_assert_calendar!(connection, "TEST_CALENDAR_UID");
 
@@ -1258,6 +1402,7 @@ mod integration {
         test_event_get_set_del_list,
         test_event_set_last_modified,
         test_event_override_get_set_del_list,
+        test_event_override_set_last_modified,
         test_event_instance_list,
         test_calendar_query,
         test_calendar_index_disable_rebuild,

@@ -56,7 +56,7 @@ pub fn redical_event_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     // existing event.
     if let Some(existing_event) = existing_event.as_ref() {
         if event.last_modified < existing_event.last_modified {
-            println!("rdcl.evt_set: key: {calendar_uid} event uid: {event_uid} - skipped due to LAST-MODIFIED - existing: {} new: {}", existing_event.last_modified.to_string(), event.last_modified.to_string());
+            println!("rdcl.evt_set: key: {calendar_uid} event uid: {event_uid} - skipped due to existing superseding LAST-MODIFIED - existing: {} new: {}", existing_event.last_modified.to_string(), event.last_modified.to_string());
 
             return Ok(RedisValue::Bool(false));
         }
