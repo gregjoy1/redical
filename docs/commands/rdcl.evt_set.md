@@ -22,6 +22,33 @@ Whilst RediCal supports all [RFC-5545 component properties](https://datatracker.
 
 RediCal has the following types of property:
 
+#### General properties
+
+##### [`LAST-MODIFIED` property](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.7.3)
+This property specifies the date/time that the stored event was last updated (only UTC date time strings are accepted).
+
+If not provided, it is automatically populated with the current date/time.
+
+If provided and **more recent** than that stored on the existing event, the command proceeds and the event is updated.
+
+If provided and **less recent** than that stored on the existing event, the command does **not** proceed, the event is **not** updated, and false is returned.
+
+An example of how this can be utilised is when bulk importing event data on top of sporadically real time added event data. Suppose a stored RediCal calendar is to be populated, a real time/event driven process of updating calendar events can be enabled whilst a batch process of collecting and adding all events in bulk can also be started. Any calendar event added in real time via the event driven process is not overwritten by the bulk import process if more recent.
+
+###### Examples:
+
+The following is an example of this property defining a last modified UTC date time to second precision.
+
+```
+LAST-MODIFIED:20050809T050000Z
+```
+
+The following is an example of this property defining a last modified UTC date time to millisecond precision.
+
+```
+LAST-MODIFIED;X-MILLIS=123:20050809T050000Z
+```
+
 #### Schedule properties
 
 These are used to define when an event should occur, and are instrumental in extrapolating the occurring event instances for the event.
@@ -421,11 +448,6 @@ Example: `CREATED:19960329T133000Z`
 In the case of an iCalendar object that specifies a "METHOD" property, this property specifies the date and time that the instance of the iCalendar object was created.
 
 Example: `DTSTAMP:19970610T172345Z`
-
-##### [`LAST-MODIFIED` property](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.7.3)
-This property specifies the date and time that the information associated with the calendar event was last revised in the calendar store.
-
-Example: `LAST-MODIFIED:20050809T050000Z`
 
 ##### [`SEQUENCE` property](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.7.4)
 This property defines the revision sequence number of the calendar event within a sequence of revisions.

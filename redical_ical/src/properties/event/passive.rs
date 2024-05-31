@@ -35,7 +35,6 @@ pub enum PassiveProperty {
     Trigger(ContentLineParams, String),
     Created(ContentLineParams, String),
     Dtstamp(ContentLineParams, String),
-    LastModified(ContentLineParams, String),
     Sequence(ContentLineParams, String),
     RequestStatus(ContentLineParams, String),
     Xml(ContentLineParams, String),
@@ -115,7 +114,6 @@ impl ICalendarEntity for PassiveProperty {
                 define_property_parser!(Trigger, "TRIGGER"),
                 define_property_parser!(Created, "CREATED"),
                 define_property_parser!(Dtstamp, "DTSTAMP"),
-                define_property_parser!(LastModified, "LAST-MODIFIED"),
                 define_property_parser!(Sequence, "SEQUENCE"),
                 define_property_parser!(RequestStatus, "REQUEST-STATUS"),
                 define_property_parser!(Xml, "XML"),
@@ -192,7 +190,6 @@ impl ICalendarProperty for PassiveProperty {
             PassiveProperty::Trigger(params, value)           => ContentLine::from(("TRIGGER", (params, value))),
             PassiveProperty::Created(params, value)           => ContentLine::from(("CREATED", (params, value))),
             PassiveProperty::Dtstamp(params, value)           => ContentLine::from(("DTSTAMP", (params, value))),
-            PassiveProperty::LastModified(params, value)      => ContentLine::from(("LAST-MODIFIED", (params, value))),
             PassiveProperty::Sequence(params, value)          => ContentLine::from(("SEQUENCE", (params, value))),
             PassiveProperty::RequestStatus(params, value)     => ContentLine::from(("REQUEST-STATUS", (params, value))),
             PassiveProperty::Xml(params, value)               => ContentLine::from(("XML", (params, value))),
@@ -304,7 +301,6 @@ mod tests {
         assert_passive_property_parse_ical!(Trigger, "TRIGGER");
         assert_passive_property_parse_ical!(Created, "CREATED");
         assert_passive_property_parse_ical!(Dtstamp, "DTSTAMP");
-        assert_passive_property_parse_ical!(LastModified, "LAST-MODIFIED");
         assert_passive_property_parse_ical!(Sequence, "SEQUENCE");
         assert_passive_property_parse_ical!(RequestStatus, "REQUEST-STATUS");
         assert_passive_property_parse_ical!(Xml, "XML");

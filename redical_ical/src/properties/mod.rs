@@ -1,5 +1,6 @@
 mod uid;
 mod recurrence_id;
+mod last_modified;
 
 pub mod event;
 pub mod calendar;
@@ -7,6 +8,7 @@ pub mod query;
 
 pub use uid::*;
 pub use recurrence_id::*;
+pub use last_modified::*;
 
 pub use event::*;
 pub use calendar::*;

@@ -404,14 +404,14 @@ mod test {
         assert_eq!(
             Query::from_str("X-LIMIT:50 UNCONSUMED_ENDING"),
             Err(
-                String::from("Error - parse error Eof at UNCONSUMED_ENDING")
+                String::from("Error - parse error Eof at \"UNCONSUMED_ENDING\"")
             )
         );
 
         assert_eq!(
             Query::from_str("INVALID"),
             Err(
-                String::from("Error - context GROUP - expected '(' at INVALID")
+                String::from("Error - expected '(' at \"INVALID\" -- Context: GROUP")
             )
         );
 

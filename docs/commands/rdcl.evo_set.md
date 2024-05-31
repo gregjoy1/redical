@@ -33,6 +33,33 @@ The exceptions to this are:
 
 This is because the event occurrence being overridden is derived from the presence of those properties on the event, thus not relevant at the occurrence override level.
 
+#### General properties
+
+##### [`LAST-MODIFIED` property](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.7.3)
+This property specifies the date/time that the stored event occurrence override was last updated (only UTC date time strings are accepted).
+
+If not provided, it is automatically populated with the current date/time.
+
+If provided and **more recent** than that stored on the existing event occurrence override, the command proceeds and the event occurrence override is updated.
+
+If provided and **less recent** than that stored on the existing event occurrence override, the command does **not** proceed, the event occurrence override is **not** updated, and false is returned.
+
+An example of how this can be utilised is when bulk importing event occurrence override data on top of sporadically real time added event occurrence override data. Suppose a stored RediCal calendar is to be populated, a real time/event driven process of updating calendar event occurrence overrides can be enabled whilst a batch process of collecting and adding all event occurrence overrides in bulk can also be started. Any calendar event occurrence override added in real time via the event driven process is not overwritten by the bulk import process if more recent.
+
+###### Examples:
+
+The following is an example of this property defining a last modified UTC date time to second precision.
+
+```
+LAST-MODIFIED:20050809T050000Z
+```
+
+The following is an example of this property defining a last modified UTC date time to millisecond precision.
+
+```
+LAST-MODIFIED;X-MILLIS=123:20050809T050000Z
+```
+
 #### Schedule properties
 
 ##### [`DTSTART` property](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.2.4) - optional

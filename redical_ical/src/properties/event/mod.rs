@@ -3,7 +3,7 @@ use std::str::FromStr;
 use nom::error::context;
 use nom::branch::alt;
 use nom::combinator::{map, all_consuming, recognize};
-use nom::multi::separated_list1;
+use nom::multi::separated_list0;
 use nom::sequence::preceded;
 
 mod dtstart;
@@ -41,12 +41,14 @@ use crate::content_line::ContentLine;
 pub use passive::PassiveProperty;
 
 use crate::properties::uid::UIDProperty;
+use crate::properties::last_modified::LastModifiedProperty;
 
 use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserContext, ParserResult, convert_error};
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum EventProperty {
     UID(UIDProperty),
+    LastModified(LastModifiedProperty),
     DTStart(DTStartProperty),
     DTEnd(DTEndProperty),
     ExDate(ExDateProperty),
@@ -70,6 +72,7 @@ impl EventProperty {
                 wsp_1_1,
                 alt((
                     recognize(ContentLine::parse_ical_for_property("UID")),
+                    recognize(ContentLine::parse_ical_for_property("LAST-MODIFIED")),
                     recognize(ContentLine::parse_ical_for_property("DTSTART")),
                     recognize(ContentLine::parse_ical_for_property("DTEND")),
                     recognize(ContentLine::parse_ical_for_property("EXDATE")),
@@ -92,6 +95,7 @@ impl ICalendarEntity for EventProperty {
     fn parse_ical(input: ParserInput) -> ParserResult<Self> {
         alt((
             map(UIDProperty::parse_ical, Self::UID),
+            map(LastModifiedProperty::parse_ical, Self::LastModified),
             map(DTStartProperty::parse_ical, Self::DTStart),
             map(DTEndProperty::parse_ical, Self::DTEnd),
             map(ExDateProperty::parse_ical, Self::ExDate),
@@ -110,6 +114,7 @@ impl ICalendarEntity for EventProperty {
     fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
         match self {
             Self::UID(property) => property.render_ical(),
+            Self::LastModified(property) => property.render_ical(),
             Self::DTStart(property) => property.render_ical(),
             Self::DTEnd(property) => property.render_ical(),
             Self::ExDate(property) => property.render_ical(),
@@ -166,7 +171,7 @@ impl FromStr for EventProperties {
 
     fn from_str(input: &str) -> Result<Self, Self::Err> {
         let parsed_properties =
-            all_consuming(separated_list1(wsp, EventProperty::parse_ical))(ParserInput::new_extra(input, ParserContext::Event));
+            all_consuming(separated_list0(wsp, EventProperty::parse_ical))(ParserInput::new_extra(input, ParserContext::Event));
 
         match parsed_properties {
             Ok((_remaining, event_properties)) => {
@@ -349,11 +354,11 @@ mod tests {
         );
 
         assert_parser_output!(
-            EventProperty::parse_ical("UID:19960401T080045Z-4000F192713-0052@example.com DESCRIPTION:Description text".into()),
+            EventProperty::parse_ical("LAST-MODIFIED:19960401T080045Z DESCRIPTION:Description text".into()),
             (
                 " DESCRIPTION:Description text",
-                EventProperty::UID(
-                    UIDProperty::from_str("UID:19960401T080045Z-4000F192713-0052@example.com".into()).unwrap(),
+                EventProperty::LastModified(
+                    LastModifiedProperty::from_str("LAST-MODIFIED:19960401T080045Z".into()).unwrap(),
                 ),
             ),
         );

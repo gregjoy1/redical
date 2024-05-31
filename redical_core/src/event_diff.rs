@@ -234,7 +234,7 @@ mod test {
     use std::collections::{BTreeMap, BTreeSet, HashSet};
 
     use redical_ical::properties::{
-        CategoriesProperty, ClassProperty, DTStartProperty, GeoProperty, RRuleProperty, RelatedToProperty, PassiveProperty
+        CategoriesProperty, ClassProperty, DTStartProperty, GeoProperty, RRuleProperty, RelatedToProperty, PassiveProperty, LastModifiedProperty
     };
 
     use crate::{IndexedProperties, KeyValuePair, PassiveProperties, ScheduleProperties};
@@ -294,6 +294,7 @@ mod test {
         // Test changes between blank original Event and populated updated Event
         let updated_event = Event {
             uid: String::from("event_UID").into(),
+            last_modified: build_property_from_ical!(LastModifiedProperty, "LAST-MODIFIED:20201230T173000Z"),
 
             schedule_properties: ScheduleProperties {
                 rrule: Some(build_property_from_ical!(
@@ -383,6 +384,7 @@ mod test {
         // Test changes between populated original and updated Events (with removals).
         let original_event = Event {
             uid: String::from("event_UID").into(),
+            last_modified: build_property_from_ical!(LastModifiedProperty, "LAST-MODIFIED:20201230T173000Z"),
 
             schedule_properties: ScheduleProperties {
                 rrule: Some(build_property_from_ical!(
