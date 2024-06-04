@@ -152,12 +152,21 @@ pub fn redical_event_override_set(ctx: &Context, args: Vec<RedisString>) -> Redi
     // Use this command when replicating across other Redis instances.
     ctx.replicate_verbatim();
 
-    // TODO: Revisit keyspace events...
-    if ctx.notify_keyspace_event(NotifyEvent::GENERIC, "event.override_set", &calendar_uid)
-        == Status::Err
-    {
-        return Err(RedisError::Str("Generic error"));
-    }
+    notify_keyspace_event(ctx, &calendar_uid, &event_uid, &override_date_string)?;
 
     Ok(serialize_event_occurrence_override(&event_occurrence_override))
+}
+
+fn notify_keyspace_event(ctx: &Context, calendar_uid: &RedisString, event_uid: &String, override_date_string: &str) -> Result<(), RedisError> {
+    let event_message = format!("rdcl.evo_set:{}:{}", event_uid, override_date_string);
+
+    if ctx.notify_keyspace_event(NotifyEvent::MODULE, event_message.as_str(), &calendar_uid) == Status::Err {
+        return Err(
+            RedisError::String(
+                format!("Notify keyspace event \"rdcl.evo_set\" for calendar: \"{}\" event: \"{}\" date string: \"{}\"", &calendar_uid, &event_uid, &override_date_string)
+            )
+        );
+    }
+
+    Ok(())
 }
