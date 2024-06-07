@@ -105,7 +105,9 @@ pub fn redical_event_override_del(ctx: &Context, args: Vec<RedisString>) -> Redi
     // Use this command when replicating across other Redis instances.
     ctx.replicate_verbatim();
 
-    notify_keyspace_event(ctx, &calendar_uid, &event_uid, &override_date_string)?;
+    if was_override_removed {
+        notify_keyspace_event(ctx, &calendar_uid, &event_uid, &override_date_string)?;
+    }
 
     Ok(RedisValue::Bool(was_override_removed))
 }

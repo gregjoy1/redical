@@ -2,9 +2,12 @@ use anyhow::{Context, Result};
 
 use redis::Connection;
 use std::fs;
+use std::thread;
 use std::path::PathBuf;
 use std::process::Command;
 use std::time::Duration;
+use std::collections::VecDeque;
+use std::sync::{Arc, Mutex, mpsc};
 
 /// Ensure child process is killed both on normal exit and when panicking due to a failed test.
 pub struct ChildGuard {
@@ -116,4 +119,56 @@ pub fn get_redis_connection(port: u16) -> Result<Connection> {
             }
         }
     }
+}
+
+pub fn listen_for_keyspace_events(port: u16, mut handler: impl FnMut(&mut Arc<Mutex<VecDeque<redis::Msg>>>) -> Result<()>) -> Result<()> {
+    let (kill_tx, kill_rx): (mpsc::Sender<()>, mpsc::Receiver<()>) = mpsc::channel();
+
+    let mut message_queue = Arc::new(Mutex::new(VecDeque::new()));
+    let thread_message_queue = message_queue.clone();
+
+    let mut connection = get_redis_connection(port).unwrap();
+
+    let join_handle = thread::spawn(move || {
+        let mut pub_sub = connection.as_pubsub();
+
+        pub_sub.psubscribe("__key*__:*").unwrap();
+
+        let _ = pub_sub.set_read_timeout(Some(Duration::new(0, 500)));
+
+        loop {
+            // println!("thread - pre loop");
+            if let Ok(_) = kill_rx.try_recv() {
+                // println!("thread - recv kill");
+                break;
+            }
+
+            // println!("thread - mid loop");
+            match pub_sub.get_message() {
+                Ok(message) => {
+                    // // dbg!(&message);
+                    // println!("thread - get_message -- lock open");
+                    thread_message_queue.lock().unwrap().push_back(message);
+                    // println!("thread - get_message -- lock closed");
+                },
+
+                Err(error) if error.is_timeout() => {},
+
+                Err(error) => {
+                    panic!("Redis pub/sub listener get_message error: #{error}");
+                },
+            }
+            // println!("thread - post loop");
+        }
+    });
+
+    handler(&mut message_queue)?;
+
+    // println!("stop_redis_pub_sub_listener PRE");
+    kill_tx.send(()).unwrap();
+    // println!("stop_redis_pub_sub_listener MID");
+    join_handle.join().unwrap();
+    // println!("stop_redis_pub_sub_listener POST");
+
+    Ok(())
 }
