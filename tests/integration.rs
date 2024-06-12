@@ -13,63 +13,69 @@ mod integration {
 
     use pretty_assertions_sorted::{assert_ne, assert_eq, assert_eq_sorted};
 
+    use utils::listen_for_keyspace_events;
+
+    use std::sync::{Mutex, Arc};
+    use std::collections::VecDeque;
+
     // Run with:
     //  cargo build && cargo test --all
     //  cargo build && cargo test --all integration
 
     fn test_calendar_get_set_del(connection: &mut Connection) -> Result<()> {
-        let calendar_uid = "TEST_CALENDAR_UID";
+        listen_for_keyspace_events(6480, |message_queue: &mut Arc<Mutex<VecDeque<redis::Msg>>>| {
+            let calendar_uid = "TEST_CALENDAR_UID";
 
-        set_and_assert_calendar!(connection, calendar_uid);
+            set_and_assert_calendar!(connection, calendar_uid);
 
-        assert_eq!(
-            redis::cmd("DEL").arg(calendar_uid).query(connection),
-            RedisResult::Ok(Value::Int(1)),
-        );
+            assert_keyspace_events_published!(message_queue, "rdcl.cal_set", "TEST_CALENDAR_UID");
 
-        assert_calendar_nil!(connection, calendar_uid);
+            assert_eq!(
+                redis::cmd("DEL").arg(calendar_uid).query(connection),
+                RedisResult::Ok(Value::Int(1)),
+            );
 
-        Ok(())
+            assert_calendar_nil!(connection, calendar_uid);
+
+            assert_keyspace_events_published!(
+                message_queue,
+                [
+                    ("rdcl.cal_del", "TEST_CALENDAR_UID"),
+                    ("del",          "TEST_CALENDAR_UID"),
+                ],
+            );
+
+            Ok(())
+        })
     }
 
     fn test_event_get_set_del_list(connection: &mut Connection) -> Result<()> {
-        set_and_assert_calendar!(connection, "TEST_CALENDAR_UID");
+        listen_for_keyspace_events(6480, |message_queue: &mut Arc<Mutex<VecDeque<redis::Msg>>>| {
+            set_and_assert_calendar!(connection, "TEST_CALENDAR_UID");
 
-        set_and_assert_event!(
-            connection,
-            "TEST_CALENDAR_UID",
-            "ONLINE_EVENT_MON_WED",
-            [
-                "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM",
-                "RRULE:BYDAY=MO,WE;FREQ=WEEKLY;INTERVAL=1;UNTIL=20211231T170000Z",
-                "DTSTART:20201231T160000Z",
-                "DTEND:20201231T170000Z",
-                "LAST-MODIFIED:20210501T090000Z",
-                "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
-                "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
-            ],
-        );
+            assert_keyspace_events_published!(message_queue, "rdcl.cal_set", "TEST_CALENDAR_UID");
 
-        set_and_assert_event!(
-            connection,
-            "TEST_CALENDAR_UID",
-            "EVENT_IN_OXFORD_MON_WED",
-            [
-                "SUMMARY:Event in Oxford on Mondays and Wednesdays at 5:00PM",
-                "RRULE:BYDAY=MO,WE;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
-                "DTSTART:20201231T170000Z",
-                "DTEND:20201231T173000Z",
-                "LAST-MODIFIED:20210501T090000Z",
-                "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
-                "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
-                "GEO:51.751365550307604;-1.2601196837753945",
-            ],
-        );
+            set_and_assert_event!(
+                connection,
+                "TEST_CALENDAR_UID",
+                "ONLINE_EVENT_MON_WED",
+                [
+                    "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM",
+                    "RRULE:BYDAY=MO,WE;FREQ=WEEKLY;INTERVAL=1;UNTIL=20211231T170000Z",
+                    "DTSTART:20201231T160000Z",
+                    "DTEND:20201231T170000Z",
+                    "LAST-MODIFIED:20210501T090000Z",
+                    "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                    "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
+                ],
+            );
 
-        list_and_assert_matching_events!(
-            connection,
-            "TEST_CALENDAR_UID",
-            [
+            assert_keyspace_events_published!(message_queue, "rdcl.evt_set:ONLINE_EVENT_MON_WED LAST-MODIFIED:20210501T090000Z", "TEST_CALENDAR_UID");
+
+            set_and_assert_event!(
+                connection,
+                "TEST_CALENDAR_UID",
+                "EVENT_IN_OXFORD_MON_WED",
                 [
                     "SUMMARY:Event in Oxford on Mondays and Wednesdays at 5:00PM",
                     "RRULE:BYDAY=MO,WE;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
@@ -79,406 +85,500 @@ mod integration {
                     "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
                     "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
                     "GEO:51.751365550307604;-1.2601196837753945",
-                    "UID:EVENT_IN_OXFORD_MON_WED",
                 ],
+            );
+
+            assert_keyspace_events_published!(message_queue, "rdcl.evt_set:EVENT_IN_OXFORD_MON_WED LAST-MODIFIED:20210501T090000Z", "TEST_CALENDAR_UID");
+
+            list_and_assert_matching_events!(
+                connection,
+                "TEST_CALENDAR_UID",
                 [
-                    "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM",
-                    "RRULE:BYDAY=MO,WE;FREQ=WEEKLY;INTERVAL=1;UNTIL=20211231T170000Z",
-                    "DTSTART:20201231T160000Z",
-                    "DTEND:20201231T170000Z",
-                    "LAST-MODIFIED:20210501T090000Z",
-                    "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
-                    "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
-                    "UID:ONLINE_EVENT_MON_WED",
+                    [
+                        "SUMMARY:Event in Oxford on Mondays and Wednesdays at 5:00PM",
+                        "RRULE:BYDAY=MO,WE;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
+                        "DTSTART:20201231T170000Z",
+                        "DTEND:20201231T173000Z",
+                        "LAST-MODIFIED:20210501T090000Z",
+                        "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                        "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
+                        "GEO:51.751365550307604;-1.2601196837753945",
+                        "UID:EVENT_IN_OXFORD_MON_WED",
+                    ],
+                    [
+                        "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM",
+                        "RRULE:BYDAY=MO,WE;FREQ=WEEKLY;INTERVAL=1;UNTIL=20211231T170000Z",
+                        "DTSTART:20201231T160000Z",
+                        "DTEND:20201231T170000Z",
+                        "LAST-MODIFIED:20210501T090000Z",
+                        "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                        "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
+                        "UID:ONLINE_EVENT_MON_WED",
+                    ],
                 ],
-            ],
-        );
+            );
 
-        // Test that rdcl.evt_del returns OK => 1 (true) when calendar event was present and deleted.
-        del_and_assert_event_deletion!(connection, "TEST_CALENDAR_UID", "ONLINE_EVENT_MON_WED", 1);
-        del_and_assert_event_deletion!(connection, "TEST_CALENDAR_UID", "EVENT_IN_OXFORD_MON_WED", 1);
+            // Test that rdcl.evt_del returns OK => 1 (true) when calendar event was present and deleted.
+            del_and_assert_event_deletion!(connection, "TEST_CALENDAR_UID", "ONLINE_EVENT_MON_WED", 1);
+            del_and_assert_event_deletion!(connection, "TEST_CALENDAR_UID", "EVENT_IN_OXFORD_MON_WED", 1);
 
-        // Test that rdcl.evt_del returns OK => 0 (false) when trying to delete calendar events that are not present.
-        del_and_assert_event_deletion!(connection, "TEST_CALENDAR_UID", "ONLINE_EVENT_MON_WED", 0);
-        del_and_assert_event_deletion!(connection, "TEST_CALENDAR_UID", "EVENT_IN_OXFORD_MON_WED", 0);
+            assert_keyspace_events_published!(
+                message_queue,
+                [
+                    ("rdcl.evt_del:ONLINE_EVENT_MON_WED",    "TEST_CALENDAR_UID"),
+                    ("rdcl.evt_del:EVENT_IN_OXFORD_MON_WED", "TEST_CALENDAR_UID"),
+                ],
+            );
 
-        list_and_assert_matching_events!(connection, "TEST_CALENDAR_UID", []);
+            // Test that rdcl.evt_del returns OK => 0 (false) when trying to delete calendar events that are not present.
+            del_and_assert_event_deletion!(connection, "TEST_CALENDAR_UID", "ONLINE_EVENT_MON_WED", 0);
+            del_and_assert_event_deletion!(connection, "TEST_CALENDAR_UID", "EVENT_IN_OXFORD_MON_WED", 0);
 
-        Ok(())
+            assert_keyspace_events_published!(message_queue, []);
+
+            list_and_assert_matching_events!(connection, "TEST_CALENDAR_UID", []);
+
+            Ok(())
+        })
     }
 
     fn test_event_set_last_modified(connection: &mut Connection) -> Result<()> {
-        set_and_assert_calendar!(connection, "TEST_CALENDAR_UID");
+        listen_for_keyspace_events(6480, |message_queue: &mut Arc<Mutex<VecDeque<redis::Msg>>>| {
+            set_and_assert_calendar!(connection, "TEST_CALENDAR_UID");
 
-        set_and_assert_event!(
-            connection,
-            "TEST_CALENDAR_UID",
-            "ONLINE_EVENT_MON_WED",
-            [
-                "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM",
-                "DTSTART:20201231T160000Z",
-                "LAST-MODIFIED:20210501T090000Z",
-            ],
-        );
+            assert_keyspace_events_published!(message_queue, "rdcl.cal_set", "TEST_CALENDAR_UID");
 
-        list_and_assert_matching_events!(
-            connection,
-            "TEST_CALENDAR_UID",
-            [
+            set_and_assert_event!(
+                connection,
+                "TEST_CALENDAR_UID",
+                "ONLINE_EVENT_MON_WED",
                 [
                     "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM",
                     "DTSTART:20201231T160000Z",
                     "LAST-MODIFIED:20210501T090000Z",
-                    "UID:ONLINE_EVENT_MON_WED",
                 ],
-            ],
-        );
+            );
 
-        // Assert setting event with earlier LAST-MODIFIED property gets ignored.
-        set_and_assert_event_not_set!(
-            connection,
-            "TEST_CALENDAR_UID",
-            "ONLINE_EVENT_MON_WED",
-            [
-                "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM (UPDATED)",
-                "DTSTART:20201231T160000Z",
-                "LAST-MODIFIED:20210201T090000Z", // <- Earlier LAST-MODIFIED specified!
-            ],
-        );
+            assert_keyspace_events_published!(message_queue, "rdcl.evt_set:ONLINE_EVENT_MON_WED LAST-MODIFIED:20210501T090000Z", "TEST_CALENDAR_UID");
 
-        // Assert not having changed!
-        assert_event_present!(
-            connection,
-            "TEST_CALENDAR_UID",
-            "ONLINE_EVENT_MON_WED",
-            [
-                "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM",
-                "DTSTART:20201231T160000Z",
-                "LAST-MODIFIED:20210501T090000Z",
-            ],
-        );
+            list_and_assert_matching_events!(
+                connection,
+                "TEST_CALENDAR_UID",
+                [
+                    [
+                        "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM",
+                        "DTSTART:20201231T160000Z",
+                        "LAST-MODIFIED:20210501T090000Z",
+                        "UID:ONLINE_EVENT_MON_WED",
+                    ],
+                ],
+            );
 
-        // Assert setting event with later LAST-MODIFIED property gets acknowledged.
-        set_and_assert_event!(
-            connection,
-            "TEST_CALENDAR_UID",
-            "ONLINE_EVENT_MON_WED",
-            [
-                "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM (UPDATED ONE)",
-                "DTSTART:20201231T160000Z",
-                "LAST-MODIFIED:20210501T120000Z", // <- Later LAST-MODIFIED specified!
-            ],
-        );
+            // Assert setting event with earlier LAST-MODIFIED property gets ignored.
+            set_and_assert_event_not_set!(
+                connection,
+                "TEST_CALENDAR_UID",
+                "ONLINE_EVENT_MON_WED",
+                [
+                    "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM (UPDATED)",
+                    "DTSTART:20201231T160000Z",
+                    "LAST-MODIFIED:20210201T090000Z", // <- Earlier LAST-MODIFIED specified!
+                ],
+            );
 
-        // Assert event being changed!
-        assert_event_present!(
-            connection,
-            "TEST_CALENDAR_UID",
-            "ONLINE_EVENT_MON_WED",
-            [
-                "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM (UPDATED ONE)",
-                "DTSTART:20201231T160000Z",
-                "LAST-MODIFIED:20210501T120000Z",
-            ],
-        );
+            // Assert no key-space event notifications published.
+            assert_keyspace_events_published!(message_queue, []);
 
-        // Assert setting event with later LAST-MODIFIED property (by a few milliseconds) gets
-        // acknowledged.
-        set_and_assert_event!(
-            connection,
-            "TEST_CALENDAR_UID",
-            "ONLINE_EVENT_MON_WED",
-            [
-                "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM (UPDATED TWO)",
-                "DTSTART:20201231T160000Z",
-                "LAST-MODIFIED;X-MILLIS=123:20210501T120000Z", // <- Later LAST-MODIFIED specified (by 123 milliseconds)!
-            ],
-        );
+            // Assert not having changed!
+            assert_event_present!(
+                connection,
+                "TEST_CALENDAR_UID",
+                "ONLINE_EVENT_MON_WED",
+                [
+                    "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM",
+                    "DTSTART:20201231T160000Z",
+                    "LAST-MODIFIED:20210501T090000Z",
+                ],
+            );
 
-        // Assert event being changed!
-        assert_event_present!(
-            connection,
-            "TEST_CALENDAR_UID",
-            "ONLINE_EVENT_MON_WED",
-            [
-                "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM (UPDATED TWO)",
-                "DTSTART:20201231T160000Z",
-                "LAST-MODIFIED;X-MILLIS=123:20210501T120000Z", // <- Later LAST-MODIFIED specified (by 123 milliseconds)!
-            ],
-        );
+            // Assert setting event with later LAST-MODIFIED property gets acknowledged.
+            set_and_assert_event!(
+                connection,
+                "TEST_CALENDAR_UID",
+                "ONLINE_EVENT_MON_WED",
+                [
+                    "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM (UPDATED ONE)",
+                    "DTSTART:20201231T160000Z",
+                    "LAST-MODIFIED:20210501T120000Z", // <- Later LAST-MODIFIED specified!
+                ],
+            );
 
-        // Assert setting event with no LAST-MODIFIED property specified (defaults to now -- which
-        // is later than the existing).
-        set_and_assert_event!(
-            connection,
-            "TEST_CALENDAR_UID",
-            "ONLINE_EVENT_MON_WED",
-            [
-                "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM (UPDATED THREE)",
-                "DTSTART:20201231T160000Z",
-            ],
-            [
-                format!("LAST-MODIFIED:{}", chrono::offset::Utc::now().format("%Y%m%dT%H%M%SZ")),
-            ],
-        );
+            // Assert event being changed!
+            assert_event_present!(
+                connection,
+                "TEST_CALENDAR_UID",
+                "ONLINE_EVENT_MON_WED",
+                [
+                    "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM (UPDATED ONE)",
+                    "DTSTART:20201231T160000Z",
+                    "LAST-MODIFIED:20210501T120000Z",
+                ],
+            );
 
+            // Assert event being changed key-space event notification is published.
+            assert_keyspace_events_published!(message_queue, "rdcl.evt_set:ONLINE_EVENT_MON_WED LAST-MODIFIED:20210501T120000Z", "TEST_CALENDAR_UID");
 
-        Ok(())
+            // Assert setting event with later LAST-MODIFIED property (by a few milliseconds) gets
+            // acknowledged.
+            set_and_assert_event!(
+                connection,
+                "TEST_CALENDAR_UID",
+                "ONLINE_EVENT_MON_WED",
+                [
+                    "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM (UPDATED TWO)",
+                    "DTSTART:20201231T160000Z",
+                    "LAST-MODIFIED;X-MILLIS=123:20210501T120000Z", // <- Later LAST-MODIFIED specified (by 123 milliseconds)!
+                ],
+            );
+
+            // Assert event being changed key-space event notification is published.
+            assert_keyspace_events_published!(message_queue, "rdcl.evt_set:ONLINE_EVENT_MON_WED LAST-MODIFIED;X-MILLIS=123:20210501T120000Z", "TEST_CALENDAR_UID");
+
+            // Assert event being changed!
+            assert_event_present!(
+                connection,
+                "TEST_CALENDAR_UID",
+                "ONLINE_EVENT_MON_WED",
+                [
+                    "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM (UPDATED TWO)",
+                    "DTSTART:20201231T160000Z",
+                    "LAST-MODIFIED;X-MILLIS=123:20210501T120000Z", // <- Later LAST-MODIFIED specified (by 123 milliseconds)!
+                ],
+            );
+
+            let expected_last_modified = format!("LAST-MODIFIED:{}", chrono::offset::Utc::now().format("%Y%m%dT%H%M%SZ"));
+
+            // Assert setting event with no LAST-MODIFIED property specified (defaults to now -- which
+            // is later than the existing).
+            set_and_assert_event!(
+                connection,
+                "TEST_CALENDAR_UID",
+                "ONLINE_EVENT_MON_WED",
+                [
+                    "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM (UPDATED THREE)",
+                    "DTSTART:20201231T160000Z",
+                ],
+                [
+                    &expected_last_modified,
+                ],
+            );
+
+            let expected_keyspace_event_message = format!("rdcl.evt_set:ONLINE_EVENT_MON_WED {}", &expected_last_modified);
+
+            // Assert event being changed key-space event notification is published.
+            assert_keyspace_events_published!(message_queue, expected_keyspace_event_message, "TEST_CALENDAR_UID");
+
+            Ok(())
+        })
     }
 
     fn test_event_override_get_set_del_list(connection: &mut Connection) -> Result<()> {
-        set_and_assert_calendar!(connection, "TEST_CALENDAR_UID");
+        listen_for_keyspace_events(6480, |message_queue: &mut Arc<Mutex<VecDeque<redis::Msg>>>| {
+            set_and_assert_calendar!(connection, "TEST_CALENDAR_UID");
 
-        set_and_assert_event!(
-            connection,
-            "TEST_CALENDAR_UID",
-            "EVENT_IN_OXFORD_MON_WED",
-            [
-                "SUMMARY:Event in Oxford on Mondays and Wednesdays at 5:00PM",
-                "RRULE:BYDAY=MO,WE;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
-                "DTSTART:20201231T170000Z",
-                "DTEND:20201231T173000Z",
-                "LAST-MODIFIED:20210501T090000Z",
-                "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
-                "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
-                "GEO:51.751365550307604;-1.2601196837753945",
-            ],
-        );
+            assert_keyspace_events_published!(message_queue, "rdcl.cal_set", "TEST_CALENDAR_UID");
 
-        set_and_assert_event_override!(
-            connection,
-            "TEST_CALENDAR_UID",
-            "EVENT_IN_OXFORD_MON_WED",
-            "20210102T170000Z",
-            [
-                "LAST-MODIFIED:20210501T090000Z",
-                "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY",
-                "X-SPACES-BOOKED:12",
-            ],
-        );
+            set_and_assert_event!(
+                connection,
+                "TEST_CALENDAR_UID",
+                "EVENT_IN_OXFORD_MON_WED",
+                [
+                    "SUMMARY:Event in Oxford on Mondays and Wednesdays at 5:00PM",
+                    "RRULE:BYDAY=MO,WE;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
+                    "DTSTART:20201231T170000Z",
+                    "DTEND:20201231T173000Z",
+                    "LAST-MODIFIED:20210501T090000Z",
+                    "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                    "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
+                    "GEO:51.751365550307604;-1.2601196837753945",
+                ],
+            );
 
-        set_and_assert_event_override!(
-            connection,
-            "TEST_CALENDAR_UID",
-            "EVENT_IN_OXFORD_MON_WED",
-            "20201231T170000Z",
-            [
-                "LAST-MODIFIED:20210501T090000Z",
-                "SUMMARY:Overridden event in Oxford summary text",
-                "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_PARENT_UUID",
-                "CATEGORIES:OVERRIDDEN_CATEGORY",
-            ],
-        );
+            assert_keyspace_events_published!(message_queue, "rdcl.evt_set:EVENT_IN_OXFORD_MON_WED LAST-MODIFIED:20210501T090000Z", "TEST_CALENDAR_UID");
 
-        list_and_assert_matching_event_overrides!(
-            connection,
-            "TEST_CALENDAR_UID",
-            "EVENT_IN_OXFORD_MON_WED",
-            [
+            set_and_assert_event_override!(
+                connection,
+                "TEST_CALENDAR_UID",
+                "EVENT_IN_OXFORD_MON_WED",
+                "20210102T170000Z",
                 [
                     "LAST-MODIFIED:20210501T090000Z",
-                    "DTSTART:20201231T170000Z",
+                    "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY",
+                    "X-SPACES-BOOKED:12",
+                ],
+            );
+
+            assert_keyspace_events_published!(message_queue, "rdcl.evo_set:EVENT_IN_OXFORD_MON_WED:20210102T170000Z LAST-MODIFIED:20210501T090000Z", "TEST_CALENDAR_UID");
+
+            set_and_assert_event_override!(
+                connection,
+                "TEST_CALENDAR_UID",
+                "EVENT_IN_OXFORD_MON_WED",
+                "20201231T170000Z",
+                [
+                    "LAST-MODIFIED:20210501T090000Z",
                     "SUMMARY:Overridden event in Oxford summary text",
                     "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_PARENT_UUID",
                     "CATEGORIES:OVERRIDDEN_CATEGORY",
                 ],
+            );
+
+            assert_keyspace_events_published!(message_queue, "rdcl.evo_set:EVENT_IN_OXFORD_MON_WED:20201231T170000Z LAST-MODIFIED:20210501T090000Z", "TEST_CALENDAR_UID");
+
+            list_and_assert_matching_event_overrides!(
+                connection,
+                "TEST_CALENDAR_UID",
+                "EVENT_IN_OXFORD_MON_WED",
                 [
-                    "LAST-MODIFIED:20210501T090000Z",
-                    "DTSTART:20210102T170000Z",
-                    "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY",
-                    "X-SPACES-BOOKED:12",
+                    [
+                        "LAST-MODIFIED:20210501T090000Z",
+                        "DTSTART:20201231T170000Z",
+                        "SUMMARY:Overridden event in Oxford summary text",
+                        "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_PARENT_UUID",
+                        "CATEGORIES:OVERRIDDEN_CATEGORY",
+                    ],
+                    [
+                        "LAST-MODIFIED:20210501T090000Z",
+                        "DTSTART:20210102T170000Z",
+                        "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY",
+                        "X-SPACES-BOOKED:12",
+                    ],
                 ],
-            ],
-        );
+            );
 
-        list_and_assert_matching_event_overrides!(
-            connection,
-            "TEST_CALENDAR_UID",
-            "EVENT_IN_OXFORD_MON_WED",
-            0,
-            1,
-            [
+            list_and_assert_matching_event_overrides!(
+                connection,
+                "TEST_CALENDAR_UID",
+                "EVENT_IN_OXFORD_MON_WED",
+                0,
+                1,
                 [
-                    "LAST-MODIFIED:20210501T090000Z",
-                    "DTSTART:20201231T170000Z",
-                    "SUMMARY:Overridden event in Oxford summary text",
-                    "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_PARENT_UUID",
-                    "CATEGORIES:OVERRIDDEN_CATEGORY",
+                    [
+                        "LAST-MODIFIED:20210501T090000Z",
+                        "DTSTART:20201231T170000Z",
+                        "SUMMARY:Overridden event in Oxford summary text",
+                        "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_PARENT_UUID",
+                        "CATEGORIES:OVERRIDDEN_CATEGORY",
+                    ],
                 ],
-            ],
-        );
+            );
 
-        list_and_assert_matching_event_overrides!(
-            connection,
-            "TEST_CALENDAR_UID",
-            "EVENT_IN_OXFORD_MON_WED",
-            1,
-            20,
-            [
+            list_and_assert_matching_event_overrides!(
+                connection,
+                "TEST_CALENDAR_UID",
+                "EVENT_IN_OXFORD_MON_WED",
+                1,
+                20,
                 [
-                    "LAST-MODIFIED:20210501T090000Z",
-                    "DTSTART:20210102T170000Z",
-                    "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY",
-                    "X-SPACES-BOOKED:12",
+                    [
+                        "LAST-MODIFIED:20210501T090000Z",
+                        "DTSTART:20210102T170000Z",
+                        "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY",
+                        "X-SPACES-BOOKED:12",
+                    ],
                 ],
-            ],
-        );
+            );
 
-        // Test that rdcl.evt_del returns OK => 1 (true) when calendar event was present and deleted.
-        del_and_assert_event_override_deletion!(connection, "TEST_CALENDAR_UID", "EVENT_IN_OXFORD_MON_WED", "20210102T170000Z", 1);
-        del_and_assert_event_override_deletion!(connection, "TEST_CALENDAR_UID", "EVENT_IN_OXFORD_MON_WED", "20201231T170000Z", 1);
+            // Test that rdcl.evo_del returns OK => 1 (true) when calendar event was present and deleted.
+            del_and_assert_event_override_deletion!(connection, "TEST_CALENDAR_UID", "EVENT_IN_OXFORD_MON_WED", "20210102T170000Z", 1);
+            del_and_assert_event_override_deletion!(connection, "TEST_CALENDAR_UID", "EVENT_IN_OXFORD_MON_WED", "20201231T170000Z", 1);
 
-        // Test that rdcl.evt_del returns OK => 0 (false) when trying to delete calendar events that are not present.
-        del_and_assert_event_override_deletion!(connection, "TEST_CALENDAR_UID", "EVENT_IN_OXFORD_MON_WED", "20210102T170000Z", 0);
-        del_and_assert_event_override_deletion!(connection, "TEST_CALENDAR_UID", "EVENT_IN_OXFORD_MON_WED", "20201231T170000Z", 0);
+            assert_keyspace_events_published!(
+                message_queue,
+                [
+                    ("rdcl.evo_del:EVENT_IN_OXFORD_MON_WED:20210102T170000Z", "TEST_CALENDAR_UID"),
+                    ("rdcl.evo_del:EVENT_IN_OXFORD_MON_WED:20201231T170000Z", "TEST_CALENDAR_UID"),
+                ],
+            );
 
-        list_and_assert_matching_event_overrides!(connection, "TEST_CALENDAR_UID", "EVENT_IN_OXFORD_MON_WED", []);
+            // Test that rdcl.evo_del returns OK => 0 (false) when trying to delete calendar events that are not present.
+            del_and_assert_event_override_deletion!(connection, "TEST_CALENDAR_UID", "EVENT_IN_OXFORD_MON_WED", "20210102T170000Z", 0);
+            del_and_assert_event_override_deletion!(connection, "TEST_CALENDAR_UID", "EVENT_IN_OXFORD_MON_WED", "20201231T170000Z", 0);
 
-        Ok(())
+            assert_keyspace_events_published!(message_queue, []);
+
+            list_and_assert_matching_event_overrides!(connection, "TEST_CALENDAR_UID", "EVENT_IN_OXFORD_MON_WED", []);
+
+            Ok(())
+        })
     }
 
     fn test_event_override_set_last_modified(connection: &mut Connection) -> Result<()> {
-        set_and_assert_calendar!(connection, "TEST_CALENDAR_UID");
+        listen_for_keyspace_events(6480, |message_queue: &mut Arc<Mutex<VecDeque<redis::Msg>>>| {
+            set_and_assert_calendar!(connection, "TEST_CALENDAR_UID");
 
-        set_and_assert_event!(
-            connection,
-            "TEST_CALENDAR_UID",
-            "ONLINE_EVENT_MON_WED",
-            [
-                "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM",
-                "DTSTART:20201231T160000Z",
-                "LAST-MODIFIED:20210501T090000Z",
-            ],
-        );
+            assert_keyspace_events_published!(message_queue, "rdcl.cal_set", "TEST_CALENDAR_UID");
 
-        set_and_assert_event_override!(
-            connection,
-            "TEST_CALENDAR_UID",
-            "ONLINE_EVENT_MON_WED",
-            "20201231T160000Z",
-            [
-                "LAST-MODIFIED:20210501T090000Z",
-                "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY",
-                "X-SPACES-BOOKED:12",
-            ],
-        );
+            set_and_assert_event!(
+                connection,
+                "TEST_CALENDAR_UID",
+                "ONLINE_EVENT_MON_WED",
+                [
+                    "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM",
+                    "DTSTART:20201231T160000Z",
+                    "LAST-MODIFIED:20210501T090000Z",
+                ],
+            );
 
-        list_and_assert_matching_event_overrides!(
-            connection,
-            "TEST_CALENDAR_UID",
-            "ONLINE_EVENT_MON_WED",
-            [
+            assert_keyspace_events_published!(message_queue, "rdcl.evt_set:ONLINE_EVENT_MON_WED LAST-MODIFIED:20210501T090000Z", "TEST_CALENDAR_UID");
+
+            set_and_assert_event_override!(
+                connection,
+                "TEST_CALENDAR_UID",
+                "ONLINE_EVENT_MON_WED",
+                "20201231T160000Z",
                 [
                     "LAST-MODIFIED:20210501T090000Z",
-                    "DTSTART:20201231T160000Z",
                     "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY",
                     "X-SPACES-BOOKED:12",
                 ],
-            ],
-        );
+            );
 
-        // Assert setting event with earlier LAST-MODIFIED property gets ignored.
-        set_and_assert_event_override_not_set!(
-            connection,
-            "TEST_CALENDAR_UID",
-            "ONLINE_EVENT_MON_WED",
-            "20201231T160000Z",
-            [
-                "LAST-MODIFIED:20210201T090000Z", // <- Earlier LAST-MODIFIED specified!
-                "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY",
-                "X-SPACES-BOOKED:12",
-            ],
-        );
+            assert_keyspace_events_published!(message_queue, "rdcl.evo_set:ONLINE_EVENT_MON_WED:20201231T160000Z LAST-MODIFIED:20210501T090000Z", "TEST_CALENDAR_UID");
 
-        // Assert not having changed!
-        list_and_assert_matching_event_overrides!(
-            connection,
-            "TEST_CALENDAR_UID",
-            "ONLINE_EVENT_MON_WED",
-            [
+            list_and_assert_matching_event_overrides!(
+                connection,
+                "TEST_CALENDAR_UID",
+                "ONLINE_EVENT_MON_WED",
                 [
-                    "LAST-MODIFIED:20210501T090000Z",
-                    "DTSTART:20201231T160000Z",
+                    [
+                        "LAST-MODIFIED:20210501T090000Z",
+                        "DTSTART:20201231T160000Z",
+                        "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY",
+                        "X-SPACES-BOOKED:12",
+                    ],
+                ],
+            );
+
+            // Assert setting event override with earlier LAST-MODIFIED property gets ignored.
+            set_and_assert_event_override_not_set!(
+                connection,
+                "TEST_CALENDAR_UID",
+                "ONLINE_EVENT_MON_WED",
+                "20201231T160000Z",
+                [
+                    "LAST-MODIFIED:20210201T090000Z", // <- Earlier LAST-MODIFIED specified!
                     "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY",
                     "X-SPACES-BOOKED:12",
                 ],
-            ],
-        );
+            );
 
-        // Assert setting event with later LAST-MODIFIED property gets acknowledged.
-        set_and_assert_event_override!(
-            connection,
-            "TEST_CALENDAR_UID",
-            "ONLINE_EVENT_MON_WED",
-            "20201231T160000Z",
-            [
-                "LAST-MODIFIED:20210501T120000Z", // <- Later LAST-MODIFIED specified!
-                "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY_ONE",
-                "X-SPACES-BOOKED:14",
-            ],
-        );
+            // Assert no key-space event notifications published.
+            assert_keyspace_events_published!(message_queue, []);
 
-        // Assert event being changed!
-        list_and_assert_matching_event_overrides!(
-            connection,
-            "TEST_CALENDAR_UID",
-            "ONLINE_EVENT_MON_WED",
-            [
+            // Assert not having changed!
+            list_and_assert_matching_event_overrides!(
+                connection,
+                "TEST_CALENDAR_UID",
+                "ONLINE_EVENT_MON_WED",
                 [
-                    "LAST-MODIFIED:20210501T120000Z",
-                    "DTSTART:20201231T160000Z",
+                    [
+                        "LAST-MODIFIED:20210501T090000Z",
+                        "DTSTART:20201231T160000Z",
+                        "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY",
+                        "X-SPACES-BOOKED:12",
+                    ],
+                ],
+            );
+
+            // Assert setting event override with later LAST-MODIFIED property gets acknowledged.
+            set_and_assert_event_override!(
+                connection,
+                "TEST_CALENDAR_UID",
+                "ONLINE_EVENT_MON_WED",
+                "20201231T160000Z",
+                [
+                    "LAST-MODIFIED:20210501T120000Z", // <- Later LAST-MODIFIED specified!
                     "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY_ONE",
                     "X-SPACES-BOOKED:14",
                 ],
-            ],
-        );
+            );
 
-        // Assert setting event with later LAST-MODIFIED property (by a few milliseconds) gets
-        // acknowledged.
-        set_and_assert_event_override!(
-            connection,
-            "TEST_CALENDAR_UID",
-            "ONLINE_EVENT_MON_WED",
-            "20201231T160000Z",
-            [
-                "LAST-MODIFIED;X-MILLIS=123:20210501T120000Z", // <- Later LAST-MODIFIED specified (by 123 milliseconds)!
-                "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY_TWO",
-                "X-SPACES-BOOKED:15",
-            ],
-        );
+            // Assert event override being changed key-space event notification is published.
+            assert_keyspace_events_published!(message_queue, "rdcl.evo_set:ONLINE_EVENT_MON_WED:20201231T160000Z LAST-MODIFIED:20210501T120000Z", "TEST_CALENDAR_UID");
 
-        // Assert event being changed!
-        list_and_assert_matching_event_overrides!(
-            connection,
-            "TEST_CALENDAR_UID",
-            "ONLINE_EVENT_MON_WED",
-            [
+            // Assert event override being changed!
+            list_and_assert_matching_event_overrides!(
+                connection,
+                "TEST_CALENDAR_UID",
+                "ONLINE_EVENT_MON_WED",
+                [
+                    [
+                        "LAST-MODIFIED:20210501T120000Z",
+                        "DTSTART:20201231T160000Z",
+                        "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY_ONE",
+                        "X-SPACES-BOOKED:14",
+                    ],
+                ],
+            );
+
+            // Assert setting event override with later LAST-MODIFIED property (by a few
+            // milliseconds) gets acknowledged.
+            set_and_assert_event_override!(
+                connection,
+                "TEST_CALENDAR_UID",
+                "ONLINE_EVENT_MON_WED",
+                "20201231T160000Z",
                 [
                     "LAST-MODIFIED;X-MILLIS=123:20210501T120000Z", // <- Later LAST-MODIFIED specified (by 123 milliseconds)!
-                    "DTSTART:20201231T160000Z",
                     "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY_TWO",
                     "X-SPACES-BOOKED:15",
                 ],
-            ],
-        );
+            );
 
-        // Assert setting event with no LAST-MODIFIED property specified (defaults to now -- which
-        // is later than the existing).
-        set_and_assert_event_override!(
-            connection,
-            "TEST_CALENDAR_UID",
-            "ONLINE_EVENT_MON_WED",
-            "20201231T160000Z",
-            [
-                "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY_THREE",
-                "X-SPACES-BOOKED:16",
-            ],
-            [
-                format!("LAST-MODIFIED:{}", chrono::offset::Utc::now().format("%Y%m%dT%H%M%SZ")),
-            ],
-        );
+            // Assert event override being changed key-space event notification is published.
+            assert_keyspace_events_published!(message_queue, "rdcl.evo_set:ONLINE_EVENT_MON_WED:20201231T160000Z LAST-MODIFIED;X-MILLIS=123:20210501T120000Z", "TEST_CALENDAR_UID");
 
-        Ok(())
+            // Assert event override being changed!
+            list_and_assert_matching_event_overrides!(
+                connection,
+                "TEST_CALENDAR_UID",
+                "ONLINE_EVENT_MON_WED",
+                [
+                    [
+                        "LAST-MODIFIED;X-MILLIS=123:20210501T120000Z", // <- Later LAST-MODIFIED specified (by 123 milliseconds)!
+                        "DTSTART:20201231T160000Z",
+                        "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY_TWO",
+                        "X-SPACES-BOOKED:15",
+                    ],
+                ],
+            );
+
+            let expected_last_modified = format!("LAST-MODIFIED:{}", chrono::offset::Utc::now().format("%Y%m%dT%H%M%SZ"));
+
+            // Assert setting event override with no LAST-MODIFIED property specified (defaults to
+            // now -- which is later than the existing).
+            set_and_assert_event_override!(
+                connection,
+                "TEST_CALENDAR_UID",
+                "ONLINE_EVENT_MON_WED",
+                "20201231T160000Z",
+                [
+                    "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY_THREE",
+                    "X-SPACES-BOOKED:16",
+                ],
+                [
+                    &expected_last_modified,
+                ],
+            );
+
+            let expected_keyspace_event_message = format!("rdcl.evo_set:ONLINE_EVENT_MON_WED:20201231T160000Z {}", expected_last_modified);
+
+            // Assert event override being changed key-space event notification is published.
+            assert_keyspace_events_published!(message_queue, expected_keyspace_event_message, "TEST_CALENDAR_UID");
+
+            Ok(())
+        })
     }
 
     fn test_event_instance_list(connection: &mut Connection) -> Result<()> {
@@ -1074,115 +1174,130 @@ mod integration {
     }
 
     fn test_calendar_index_disable_rebuild(connection: &mut Connection) -> Result<()> {
-        set_and_assert_calendar!(connection, "TEST_CALENDAR_UID");
+        listen_for_keyspace_events(6480, |message_queue: &mut Arc<Mutex<VecDeque<redis::Msg>>>| {
+            set_and_assert_calendar!(connection, "TEST_CALENDAR_UID");
 
-        // Assert blank results when no events exist
-        query_calendar_and_assert_matching_event_instances!(
-            connection,
-            "TEST_CALENDAR_UID",
-            [],
-            [],
-        );
+            assert_keyspace_events_published!(message_queue, "rdcl.cal_set", "TEST_CALENDAR_UID");
 
-        set_and_assert_event!(
-            connection,
-            "TEST_CALENDAR_UID",
-            "EVENT_IN_OXFORD_MON_WED",
-            [
-                "SUMMARY:Event in Oxford on Mondays and Wednesdays at 5:00PM",
-                "RRULE:BYDAY=MO,WE;COUNT=2;FREQ=WEEKLY;INTERVAL=1",
-                "DTSTART:20201231T170000Z",
-                "DTEND:20201231T173000Z",
-                "LAST-MODIFIED:20210501T090000Z",
-                "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
-                "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
-                "GEO:51.751365550307604;-1.2601196837753945",
-            ],
-        );
+            // Assert blank results when no events exist
+            query_calendar_and_assert_matching_event_instances!(
+                connection,
+                "TEST_CALENDAR_UID",
+                [],
+                [],
+            );
 
-        set_and_assert_event_override!(
-            connection,
-            "TEST_CALENDAR_UID",
-            "EVENT_IN_OXFORD_MON_WED",
-            "20210104T170000Z",
-            [
-                "LAST-MODIFIED:20210501T090000Z",
-                "SUMMARY:Overridden event in Oxford summary text",
-                "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_PARENT_UUID",
-                "CATEGORIES:OVERRIDDEN_CATEGORY",
-            ],
-        );
+            set_and_assert_event!(
+                connection,
+                "TEST_CALENDAR_UID",
+                "EVENT_IN_OXFORD_MON_WED",
+                [
+                    "SUMMARY:Event in Oxford on Mondays and Wednesdays at 5:00PM",
+                    "RRULE:BYDAY=MO,WE;COUNT=2;FREQ=WEEKLY;INTERVAL=1",
+                    "DTSTART:20201231T170000Z",
+                    "DTEND:20201231T173000Z",
+                    "LAST-MODIFIED:20210501T090000Z",
+                    "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                    "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
+                    "GEO:51.751365550307604;-1.2601196837753945",
+                ],
+            );
 
-        // Assert Calendar indexes working with query to strip out overridden event occurrence.
-        query_calendar_and_assert_matching_event_instances!(
-            connection,
-            "TEST_CALENDAR_UID",
-            [
-                "X-RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
-            ],
-            [
+            assert_keyspace_events_published!(message_queue, "rdcl.evt_set:EVENT_IN_OXFORD_MON_WED LAST-MODIFIED:20210501T090000Z", "TEST_CALENDAR_UID");
+
+            set_and_assert_event_override!(
+                connection,
+                "TEST_CALENDAR_UID",
+                "EVENT_IN_OXFORD_MON_WED",
+                "20210104T170000Z",
+                [
+                    "LAST-MODIFIED:20210501T090000Z",
+                    "SUMMARY:Overridden event in Oxford summary text",
+                    "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_PARENT_UUID",
+                    "CATEGORIES:OVERRIDDEN_CATEGORY",
+                ],
+            );
+
+            assert_keyspace_events_published!(message_queue, "rdcl.evo_set:EVENT_IN_OXFORD_MON_WED:20210104T170000Z LAST-MODIFIED:20210501T090000Z", "TEST_CALENDAR_UID");
+
+            // Assert Calendar indexes working with query to strip out overridden event occurrence.
+            query_calendar_and_assert_matching_event_instances!(
+                connection,
+                "TEST_CALENDAR_UID",
+                [
+                    "X-RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                ],
                 [
                     [
-                        "DTSTART:20210106T170000Z",
+                        [
+                            "DTSTART:20210106T170000Z",
+                        ],
+                        [
+                            "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
+                            "DTEND:20210106T173000Z",
+                            "DTSTART:20210106T170000Z",
+                            "DURATION:PT30M",
+                            "GEO:51.751365550307604;-1.2601196837753945",
+                            "RECURRENCE-ID;VALUE=DATE-TIME:20210106T170000Z",
+                            "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                            "SUMMARY:Event in Oxford on Mondays and Wednesdays at 5:00PM",
+                            "UID:EVENT_IN_OXFORD_MON_WED",
+                        ],
                     ],
-                    [
-                        "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
-                        "DTEND:20210106T173000Z",
-                        "DTSTART:20210106T170000Z",
-                        "DURATION:PT30M",
-                        "GEO:51.751365550307604;-1.2601196837753945",
-                        "RECURRENCE-ID;VALUE=DATE-TIME:20210106T170000Z",
-                        "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
-                        "SUMMARY:Event in Oxford on Mondays and Wednesdays at 5:00PM",
-                        "UID:EVENT_IN_OXFORD_MON_WED",
-                    ],
+                ]
+            );
+
+            disable_calendar_indexes!(connection, "TEST_CALENDAR_UID", 1);
+
+            assert_keyspace_events_published!(message_queue, "rdcl.cal_idx_disable", "TEST_CALENDAR_UID");
+
+            disable_calendar_indexes!(connection, "TEST_CALENDAR_UID", 0);
+
+            assert_keyspace_events_published!(message_queue, []);
+
+            // Assert error reporting Calendar querying disabled
+            let disabled_query_result: Result<Vec<String>, String> = redis::cmd("rdcl.cal_query").arg("TEST_CALENDAR_UID").arg("X-RELATED-TO;RELTYPE=PARENT:PARENT_UUID").query(connection).map_err(|error| error.to_string());
+
+            assert_eq!(
+                disabled_query_result,
+                Err(
+                    String::from("rdcl.cal_query:: Queries disabled on Calendar: TEST_CALENDAR_UID because it's indexes have been disabled."),
+                ),
+            );
+
+            rebuild_calendar_indexes!(connection, "TEST_CALENDAR_UID");
+
+            assert_keyspace_events_published!(message_queue, "rdcl.cal_idx_rebuild", "TEST_CALENDAR_UID");
+
+            // Test that querying is re-enabled and indexes work again.
+            query_calendar_and_assert_matching_event_instances!(
+                connection,
+                "TEST_CALENDAR_UID",
+                [
+                    "X-RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
                 ],
-            ]
-        );
-
-        disable_calendar_indexes!(connection, "TEST_CALENDAR_UID", 1);
-        disable_calendar_indexes!(connection, "TEST_CALENDAR_UID", 0);
-
-        // Assert error reporting Calendar querying disabled
-        let disabled_query_result: Result<Vec<String>, String> = redis::cmd("rdcl.cal_query").arg("TEST_CALENDAR_UID").arg("X-RELATED-TO;RELTYPE=PARENT:PARENT_UUID").query(connection).map_err(|error| error.to_string());
-
-        assert_eq!(
-            disabled_query_result,
-            Err(
-                String::from("rdcl.cal_query:: Queries disabled on Calendar: TEST_CALENDAR_UID because it's indexes have been disabled."),
-            ),
-        );
-
-        rebuild_calendar_indexes!(connection, "TEST_CALENDAR_UID");
-
-        // Test that querying is re-enabled and indexes work again.
-        query_calendar_and_assert_matching_event_instances!(
-            connection,
-            "TEST_CALENDAR_UID",
-            [
-                "X-RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
-            ],
-            [
                 [
                     [
-                        "DTSTART:20210106T170000Z",
+                        [
+                            "DTSTART:20210106T170000Z",
+                        ],
+                        [
+                            "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
+                            "DTEND:20210106T173000Z",
+                            "DTSTART:20210106T170000Z",
+                            "DURATION:PT30M",
+                            "GEO:51.751365550307604;-1.2601196837753945",
+                            "RECURRENCE-ID;VALUE=DATE-TIME:20210106T170000Z",
+                            "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                            "SUMMARY:Event in Oxford on Mondays and Wednesdays at 5:00PM",
+                            "UID:EVENT_IN_OXFORD_MON_WED",
+                        ],
                     ],
-                    [
-                        "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
-                        "DTEND:20210106T173000Z",
-                        "DTSTART:20210106T170000Z",
-                        "DURATION:PT30M",
-                        "GEO:51.751365550307604;-1.2601196837753945",
-                        "RECURRENCE-ID;VALUE=DATE-TIME:20210106T170000Z",
-                        "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
-                        "SUMMARY:Event in Oxford on Mondays and Wednesdays at 5:00PM",
-                        "UID:EVENT_IN_OXFORD_MON_WED",
-                    ],
-                ],
-            ]
-        );
+                ]
+            );
 
-        Ok(())
+            Ok(())
+        })
     }
 
     fn test_rdb_save_load(connection: &mut Connection) -> Result<()> {
@@ -1397,6 +1512,71 @@ mod integration {
         Ok(())
     }
 
+    fn test_key_expire_eviction_keyspace_events(connection: &mut Connection) -> Result<()> {
+        listen_for_keyspace_events(6480, |message_queue: &mut Arc<Mutex<VecDeque<redis::Msg>>>| {
+            set_and_assert_calendar!(connection, "TEST_CALENDAR_UID");
+
+            assert_keyspace_events_published!(message_queue, "rdcl.cal_set", "TEST_CALENDAR_UID");
+
+            redis::cmd("EXPIRE")
+                .arg("TEST_CALENDAR_UID")
+                .arg(0)
+                .execute(connection);
+
+            assert_calendar_nil!(connection, "TEST_CALENDAR_UID");
+
+            assert_keyspace_events_published!(
+                message_queue,
+                [
+                    ("rdcl.cal_del", "TEST_CALENDAR_UID"),
+                    ("del",          "TEST_CALENDAR_UID"),
+                ],
+            );
+
+            set_and_assert_calendar!(connection, "TEST_CALENDAR_UID");
+
+            assert_keyspace_events_published!(message_queue, "rdcl.cal_set", "TEST_CALENDAR_UID");
+
+            // Update Redis config to evict key at random if max memory exceeded.
+            redis::cmd("CONFIG")
+                .arg("SET")
+                .arg(b"maxmemory-policy")
+                .arg("allkeys-random")
+                .execute(connection);
+
+            // Update Redis configured max memory to an absurdly low amount to force key eviction.
+            redis::cmd("CONFIG")
+                .arg("SET")
+                .arg(b"maxmemory")
+                .arg("1kb")
+                .execute(connection);
+
+            assert_keyspace_events_published!(
+                message_queue,
+                [
+                    (
+                        "rdcl.cal_del",
+                        "TEST_CALENDAR_UID",
+                    ),
+                    (
+                        "evicted",
+                        "TEST_CALENDAR_UID",
+                    ),
+                ],
+            );
+
+            // Revert Redis configured max memory back to unlimited to allow subsequent tests to be
+            // uneffected by this test case.
+            redis::cmd("CONFIG")
+                .arg("SET")
+                .arg(b"maxmemory")
+                .arg("0")
+                .execute(connection);
+
+            Ok(())
+        })
+    }
+
     run_all_integration_tests_sequentially!(
         test_calendar_get_set_del,
         test_event_get_set_del_list,
@@ -1407,6 +1587,7 @@ mod integration {
         test_calendar_query,
         test_calendar_index_disable_rebuild,
         test_rdb_save_load,
+        test_key_expire_eviction_keyspace_events,
     );
 
 }

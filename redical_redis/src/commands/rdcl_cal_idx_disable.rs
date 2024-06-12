@@ -1,4 +1,4 @@
-use redis_module::{Context, NextArg, RedisError, RedisResult, RedisString, RedisValue};
+use redis_module::{Context, NextArg, RedisError, RedisResult, RedisString, RedisValue, NotifyEvent, Status};
 
 use crate::core::Calendar;
 use crate::datatype::CALENDAR_DATA_TYPE;
@@ -30,7 +30,23 @@ pub fn redical_calendar_idx_disable(ctx: &Context, args: Vec<RedisString>) -> Re
 
     calendar.disable_indexes();
 
+    notify_keyspace_event(ctx, &calendar_uid)?;
+
     ctx.log_debug(format!("rdcl.cal_idx_disable: key: {calendar_uid}").as_str());
 
     Ok(RedisValue::Bool(true))
+}
+
+fn notify_keyspace_event(ctx: &Context, calendar_uid: &RedisString) -> Result<(), RedisError> {
+    let event_message = "rdcl.cal_idx_disable";
+
+    if ctx.notify_keyspace_event(NotifyEvent::MODULE, event_message, &calendar_uid) == Status::Err {
+        return Err(
+            RedisError::String(
+                format!("Notify keyspace event \"rdcl.cal_idx_disable\" for calendar: \"{}\"", &calendar_uid)
+            )
+        );
+    }
+
+    Ok(())
 }

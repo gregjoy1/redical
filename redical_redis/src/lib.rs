@@ -1,4 +1,4 @@
-use redis_module::{redis_module, Context, NotifyEvent};
+use redis_module::{redis_module, Context, NotifyEvent, Status, RedisString};
 
 use redical_core as core;
 
@@ -6,18 +6,6 @@ mod datatype;
 mod commands;
 
 use crate::datatype::CALENDAR_DATA_TYPE;
-
-fn on_event(ctx: &Context, event_type: NotifyEvent, event: &str, key: &[u8]) {
-    ctx.log_notice(
-        format!(
-            "Received event: {:?} on key: {} via event: {}",
-            event_type,
-            std::str::from_utf8(key).unwrap(),
-            event
-        )
-        .as_str(),
-    );
-}
 
 pub const MODULE_NAME: &str = "RediCal";
 pub const MODULE_VERSION: u32 = 1;
@@ -50,6 +38,31 @@ unsafe impl std::alloc::GlobalAlloc for RedicalAlloc {
     }
 }
 
+fn notify_rdcl_cal_del_keyspace_event(ctx: &Context, calendar_uid: &RedisString) {
+    if ctx.notify_keyspace_event(NotifyEvent::MODULE, "rdcl.cal_del", &calendar_uid) == Status::Err {
+        ctx.log_warning(
+            format!("Notify keyspace event \"rdcl.cal_set\" for calendar: \"{}\" failed", &calendar_uid).as_str()
+        );
+    }
+}
+
+// If key space event is either GENERIC "del" or EVICTED "evicted" and the key stores a RediCal
+// Calendar datatype, notify the "rdcl.cal_del" event. This ensures keyspace notification
+// subscribers are notified when a RediCal Calendar key is deleted or evicted so that they can
+// respond appropriately (e.g. quickly re-import all Calendar data).
+//
+// This requires at least the "Kge" notification configuration to be enabled to receive these
+// notifications.
+fn on_keyspace_event(ctx: &Context, event_type: NotifyEvent, event: &str, key: &[u8]) {
+    if matches!((event_type, event), (NotifyEvent::GENERIC, "del") | (NotifyEvent::EVICTED, "evicted")) {
+        let calendar_uid = RedisString::create_from_slice(ctx.ctx, key);
+
+        if ctx.open_key(&calendar_uid).get_value::<core::Calendar>(&CALENDAR_DATA_TYPE).is_ok() {
+            notify_rdcl_cal_del_keyspace_event(ctx, &calendar_uid);
+        }
+    }
+}
+
 redis_module! {
     name:       MODULE_NAME,
     version:    MODULE_VERSION,
@@ -74,6 +87,7 @@ redis_module! {
         ["rdcl.cal_idx_rebuild", commands::redical_calendar_idx_rebuild, "write pubsub deny-oom", 1, 1, 1],
     ],
     event_handlers: [
-        [@STRING: on_event],
+        [@GENERIC: on_keyspace_event],
+        [@EVICTED: on_keyspace_event],
     ]
 }

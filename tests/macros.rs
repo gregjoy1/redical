@@ -919,6 +919,41 @@ macro_rules! query_calendar_and_assert_matching_event_instances {
 }
 
 #[macro_export]
+macro_rules! assert_keyspace_events_published {
+    ($message_queue:expr, $event:expr, $keyname:expr $(,)*) => {
+        assert_keyspace_events_published!($message_queue, [($event, $keyname)]);
+    };
+
+    ($message_queue:expr, [$(($event:expr, $keyname:expr $(,)*) $(,)*)*] $(,)*) => {
+        {
+            // Ensure that all pub/sub messages have a chance to be captured before proceeding with
+            // the assertion.
+            std::thread::sleep(std::time::Duration::from_millis(150));
+
+            let mut message_queue_lock = $message_queue.lock().unwrap();
+
+            let mut published_keyspace_events = Vec::new();
+
+            while let Some(message) = message_queue_lock.pop_front() {
+                let message_keyname = message.get_channel_name().replace("__keyspace@0__:", "");
+                let message_event = message.get_payload::<String>().unwrap();
+
+                published_keyspace_events.push((message_event, message_keyname));
+            }
+
+            assert_eq_sorted!(
+                published_keyspace_events,
+                vec![
+                    $(
+                        ($event.to_string(), $keyname.to_string()),
+                    )*
+                ],
+            );
+        }
+    };
+}
+
+#[macro_export]
 macro_rules! run_all_integration_tests_sequentially {
     ($($test_function:ident),+ $(,)*) => {
         #[test]
@@ -937,6 +972,8 @@ macro_rules! run_all_integration_tests_sequentially {
             test_calendar_get_set_del(&mut connection)?;
 
             $(
+                println!(concat!("Running: ", stringify!($test_function)));
+
                 $test_function(&mut connection)?;
 
                 redis::cmd("FLUSHDB")

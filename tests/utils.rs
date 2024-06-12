@@ -2,9 +2,12 @@ use anyhow::{Context, Result};
 
 use redis::Connection;
 use std::fs;
+use std::thread;
 use std::path::PathBuf;
 use std::process::Command;
 use std::time::Duration;
+use std::collections::VecDeque;
+use std::sync::{Arc, Mutex, mpsc};
 
 /// Ensure child process is killed both on normal exit and when panicking due to a failed test.
 pub struct ChildGuard {
@@ -116,4 +119,62 @@ pub fn get_redis_connection(port: u16) -> Result<Connection> {
             }
         }
     }
+}
+
+pub fn listen_for_keyspace_events(port: u16, mut handler: impl FnMut(&mut Arc<Mutex<VecDeque<redis::Msg>>>) -> Result<()>) -> Result<()> {
+    let (kill_tx, kill_rx): (mpsc::Sender<()>, mpsc::Receiver<()>) = mpsc::channel();
+
+    let mut message_queue = Arc::new(Mutex::new(VecDeque::new()));
+    let thread_message_queue = message_queue.clone();
+
+    let mut connection = get_redis_connection(port).unwrap();
+
+    // Enable keyspace pub/sub events:
+    // * K - Keyspace events, published with __keyspace@<db>__ prefix.
+    // * e - Evicted events (events generated when a key is evicted for maxmemory)
+    // * g - Generic commands (non-type specific) like DEL, EXPIRE, RENAME, ...
+    // * d - Module key type events
+    //
+    // Also set in tests/redis_test_config.conf
+    redis::cmd("CONFIG")
+        .arg("SET")
+        .arg(b"notify-keyspace-events")
+        .arg("Kegd")
+        .execute(&mut connection);
+
+    let join_handle = thread::spawn(move || {
+        let mut pub_sub = connection.as_pubsub();
+
+        pub_sub.psubscribe("__key*__:*").unwrap();
+
+        let _ = pub_sub.set_read_timeout(Some(Duration::new(0, 500)));
+
+        loop {
+            if let Ok(_) = kill_rx.try_recv() {
+                break;
+            }
+
+            match pub_sub.get_message() {
+                Ok(message) => {
+                    thread_message_queue.lock().unwrap().push_back(message);
+                },
+
+                Err(error) if error.is_timeout() => {},
+
+                Err(error) => {
+                    panic!("Redis pub/sub listener get_message error: #{error}");
+                },
+            }
+        }
+    });
+
+    // Give the pub/sub listener thread a moment to get started...
+    std::thread::sleep(std::time::Duration::from_millis(50));
+
+    handler(&mut message_queue)?;
+
+    kill_tx.send(()).unwrap();
+    join_handle.join().unwrap();
+
+    Ok(())
 }

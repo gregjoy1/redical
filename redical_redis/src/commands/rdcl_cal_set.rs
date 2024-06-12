@@ -43,12 +43,22 @@ pub fn redical_calendar_set(ctx: &Context, args: Vec<RedisString>) -> RedisResul
     // Use this command when replicating across other Redis instances.
     ctx.replicate_verbatim();
 
-    // TODO: Revisit keyspace events...
-    if ctx.notify_keyspace_event(NotifyEvent::GENERIC, "calendar.set", &calendar_uid)
-        == Status::Err
-    {
-        return Err(RedisError::Str("Generic error"));
-    }
+    notify_keyspace_event(ctx, &calendar_uid)?;
 
     Ok(serialize_calendar(&calendar))
+}
+
+
+fn notify_keyspace_event(ctx: &Context, calendar_uid: &RedisString) -> Result<(), RedisError> {
+    let event_message = "rdcl.cal_set";
+
+    if ctx.notify_keyspace_event(NotifyEvent::MODULE, event_message, &calendar_uid) == Status::Err {
+        return Err(
+            RedisError::String(
+                format!("Notify keyspace event \"rdcl.cal_set\" for calendar: \"{}\"", &calendar_uid)
+            )
+        );
+    }
+
+    Ok(())
 }
