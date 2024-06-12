@@ -70,7 +70,7 @@ mod integration {
                 ],
             );
 
-            assert_keyspace_events_published!(message_queue, "rdcl.evt_set:ONLINE_EVENT_MON_WED", "TEST_CALENDAR_UID");
+            assert_keyspace_events_published!(message_queue, "rdcl.evt_set:ONLINE_EVENT_MON_WED LAST-MODIFIED:20210501T090000Z", "TEST_CALENDAR_UID");
 
             set_and_assert_event!(
                 connection,
@@ -88,7 +88,7 @@ mod integration {
                 ],
             );
 
-            assert_keyspace_events_published!(message_queue, "rdcl.evt_set:EVENT_IN_OXFORD_MON_WED", "TEST_CALENDAR_UID");
+            assert_keyspace_events_published!(message_queue, "rdcl.evt_set:EVENT_IN_OXFORD_MON_WED LAST-MODIFIED:20210501T090000Z", "TEST_CALENDAR_UID");
 
             list_and_assert_matching_events!(
                 connection,
@@ -159,7 +159,7 @@ mod integration {
                 ],
             );
 
-            assert_keyspace_events_published!(message_queue, "rdcl.evt_set:ONLINE_EVENT_MON_WED", "TEST_CALENDAR_UID");
+            assert_keyspace_events_published!(message_queue, "rdcl.evt_set:ONLINE_EVENT_MON_WED LAST-MODIFIED:20210501T090000Z", "TEST_CALENDAR_UID");
 
             list_and_assert_matching_events!(
                 connection,
@@ -226,7 +226,7 @@ mod integration {
             );
 
             // Assert event being changed key-space event notification is published.
-            assert_keyspace_events_published!(message_queue, "rdcl.evt_set:ONLINE_EVENT_MON_WED", "TEST_CALENDAR_UID");
+            assert_keyspace_events_published!(message_queue, "rdcl.evt_set:ONLINE_EVENT_MON_WED LAST-MODIFIED:20210501T120000Z", "TEST_CALENDAR_UID");
 
             // Assert setting event with later LAST-MODIFIED property (by a few milliseconds) gets
             // acknowledged.
@@ -242,7 +242,7 @@ mod integration {
             );
 
             // Assert event being changed key-space event notification is published.
-            assert_keyspace_events_published!(message_queue, "rdcl.evt_set:ONLINE_EVENT_MON_WED", "TEST_CALENDAR_UID");
+            assert_keyspace_events_published!(message_queue, "rdcl.evt_set:ONLINE_EVENT_MON_WED LAST-MODIFIED;X-MILLIS=123:20210501T120000Z", "TEST_CALENDAR_UID");
 
             // Assert event being changed!
             assert_event_present!(
@@ -256,6 +256,8 @@ mod integration {
                 ],
             );
 
+            let expected_last_modified = format!("LAST-MODIFIED:{}", chrono::offset::Utc::now().format("%Y%m%dT%H%M%SZ"));
+
             // Assert setting event with no LAST-MODIFIED property specified (defaults to now -- which
             // is later than the existing).
             set_and_assert_event!(
@@ -267,12 +269,14 @@ mod integration {
                     "DTSTART:20201231T160000Z",
                 ],
                 [
-                    format!("LAST-MODIFIED:{}", chrono::offset::Utc::now().format("%Y%m%dT%H%M%SZ")),
+                    &expected_last_modified,
                 ],
             );
 
+            let expected_keyspace_event_message = format!("rdcl.evt_set:ONLINE_EVENT_MON_WED {}", &expected_last_modified);
+
             // Assert event being changed key-space event notification is published.
-            assert_keyspace_events_published!(message_queue, "rdcl.evt_set:ONLINE_EVENT_MON_WED", "TEST_CALENDAR_UID");
+            assert_keyspace_events_published!(message_queue, expected_keyspace_event_message, "TEST_CALENDAR_UID");
 
             Ok(())
         })
@@ -300,7 +304,7 @@ mod integration {
                 ],
             );
 
-            assert_keyspace_events_published!(message_queue, "rdcl.evt_set:EVENT_IN_OXFORD_MON_WED", "TEST_CALENDAR_UID");
+            assert_keyspace_events_published!(message_queue, "rdcl.evt_set:EVENT_IN_OXFORD_MON_WED LAST-MODIFIED:20210501T090000Z", "TEST_CALENDAR_UID");
 
             set_and_assert_event_override!(
                 connection,
@@ -314,7 +318,7 @@ mod integration {
                 ],
             );
 
-            assert_keyspace_events_published!(message_queue, "rdcl.evo_set:EVENT_IN_OXFORD_MON_WED:20210102T170000Z", "TEST_CALENDAR_UID");
+            assert_keyspace_events_published!(message_queue, "rdcl.evo_set:EVENT_IN_OXFORD_MON_WED:20210102T170000Z LAST-MODIFIED:20210501T090000Z", "TEST_CALENDAR_UID");
 
             set_and_assert_event_override!(
                 connection,
@@ -329,7 +333,7 @@ mod integration {
                 ],
             );
 
-            assert_keyspace_events_published!(message_queue, "rdcl.evo_set:EVENT_IN_OXFORD_MON_WED:20201231T170000Z", "TEST_CALENDAR_UID");
+            assert_keyspace_events_published!(message_queue, "rdcl.evo_set:EVENT_IN_OXFORD_MON_WED:20201231T170000Z LAST-MODIFIED:20210501T090000Z", "TEST_CALENDAR_UID");
 
             list_and_assert_matching_event_overrides!(
                 connection,
@@ -426,7 +430,7 @@ mod integration {
                 ],
             );
 
-            assert_keyspace_events_published!(message_queue, "rdcl.evt_set:ONLINE_EVENT_MON_WED", "TEST_CALENDAR_UID");
+            assert_keyspace_events_published!(message_queue, "rdcl.evt_set:ONLINE_EVENT_MON_WED LAST-MODIFIED:20210501T090000Z", "TEST_CALENDAR_UID");
 
             set_and_assert_event_override!(
                 connection,
@@ -440,7 +444,7 @@ mod integration {
                 ],
             );
 
-            assert_keyspace_events_published!(message_queue, "rdcl.evo_set:ONLINE_EVENT_MON_WED:20201231T160000Z", "TEST_CALENDAR_UID");
+            assert_keyspace_events_published!(message_queue, "rdcl.evo_set:ONLINE_EVENT_MON_WED:20201231T160000Z LAST-MODIFIED:20210501T090000Z", "TEST_CALENDAR_UID");
 
             list_and_assert_matching_event_overrides!(
                 connection,
@@ -501,7 +505,7 @@ mod integration {
             );
 
             // Assert event override being changed key-space event notification is published.
-            assert_keyspace_events_published!(message_queue, "rdcl.evo_set:ONLINE_EVENT_MON_WED:20201231T160000Z", "TEST_CALENDAR_UID");
+            assert_keyspace_events_published!(message_queue, "rdcl.evo_set:ONLINE_EVENT_MON_WED:20201231T160000Z LAST-MODIFIED:20210501T120000Z", "TEST_CALENDAR_UID");
 
             // Assert event override being changed!
             list_and_assert_matching_event_overrides!(
@@ -533,7 +537,7 @@ mod integration {
             );
 
             // Assert event override being changed key-space event notification is published.
-            assert_keyspace_events_published!(message_queue, "rdcl.evo_set:ONLINE_EVENT_MON_WED:20201231T160000Z", "TEST_CALENDAR_UID");
+            assert_keyspace_events_published!(message_queue, "rdcl.evo_set:ONLINE_EVENT_MON_WED:20201231T160000Z LAST-MODIFIED;X-MILLIS=123:20210501T120000Z", "TEST_CALENDAR_UID");
 
             // Assert event override being changed!
             list_and_assert_matching_event_overrides!(
@@ -550,6 +554,8 @@ mod integration {
                 ],
             );
 
+            let expected_last_modified = format!("LAST-MODIFIED:{}", chrono::offset::Utc::now().format("%Y%m%dT%H%M%SZ"));
+
             // Assert setting event override with no LAST-MODIFIED property specified (defaults to
             // now -- which is later than the existing).
             set_and_assert_event_override!(
@@ -562,12 +568,14 @@ mod integration {
                     "X-SPACES-BOOKED:16",
                 ],
                 [
-                    format!("LAST-MODIFIED:{}", chrono::offset::Utc::now().format("%Y%m%dT%H%M%SZ")),
+                    &expected_last_modified,
                 ],
             );
 
+            let expected_keyspace_event_message = format!("rdcl.evo_set:ONLINE_EVENT_MON_WED:20201231T160000Z {}", expected_last_modified);
+
             // Assert event override being changed key-space event notification is published.
-            assert_keyspace_events_published!(message_queue, "rdcl.evo_set:ONLINE_EVENT_MON_WED:20201231T160000Z", "TEST_CALENDAR_UID");
+            assert_keyspace_events_published!(message_queue, expected_keyspace_event_message, "TEST_CALENDAR_UID");
 
             Ok(())
         })
@@ -1195,7 +1203,7 @@ mod integration {
                 ],
             );
 
-            assert_keyspace_events_published!(message_queue, "rdcl.evt_set:EVENT_IN_OXFORD_MON_WED", "TEST_CALENDAR_UID");
+            assert_keyspace_events_published!(message_queue, "rdcl.evt_set:EVENT_IN_OXFORD_MON_WED LAST-MODIFIED:20210501T090000Z", "TEST_CALENDAR_UID");
 
             set_and_assert_event_override!(
                 connection,
@@ -1210,7 +1218,7 @@ mod integration {
                 ],
             );
 
-            assert_keyspace_events_published!(message_queue, "rdcl.evo_set:EVENT_IN_OXFORD_MON_WED:20210104T170000Z", "TEST_CALENDAR_UID");
+            assert_keyspace_events_published!(message_queue, "rdcl.evo_set:EVENT_IN_OXFORD_MON_WED:20210104T170000Z LAST-MODIFIED:20210501T090000Z", "TEST_CALENDAR_UID");
 
             // Assert Calendar indexes working with query to strip out overridden event occurrence.
             query_calendar_and_assert_matching_event_instances!(
