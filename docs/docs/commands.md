@@ -15,3 +15,115 @@
 * [RDCL.CAL_QUERY](../commands/rdcl.cal_query.md)
 * [RDCL.CAL_IDX_DISABLE](../commands/rdcl.cal_idx_disable.md)
 * [RDCL.CAL_IDX_REBUILD](../commands/rdcl.cal_idx_rebuild.md)
+
+### Keyspace notifications
+
+RediCal dispatches various keyspace notifications for all non-read-only commands, key expiries, and evictions available to be monitored via pub/sub.
+
+To enable this, please ensure at least the following keyspace events are defined in the Redis configuration:
+
+> [!NOTE]
+> * K - Keyspace events, published with `__keyspace@<db>__ prefix`.
+> * e - Evicted events (events generated when a key is evicted for maxmemory)
+> * g - Generic commands (non-type specific) like DEL, EXPIRE, RENAME, ...
+> * d - Module (RediCal) key type events
+
+```
+notify-keyspace-events Kegd
+```
+
+#### `RDCL.CAL_SET` keyspace event
+
+This event is dispatched each time a key containing a RediCal calendar data type is created or updated.
+
+##### Format:
+
+```
+"__keyspace@0__:<KEY_NAME>", "rdcl.cal_set"
+```
+
+#### `RDCL.CAL_DEL` keyspace event
+
+This event is dispatched each time a key containing a RediCal calendar data type is:
+* Deleted (via `DEL KEY_NAME`)
+* Expired (via `EXPIRE KEY_NAME 0`)
+* Evicted (via `maxmemory-policy` configuration on Redis exceeding the memory usage defined within the `maxmemory` configuration)
+
+> [!NOTE]
+> This keyspace event message is helpful when monitoring the state of calendars, events, and event overrides stored/cached within RediCal and handling the reimport of calendar event data in the event of an eviction.
+
+##### Format:
+
+```
+"__keyspace@0__:<KEY_NAME>", "rdcl.cal_del"
+```
+
+#### `RDCL.CAL_IDX_REBUILD` keyspace event
+
+This event is dispatched each time the indexes stored within the RediCal calendar key data type are re-enabled and rebuilt.
+
+##### Format:
+
+```
+"__keyspace@0__:<KEY_NAME>", "rdcl.cal_idx_rebuild"
+```
+
+#### `RDCL.CAL_IDX_DISABLE` keyspace event
+
+This event is dispatched each time the indexes stored within the RediCal calendar key data type are disabled.
+
+##### Format:
+
+```
+"__keyspace@0__:<KEY_NAME>", "rdcl.cal_idx_disable"
+```
+
+#### `RDCL.EVT_SET` keyspace event
+
+This keyspace event is dispatched each time a RediCal event contained within a RediCal calendar key data type is updated via the `RDCL.EVT_SET` command.
+
+> [!NOTE]
+> This keyspace event message contains the rendered `LAST-MODIFIED` iCalendar property belonging to the event created/updated.
+>
+> This is helpful when monitoring the version of events stored/cached within RediCal and reconciling those stored within another master data-store.
+
+##### Format:
+
+```
+"__keyspace@0__:<KEY_NAME>", "rdcl.evt_set:<EVENT_UID> LAST-MODIFIED:<LAST_MODIFIED_DATE_STRING>"
+```
+
+#### `RDCL.EVT_DEL` keyspace event
+
+This keyspace event is dispatched each time a RediCal event contained within a RediCal calendar key data type is deleted via the `RDCL.EVT_DEL` command.
+
+##### Format:
+
+```
+"__keyspace@0__:<KEY_NAME>:<EVENT_UID>", "rdcl.evt_del"
+```
+
+#### `RDCL.EVO_SET` keyspace event
+
+This keyspace event is dispatched each time an occurrence specific override of a RediCal event contained within a RediCal calendar key data type is updated via the `RDCL.EVO_SET` command.
+
+> [!NOTE]
+> This keyspace event message contains the rendered `LAST-MODIFIED` iCalendar property belonging to the event occurrence override created/updated.
+>
+> This is helpful when monitoring the version of occurrence specific event override stored/cached within RediCal and reconciling those stored within another master data-store.
+
+##### Format:
+
+```
+"__keyspace@0__:<KEY_NAME>", "rdcl.evo_set:<EVENT_UID>:<OCCURRENCE_DATE_STRING> LAST-MODIFIED:<LAST_MODIFIED_DATE_STRING>"
+```
+
+#### `RDCL.EVO_DEL` keyspace event
+
+This keyspace event is dispatched each time an occurrence specific override of a RediCal event contained within a RediCal calendar key data type is deleted via the `RDCL.EVO_DEL` command.
+
+##### Format:
+
+```
+"__keyspace@0__:<KEY_NAME>:<EVENT_UID>:<OCCURRENCE_DATE_STRING>", "rdcl.evo_del"
+```
