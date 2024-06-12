@@ -1504,6 +1504,71 @@ mod integration {
         Ok(())
     }
 
+    fn test_key_expire_eviction_keyspace_events(connection: &mut Connection) -> Result<()> {
+        listen_for_keyspace_events(6480, |message_queue: &mut Arc<Mutex<VecDeque<redis::Msg>>>| {
+            set_and_assert_calendar!(connection, "TEST_CALENDAR_UID");
+
+            assert_keyspace_events_published!(message_queue, "rdcl.cal_set", "TEST_CALENDAR_UID");
+
+            redis::cmd("EXPIRE")
+                .arg("TEST_CALENDAR_UID")
+                .arg(0)
+                .execute(connection);
+
+            assert_calendar_nil!(connection, "TEST_CALENDAR_UID");
+
+            assert_keyspace_events_published!(
+                message_queue,
+                [
+                    ("rdcl.cal_del", "TEST_CALENDAR_UID"),
+                    ("del",          "TEST_CALENDAR_UID"),
+                ],
+            );
+
+            set_and_assert_calendar!(connection, "TEST_CALENDAR_UID");
+
+            assert_keyspace_events_published!(message_queue, "rdcl.cal_set", "TEST_CALENDAR_UID");
+
+            // Update Redis config to evict key at random if max memory exceeded.
+            redis::cmd("CONFIG")
+                .arg("SET")
+                .arg(b"maxmemory-policy")
+                .arg("allkeys-random")
+                .execute(connection);
+
+            // Update Redis configured max memory to an absurdly low amount to force key eviction.
+            redis::cmd("CONFIG")
+                .arg("SET")
+                .arg(b"maxmemory")
+                .arg("1kb")
+                .execute(connection);
+
+            assert_keyspace_events_published!(
+                message_queue,
+                [
+                    (
+                        "rdcl.cal_del",
+                        "TEST_CALENDAR_UID",
+                    ),
+                    (
+                        "evicted",
+                        "TEST_CALENDAR_UID",
+                    ),
+                ],
+            );
+
+            // Revert Redis configured max memory back to unlimited to allow subsequent tests to be
+            // uneffected by this test case.
+            redis::cmd("CONFIG")
+                .arg("SET")
+                .arg(b"maxmemory")
+                .arg("0")
+                .execute(connection);
+
+            Ok(())
+        })
+    }
+
     run_all_integration_tests_sequentially!(
         test_calendar_get_set_del,
         test_event_get_set_del_list,
@@ -1514,6 +1579,7 @@ mod integration {
         test_calendar_query,
         test_calendar_index_disable_rebuild,
         test_rdb_save_load,
+        test_key_expire_eviction_keyspace_events,
     );
 
 }

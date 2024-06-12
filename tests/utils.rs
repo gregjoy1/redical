@@ -129,6 +129,19 @@ pub fn listen_for_keyspace_events(port: u16, mut handler: impl FnMut(&mut Arc<Mu
 
     let mut connection = get_redis_connection(port).unwrap();
 
+    // Enable keyspace pub/sub events:
+    // * K - Keyspace events, published with __keyspace@<db>__ prefix.
+    // * e - Evicted events (events generated when a key is evicted for maxmemory)
+    // * g - Generic commands (non-type specific) like DEL, EXPIRE, RENAME, ...
+    // * d - Module key type events
+    //
+    // Also set in tests/redis_test_config.conf
+    redis::cmd("CONFIG")
+        .arg("SET")
+        .arg(b"notify-keyspace-events")
+        .arg("Kegd")
+        .execute(&mut connection);
+
     let join_handle = thread::spawn(move || {
         let mut pub_sub = connection.as_pubsub();
 
@@ -137,19 +150,13 @@ pub fn listen_for_keyspace_events(port: u16, mut handler: impl FnMut(&mut Arc<Mu
         let _ = pub_sub.set_read_timeout(Some(Duration::new(0, 500)));
 
         loop {
-            // println!("thread - pre loop");
             if let Ok(_) = kill_rx.try_recv() {
-                // println!("thread - recv kill");
                 break;
             }
 
-            // println!("thread - mid loop");
             match pub_sub.get_message() {
                 Ok(message) => {
-                    // // dbg!(&message);
-                    // println!("thread - get_message -- lock open");
                     thread_message_queue.lock().unwrap().push_back(message);
-                    // println!("thread - get_message -- lock closed");
                 },
 
                 Err(error) if error.is_timeout() => {},
@@ -158,17 +165,16 @@ pub fn listen_for_keyspace_events(port: u16, mut handler: impl FnMut(&mut Arc<Mu
                     panic!("Redis pub/sub listener get_message error: #{error}");
                 },
             }
-            // println!("thread - post loop");
         }
     });
 
+    // Give the pub/sub listener thread a moment to get started...
+    std::thread::sleep(std::time::Duration::from_millis(50));
+
     handler(&mut message_queue)?;
 
-    // println!("stop_redis_pub_sub_listener PRE");
     kill_tx.send(()).unwrap();
-    // println!("stop_redis_pub_sub_listener MID");
     join_handle.join().unwrap();
-    // println!("stop_redis_pub_sub_listener POST");
 
     Ok(())
 }

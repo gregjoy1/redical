@@ -972,6 +972,8 @@ macro_rules! run_all_integration_tests_sequentially {
             test_calendar_get_set_del(&mut connection)?;
 
             $(
+                println!(concat!("Running: ", stringify!($test_function)));
+
                 $test_function(&mut connection)?;
 
                 redis::cmd("FLUSHDB")
