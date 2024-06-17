@@ -1,5 +1,7 @@
 use crate::core::{Calendar, Event, EventOccurrenceOverride};
 
+use rayon::prelude::*;
+
 use serde::{Deserialize, Serialize};
 
 use std::str::FromStr;
@@ -99,11 +101,14 @@ impl TryFrom<&RDBCalendar> for Calendar {
             );
         }
 
-        for rdb_event in rdb_calendar.2.iter() {
-            let event = Event::try_from(rdb_event).map_err(|error| ParseRDBEntityError::OnChild(rdb_calendar_uid.to_string(), Box::new(error)))?;
-            let event_uid = event.uid.uid.to_string();
+        // Parallelise the parsed rehydration of the Calendar Events.
+        let parse_event_results: Vec<Result<Event, ParseRDBEntityError>> =
+            rdb_calendar.2.par_iter().map(|rdb_event: &RDBEvent| {
+                Event::try_from(rdb_event).map_err(|error| ParseRDBEntityError::OnChild(rdb_calendar_uid.to_string(), Box::new(error)))
+            }).collect();
 
-            calendar.insert_event(event);
+        for parse_event_result in parse_event_results {
+            calendar.insert_event(parse_event_result?);
         }
 
         calendar.rebuild_indexes().map_err(|error| ParseRDBEntityError::OnSelf(rdb_calendar_uid.to_string(), error))?;
@@ -173,12 +178,15 @@ impl TryFrom<&RDBEvent> for Event {
             ParseRDBEntityError::OnSelf(rdb_event_uid.to_string(), error)
         })?;
 
-        for rdb_event_occurrence_override in rdb_event.2.iter() {
-            let event_occurrence_override =
+        // Parallelise the parsed rehydration of the Calendar Event EventOccurrenceOverrides.
+        let parse_event_occurrence_override_results: Vec<Result<EventOccurrenceOverride, ParseRDBEntityError>> =
+            rdb_event.2.par_iter().map(|rdb_event_occurrence_override: &RDBEventOccurrenceOverride| {
                 EventOccurrenceOverride::try_from(rdb_event_occurrence_override)
-                    .map_err(|error| ParseRDBEntityError::OnChild(rdb_event_uid.to_string(), Box::new(error)))?;
+                    .map_err(|error| ParseRDBEntityError::OnChild(rdb_event_uid.to_string(), Box::new(error)))
+            }).collect();
 
-            event.override_occurrence(&event_occurrence_override, false).map_err(|error| ParseRDBEntityError::OnSelf(rdb_event_uid.to_string(), error))?;
+        for parse_event_occurrence_override_result in parse_event_occurrence_override_results {
+            event.override_occurrence(&parse_event_occurrence_override_result?, false).map_err(|error| ParseRDBEntityError::OnSelf(rdb_event_uid.to_string(), error))?;
         }
 
         event.rebuild_indexes().map_err(|error| ParseRDBEntityError::OnSelf(rdb_event_uid.to_string(), error))?;
