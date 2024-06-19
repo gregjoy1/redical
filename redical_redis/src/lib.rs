@@ -4,6 +4,7 @@ use redical_core as core;
 
 mod datatype;
 mod commands;
+mod utils;
 
 use crate::datatype::CALENDAR_DATA_TYPE;
 

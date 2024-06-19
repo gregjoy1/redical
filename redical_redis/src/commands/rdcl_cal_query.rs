@@ -4,6 +4,7 @@ use std::str::FromStr;
 
 use redical_ical::{ICalendarComponent, RenderingContext};
 use crate::core::queries::query::Query;
+use crate::utils::{run_with_timeout, TimeoutError};
 use redical_core::Calendar;
 use crate::datatype::CALENDAR_DATA_TYPE;
 
@@ -41,15 +42,35 @@ pub fn redical_calendar_query(ctx: &Context, args: Vec<RedisString>) -> RedisRes
         .as_str()
         .to_owned();
 
+    // Spawn the process of parsing the query into it's own timeout enforced thread to guard
+    // against malicious payloads intended to cause hangs.
     let mut parsed_query =
-        Query::from_str(query_string.as_str()).map_err(RedisError::String)?;
+        match run_with_timeout(
+            move || Query::from_str(query_string.as_str()).map_err(RedisError::String),
+            std::time::Duration::from_millis(250),
+        ) {
+            Ok(parser_result) => {
+                parser_result?
+            },
+
+            Err(TimeoutError) => {
+                ctx.log_warning(
+                    format!(
+                        "rdcl.cal_query: query iCal parser exceeded timeout -- calendar_uid: {calendar_uid}",
+                    ).as_str()
+                );
+
+                return Err(RedisError::String(format!(
+                    "rdcl.cal_query: query iCal parser exceeded timeout"
+                )));
+            },
+        };
 
     ctx.log_debug(
         format!(
             "rdcl.cal_query: calendar_uid: {calendar_uid} parsed query: {:#?}",
             parsed_query
-        )
-        .as_str(),
+        ).as_str(),
     );
 
     let query_results = parsed_query

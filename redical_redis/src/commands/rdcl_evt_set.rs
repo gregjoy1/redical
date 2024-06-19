@@ -3,7 +3,10 @@ use redis_module::{Context, NextArg, NotifyEvent, RedisError, RedisResult, Redis
 use crate::core::{
     rebase_overrides, Calendar, CalendarIndexUpdater, Event, EventDiff, InvertedEventIndex,
 };
+
 use crate::datatype::CALENDAR_DATA_TYPE;
+
+use crate::utils::{run_with_timeout, TimeoutError};
 
 use redical_ical::ICalendarComponent;
 
@@ -41,8 +44,33 @@ pub fn redical_event_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
         )));
     };
 
+    // Clone the event_uid for it to moved into the timeout enforced Event iCalendar parser thread
+    // below.
+    let parsed_event_uid = event_uid.clone();
+
+    // Spawn the process of parsing the query into it's own timeout enforced thread to guard
+    // against malicious payloads intended to cause hangs.
     let mut event =
-        Event::parse_ical(event_uid.as_str(), other.as_str()).map_err(RedisError::String)?;
+        match run_with_timeout(
+            move || Event::parse_ical(parsed_event_uid.as_str(), other.as_str()).map_err(RedisError::String),
+            std::time::Duration::from_millis(250),
+        ) {
+            Ok(parser_result) => {
+                parser_result?
+            },
+
+            Err(TimeoutError) => {
+                ctx.log_warning(
+                    format!(
+                        "rdcl.evt_set: event iCal parser exceeded timeout -- calendar uid: {calendar_uid} event uid: {event_uid}",
+                    ).as_str()
+                );
+
+                return Err(RedisError::String(format!(
+                    "rdcl.evt_set: event iCal parser exceeded timeout"
+                )));
+            },
+        };
 
     event.validate().map_err(RedisError::String)?;
 
