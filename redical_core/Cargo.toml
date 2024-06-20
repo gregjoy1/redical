@@ -11,7 +11,7 @@ nom = "6.0"
 rrule = { version = "0.10", features = ["serde", "exrule"] }
 chrono = { workspace = true }
 chrono-tz = { workspace = true }
-lazy_static = "1.4.0"
+lazy_static = { workspace = true }
 regex = { version = "1.5.5", default-features = false, features = ["perf", "std"] }
 rstar = { version = "0.11.0", features = ["serde"] }
 geo = { version = "0.26.0", features = ["use-serde"] }

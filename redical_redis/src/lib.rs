@@ -1,4 +1,5 @@
-use redis_module::{redis_module, Context, NotifyEvent, Status, RedisString};
+use lazy_static::lazy_static;
+use redis_module::{redis_module, Context, NotifyEvent, Status, RedisString, RedisGILGuard, configuration::ConfigurationFlags};
 
 use redical_core as core;
 
@@ -64,6 +65,10 @@ fn on_keyspace_event(ctx: &Context, event_type: NotifyEvent, event: &str, key: &
     }
 }
 
+lazy_static! {
+    static ref CONFIGURATION_ICAL_PARSER_TIMEOUT_MS: RedisGILGuard<i64> = RedisGILGuard::default();
+}
+
 redis_module! {
     name:       MODULE_NAME,
     version:    MODULE_VERSION,
@@ -90,5 +95,14 @@ redis_module! {
     event_handlers: [
         [@GENERIC: on_keyspace_event],
         [@EVICTED: on_keyspace_event],
+    ],
+    configurations: [
+        i64: [
+            ["ical-parser-timeout-ms", &*CONFIGURATION_ICAL_PARSER_TIMEOUT_MS, 500, 1, 60000, ConfigurationFlags::DEFAULT, None],
+        ],
+        string: [],
+        bool: [],
+        enum: [],
+        module_args_as_configuration: true,
     ]
 }

@@ -1082,6 +1082,7 @@ dependencies = [
  "bincode",
  "chrono",
  "chrono-tz",
+ "lazy_static",
  "libc",
  "pretty_assertions_sorted",
  "rayon",

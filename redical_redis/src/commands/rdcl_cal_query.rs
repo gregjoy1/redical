@@ -5,6 +5,7 @@ use std::str::FromStr;
 use redical_ical::{ICalendarComponent, RenderingContext};
 use crate::core::queries::query::Query;
 use crate::utils::{run_with_timeout, TimeoutError};
+use crate::CONFIGURATION_ICAL_PARSER_TIMEOUT_MS;
 use redical_core::Calendar;
 use crate::datatype::CALENDAR_DATA_TYPE;
 
@@ -47,7 +48,7 @@ pub fn redical_calendar_query(ctx: &Context, args: Vec<RedisString>) -> RedisRes
     let mut parsed_query =
         match run_with_timeout(
             move || Query::from_str(query_string.as_str()).map_err(RedisError::String),
-            std::time::Duration::from_millis(250),
+            std::time::Duration::from_millis(*CONFIGURATION_ICAL_PARSER_TIMEOUT_MS.lock(ctx) as u64),
         ) {
             Ok(parser_result) => {
                 parser_result?
@@ -77,7 +78,7 @@ pub fn redical_calendar_query(ctx: &Context, args: Vec<RedisString>) -> RedisRes
         .execute(calendar)
         .map_err(|error| RedisError::String(error))?;
 
-    // TODO: Clean up and properly serialize this grimeyness
+    // TODO: Clean up and properly serialize this griminess
     let query_result_items = query_results
         .results
         .iter()

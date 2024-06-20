@@ -7,6 +7,7 @@ use crate::core::{
 use crate::datatype::CALENDAR_DATA_TYPE;
 
 use crate::utils::{run_with_timeout, TimeoutError};
+use crate::CONFIGURATION_ICAL_PARSER_TIMEOUT_MS;
 
 use redical_ical::ICalendarComponent;
 
@@ -53,7 +54,7 @@ pub fn redical_event_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     let mut event =
         match run_with_timeout(
             move || Event::parse_ical(parsed_event_uid.as_str(), other.as_str()).map_err(RedisError::String),
-            std::time::Duration::from_millis(250),
+            std::time::Duration::from_millis(*CONFIGURATION_ICAL_PARSER_TIMEOUT_MS.lock(ctx) as u64),
         ) {
             Ok(parser_result) => {
                 parser_result?
