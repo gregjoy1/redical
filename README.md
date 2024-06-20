@@ -129,4 +129,7 @@ Query all the combined extrapolated event instances for all events in the calend
   ```
 
 ## Documentation
-For more information, read the [command docs here](docs/docs/commands.md) or the [technical overview docs here](docs/docs/technical_overview.md).
+For more information, read the following additional documentation:
+* [RediCal configuration](docs/docs/configuration.md)
+* [RediCal commands and keyspace notifications](docs/docs/commands.md)
+* [RediCal technical overview](docs/docs/technical_overview.md).
