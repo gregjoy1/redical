@@ -14,6 +14,7 @@ pub mod x_until;
 pub mod x_tzid;
 pub mod x_order_by;
 pub mod x_categories;
+pub mod x_location_type;
 pub mod x_related_to;
 pub mod x_geo;
 pub mod x_class;
@@ -30,6 +31,7 @@ pub use x_until::{XUntilProperty, XUntilPropertyParams};
 pub use x_tzid::XTzidProperty;
 pub use x_order_by::XOrderByProperty;
 pub use x_categories::{XCategoriesProperty, XCategoriesPropertyParams};
+pub use x_location_type::{XLocationTypeProperty, XLocationTypePropertyParams};
 pub use x_related_to::{XRelatedToProperty, XRelatedToPropertyParams};
 pub use x_geo::{DistValue, XGeoProperty, XGeoPropertyParams};
 pub use x_class::{XClassProperty, XClassPropertyParams};
@@ -48,6 +50,7 @@ pub enum QueryProperty {
     XTzid(XTzidProperty),
     XOrderBy(XOrderByProperty),
     XCategories(XCategoriesProperty),
+    XLocationType(XLocationTypeProperty),
     XRelatedTo(XRelatedToProperty),
     XGeo(XGeoProperty),
     XClass(XClassProperty),
@@ -86,6 +89,7 @@ impl ICalendarEntity for QueryProperty {
             map(XTzidProperty::parse_ical, Self::XTzid),
             map(XOrderByProperty::parse_ical, Self::XOrderBy),
             map(XCategoriesProperty::parse_ical, Self::XCategories),
+            map(XLocationTypeProperty::parse_ical, Self::XLocationType),
             map(XRelatedToProperty::parse_ical, Self::XRelatedTo),
             map(XGeoProperty::parse_ical, Self::XGeo),
             map(XClassProperty::parse_ical, Self::XClass),
@@ -103,6 +107,7 @@ impl ICalendarEntity for QueryProperty {
             Self::XTzid(property) => property.render_ical(),
             Self::XOrderBy(property) => property.render_ical(),
             Self::XCategories(property) => property.render_ical(),
+            Self::XLocationType(property) => property.render_ical(),
             Self::XRelatedTo(property) => property.render_ical(),
             Self::XGeo(property) => property.render_ical(),
             Self::XClass(property) => property.render_ical(),
@@ -214,6 +219,14 @@ mod tests {
             (
                 " DESCRIPTION:Description text",
                 QueryProperty::XCategories(XCategoriesProperty::from_str("X-CATEGORIES:APPOINTMENT,EDUCATION").unwrap()),
+            ),
+        );
+
+        assert_parser_output!(
+            QueryProperty::parse_ical("X-LOCATION-TYPE:HOTEL,RESTAURANT DESCRIPTION:Description text".into()),
+            (
+                " DESCRIPTION:Description text",
+                QueryProperty::XLocationType(XLocationTypeProperty::from_str("X-LOCATION-TYPE:HOTEL,RESTAURANT").unwrap()),
             ),
         );
 

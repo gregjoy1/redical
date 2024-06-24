@@ -483,6 +483,7 @@ impl PassiveProperties {
             | EventProperty::Class(_)
             | EventProperty::Geo(_)
             | EventProperty::Categories(_)
+            | EventProperty::LocationType(_)
             | EventProperty::RelatedTo(_)
             | EventProperty::RRule(_)
             | EventProperty::ExRule(_)

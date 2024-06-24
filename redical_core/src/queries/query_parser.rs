@@ -15,6 +15,7 @@ use redical_ical::properties::query::{
     QueryProperties,
     XDistinctProperty,
     XCategoriesProperty,
+    XLocationTypeProperty,
     XRelatedToProperty,
     XGeoProperty,
     XClassProperty,
@@ -62,6 +63,27 @@ pub fn parse_query_string(input: &str) -> Result<Query, String> {
 
                     QueryProperty::XOrderBy(x_order_by_property) => {
                         query.ordering_condition = x_order_by_property.into();
+                    }
+
+                    QueryProperty::XLocationType(x_location_type_property) => {
+                        let Some(mut new_where_conditional) =
+                            x_location_type_query_property_to_where_conditional(x_location_type_property)
+                        else {
+                            return query;
+                        };
+
+                        new_where_conditional =
+                            if let Some(current_where_conditional) = query.where_conditional {
+                                WhereConditional::Operator(
+                                    Box::new(current_where_conditional),
+                                    Box::new(new_where_conditional),
+                                    WhereOperator::And,
+                                )
+                            } else {
+                                new_where_conditional
+                            };
+
+                        query.where_conditional = Some(new_where_conditional);
                     }
 
                     QueryProperty::XCategories(x_categories_property) => {
@@ -224,6 +246,36 @@ fn where_properties_group_to_where_conditional(where_properties_group: &WherePro
     current_where_conditional.and_then(|where_conditional| {
         Some(WhereConditional::Group(Box::new(where_conditional)))
     })
+}
+
+fn x_location_type_query_property_to_where_conditional(x_location_type_property: &XLocationTypeProperty) -> Option<WhereConditional> {
+    let location_types = x_location_type_property.get_location_types();
+
+    match location_types.len() {
+        0 => None,
+
+        1 => Some(WhereConditional::Property(
+            WhereConditionalProperty::LocationType(location_types[0].to_owned()),
+        )),
+
+        _ => {
+            let mut current_property = WhereConditional::Property(
+                WhereConditionalProperty::LocationType(location_types[0].to_owned()),
+            );
+
+            for location_type in location_types[1..].iter() {
+                current_property = WhereConditional::Operator(
+                    Box::new(current_property),
+                    Box::new(WhereConditional::Property(
+                        WhereConditionalProperty::LocationType(location_type.to_owned()),
+                    )),
+                    x_location_type_property.params.op.to_owned().into(),
+                );
+            }
+
+            Some(WhereConditional::Group(Box::new(current_property)))
+        }
+    }
 }
 
 fn x_categories_query_property_to_where_conditional(x_categories_property: &XCategoriesProperty) -> Option<WhereConditional> {

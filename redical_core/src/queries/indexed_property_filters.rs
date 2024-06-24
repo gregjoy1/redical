@@ -88,6 +88,7 @@ impl WhereConditional {
 #[derive(Debug, PartialEq, Clone)]
 pub enum WhereConditionalProperty {
     Categories(String),
+    LocationType(String),
     RelatedTo(KeyValuePair),
     Geo(GeoDistance, GeoPoint),
     Class(String),
@@ -98,6 +99,10 @@ impl WhereConditionalProperty {
         match &self {
             WhereConditionalProperty::Categories(category) => {
                 format!("CATEGORIES:{category}")
+            }
+
+            WhereConditionalProperty::LocationType(location_type) => {
+                format!("LOCATION-TYPE:{location_type}")
             }
 
             WhereConditionalProperty::RelatedTo(reltype_uids) => {
@@ -123,6 +128,13 @@ impl WhereConditionalProperty {
                 .indexed_categories
                 .terms
                 .get(category)
+                .unwrap_or(&InvertedCalendarIndexTerm::new())
+                .clone()),
+
+            WhereConditionalProperty::LocationType(location_type) => Ok(calendar
+                .indexed_location_type
+                .terms
+                .get(location_type)
                 .unwrap_or(&InvertedCalendarIndexTerm::new())
                 .clone()),
 
@@ -154,6 +166,19 @@ impl WhereConditionalProperty {
         let empty_calendar_index_term = InvertedCalendarIndexTerm::new();
 
         match &self {
+            WhereConditionalProperty::LocationType(location_type) => {
+                let inverted_index_term_b = calendar
+                    .indexed_location_type
+                    .terms
+                    .get(location_type)
+                    .unwrap_or(&empty_calendar_index_term);
+
+                Ok(InvertedCalendarIndexTerm::merge_and(
+                    inverted_index_term_a,
+                    inverted_index_term_b,
+                ))
+            }
+
             WhereConditionalProperty::Categories(category) => {
                 let inverted_index_term_b = calendar
                     .indexed_categories
@@ -214,6 +239,19 @@ impl WhereConditionalProperty {
         let empty_calendar_index_term = InvertedCalendarIndexTerm::new();
 
         match &self {
+            WhereConditionalProperty::LocationType(location_type) => {
+                let inverted_index_term_b = calendar
+                    .indexed_location_type
+                    .terms
+                    .get(location_type)
+                    .unwrap_or(&empty_calendar_index_term);
+
+                Ok(InvertedCalendarIndexTerm::merge_or(
+                    inverted_index_term_a,
+                    inverted_index_term_b,
+                ))
+            }
+
             WhereConditionalProperty::Categories(category) => {
                 let inverted_index_term_b = calendar
                     .indexed_categories
