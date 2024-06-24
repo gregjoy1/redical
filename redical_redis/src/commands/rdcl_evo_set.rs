@@ -5,6 +5,9 @@ use redis_module::{Context, NextArg, NotifyEvent, RedisError, RedisResult, Redis
 use crate::core::{Calendar, CalendarIndexUpdater, EventOccurrenceOverride, InvertedEventIndex};
 use crate::datatype::CALENDAR_DATA_TYPE;
 
+use crate::utils::{run_with_timeout, TimeoutError};
+use crate::CONFIGURATION_ICAL_PARSER_TIMEOUT_MS;
+
 use redical_ical::ICalendarComponent;
 use redical_ical::values::date_time::DateTime;
 
@@ -61,7 +64,29 @@ pub fn redical_event_override_set(ctx: &Context, args: Vec<RedisString>) -> Redi
         )));
     };
 
-    let event_occurrence_override = EventOccurrenceOverride::parse_ical(override_date_string, other.as_str()).map_err(RedisError::String)?;
+    // Spawn the process of parsing the query into it's own timeout enforced thread to guard
+    // against malicious payloads intended to cause hangs.
+    let event_occurrence_override =
+        match run_with_timeout(
+            move || EventOccurrenceOverride::parse_ical(override_date_string, other.as_str()).map_err(RedisError::String),
+            std::time::Duration::from_millis(*CONFIGURATION_ICAL_PARSER_TIMEOUT_MS.lock(ctx) as u64),
+        ) {
+            Ok(parser_result) => {
+                parser_result?
+            },
+
+            Err(TimeoutError) => {
+                ctx.log_warning(
+                    format!(
+                        "rdcl.evo_set: event occurrence override iCal parser exceeded timeout -- calendar_uid: {calendar_uid} event_uid: {event_uid} occurrence date string: {override_date_string}",
+                    ).as_str()
+                );
+
+                return Err(RedisError::String(format!(
+                    "rdcl.evo_set: event occurrence override iCal parser exceeded timeout",
+                )));
+            },
+        };
 
     // Validate new event occurrence override's LAST-MODIFIED property (if provided) is more
     // recent than that on the existing event occurrence override (if present).

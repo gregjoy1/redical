@@ -1577,6 +1577,115 @@ mod integration {
         })
     }
 
+    fn test_redical_ical_parser_timeout_ms_config(connection: &mut Connection) -> Result<()> {
+        set_and_assert_calendar!(connection, "TEST_CALENDAR_UID");
+
+        // Setup existing event before updating iCal parser config to unrealistic timeout to be
+        // available for testing setting event occurrence override iCal parser timeout.
+        set_and_assert_event!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "EVENT_IN_OXFORD_MON_WED",
+            [
+                "SUMMARY:Event in Oxford on Mondays and Wednesdays at 5:00PM",
+                "RRULE:BYDAY=MO,WE;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
+                "DTSTART:20201231T170000Z",
+                "DTEND:20201231T173000Z",
+                "LAST-MODIFIED:20210501T090000Z",
+                "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
+                "GEO:51.751365550307604;-1.2601196837753945",
+            ],
+        );
+
+
+        // Update Redis RediCal config to specify iCal parser timeout after 1ms.
+        redis::cmd("CONFIG")
+            .arg("SET")
+            .arg(b"REDICAL.ICAL-PARSER-TIMEOUT-MS")
+            .arg("1")
+            .execute(connection);
+
+        {
+            let event_set_result: Result<Vec<String>, String> =
+                redis::cmd("rdcl.evt_set")
+                    .arg("TEST_CALENDAR_UID")
+                    .arg("EVENT_IN_OXFORD_MON_WED")
+                    .arg(
+                        vec![
+                            "SUMMARY:Event in Oxford on Mondays and Wednesdays at 5:00PM",
+                            "RRULE:BYDAY=MO,WE;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
+                            "DTSTART:20201231T170000Z",
+                            "DTEND:20201231T173000Z",
+                            "LAST-MODIFIED:20210501T090000Z",
+                            "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                            "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
+                            "GEO:51.751365550307604;-1.2601196837753945",
+                        ].join(" ").to_string()
+                    )
+                    .query(connection)
+                    .map_err(|redis_error| redis_error.to_string());
+
+            assert_eq!(
+                event_set_result,
+                Err(String::from("rdcl.evt_set:: event iCal parser exceeded timeout")),
+            );
+        }
+
+        {
+            let event_occurrence_override_set_result: Result<Vec<String>, String> =
+                redis::cmd("rdcl.evo_set")
+                    .arg("TEST_CALENDAR_UID")
+                    .arg("EVENT_IN_OXFORD_MON_WED")
+                    .arg("20210102T170000Z")
+                    .arg(
+                        vec![
+                            "LAST-MODIFIED:20210501T090000Z",
+                            "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY",
+                            "X-SPACES-BOOKED:12",
+                        ].join(" ").to_string()
+                    )
+                    .query(connection)
+                    .map_err(|redis_error| redis_error.to_string());
+
+            assert_eq!(
+                event_occurrence_override_set_result,
+                Err(String::from("rdcl.evo_set:: event occurrence override iCal parser exceeded timeout")),
+            );
+        }
+
+        {
+            let calendar_query_result: Result<Vec<String>, String> =
+                redis::cmd("rdcl.cal_query")
+                    .arg("TEST_CALENDAR_UID")
+                    .arg(
+                        vec![
+                            "X-FROM;PROP=DTSTART;OP=GT;TZID=Europe/London:20210105T180000Z",
+                            "X-UNTIL;PROP=DTSTART;OP=LTE;TZID=UTC:20210630T180000Z",
+                            "X-GEO;DIST=105.5KM:51.55577390;-1.77971760",
+                            "X-CATEGORIES:CATEGORY_ONE",
+                            "X-RELATED-TO;RELTYPE=PARENT:PARENT_UID",
+                        ].join(" ").to_string()
+                    )
+                    .query(connection)
+                    .map_err(|redis_error| redis_error.to_string());
+
+            assert_eq!(
+                calendar_query_result,
+                Err(String::from("rdcl.cal_query:: query iCal parser exceeded timeout")),
+            );
+        }
+
+        // Restore Redis RediCal config to specify iCal parser timeout back to 500ms.
+        redis::cmd("CONFIG")
+            .arg("SET")
+            .arg(b"REDICAL.ICAL-PARSER-TIMEOUT-MS")
+            .arg("1")
+            .execute(connection);
+
+        Ok(())
+    }
+
     run_all_integration_tests_sequentially!(
         test_calendar_get_set_del,
         test_event_get_set_del_list,
@@ -1588,6 +1697,7 @@ mod integration {
         test_calendar_index_disable_rebuild,
         test_rdb_save_load,
         test_key_expire_eviction_keyspace_events,
+        test_redical_ical_parser_timeout_ms_config,
     );
 
 }

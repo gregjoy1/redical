@@ -19,6 +19,8 @@ chrono = { workspace = true }
 chrono-tz = { workspace = true }
 redical_core = { path = "../redical_core" }
 redical_ical = { path = "../redical_ical" }
+rayon = "1.10.0"
+lazy_static = { workspace = true }
 
 [dev-dependencies]
 pretty_assertions_sorted = { workspace = true }

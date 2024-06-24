@@ -1,4 +1,6 @@
-## Overview
+## RediCal commands and keyspace notifications
+
+The following documentation describes all available RediCal specific commands and related keyspace notification pub/sub events.
 
 ### RediCal Commands
 * [RDCL.EVT_SET](../commands/rdcl.evt_set.md)

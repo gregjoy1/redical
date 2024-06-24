@@ -24,6 +24,7 @@ redis-module-macros = "2.0.2"
 redis-module = "2.0.2"
 redis = "0.23"
 itertools = "0.12.1"
+lazy_static = "1.4.0"
 
 # For tests directory.
 [dev-dependencies]
