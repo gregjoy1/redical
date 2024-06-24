@@ -15,6 +15,7 @@ mod rrule;
 mod exrule;
 
 mod categories;
+mod location_type;
 mod class;
 mod geo;
 mod related_to;
@@ -32,6 +33,7 @@ pub use rrule::{RRuleProperty, RRulePropertyParams};
 pub use exrule::{ExRuleProperty, ExRulePropertyParams};
 
 pub use categories::{CategoriesProperty, CategoriesPropertyParams};
+pub use location_type::{LocationTypeProperty, LocationTypePropertyParams};
 pub use class::{ClassProperty, ClassPropertyParams};
 pub use geo::{GeoProperty, GeoPropertyParams};
 pub use related_to::{RelatedToProperty, RelatedToPropertyParams};
@@ -57,6 +59,7 @@ pub enum EventProperty {
     RRule(RRuleProperty),
     ExRule(ExRuleProperty),
     Categories(CategoriesProperty),
+    LocationType(LocationTypeProperty),
     Class(ClassProperty),
     Geo(GeoProperty),
     RelatedTo(RelatedToProperty),
@@ -81,6 +84,7 @@ impl EventProperty {
                     recognize(ContentLine::parse_ical_for_property("RRULE")),
                     recognize(ContentLine::parse_ical_for_property("EXRULE")),
                     recognize(ContentLine::parse_ical_for_property("CATEGORIES")),
+                    recognize(ContentLine::parse_ical_for_property("LOCATION-TYPE")),
                     recognize(ContentLine::parse_ical_for_property("CLASS")),
                     recognize(ContentLine::parse_ical_for_property("GEO")),
                     recognize(ContentLine::parse_ical_for_property("RELATED-TO")),
@@ -104,6 +108,7 @@ impl ICalendarEntity for EventProperty {
             map(RRuleProperty::parse_ical, Self::RRule),
             map(ExRuleProperty::parse_ical, Self::ExRule),
             map(CategoriesProperty::parse_ical, Self::Categories),
+            map(LocationTypeProperty::parse_ical, Self::LocationType),
             map(ClassProperty::parse_ical, Self::Class),
             map(GeoProperty::parse_ical, Self::Geo),
             map(RelatedToProperty::parse_ical, Self::RelatedTo),
@@ -123,6 +128,7 @@ impl ICalendarEntity for EventProperty {
             Self::RRule(property) => property.render_ical(),
             Self::ExRule(property) => property.render_ical(),
             Self::Categories(property) => property.render_ical(),
+            Self::LocationType(property) => property.render_ical(),
             Self::Class(property) => property.render_ical(),
             Self::Geo(property) => property.render_ical(),
             Self::RelatedTo(property) => property.render_ical(),
@@ -309,6 +315,16 @@ mod tests {
                 " DESCRIPTION:Description text",
                 EventProperty::Categories(
                     CategoriesProperty::from_str("CATEGORIES:APPOINTMENT,EDUCATION").unwrap()
+                ),
+            ),
+        );
+
+        assert_parser_output!(
+            EventProperty::parse_ical("LOCATION-TYPE:HOTEL,RESTRAUNT DESCRIPTION:Description text".into()),
+            (
+                " DESCRIPTION:Description text",
+                EventProperty::LocationType(
+                    LocationTypeProperty::from_str("LOCATION-TYPE:HOTEL,RESTRAUNT").unwrap()
                 ),
             ),
         );
