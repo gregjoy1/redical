@@ -23,6 +23,7 @@ use redical_ical::{
         DTEndProperty,
         DurationProperty,
         CategoriesProperty,
+        LocationTypeProperty,
         RelatedToProperty,
         ClassProperty,
         GeoProperty,
@@ -352,6 +353,7 @@ pub struct IndexedProperties {
     pub geo: Option<GeoProperty>,
     pub related_to: Option<HashSet<RelatedToProperty>>,
     pub categories: Option<HashSet<CategoriesProperty>>,
+    pub location_type: Option<LocationTypeProperty>,
     pub class: Option<ClassProperty>,
 }
 
@@ -361,8 +363,21 @@ impl IndexedProperties {
             geo: None,
             related_to: None,
             categories: None,
+            location_type: None,
             class: None,
         }
+    }
+
+    pub fn extract_all_location_type_strings(&self) -> Option<HashSet<String>> {
+        self.location_type.as_ref().and_then(|location_type_property| {
+            let mut location_types: HashSet<String> = HashSet::new();
+
+            for location_type in &location_type_property.types {
+                location_types.insert(location_type.to_string());
+            }
+
+            Some(location_types)
+        })
     }
 
     pub fn extract_all_category_strings(&self) -> Option<HashSet<String>> {
@@ -434,6 +449,10 @@ impl IndexedProperties {
                 self.categories
                     .get_or_insert(HashSet::new())
                     .insert(property);
+            }
+
+            EventProperty::LocationType(property) => {
+                self.location_type = Some(property);
             }
 
             EventProperty::RelatedTo(property) => {
@@ -590,6 +609,7 @@ impl Event {
             EventProperty::Class(_)
             | EventProperty::Geo(_)
             | EventProperty::Categories(_)
+            | EventProperty::LocationType(_)
             | EventProperty::RelatedTo(_) => {
                 self.indexed_properties.insert(property)?;
             }
@@ -846,6 +866,7 @@ mod test {
                 geo: None,
                 class: None,
                 related_to: None,
+                location_type: None,
                 categories: Some(HashSet::from([build_property_from_ical!(
                     CategoriesProperty,
                     "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,CATEGORY_THREE"
@@ -865,6 +886,7 @@ mod test {
                         indexed_properties: IndexedProperties {
                             geo: None,
                             related_to: None,
+                            location_type: None,
                             categories: Some(HashSet::from([build_property_from_ical!(
                                 CategoriesProperty,
                                 "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,CATEGORY_THREE,CATEGORY_FOUR"
@@ -885,6 +907,7 @@ mod test {
                         indexed_properties: IndexedProperties {
                             geo: None,
                             related_to: None,
+                            location_type: None,
                             categories: Some(HashSet::from([build_property_from_ical!(
                                 CategoriesProperty,
                                 "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO"
@@ -917,6 +940,7 @@ mod test {
                         indexed_properties: IndexedProperties {
                             geo: None,
                             related_to: None,
+                            location_type: None,
                             categories: Some(HashSet::new()),
                             class: None,
                         },
@@ -934,6 +958,7 @@ mod test {
                         indexed_properties: IndexedProperties {
                             geo: None,
                             related_to: None,
+                            location_type: None,
                             categories: Some(HashSet::from([build_property_from_ical!(
                                 CategoriesProperty,
                                 "CATEGORIES:CATEGORY_FOUR"
@@ -1094,6 +1119,7 @@ mod test {
                 indexed_properties: IndexedProperties {
                     geo: None,
                     class: None,
+                    location_type: None,
                     categories: Some(HashSet::from([build_property_from_ical!(CategoriesProperty, "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,\"CATEGORY (THREE)\"")])),
                     related_to: None,
                 },
@@ -1211,6 +1237,7 @@ mod test {
             indexed_properties: IndexedProperties {
                 geo: None,
                 related_to: None,
+                location_type: None,
                 categories: Some(HashSet::from([build_property_from_ical!(CategoriesProperty, "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,CATEGORY_THREE")])),
                 class: None,
             },
@@ -1258,6 +1285,7 @@ mod test {
                             indexed_properties: IndexedProperties {
                                 geo: None,
                                 related_to: None,
+                                location_type: None,
                                 categories: Some(HashSet::from([build_property_from_ical!(CategoriesProperty, "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,CATEGORY_THREE")])),
                                 class: None,
                             },
@@ -1406,6 +1434,7 @@ mod test {
                             "RELATED-TO;RELTYPE=CHILD:ChildUID"
                         ),
                     ])),
+                    location_type: None,
                     categories: None
                 },
 

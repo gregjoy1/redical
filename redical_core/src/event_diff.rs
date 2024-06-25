@@ -9,6 +9,7 @@ use redical_ical::properties::DurationProperty;
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct EventDiff {
+    pub indexed_location_type: Option<UpdatedSetMembers<String>>,
     pub indexed_categories: Option<UpdatedSetMembers<String>>,
     pub indexed_related_to: Option<UpdatedSetMembers<KeyValuePair>>,
     pub indexed_geo: Option<UpdatedAttribute<GeoPoint>>,
@@ -21,6 +22,7 @@ pub struct EventDiff {
 impl EventDiff {
     pub fn new(original_event: &Event, updated_event: &Event) -> Self {
         EventDiff {
+            indexed_location_type: Self::diff_indexed_location_type(original_event, updated_event),
             indexed_categories: Self::diff_indexed_categories(original_event, updated_event),
             indexed_related_to: Self::diff_indexed_related_to(original_event, updated_event),
             indexed_geo: Self::diff_indexed_geo(original_event, updated_event),
@@ -29,6 +31,22 @@ impl EventDiff {
             passive_properties: Self::diff_passive_properties(original_event, updated_event),
             schedule_properties: Self::diff_schedule_properties(original_event, updated_event),
         }
+    }
+
+    fn diff_indexed_location_type(
+        original_event: &Event,
+        updated_event: &Event,
+    ) -> Option<UpdatedSetMembers<String>> {
+        Some(UpdatedSetMembers::new(
+            original_event
+                .indexed_properties
+                .extract_all_location_type_strings()
+                .as_ref(),
+            updated_event
+                .indexed_properties
+                .extract_all_location_type_strings()
+                .as_ref(),
+        ))
     }
 
     fn diff_indexed_categories(
@@ -234,7 +252,7 @@ mod test {
     use std::collections::{BTreeMap, BTreeSet, HashSet};
 
     use redical_ical::properties::{
-        CategoriesProperty, ClassProperty, DTStartProperty, GeoProperty, RRuleProperty, RelatedToProperty, PassiveProperty, LastModifiedProperty
+        LocationTypeProperty, CategoriesProperty, ClassProperty, DTStartProperty, GeoProperty, RRuleProperty, RelatedToProperty, PassiveProperty, LastModifiedProperty
     };
 
     use crate::{IndexedProperties, KeyValuePair, PassiveProperties, ScheduleProperties};
@@ -246,6 +264,12 @@ mod test {
         // Test when no changes between both original and updated Events
         let original_event = Event::new(String::from("event_UID"));
         let updated_event = Event::new(String::from("event_UID"));
+
+        let expected_indexed_location_type = Some(UpdatedSetMembers {
+            removed: HashSet::new(),
+            maintained: HashSet::new(),
+            added: HashSet::new(),
+        });
 
         let expected_indexed_categories = Some(UpdatedSetMembers {
             removed: HashSet::new(),
@@ -282,6 +306,7 @@ mod test {
         assert_eq!(
             EventDiff::new(&original_event, &updated_event),
             EventDiff {
+                indexed_location_type: expected_indexed_location_type,
                 indexed_categories: expected_indexed_categories,
                 indexed_related_to: expected_indexed_related_to,
                 indexed_geo: expected_indexed_geo,
@@ -317,6 +342,7 @@ mod test {
                 geo: Some(build_property_from_ical!(GeoProperty, "GEO:51.5074;-0.1278")),
                 class: Some(build_property_from_ical!(ClassProperty, "CLASS:PRIVATE")),
                 related_to: None,
+                location_type: Some(build_property_from_ical!(LocationTypeProperty, "LOCATION-TYPE:ONLINE")),
                 categories: Some(HashSet::from([build_property_from_ical!(
                     CategoriesProperty,
                     "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,CATEGORY_THREE"
@@ -337,6 +363,13 @@ mod test {
         assert_eq!(
             EventDiff::new(&original_event, &updated_event),
             EventDiff {
+                indexed_location_type: Some(UpdatedSetMembers {
+                    removed: HashSet::new(),
+                    maintained: HashSet::new(),
+                    added: HashSet::from([
+                        String::from("ONLINE"),
+                    ])
+                }),
                 indexed_categories: Some(UpdatedSetMembers {
                     removed: HashSet::new(),
                     maintained: HashSet::new(),
@@ -416,6 +449,7 @@ mod test {
                         "RELATED-TO;RELTYPE=PARENT:another_event_UID"
                     ),
                 ])),
+                location_type: None,
                 categories: Some(HashSet::from([build_property_from_ical!(
                     CategoriesProperty,
                     "CATEGORIES:CATEGORY_THREE,CATEGORY_FOUR"
@@ -436,6 +470,11 @@ mod test {
         assert_eq!(
             EventDiff::new(&original_event, &updated_event),
             EventDiff {
+                indexed_location_type: Some(UpdatedSetMembers {
+                    removed: HashSet::new(),
+                    maintained: HashSet::new(),
+                    added: HashSet::from([String::from("ONLINE")]),
+                }),
                 indexed_categories: Some(UpdatedSetMembers {
                     removed: HashSet::from([String::from("CATEGORY_FOUR")]),
                     maintained: HashSet::from([String::from("CATEGORY_THREE")]),
@@ -509,6 +548,11 @@ mod test {
         assert_eq!(
             EventDiff::new(&original_event, &updated_event),
             EventDiff {
+                indexed_location_type: Some(UpdatedSetMembers {
+                    removed: HashSet::new(),
+                    maintained: HashSet::new(),
+                    added: HashSet::new(),
+                }),
                 indexed_categories: Some(UpdatedSetMembers {
                     removed: HashSet::from([
                         String::from("CATEGORY_THREE"),
