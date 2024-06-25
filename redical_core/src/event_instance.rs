@@ -247,6 +247,10 @@ impl ICalendarComponent for EventInstance {
             serializable_properties.insert(geo_property.to_content_line_with_context(context));
         }
 
+        if let Some(location_type_property) = &self.indexed_properties.location_type {
+            serializable_properties.insert(location_type_property.to_content_line_with_context(context));
+        }
+
         if let Some(class_property) = &self.indexed_properties.class {
             serializable_properties.insert(class_property.to_content_line_with_context(context));
         }
@@ -468,6 +472,7 @@ mod test {
                 String::from("DURATION:PT1M"),
                 String::from("GEO:48.85299;2.36885"),
                 String::from("LOCATION:Event address text."),
+                String::from("LOCATION-TYPE:LOCATION_TYPE_ONE,LOCATION_TYPE_TWO"),
                 String::from("RECURRENCE-ID;VALUE=DATE-TIME;TZID=Europe/London:19700101T010140"),
                 String::from("RELATED-TO;RELTYPE=CHILD:ChildUID"),
                 String::from("RELATED-TO;RELTYPE=PARENT:ParentUID_One"),

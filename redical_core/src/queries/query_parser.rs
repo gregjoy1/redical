@@ -203,6 +203,11 @@ fn where_properties_group_to_where_conditional(where_properties_group: &WherePro
 
     for grouped_where_property in &where_properties_group.properties {
         let (new_where_conditional, external_operator) = match &grouped_where_property {
+            GroupedWhereProperty::XLocationType(external_operator, x_location_type_property) => (
+                x_location_type_query_property_to_where_conditional(x_location_type_property),
+                external_operator,
+            ),
+
             GroupedWhereProperty::XCategories(external_operator, x_categories_property) => (
                 x_categories_query_property_to_where_conditional(x_categories_property),
                 external_operator,
@@ -642,7 +647,7 @@ mod test {
             ")",
             "AND",
             "(",
-            "X-CATEGORIES:CATEGORY_TWO",
+            "X-LOCATION-TYPE:ONLINE",
             "OR",
             "X-RELATED-TO;RELTYPE=CHILD:CHILD_UID",
             ")",
@@ -692,8 +697,8 @@ mod test {
                             Box::new(WhereConditional::Group(
                                 Box::new(WhereConditional::Operator(
                                     Box::new(WhereConditional::Property(
-                                        WhereConditionalProperty::Categories(String::from(
-                                            "CATEGORY_TWO"
+                                        WhereConditionalProperty::LocationType(String::from(
+                                            "ONLINE"
                                         )),
                                     )),
                                     Box::new(WhereConditional::Property(

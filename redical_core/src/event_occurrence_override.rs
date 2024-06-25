@@ -191,6 +191,10 @@ impl ICalendarComponent for EventOccurrenceOverride {
             serializable_properties.insert(geo_property.to_content_line_with_context(context));
         }
 
+        if let Some(location_type_property) = &self.indexed_properties.location_type {
+            serializable_properties.insert(location_type_property.to_content_line_with_context(context));
+        }
+
         if let Some(class_property) = &self.indexed_properties.class {
             serializable_properties.insert(class_property.to_content_line_with_context(context));
         }
