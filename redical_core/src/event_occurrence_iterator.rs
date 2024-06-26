@@ -407,6 +407,7 @@ mod test {
             indexed_properties: IndexedProperties {
                 geo: None,
                 class: None,
+                location_type: None,
                 categories: None,
                 related_to: None,
             },
@@ -426,6 +427,7 @@ mod test {
             indexed_properties: IndexedProperties {
                 geo: None,
                 class: None,
+                location_type: None,
                 categories: None,
                 related_to: None,
             },
@@ -448,6 +450,7 @@ mod test {
             indexed_properties: IndexedProperties {
                 geo: None,
                 class: None,
+                location_type: None,
                 categories: None,
                 related_to: None,
             },
@@ -467,6 +470,7 @@ mod test {
             indexed_properties: IndexedProperties {
                 geo: None,
                 class: None,
+                location_type: None,
                 categories: None,
                 related_to: None,
             },

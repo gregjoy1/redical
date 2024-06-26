@@ -197,6 +197,40 @@ Query all event instances with `MEETING` `CATEGORIES` values **and** either `APP
 X-CATEGORIES:MEETING X-CATEGORIES;OP=OR:APPOINTMENT,EDUCATION
 ```
 
+#### `X-LOCATION-TYPE` property
+This property defines the `LOCATION-TYPE` values on each event instance to query. This can be specified multiple times and outside of a where query group all properties default to the `AND` operator.
+
+##### Usage:
+```
+X-LOCATION-TYPE[;OP=(AND|OR)]:<types>[,<types>...]
+```
+
+###### Params:
+
+`OP` - The query operator (either `AND` or `OR`) - defaults to `AND`.
+
+##### Example:
+
+Query all event instances with both `ONLINE`, **and** `ZOOM` `LOCATION-TYPE` values:
+```
+X-LOCATION-TYPE:ONLINE,ZOOM
+```
+
+Equivilent to:
+```
+X-LOCATION-TYPE;OP=AND:ONLINE,ZOOM
+```
+
+Query all event instances with either `ONLINE` **or** `OFFLINE` `LOCATION-TYPE` values:
+```
+X-LOCATION-TYPE;OP=OR:ONLINE,OFFLINE
+```
+
+Query all event instances with `ONLINE` `LOCATION-TYPE` values **and** either `ZOOM` **or** `HANGOUTS` `LOCATION-TYPE` values:
+```
+X-LOCATION-TYPE:ONLINE X-LOCATION-TYPE;OP=OR:ZOOM,HANGOUTS
+```
+
 #### `X-RELATED` property
 This property defines the `RELATED-TO` values on each event instance to query. This can be specified multiple times and outside of a where query group all properties default to the `AND` operator.
 
@@ -292,13 +326,14 @@ X-GEO;DIST=30MI:48.85299;2.36885
 #### Where group group
 This allows the following properties to be grouped into sub-queries which can be delimited by either `AND`/`OR` operators:
 * `X-CATEGORIES`
+* `X-LOCATION-TYPE`
 * `X-RELATED-TO`
 * `X-CLASS`
 * `X-GEO`
 
 ##### Usage:
 ```
-([(X-CATEGORIES...|X-RELATED-TO...|X-CLASS...|X-GEO...)] [[(AND|OR)] [(X-CATEGORIES...|X-RELATED-TO...|X-CLASS...|X-GEO...])] ...)
+([(X-CATEGORIES...|X-LOCATION-TYPE...|X-RELATED-TO...|X-CLASS...|X-GEO...)] [[(AND|OR)] [(X-CATEGORIES...|X-LOCATION-TYPE...|X-RELATED-TO...|X-CLASS...|X-GEO...])] ...)
 ```
 
 ##### Example:

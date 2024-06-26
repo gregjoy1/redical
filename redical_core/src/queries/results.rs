@@ -174,6 +174,7 @@ mod test {
                     GeoProperty,
                     "GEO:51.899779;-2.0760367"
                 )), // Cheltenham
+                location_type: None,
                 categories: None,
                 related_to: None,
             },
@@ -193,6 +194,7 @@ mod test {
                     GeoProperty,
                     "GEO:51.7504163;-1.2475878"
                 )), // Oxford
+                location_type: None,
                 categories: None,
                 related_to: None,
             },
@@ -212,6 +214,7 @@ mod test {
                     GeoProperty,
                     "GEO:51.4517446;-1.004574"
                 )), // Reading
+                location_type: None,
                 categories: None,
                 related_to: None,
             },

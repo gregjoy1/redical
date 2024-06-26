@@ -119,6 +119,7 @@ impl EventOccurrenceOverride {
             EventProperty::Class(_)
             | EventProperty::Geo(_)
             | EventProperty::Categories(_)
+            | EventProperty::LocationType(_)
             | EventProperty::RelatedTo(_) => {
                 self.indexed_properties.insert(property)?;
             }
@@ -190,6 +191,10 @@ impl ICalendarComponent for EventOccurrenceOverride {
             serializable_properties.insert(geo_property.to_content_line_with_context(context));
         }
 
+        if let Some(location_type_property) = &self.indexed_properties.location_type {
+            serializable_properties.insert(location_type_property.to_content_line_with_context(context));
+        }
+
         if let Some(class_property) = &self.indexed_properties.class {
             serializable_properties.insert(class_property.to_content_line_with_context(context));
         }
@@ -224,6 +229,7 @@ mod test {
         PassiveProperty,
         ClassProperty,
         CategoriesProperty,
+        LocationTypeProperty,
     };
 
     use crate::testing::macros::build_property_from_ical;
@@ -252,6 +258,7 @@ mod test {
                     indexed_properties: IndexedProperties {
                         geo: None,
                         class: None,
+                        location_type: None,
                         categories: None,
                         related_to: None,
                     },
@@ -267,7 +274,7 @@ mod test {
             )
         );
 
-        let ical_without_rrule: &str = "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas\\, NV\\, USA CLASS:PRIVATE CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,\"CATEGORY (THREE)\" LAST-MODIFIED:20201230T173000Z";
+        let ical_without_rrule: &str = "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas\\, NV\\, USA CLASS:PRIVATE CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,\"CATEGORY (THREE)\" LAST-MODIFIED:20201230T173000Z LOCATION-TYPE:HOTEL";
 
         assert_eq!(
             EventOccurrenceOverride::parse_ical("19700101T000500Z", ical_without_rrule).unwrap(),
@@ -276,6 +283,7 @@ mod test {
                 indexed_properties: IndexedProperties {
                     geo: None,
                     class: Some(build_property_from_ical!(ClassProperty, "CLASS:PRIVATE")),
+                    location_type: Some(build_property_from_ical!(LocationTypeProperty, "LOCATION-TYPE:HOTEL")),
                     categories: Some(HashSet::from([build_property_from_ical!(CategoriesProperty, "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,\"CATEGORY (THREE)\"")])),
                     related_to: None,
                 },

@@ -19,6 +19,7 @@ use crate::properties::query::{
     x_class::XClassProperty,
     x_related_to::XRelatedToProperty,
     x_categories::XCategoriesProperty,
+    x_location_type::XLocationTypeProperty,
 };
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -27,6 +28,7 @@ pub enum GroupedWhereProperty {
     XClass(Option<WhereOperator>, XClassProperty),
     XRelatedTo(Option<WhereOperator>, XRelatedToProperty),
     XCategories(Option<WhereOperator>, XCategoriesProperty),
+    XLocationType(Option<WhereOperator>, XLocationTypeProperty),
     WherePropertiesGroup(Option<WhereOperator>, WherePropertiesGroup),
 }
 
@@ -37,6 +39,7 @@ impl GroupedWhereProperty {
             Self::XClass(external_operator, _) => external_operator,
             Self::XRelatedTo(external_operator, _) => external_operator,
             Self::XCategories(external_operator, _) => external_operator,
+            Self::XLocationType(external_operator, _) => external_operator,
             Self::WherePropertiesGroup(external_operator, _) => external_operator,
         }
     }
@@ -47,6 +50,7 @@ impl GroupedWhereProperty {
             Self::XClass(_, property) => property.to_content_line_with_context(context),
             Self::XRelatedTo(_, property) => property.to_content_line_with_context(context),
             Self::XCategories(_, property) => property.to_content_line_with_context(context),
+            Self::XLocationType(_, property) => property.to_content_line_with_context(context),
             Self::WherePropertiesGroup(_, property) => property.to_content_line_with_context(context),
         }
     }
@@ -82,6 +86,11 @@ impl ICalendarEntity for GroupedWhereProperty {
                     map(
                         pair(opt(terminated(WhereOperator::parse_ical, wsp)), XCategoriesProperty::parse_ical),
                         |(external_operator, x_categories_property)| GroupedWhereProperty::XCategories(external_operator, x_categories_property),
+                    ),
+
+                    map(
+                        pair(opt(terminated(WhereOperator::parse_ical, wsp)), XLocationTypeProperty::parse_ical),
+                        |(external_operator, x_location_type_property)| GroupedWhereProperty::XLocationType(external_operator, x_location_type_property),
                     ),
                 )),
             )
@@ -222,6 +231,7 @@ mod tests {
     use crate::properties::query::{
         x_class::XClassPropertyParams,
         x_categories::XCategoriesPropertyParams,
+        x_location_type::XLocationTypePropertyParams,
     };
 
     use crate::values::list::List;
@@ -337,7 +347,7 @@ mod tests {
         );
 
         assert_parser_output!(
-            WherePropertiesGroup::parse_ical(ParserInput::new_extra("(X-CLASS:PUBLIC OR X-CATEGORIES:APPOINTMENT AND (X-CLASS:PRIVATE OR X-CATEGORIES:EDUCATION)) X-CATEGORIES:Categories text", ParserContext::Query)),
+            WherePropertiesGroup::parse_ical(ParserInput::new_extra("(X-CLASS:PUBLIC OR X-CATEGORIES:APPOINTMENT AND (X-CLASS:PRIVATE OR X-LOCATION-TYPE:ONLINE,ZOOM)) X-CATEGORIES:Categories text", ParserContext::Query)),
             (
                 " X-CATEGORIES:Categories text",
                 WherePropertiesGroup {
@@ -367,11 +377,11 @@ mod tests {
                                             classes: List::from(vec![ClassValue::Private]),
                                         },
                                     ),
-                                    GroupedWhereProperty::XCategories(
+                                    GroupedWhereProperty::XLocationType(
                                         Some(WhereOperator::Or),
-                                        XCategoriesProperty {
-                                            params: XCategoriesPropertyParams::default(),
-                                            categories: List::from(vec![Text(String::from("EDUCATION"))]),
+                                        XLocationTypeProperty {
+                                            params: XLocationTypePropertyParams::default(),
+                                            types: List::from(vec![Text(String::from("ONLINE")), Text(String::from("ZOOM"))]),
                                         },
                                     ),
                                 ]

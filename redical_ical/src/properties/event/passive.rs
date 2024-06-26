@@ -48,7 +48,6 @@ pub enum PassiveProperty {
     Image(ContentLineParams, String),
     Conference(ContentLineParams, String),
     CalendarAddress(ContentLineParams, String),
-    LocationType(ContentLineParams, String),
     ParticipantType(ContentLineParams, String),
     ResourceType(ContentLineParams, String),
     StructuredData(ContentLineParams, String),
@@ -129,7 +128,6 @@ impl ICalendarEntity for PassiveProperty {
                 define_property_parser!(Image, "IMAGE"),
                 define_property_parser!(Conference, "CONFERENCE"),
                 define_property_parser!(CalendarAddress, "CALENDAR-ADDRESS"),
-                define_property_parser!(LocationType, "LOCATION-TYPE"),
                 define_property_parser!(ParticipantType, "PARTICIPANT-TYPE"),
                 define_property_parser!(ResourceType, "RESOURCE-TYPE"),
                 define_property_parser!(StructuredData, "STRUCTURED-DATA"),
@@ -203,7 +201,6 @@ impl ICalendarProperty for PassiveProperty {
             PassiveProperty::Image(params, value)             => ContentLine::from(("IMAGE", (params, value))),
             PassiveProperty::Conference(params, value)        => ContentLine::from(("CONFERENCE", (params, value))),
             PassiveProperty::CalendarAddress(params, value)   => ContentLine::from(("CALENDAR-ADDRESS", (params, value))),
-            PassiveProperty::LocationType(params, value)      => ContentLine::from(("LOCATION-TYPE", (params, value))),
             PassiveProperty::ParticipantType(params, value)   => ContentLine::from(("PARTICIPANT-TYPE", (params, value))),
             PassiveProperty::ResourceType(params, value)      => ContentLine::from(("RESOURCE-TYPE", (params, value))),
             PassiveProperty::StructuredData(params, value)    => ContentLine::from(("STRUCTURED-DATA", (params, value))),
@@ -314,7 +311,6 @@ mod tests {
         assert_passive_property_parse_ical!(Image, "IMAGE");
         assert_passive_property_parse_ical!(Conference, "CONFERENCE");
         assert_passive_property_parse_ical!(CalendarAddress, "CALENDAR-ADDRESS");
-        assert_passive_property_parse_ical!(LocationType, "LOCATION-TYPE");
         assert_passive_property_parse_ical!(ParticipantType, "PARTICIPANT-TYPE");
         assert_passive_property_parse_ical!(ResourceType, "RESOURCE-TYPE");
         assert_passive_property_parse_ical!(StructuredData, "STRUCTURED-DATA");

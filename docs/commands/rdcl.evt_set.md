@@ -204,16 +204,70 @@ At the time of writing, there are only a handful of indexed properties, but if u
 ##### [`CATEGORIES` property](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.1.2)
 This property defines the categories for a calendar event.
 
-We can use this to specify "tags", for example `ONLINE`, `OFFLINE`, `INSTRUCTOR_ABC123`, `FITNESS`, etc.
+We can use this to specify "tags", for example `YOGA`, `INSTRUCTOR_ABC123`, `FITNESS`, etc.
 
 Especially since we use an inverted index to index this property, this means that we need to query with an exact tag string (case sensitive).
 
 ###### Examples:
 
-The following is an example of this property a list of attributes we want to be able to query:
+The following is an example of this property a list of values we want to be able to query for:
 
 ```
-CATEGORIES:ONLINE,FITNESS,INSTRUCTOR_ABC123
+CATEGORIES:YOGA,INSTRUCTOR_ABC123
+```
+
+The following is an example of this property a single value we may want to be able to query for:
+
+```
+CATEGORIES:YOGA
+```
+
+Property parameters can be specified but are ignored when it comes to indexing:
+
+```
+CATEGORIES;X-KEY=VALUE;KEY=VALUE:YOGA
+```
+
+##### [`LOCATION-TYPE` property](https://datatracker.ietf.org/doc/html/rfc9073#section-6.1)
+This property defines the location types for a calendar event.
+
+> [!NOTE]
+> This property was introduced later in RFC 9073 and was intended to only be present nested within a `VLOCATION` component (contained within a `VEVENT` component to better describe it's location). 
+>
+> RediCal intends to eventually implement the `VLOCATION` component in the future, but for now this is available to be specified at the event (`VEVENT`) level.
+
+We can use this to specify **location specific** "tags", for example `ONLINE`, `OFFLINE`, `HOTEL`, `RESTAURANT`, etc.
+
+Especially since we use an inverted index to index this property, this means that we need to query with an exact tag string (case sensitive).
+
+Although similar in nature to the `CATEGORIES` property, the intention behind also including `LOCATION-TYPE` as an indexed property is to add additional granularity to an event definition. Especially when it comes to overrides, conflating location and general concerns within the `CATEGORIES` property would require extensive updates to numerous event occurrence override `CATEGORIES` properties if either concerns are updated.
+
+An example of this is if an event is updated to be hosted online resulting in the only update required being an update to the location specific `LOCATION-TYPE` property on the event itself and those overridden within associated event occurrence overrides. Instead of having to update all `CATEGORIES` properties on all overrides referencing the original location specific tag.
+
+###### Examples:
+
+The following is an example of this property a list of values we want to be able to query for an online event:
+
+```
+LOCATION-TYPE:ONLINE,ZOOM
+```
+
+The following is an example of this property a list of values we want to be able to query for an offline event:
+
+```
+LOCATION-TYPE:OFFLINE,HOTEL,RESTAURANT
+```
+
+The following is an example of this property a single value we want to be able to query for an offline event:
+
+```
+LOCATION-TYPE:HOTEL
+```
+
+Property parameters can be specified but are ignored when it comes to indexing:
+
+```
+LOCATION-TYPE;X-KEY=VALUE;KEY=VALUE:HOTEL
 ```
 
 ##### [`RELATED-TO` property](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.4.5)

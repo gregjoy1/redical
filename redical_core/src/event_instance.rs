@@ -18,6 +18,7 @@ use redical_ical::{
         ICalendarProperty,
         ICalendarDateTimeProperty,
         CategoriesProperty,
+        LocationTypeProperty,
         ClassProperty,
         DTEndProperty,
         DTStartProperty,
@@ -55,6 +56,7 @@ impl EventInstance {
         let indexed_properties = IndexedProperties {
             geo: Self::get_geo(event, event_occurrence_override),
             categories: Self::get_categories(event, event_occurrence_override),
+            location_type: Self::get_location_type(event, event_occurrence_override),
             related_to: Self::get_related_to(event, event_occurrence_override),
             class: Self::get_class(event, event_occurrence_override),
         };
@@ -109,6 +111,26 @@ impl EventInstance {
         }
 
         event.indexed_properties.geo.to_owned()
+    }
+
+    fn get_location_type(
+        event: &Event,
+        event_occurrence_override: Option<&EventOccurrenceOverride>,
+    ) -> Option<LocationTypeProperty> {
+        if let Some(event_occurrence_override) = event_occurrence_override {
+            if event_occurrence_override
+                .indexed_properties
+                .location_type
+                .is_some()
+            {
+                return event_occurrence_override
+                    .indexed_properties
+                    .location_type
+                    .to_owned();
+            }
+        }
+
+        event.indexed_properties.location_type.to_owned()
     }
 
     fn get_categories(
@@ -223,6 +245,10 @@ impl ICalendarComponent for EventInstance {
 
         if let Some(geo_property) = &self.indexed_properties.geo {
             serializable_properties.insert(geo_property.to_content_line_with_context(context));
+        }
+
+        if let Some(location_type_property) = &self.indexed_properties.location_type {
+            serializable_properties.insert(location_type_property.to_content_line_with_context(context));
         }
 
         if let Some(class_property) = &self.indexed_properties.class {
@@ -364,6 +390,7 @@ mod test {
                 "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Three",
                 "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Two",
                 "CLASS:PRIVATE",
+                "LOCATION-TYPE:LOCATION_TYPE_ONE,LOCATION_TYPE_TWO",
                 "GEO:48.85299;2.36885",
                 "DESCRIPTION:Event description text.",
                 "LOCATION:Event address text.",
@@ -384,6 +411,10 @@ mod test {
                     geo: Some(build_property_from_ical!(
                         GeoProperty,
                         "GEO:48.85299;2.36885"
+                    )),
+                    location_type: Some(build_property_from_ical!(
+                        LocationTypeProperty,
+                        "LOCATION-TYPE:LOCATION_TYPE_ONE,LOCATION_TYPE_TWO"
                     )),
                     categories: Some(HashSet::from([build_property_from_ical!(
                         CategoriesProperty,
@@ -441,6 +472,7 @@ mod test {
                 String::from("DURATION:PT1M"),
                 String::from("GEO:48.85299;2.36885"),
                 String::from("LOCATION:Event address text."),
+                String::from("LOCATION-TYPE:LOCATION_TYPE_ONE,LOCATION_TYPE_TWO"),
                 String::from("RECURRENCE-ID;VALUE=DATE-TIME;TZID=Europe/London:19700101T010140"),
                 String::from("RELATED-TO;RELTYPE=CHILD:ChildUID"),
                 String::from("RELATED-TO;RELTYPE=PARENT:ParentUID_One"),
@@ -502,6 +534,7 @@ mod test {
                 indexed_properties: IndexedProperties {
                     class: None,
                     geo: None,
+                    location_type: None,
                     categories: Some(HashSet::from([build_property_from_ical!(
                         CategoriesProperty,
                         "CATEGORIES:CATEGORY_ONE,CATEGORY_FOUR"
