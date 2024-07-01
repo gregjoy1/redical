@@ -43,7 +43,7 @@ pub fn redical_event_override_del(ctx: &Context, args: Vec<RedisString>) -> Redi
     };
 
     // Record whether the override removed actually existed for that timestamp or not.
-    let was_override_removed = event.remove_occurrence_override(override_timestamp, calendar.indexes_active.to_owned()).map_err(RedisError::String)?;
+    let was_override_removed = event.remove_occurrence_override(override_timestamp, calendar.indexes_active.to_owned()).map_err(RedisError::String)?.is_some();
 
     if calendar.indexes_active {
         // HashMap.insert returns the old value (if present) which we can use in diffing old -> new.
