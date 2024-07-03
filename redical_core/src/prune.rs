@@ -3,6 +3,24 @@ use std::ops::Bound;
 use crate::{Event, EventOccurrenceOverride};
 
 pub fn prune_event_overrides(event: &mut Event, from_timestamp_bound: Bound<i64>, until_timestamp_bound: Bound<i64>, mut callback: impl FnMut(i64, EventOccurrenceOverride)) -> Result<bool, String> {
+    let _ = validate_timestamp_bounds(from_timestamp_bound, until_timestamp_bound)?;
+
+    let timestamps_to_remove: Vec<i64> =
+        event.overrides
+             .range((from_timestamp_bound, until_timestamp_bound))
+             .map(|(timestamp, _)| timestamp.to_owned())
+             .collect();
+
+    for timestamp_to_remove in timestamps_to_remove {
+        if let Ok(Some(removed_event_occurrence_override)) = event.remove_occurrence_override(timestamp_to_remove, true) {
+            callback(timestamp_to_remove, removed_event_occurrence_override);
+        }
+    }
+
+    Ok(true)
+}
+
+fn validate_timestamp_bounds(from_timestamp_bound: Bound<i64>, until_timestamp_bound: Bound<i64>) -> Result<bool, String> {
     let from_timestamp =
         match from_timestamp_bound {
             Bound::Included(from_timestamp) => from_timestamp,
@@ -36,18 +54,6 @@ pub fn prune_event_overrides(event: &mut Event, from_timestamp_bound: Bound<i64>
                 return Err(format!("Lower bound value: {from_timestamp} cannot be greater than upper bound value: {until_timestamp}"));
             }
         },
-    }
-
-    let timestamps_to_remove: Vec<i64> =
-        event.overrides
-             .range((from_timestamp_bound, until_timestamp_bound))
-             .map(|(timestamp, _)| timestamp.to_owned())
-             .collect();
-
-    for timestamp_to_remove in timestamps_to_remove {
-        if let Ok(Some(removed_event_occurrence_override)) = event.remove_occurrence_override(timestamp_to_remove, true) {
-            callback(timestamp_to_remove, removed_event_occurrence_override);
-        }
     }
 
     Ok(true)

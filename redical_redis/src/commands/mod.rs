@@ -10,6 +10,7 @@ mod rdcl_evo_del;
 mod rdcl_evo_get;
 mod rdcl_evo_set;
 mod rdcl_evo_list;
+mod rdcl_evo_prune;
 
 mod rdcl_evt_get;
 mod rdcl_evt_set;
@@ -28,6 +29,7 @@ pub use rdcl_evo_del::redical_event_override_del;
 pub use rdcl_evo_get::redical_event_override_get;
 pub use rdcl_evo_set::redical_event_override_set;
 pub use rdcl_evo_list::redical_event_override_list;
+pub use rdcl_evo_prune::redical_event_override_prune;
 
 pub use rdcl_evt_get::redical_event_get;
 pub use rdcl_evt_set::redical_event_set;
