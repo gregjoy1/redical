@@ -21,7 +21,9 @@ pub fn redical_event_override_del(ctx: &Context, args: Vec<RedisString>) -> Redi
     let override_date_string = args.next_arg()?.try_as_str()?;
 
     let override_timestamp =
-        DateTime::from_str(override_date_string).map(|datetime| datetime.get_utc_timestamp(None)).map_err(|error| RedisError::String(format!("{:#?}", error)))?;
+        DateTime::from_str(override_date_string)
+            .map(|datetime| datetime.get_utc_timestamp(None))
+            .map_err(RedisError::String)?;
 
     ctx.log_debug(
         format!("rdcl.evo_del: calendar_uid: {calendar_uid} event_uid: {event_uid} occurrence date string: {override_date_string}").as_str()
@@ -43,7 +45,7 @@ pub fn redical_event_override_del(ctx: &Context, args: Vec<RedisString>) -> Redi
     };
 
     // Record whether the override removed actually existed for that timestamp or not.
-    let was_override_removed = event.remove_occurrence_override(override_timestamp, calendar.indexes_active.to_owned()).map_err(RedisError::String)?;
+    let was_override_removed = event.remove_occurrence_override(override_timestamp, calendar.indexes_active.to_owned()).map_err(RedisError::String)?.is_some();
 
     if calendar.indexes_active {
         // HashMap.insert returns the old value (if present) which we can use in diffing old -> new.

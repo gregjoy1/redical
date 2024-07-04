@@ -34,9 +34,10 @@ pub fn redical_event_override_set(ctx: &Context, args: Vec<RedisString>) -> Redi
     let event_uid = args.next_arg()?.to_string();
     let override_date_string = args.next_arg()?.try_as_str()?;
 
-    let Ok(parsed_override_datetime) = DateTime::from_str(override_date_string) else {
-        return Err(RedisError::String(format!("`{override_date_string}` is not a valid datetime format.")));
-    };
+    let override_timestamp =
+        DateTime::from_str(override_date_string)
+            .map(|datetime| datetime.get_utc_timestamp(None))
+            .map_err(RedisError::String)?;
 
     let other: String = args
         .map(|arg| arg.try_as_str().unwrap_or(""))
@@ -94,7 +95,7 @@ pub fn redical_event_override_set(ctx: &Context, args: Vec<RedisString>) -> Redi
     // Only proceed with inserting the newly provided event occurrence override if it is found
     // to have a newer LAST-MODIFIED property than the existing event occurrence override, if
     // not then we skip the insert and return false to signal this to the client.
-    if let Some(existing_event_occurrence_override) = event.overrides.get(&parsed_override_datetime.get_utc_timestamp(None)) {
+    if let Some(existing_event_occurrence_override) = event.overrides.get(&override_timestamp) {
         if event_occurrence_override.last_modified < existing_event_occurrence_override.last_modified {
             ctx.log_debug(
                 format!(

@@ -725,8 +725,8 @@ impl Event {
         Ok(true)
     }
 
-    pub fn remove_occurrence_override(&mut self, timestamp: i64, update_indexes: bool) -> Result<bool, String> {
-        let override_removed = self.overrides.remove(&timestamp).is_some();
+    pub fn remove_occurrence_override(&mut self, timestamp: i64, update_indexes: bool) -> Result<Option<EventOccurrenceOverride>, String> {
+        let override_removed = self.overrides.remove(&timestamp);
 
         // Only proceed with updating the indexes of the event if required.
         if update_indexes == false {
@@ -1338,8 +1338,30 @@ mod test {
             },
         );
 
-        // Assert returns Ok(true) if actually removed existing override.
-        assert_eq!(parsed_event.remove_occurrence_override(1610476200, true), Ok(true));
+        // Assert returns Ok(Some(EventOccurrenceOverride { ... })) if actually removed existing override.
+        assert_eq!(
+            parsed_event.remove_occurrence_override(1610476200, true),
+            Ok(
+                Some(
+                    EventOccurrenceOverride {
+                        last_modified: build_property_from_ical!(LastModifiedProperty, "LAST-MODIFIED:20201230T173000Z"),
+                        indexed_properties: IndexedProperties {
+                            geo: None,
+                            related_to: None,
+                            location_type: None,
+                            categories: Some(HashSet::from([build_property_from_ical!(CategoriesProperty, "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,CATEGORY_THREE")])),
+                            class: None,
+                        },
+                        passive_properties: PassiveProperties {
+                            properties: BTreeSet::from([build_property_from_ical!(PassiveProperty, "DESCRIPTION;ALTREP=\"cid:part1.0001@example.org\":The Fall'98 Wild Wizards Conference - - Las Vegas\\, NV\\, USA")]),
+                        },
+                        dtstart: Some(build_property_from_ical!(DTStartProperty, "DTSTART:20210112T183000Z")),
+                        dtend: None,
+                        duration: None,
+                    }
+                )
+            )
+        );
 
         // Assert override now no longer present in the Event.
         assert_eq!(
@@ -1386,7 +1408,10 @@ mod test {
         );
 
         // Assert returns Ok(false) if the override did not exist and nothing was removed.
-        assert_eq!(parsed_event.remove_occurrence_override(1610476200, true), Ok(false));
+        assert_eq!(
+            parsed_event.remove_occurrence_override(1610476200, true),
+            Ok(None),
+        );
     }
 
     #[test]

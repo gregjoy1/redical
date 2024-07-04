@@ -86,6 +86,7 @@ redis_module! {
         ["rdcl.evo_set",         commands::redical_event_override_set,   "write pubsub deny-oom", 1, 1, 1],
         ["rdcl.evo_del",         commands::redical_event_override_del,   "write pubsub deny-oom", 1, 1, 1],
         ["rdcl.evo_list",        commands::redical_event_override_list,  "readonly",              1, 1, 1],
+        ["rdcl.evo_prune",       commands::redical_event_override_prune, "write pubsub deny-oom", 1, 1, 1],
         ["rdcl.cal_set",         commands::redical_calendar_set,         "write pubsub deny-oom", 1, 1, 1],
         ["rdcl.cal_get",         commands::redical_calendar_get,         "readonly",              1, 1, 1],
         ["rdcl.cal_query",       commands::redical_calendar_query,       "readonly",              1, 1, 1],
