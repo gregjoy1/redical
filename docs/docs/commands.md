@@ -12,6 +12,7 @@ The following documentation describes all available RediCal specific commands an
 * [RDCL.EVO_SET](../commands/rdcl.evo_set.md)
 * [RDCL.EVO_DEL](../commands/rdcl.evo_del.md)
 * [RDCL.EVO_LIST](../commands/rdcl.evo_list.md)
+* [RDCL.EVO_PRUNE](../commands/rdcl.evo_prune.md)
 * [RDCL.CAL_SET](../commands/rdcl.cal_set.md)
 * [RDCL.CAL_GET](../commands/rdcl.cal_get.md)
 * [RDCL.CAL_QUERY](../commands/rdcl.cal_query.md)
@@ -176,4 +177,20 @@ This keyspace event is dispatched each time an occurrence specific override of a
 
 ```
 "__keyspace@0__:CALENDAR_UID:EVENT_UID:20210722T143000Z", "rdcl.evo_del"
+```
+
+#### `RDCL.EVO_PRUNE` keyspace event
+
+This keyspace event is dispatched each time an occurrence specific override of a RediCal event contained within a RediCal calendar key data type is deleted via the `RDCL.EVO_PRUNE` command.
+
+##### Format:
+
+```
+"__keyspace@0__:<KEY_NAME>:<EVENT_UID>:<OCCURRENCE_DATE_STRING>", "rdcl.evo_prune"
+```
+
+##### Example:
+
+```
+"__keyspace@0__:CALENDAR_UID:EVENT_UID:20210722T143000Z", "rdcl.evo_prune"
 ```
