@@ -415,6 +415,37 @@ mod integration {
 
             list_and_assert_matching_event_overrides!(connection, "TEST_CALENDAR_UID", "EVENT_IN_OXFORD_MON_WED", []);
 
+            // Assert rdcl.evo_set date string format validation
+            assert_error_returned!(
+                connection,
+                "Error: - expected iCalendar RFC-5545 DATE-VALUE (DATE-FULLYEAR DATE-MONTH DATE-MDAY) at \"BAD_FORMAT\" -- Context: DATE-TIME -> DATE",
+                "rdcl.evo_set",
+                "TEST_CALENDAR_UID",
+                "EVENT_ONE",
+                "BAD_FORMAT",
+                "SUMMARY:Some text",
+            );
+
+            // Assert rdcl.evo_get date string format validation
+            assert_error_returned!(
+                connection,
+                "Error: - expected iCalendar RFC-5545 DATE-VALUE (DATE-FULLYEAR DATE-MONTH DATE-MDAY) at \"BAD_FORMAT\" -- Context: DATE-TIME -> DATE",
+                "rdcl.evo_get",
+                "TEST_CALENDAR_UID",
+                "EVENT_ONE",
+                "BAD_FORMAT",
+            );
+
+            // Assert rdcl.evo_del date string format validation
+            assert_error_returned!(
+                connection,
+                "Error: - expected iCalendar RFC-5545 DATE-VALUE (DATE-FULLYEAR DATE-MONTH DATE-MDAY) at \"BAD_FORMAT\" -- Context: DATE-TIME -> DATE",
+                "rdcl.evo_del",
+                "TEST_CALENDAR_UID",
+                "EVENT_ONE",
+                "BAD_FORMAT",
+            );
+
             Ok(())
         })
     }
@@ -679,6 +710,45 @@ mod integration {
         // Assert min/max date string validation
         assert_error_returned!(connection, "FROM: date: 20200110T160000Z cannot be greater than the UNTIL date: 20200110T140000Z", "rdcl.evo_prune", "TEST_CALENDAR_UID", "EVENT_ONE", "20200110T160000Z", "20200110T140000Z");
         assert_error_returned!(connection, "FROM: date: 20200110T160000Z cannot be greater than the UNTIL date: 20200110T140000Z", "rdcl.evo_prune", "TEST_CALENDAR_UID",              "20200110T160000Z", "20200110T140000Z");
+
+        // Assert date string format validation
+        assert_error_returned!(
+            connection,
+            "Error: - expected iCalendar RFC-5545 DATE-VALUE (DATE-FULLYEAR DATE-MONTH DATE-MDAY) at \"BAD_FORMAT\" -- Context: DATE-TIME -> DATE",
+            "rdcl.evo_prune",
+            "TEST_CALENDAR_UID",
+            "EVENT_ONE",
+            "BAD_FORMAT",
+            "20200110T160000Z",
+        );
+
+        assert_error_returned!(
+            connection,
+            "Error: - expected iCalendar RFC-5545 DATE-VALUE (DATE-FULLYEAR DATE-MONTH DATE-MDAY) at \"BAD_FORMAT\" -- Context: DATE-TIME -> DATE",
+            "rdcl.evo_prune",
+            "TEST_CALENDAR_UID",
+            "EVENT_ONE",
+            "20200110T160000Z",
+            "BAD_FORMAT",
+        );
+
+        assert_error_returned!(
+            connection,
+            "Error: - expected iCalendar RFC-5545 DATE-VALUE (DATE-FULLYEAR DATE-MONTH DATE-MDAY) at \"BAD_FORMAT\" -- Context: DATE-TIME -> DATE",
+            "rdcl.evo_prune",
+            "TEST_CALENDAR_UID",
+            "BAD_FORMAT",
+            "20200110T160000Z",
+        );
+
+        assert_error_returned!(
+            connection,
+            "Error: - expected iCalendar RFC-5545 DATE-VALUE (DATE-FULLYEAR DATE-MONTH DATE-MDAY) at \"BAD_FORMAT\" -- Context: DATE-TIME -> DATE",
+            "rdcl.evo_prune",
+            "TEST_CALENDAR_UID",
+            "20200110T160000Z",
+            "BAD_FORMAT",
+        );
 
         Ok(())
     }

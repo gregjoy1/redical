@@ -32,7 +32,9 @@ pub fn redical_event_override_get(ctx: &Context, args: Vec<RedisString>) -> Redi
     let override_date_string = args.next_arg()?.try_as_str()?;
 
     let override_timestamp =
-        DateTime::from_str(override_date_string).map(|datetime| datetime.get_utc_timestamp(None)).map_err(|error| RedisError::String(format!("{:#?}", error)))?;
+        DateTime::from_str(override_date_string)
+            .map(|datetime| datetime.get_utc_timestamp(None))
+            .map_err(RedisError::String)?;
 
     ctx.log_debug(
         format!("rdcl.evo_get: calendar_uid: {calendar_uid} event_uid: {event_uid} occurrence date string: {override_date_string}").as_str()

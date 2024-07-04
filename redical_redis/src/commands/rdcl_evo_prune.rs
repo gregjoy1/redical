@@ -35,7 +35,7 @@ fn prune_calendar_events_overrides(calendar: &mut Calendar, event_uid: String, f
         Bound::Included(from_timestamp),
         Bound::Included(until_timestamp),
         callback,
-    ).map_err(|error| RedisError::String(format!("{:#?}", error)))?;
+    ).map_err(RedisError::String)?;
 
     let event_uid = event.uid.uid.to_string();
 
@@ -102,7 +102,7 @@ fn prune_calendar_events_overrides(calendar: &mut Calendar, event_uid: String, f
 fn timestamp_from_date_string(date_string: &String) -> Result<i64, RedisError> {
     DateTime::from_str(date_string.as_str())
         .map(|datetime| datetime.get_utc_timestamp(None))
-        .map_err(|error| RedisError::String(format!("{:#?}", error)))
+        .map_err(RedisError::String)
 }
 
 fn timestamps_from_date_strings(from_date_string: String, until_date_string: String) -> Result<(i64, i64), RedisError> {
