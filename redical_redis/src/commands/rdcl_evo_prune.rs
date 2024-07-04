@@ -99,10 +99,21 @@ fn prune_calendar_events_overrides(calendar: &mut Calendar, event_uid: String, f
     Ok(())
 }
 
-fn timestamp_from_date_string(date_string: Result<RedisString, RedisError>) -> Result<i64, RedisError> {
-    DateTime::from_str(date_string?.try_as_str()?)
+fn timestamp_from_date_string(date_string: &String) -> Result<i64, RedisError> {
+    DateTime::from_str(date_string.as_str())
         .map(|datetime| datetime.get_utc_timestamp(None))
         .map_err(|error| RedisError::String(format!("{:#?}", error)))
+}
+
+fn timestamps_from_date_strings(from_date_string: String, until_date_string: String) -> Result<(i64, i64), RedisError> {
+    let from_timestamp  = timestamp_from_date_string(&from_date_string)?;
+    let until_timestamp = timestamp_from_date_string(&until_date_string)?;
+
+    if from_timestamp > until_timestamp {
+        return Err(RedisError::String(format!("FROM date: {} cannot be greater than the UNTIL date: {}", &from_date_string, &until_date_string)));
+    }
+
+    Ok((from_timestamp, until_timestamp))
 }
 
 pub fn redical_event_override_prune(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
@@ -129,8 +140,11 @@ pub fn redical_event_override_prune(ctx: &Context, args: Vec<RedisString>) -> Re
     if args.len() == 3 {
         let event_uid = args.next_arg()?.to_string();
 
-        let from_timestamp  = timestamp_from_date_string(args.next_arg())?;
-        let until_timestamp = timestamp_from_date_string(args.next_arg())?;
+        let (from_timestamp, until_timestamp) =
+            timestamps_from_date_strings(
+                args.next_arg()?.to_string(),
+                args.next_arg()?.to_string(),
+            )?;
 
         ctx.log_debug(
             format!("rdcl.evo_prune: calendar_uid: {calendar_uid} event_uid: {event_uid} from_timestamp: {from_timestamp} until_timestamp: {until_timestamp}").as_str()
@@ -151,8 +165,11 @@ pub fn redical_event_override_prune(ctx: &Context, args: Vec<RedisString>) -> Re
             }
         )?;
     } else {
-        let from_timestamp  = timestamp_from_date_string(args.next_arg())?;
-        let until_timestamp = timestamp_from_date_string(args.next_arg())?;
+        let (from_timestamp, until_timestamp) =
+            timestamps_from_date_strings(
+                args.next_arg()?.to_string(),
+                args.next_arg()?.to_string(),
+            )?;
 
         ctx.log_debug(
             format!("rdcl.evo_prune: calendar_uid: {calendar_uid} from_timestamp: {from_timestamp} until_timestamp: {until_timestamp}").as_str()

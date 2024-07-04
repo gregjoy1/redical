@@ -141,6 +141,32 @@ macro_rules! rebuild_calendar_indexes {
 }
 
 #[macro_export]
+macro_rules! prune_event_overrides {
+    ($connection:expr, $calendar_uid:expr, $from_date_string:expr, $until_date_string:expr $(,)*) => {
+        let calendar_index_rebuild_result =
+            redis::cmd("rdcl.evo_prune")
+            .arg($calendar_uid)
+            .arg($from_date_string)
+            .arg($until_date_string)
+            .query($connection);
+
+        assert_eq!(calendar_index_rebuild_result, RedisResult::Ok(true));
+    };
+
+    ($connection:expr, $calendar_uid:expr, $event_uid:expr, $from_date_string:expr, $until_date_string:expr $(,)*) => {
+        let calendar_index_rebuild_result =
+            redis::cmd("rdcl.evo_prune")
+            .arg($calendar_uid)
+            .arg($event_uid)
+            .arg($from_date_string)
+            .arg($until_date_string)
+            .query($connection);
+
+        assert_eq!(calendar_index_rebuild_result, RedisResult::Ok(true));
+    };
+}
+
+#[macro_export]
 macro_rules! assert_event_present {
     ($connection:expr, $calendar_uid:expr, $event_uid:expr $(,)*) => {
         let event_get_result: Vec<String> = redis::cmd("rdcl.evt_get")
@@ -951,6 +977,19 @@ macro_rules! assert_keyspace_events_published {
             );
         }
     };
+}
+
+#[macro_export]
+macro_rules! assert_error_returned {
+    ($connection:expr, $expected_error:expr, $command:expr, $($arg:expr $(,)*)*) => {
+        let expected_error_result: Result<(), RedisError> = redis::cmd($command)$(.arg($arg))*.query($connection);
+
+        if expected_error_result.is_ok() {
+            panic!("Expected returned error: {}", $expected_error);
+        }
+
+        assert_eq!(expected_error_result.unwrap_err().to_string(), $expected_error);
+    }
 }
 
 #[macro_export]

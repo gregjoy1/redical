@@ -587,6 +587,102 @@ mod integration {
         })
     }
 
+    fn test_event_override_prune(connection: &mut Connection) -> Result<()> {
+        set_and_assert_calendar!(connection, "TEST_CALENDAR_UID");
+
+        for event_uid in ["EVENT_ONE", "EVENT_TWO"] {
+            set_and_assert_event!(connection, "TEST_CALENDAR_UID", event_uid, ["SUMMARY:NOT-OVERRIDDEN", "DTSTART:20200101T160000Z", "RRULE:COUNT=10;FREQ=DAILY;INTERVAL=1", "LAST-MODIFIED:20210501T090000Z"]);
+
+            set_and_assert_event_override!(connection, "TEST_CALENDAR_UID", event_uid, "20200101T120000Z", ["LAST-MODIFIED:20210501T090000Z", "SUMMARY:OVERRIDDEN - DETACHED"]);
+            set_and_assert_event_override!(connection, "TEST_CALENDAR_UID", event_uid, "20200102T160000Z", ["LAST-MODIFIED:20210501T090000Z", "SUMMARY:OVERRIDDEN"]);
+            set_and_assert_event_override!(connection, "TEST_CALENDAR_UID", event_uid, "20200104T160000Z", ["LAST-MODIFIED:20210501T090000Z", "SUMMARY:OVERRIDDEN"]);
+            set_and_assert_event_override!(connection, "TEST_CALENDAR_UID", event_uid, "20200106T160000Z", ["LAST-MODIFIED:20210501T090000Z", "SUMMARY:OVERRIDDEN"]);
+            set_and_assert_event_override!(connection, "TEST_CALENDAR_UID", event_uid, "20200108T160000Z", ["LAST-MODIFIED:20210501T090000Z", "SUMMARY:OVERRIDDEN"]);
+            set_and_assert_event_override!(connection, "TEST_CALENDAR_UID", event_uid, "20200110T160000Z", ["LAST-MODIFIED:20210501T090000Z", "SUMMARY:OVERRIDDEN"]);
+            set_and_assert_event_override!(connection, "TEST_CALENDAR_UID", event_uid, "20200112T120000Z", ["LAST-MODIFIED:20210501T090000Z", "SUMMARY:OVERRIDDEN - DETACHED"]);
+
+            list_and_assert_matching_event_overrides!(
+                connection,
+                "TEST_CALENDAR_UID",
+                event_uid,
+                [
+                    ["DTSTART:20200101T120000Z", "LAST-MODIFIED:20210501T090000Z", "SUMMARY:OVERRIDDEN - DETACHED"],
+                    ["DTSTART:20200102T160000Z", "LAST-MODIFIED:20210501T090000Z", "SUMMARY:OVERRIDDEN"],
+                    ["DTSTART:20200104T160000Z", "LAST-MODIFIED:20210501T090000Z", "SUMMARY:OVERRIDDEN"],
+                    ["DTSTART:20200106T160000Z", "LAST-MODIFIED:20210501T090000Z", "SUMMARY:OVERRIDDEN"],
+                    ["DTSTART:20200108T160000Z", "LAST-MODIFIED:20210501T090000Z", "SUMMARY:OVERRIDDEN"],
+                    ["DTSTART:20200110T160000Z", "LAST-MODIFIED:20210501T090000Z", "SUMMARY:OVERRIDDEN"],
+                    ["DTSTART:20200112T120000Z", "LAST-MODIFIED:20210501T090000Z", "SUMMARY:OVERRIDDEN - DETACHED"],
+                ],
+            );
+        }
+
+        // Test pruning a specific event on a calendar
+        prune_event_overrides!(connection, "TEST_CALENDAR_UID", "EVENT_ONE", "20200105T000000Z", "20200110T160000Z");
+
+        list_and_assert_matching_event_overrides!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "EVENT_ONE",
+            [
+                ["DTSTART:20200101T120000Z", "LAST-MODIFIED:20210501T090000Z", "SUMMARY:OVERRIDDEN - DETACHED"],
+                ["DTSTART:20200102T160000Z", "LAST-MODIFIED:20210501T090000Z", "SUMMARY:OVERRIDDEN"],
+                ["DTSTART:20200104T160000Z", "LAST-MODIFIED:20210501T090000Z", "SUMMARY:OVERRIDDEN"],
+                ["DTSTART:20200112T120000Z", "LAST-MODIFIED:20210501T090000Z", "SUMMARY:OVERRIDDEN - DETACHED"],
+            ],
+        );
+
+        // Test pruning some overrides on all events on a calendar
+        prune_event_overrides!(connection, "TEST_CALENDAR_UID", "20200101T000000Z", "20200108T160000Z");
+
+        list_and_assert_matching_event_overrides!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "EVENT_ONE",
+            [
+                ["DTSTART:20200112T120000Z", "LAST-MODIFIED:20210501T090000Z", "SUMMARY:OVERRIDDEN - DETACHED"],
+            ],
+        );
+
+        list_and_assert_matching_event_overrides!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "EVENT_TWO",
+            [
+                ["DTSTART:20200110T160000Z", "LAST-MODIFIED:20210501T090000Z", "SUMMARY:OVERRIDDEN"],
+                ["DTSTART:20200112T120000Z", "LAST-MODIFIED:20210501T090000Z", "SUMMARY:OVERRIDDEN - DETACHED"],
+            ],
+        );
+
+        // Test pruning all remaining overrides on all events on a calendar (and all associated keyspace events).
+        listen_for_keyspace_events(6480, |message_queue: &mut Arc<Mutex<VecDeque<redis::Msg>>>| {
+            prune_event_overrides!(connection, "TEST_CALENDAR_UID", "20200101T000000Z", "20210101T000000Z");
+
+            list_and_assert_matching_event_overrides!(connection, "TEST_CALENDAR_UID", "EVENT_ONE", []);
+            list_and_assert_matching_event_overrides!(connection, "TEST_CALENDAR_UID", "EVENT_TWO", []);
+
+            assert_keyspace_events_published!(
+                message_queue,
+                [
+                    ("rdcl.evo_prune:EVENT_ONE:20200112T120000Z", "TEST_CALENDAR_UID"),
+                    ("rdcl.evo_prune:EVENT_TWO:20200110T160000Z", "TEST_CALENDAR_UID"),
+                    ("rdcl.evo_prune:EVENT_TWO:20200112T120000Z", "TEST_CALENDAR_UID"),
+                ],
+            );
+
+            Ok(())
+        })?;
+
+        // Assert event presence validation
+        assert_error_returned!(connection, "No: event with UID: 'NON_EXISTENT_EVENT' found", "rdcl.evo_prune", "TEST_CALENDAR_UID", "NON_EXISTENT_EVENT", "20200110T140000Z", "20200110T160000Z");
+
+        // Assert min/max date string validation
+        assert_error_returned!(connection, "FROM: date: 20200110T160000Z cannot be greater than the UNTIL date: 20200110T140000Z", "rdcl.evo_prune", "TEST_CALENDAR_UID", "EVENT_ONE", "20200110T160000Z", "20200110T140000Z");
+        assert_error_returned!(connection, "FROM: date: 20200110T160000Z cannot be greater than the UNTIL date: 20200110T140000Z", "rdcl.evo_prune", "TEST_CALENDAR_UID",              "20200110T160000Z", "20200110T140000Z");
+
+        Ok(())
+    }
+
     fn test_event_instance_list(connection: &mut Connection) -> Result<()> {
         set_and_assert_calendar!(connection, "TEST_CALENDAR_UID");
 
@@ -1183,12 +1279,13 @@ mod integration {
             ],
         );
 
-        // Assert bad date
-        let bad_query_result: Result<Vec<String>, RedisError> = redis::cmd("rdcl.cal_query").arg("TEST_CALENDAR_UID").arg("X-UNTIL;PROP=DTSTART;OP=LTE;TZID=UTC:20210641T180000Z").query(connection);
-
-        if bad_query_result.is_ok() {
-            return Err(anyhow::Error::msg("Should return an error"));
-        }
+        assert_error_returned!(
+            connection,
+            "Error: - expected iCalendar RFC-5545 DATE-VALUE (DATE-FULLYEAR DATE-MONTH DATE-MDAY) at \"41T180000Z\" -- Context: X-UNTIL -> DATE-TIME -> DATE",
+            "rdcl.cal_query",
+            "TEST_CALENDAR_UID",
+            "X-UNTIL;PROP=DTSTART;OP=LTE;TZID=UTC:20210641T180000Z",
+        );
 
         Ok(())
     }
@@ -1712,6 +1809,7 @@ mod integration {
         test_event_set_last_modified,
         test_event_override_get_set_del_list,
         test_event_override_set_last_modified,
+        test_event_override_prune,
         test_event_instance_list,
         test_calendar_query,
         test_calendar_index_disable_rebuild,
