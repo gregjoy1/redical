@@ -146,7 +146,6 @@ mod test {
         DurationProperty,
         GeoProperty,
         UIDProperty,
-        PassiveProperty,
     };
 
     use std::str::FromStr;
@@ -224,25 +223,6 @@ mod test {
 
     #[test]
     fn test_query_results_offset() {
-        let all_expected_query_results = vec![
-            QueryResult {
-                result_ordering: QueryResultOrdering::DtStart(100),
-                event_instance: build_event_instance_one(),
-            },
-            QueryResult {
-                result_ordering: QueryResultOrdering::DtStart(200),
-                event_instance: build_event_instance_two(),
-            },
-            QueryResult {
-                result_ordering: QueryResultOrdering::DtStart(300),
-                event_instance: build_event_instance_three(),
-            },
-            QueryResult {
-                result_ordering: QueryResultOrdering::DtStart(400),
-                event_instance: build_event_instance_four(),
-            },
-        ];
-
         let mut query_results: QueryResults =
             QueryResults::new(OrderingCondition::DtStart, 0, false);
 

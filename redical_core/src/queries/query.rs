@@ -335,69 +335,8 @@ mod test {
         LowerBoundRangeCondition, RangeConditionProperty, UpperBoundRangeCondition,
     };
 
-    use crate::{Event, GeoPoint, KeyValuePair};
-    use crate::testing::utils::{build_event_and_overrides_from_ical, build_event_from_ical};
+    use crate::{GeoPoint, KeyValuePair};
     use pretty_assertions_sorted::assert_eq;
-
-    fn build_overridden_recurring_event() -> Event {
-        build_event_and_overrides_from_ical(
-            "overridden_recurring_event_UID",
-            vec![
-                "DESCRIPTION:BASE description text.",
-                "DTSTART:20210105T183000Z",
-                "DTEND:20210105T190000Z",
-                "RRULE:FREQ=WEEKLY;UNTIL=20210202T183000Z;INTERVAL=1",
-                "CATEGORIES:BASE_CATEGORY_ONE,BASE_CATEGORY_TWO",
-                "RELATED-TO;RELTYPE=PARENT:BASE_ParentdUID",
-                "RELATED-TO;RELTYPE=CHILD:BASE_ChildUID",
-            ],
-            vec![
-                (
-                    "20210105T183000Z",
-                    vec![
-                        "DESCRIPTION:OVERRIDDEN description text.",
-                        "CATEGORIES:BASE_CATEGORY_ONE,OVERRIDDEN_CATEGORY_ONE",
-                        "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUID",
-                    ],
-                ),
-                (
-                    "20210112T183000Z",
-                    vec![
-                        "RELATED-TO;RELTYPE=CHILD:BASE_ChildUID",
-                        "RELATED-TO;RELTYPE=CHILD:OVERRIDDEN_ChildUID",
-                    ],
-                ),
-                (
-                    "20210126T183000Z",
-                    vec![
-                        "DESCRIPTION:OVERRIDDEN description text.",
-                        "CATEGORIES:OVERRIDDEN_CATEGORY_ONE,OVERRIDDEN_CATEGORY_TWO",
-                        "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUID",
-                        "RELATED-TO;RELTYPE=CHILD:OVERRIDDEN_ChildUID",
-                    ],
-                ),
-            ],
-        )
-    }
-
-    fn build_one_off_event() -> Event {
-        build_event_from_ical(
-            "one_off_event_UID",
-            vec![
-                "DTSTART:20201231T183000Z",
-                "DTEND:20201231T183100Z",
-                "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,CATEGORY THREE",
-                "RELATED-TO;RELTYPE=CHILD:ChildUID",
-                "RELATED-TO;RELTYPE=PARENT:ParentUID_One",
-                "RELATED-TO;RELTYPE=PARENT:ParentUID_Two",
-                "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_One",
-                "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Three",
-                "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Two",
-                "DESCRIPTION:Event description text.",
-                "LOCATION:Event address text.",
-            ],
-        )
-    }
 
     #[test]
     fn test_from_str() {

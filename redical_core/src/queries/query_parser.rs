@@ -8,8 +8,6 @@ use crate::queries::query::Query;
 
 use crate::{GeoDistance, KeyValuePair};
 
-use redical_ical::{ParserInput, ParserResult, ICalendarEntity};
-
 use redical_ical::properties::query::{
     QueryProperty,
     QueryProperties,
@@ -424,8 +422,6 @@ mod test {
     };
 
     use crate::{GeoDistance, KeyValuePair};
-
-    use redical_ical::ParserContext;
 
     #[test]
     fn test_x_class_property_to_where_conditional() {

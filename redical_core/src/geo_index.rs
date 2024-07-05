@@ -1,4 +1,3 @@
-use geo::prelude::*;
 use geo::{HaversineDistance, Point};
 use rstar::{PointDistance, RTree, RTreeObject};
 use std::cmp::Ordering;

@@ -1,7 +1,7 @@
 use redis_module::{Context, NextArg, NotifyEvent, RedisError, RedisResult, RedisString, RedisValue, Status};
 
 use crate::core::{
-    Calendar, CalendarIndexUpdater, Event, EventDiff, InvertedEventIndex,
+    Calendar, CalendarIndexUpdater, Event, InvertedEventIndex,
 };
 
 use crate::datatype::CALENDAR_DATA_TYPE;

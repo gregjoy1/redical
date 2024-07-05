@@ -63,18 +63,14 @@ fn validate_timestamp_bounds(from_timestamp_bound: Bound<i64>, until_timestamp_b
 mod test {
     use super::*;
 
-    use std::collections::{HashSet, HashMap, BTreeMap, BTreeSet};
+    use std::collections::{HashSet, BTreeMap, BTreeSet};
     use std::str::FromStr;
 
-    use redical_ical::{
-        properties::{
-            LastModifiedProperty,
-            CategoriesProperty,
-        },
+    use redical_ical::properties::{
+        LastModifiedProperty,
+        CategoriesProperty,
     };
 
-    use crate::IndexedConclusion;
-    use crate::inverted_index::InvertedEventIndex;
     use crate::{IndexedProperties, PassiveProperties, ScheduleProperties};
     use crate::testing::macros::build_property_from_ical;
 

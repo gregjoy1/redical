@@ -257,7 +257,7 @@ impl TryFrom<&RDBEventOccurrenceOverride> for EventOccurrenceOverride {
 mod test {
     use super::*;
 
-    use pretty_assertions_sorted::{assert_eq, assert_eq_sorted};
+    use pretty_assertions_sorted::assert_eq;
 
     #[test]
     fn test_calendar_rdb_entity() {

@@ -1,7 +1,7 @@
 use crate::{FilterProperty, LowerBoundFilterCondition, UpperBoundFilterCondition};
 
 use redical_ical::properties::ICalendarDateTimeProperty;
-use redical_ical::properties::query::{XFromProperty, XFromPropertyParams, XUntilProperty, XUntilPropertyParams};
+use redical_ical::properties::query::{XFromProperty, XUntilProperty};
 use redical_ical::values::where_range_operator::{WhereFromRangeOperator, WhereUntilRangeOperator};
 use redical_ical::values::where_range_property::WhereRangeProperty;
 

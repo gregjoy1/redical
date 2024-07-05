@@ -3,7 +3,7 @@ use std::collections::BTreeSet;
 
 use geo::HaversineDistance;
 
-use crate::{EventInstance, GeoDistance, GeoPoint, KeyValuePair};
+use crate::{EventInstance, GeoDistance, GeoPoint};
 
 use redical_ical::{
     ICalendarComponent,
@@ -114,10 +114,6 @@ pub enum QueryResultOrdering {
 
 impl ICalendarComponent for QueryResultOrdering {
     fn to_content_line_set_with_context(&self, context: Option<&RenderingContext>) -> BTreeSet<ContentLine> {
-        let timezone =
-            context.and_then(|context| context.tz)
-                   .map_or(rrule::Tz::UTC, |tz| rrule::Tz::Tz(tz));
-
         let mut serialized_ical_set = BTreeSet::new();
 
         match self {
