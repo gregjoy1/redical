@@ -48,7 +48,7 @@ impl ICalendarEntity for LastModifiedPropertyParams {
 impl ICalendarPropertyParams for LastModifiedPropertyParams {
     /// Build a `ContentLineParams` instance with consideration to the optionally provided
     /// `RenderingContext`.
-    fn to_content_line_params_with_context(&self, context: Option<&RenderingContext>) -> ContentLineParams {
+    fn to_content_line_params_with_context(&self, _context: Option<&RenderingContext>) -> ContentLineParams {
         let mut content_line_params = ContentLineParams::default();
 
         for (key, value) in self.other.to_owned().into_iter().sorted() {
@@ -60,18 +60,6 @@ impl ICalendarPropertyParams for LastModifiedPropertyParams {
         }
 
         content_line_params
-    }
-}
-
-impl LastModifiedPropertyParams {
-    /// Sometimes we need to overide the timezone that date string within this property is rendered
-    /// with. We do this via the optionally provided `RenderingContext`.
-    ///
-    /// We return the timezone contained within the `RenderingContext` (if present),
-    ///   -> falling back to the one originally specified in the TZID param (if present)
-    ///     -> falling back to None if nothing exists.
-    fn get_context_tz(&self, context: Option<&RenderingContext>) -> Option<chrono_tz::Tz> {
-        Some(chrono_tz::Tz::UTC)
     }
 }
 
