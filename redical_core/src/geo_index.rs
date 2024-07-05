@@ -9,23 +9,25 @@ use std::hash::{Hash, Hasher};
 use crate::{IndexedConclusion, InvertedCalendarIndexTerm};
 use redical_ical::properties::ICalendarGeoProperty;
 
-#[derive(Debug, PartialOrd, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum GeoDistance {
     Kilometers((u32, u32)), // (km, fractional (6dp))
     Miles((u32, u32)),      // (ml, fractional (6dp))
+}
+
+impl std::fmt::Display for GeoDistance {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            GeoDistance::Kilometers(_) => write!(f, "{}KM", self.to_kilometers_float()),
+            GeoDistance::Miles(_) => write!(f, "{}MI", self.to_miles_float()),
+        }
+    }
 }
 
 impl GeoDistance {
     const FRACTIONAL_PREC: f64 = 1000000.0_f64;
     const KM_TO_MILE: f64 = 1.609344_f64;
     const MILE_TO_KM: f64 = 0.621371_f64;
-
-    pub fn to_string(&self) -> String {
-        match self {
-            GeoDistance::Kilometers(_) => format!("{}KM", self.to_kilometers_float()),
-            GeoDistance::Miles(_) => format!("{}MI", self.to_miles_float()),
-        }
-    }
 
     pub fn to_meters_float(&self) -> f64 {
         match self {
@@ -111,6 +113,12 @@ impl GeoDistance {
         let fractional_int: u32 = num::cast(value_float.fract() * Self::FRACTIONAL_PREC).unwrap();
 
         (whole_int, fractional_int)
+    }
+}
+
+impl PartialOrd for GeoDistance {
+    fn partial_cmp(&self, other: &GeoDistance) -> Option<Ordering> {
+       Some(self.cmp(other))
     }
 }
 

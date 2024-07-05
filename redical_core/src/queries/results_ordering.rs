@@ -105,7 +105,7 @@ impl OrderingCondition {
     }
 }
 
-#[derive(Debug, PartialOrd, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum QueryResultOrdering {
     DtStart(i64),
     DtStartGeoDist(i64, Option<GeoDistance>),
@@ -167,6 +167,12 @@ impl ICalendarComponent for QueryResultOrdering {
         }
 
         serialized_ical_set
+    }
+}
+
+impl PartialOrd for QueryResultOrdering {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
     }
 }
 

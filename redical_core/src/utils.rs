@@ -9,7 +9,7 @@ use redical_ical::{
     content_line::ContentLine,
 };
 
-#[derive(Debug, PartialEq, Eq, Hash, PartialOrd, Clone)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct KeyValuePair {
     pub key: String,
     pub value: String,
@@ -49,6 +49,12 @@ impl From<KeyValuePair> for String {
 impl From<KeyValuePair> for (String, String) {
     fn from(key_value_pair: KeyValuePair) -> (String, String) {
         (key_value_pair.key, key_value_pair.value)
+    }
+}
+
+impl PartialOrd for KeyValuePair{
+    fn partial_cmp(&self, other: &KeyValuePair) -> Option<Ordering> {
+       Some(self.cmp(other))
     }
 }
 

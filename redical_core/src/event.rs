@@ -39,7 +39,7 @@ use crate::geo_index::GeoPoint;
 
 use crate::utils::KeyValuePair;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Default, Debug, PartialEq, Clone)]
 pub struct ScheduleProperties {
     pub rrule: Option<RRuleProperty>,
     pub exrule: Option<ExRuleProperty>,
@@ -68,55 +68,55 @@ impl ScheduleProperties {
     pub fn extract_serialized_rrule_ical_key_value_pair(&self) -> Option<KeyValuePair> {
         self.rrule
             .as_ref()
-            .and_then(|property| Some(property.to_content_line().into()))
+            .map(|property| property.to_content_line().into())
     }
 
     pub fn extract_serialized_exrule_ical_key_value_pair(&self) -> Option<KeyValuePair> {
         self.exrule
             .as_ref()
-            .and_then(|property| Some(property.to_content_line().into()))
+            .map(|property| property.to_content_line().into())
     }
 
     pub fn extract_serialized_rdates_ical_key_value_pairs(&self) -> Option<HashSet<KeyValuePair>> {
-        self.rdates.as_ref().and_then(|properties| {
+        self.rdates.as_ref().map(|properties| {
             let mut key_value_pairs = HashSet::new();
 
             for property in properties {
                 key_value_pairs.insert(property.to_content_line().into());
             }
 
-            Some(key_value_pairs)
+            key_value_pairs
         })
     }
 
     pub fn extract_serialized_exdates_ical_key_value_pairs(&self) -> Option<HashSet<KeyValuePair>> {
-        self.exdates.as_ref().and_then(|properties| {
+        self.exdates.as_ref().map(|properties| {
             let mut key_value_pairs = HashSet::new();
 
             for property in properties {
                 key_value_pairs.insert(property.to_content_line().into());
             }
 
-            Some(key_value_pairs)
+            key_value_pairs
         })
     }
 
     pub fn extract_serialized_duration_ical_key_value_pair(&self) -> Option<KeyValuePair> {
         self.duration
             .as_ref()
-            .and_then(|property| Some(property.to_content_line().into()))
+            .map(|property| property.to_content_line().into())
     }
 
     pub fn extract_serialized_dtstart_ical_key_value_pair(&self) -> Option<KeyValuePair> {
         self.dtstart
             .as_ref()
-            .and_then(|property| Some(property.to_content_line().into()))
+            .map(|property| property.to_content_line().into())
     }
 
     pub fn extract_serialized_dtend_ical_key_value_pair(&self) -> Option<KeyValuePair> {
         self.dtend
             .as_ref()
-            .and_then(|property| Some(property.to_content_line().into()))
+            .map(|property| property.to_content_line().into())
     }
 
     pub fn insert(&mut self, property: EventProperty) -> Result<&Self, String> {
@@ -202,13 +202,13 @@ impl ScheduleProperties {
     pub fn get_dtstart_timestamp(&self) -> Option<i64> {
         self.dtstart
             .as_ref()
-            .and_then(|dtstart| Some(dtstart.get_utc_timestamp()))
+            .map(|dtstart| dtstart.get_utc_timestamp())
     }
 
     pub fn get_dtend_timestamp(&self) -> Option<i64> {
         self.dtend
             .as_ref()
-            .and_then(|dtend| Some(dtend.get_utc_timestamp()))
+            .map(|dtend| dtend.get_utc_timestamp())
     }
 
     pub fn get_duration_in_seconds(&self) -> Option<i64> {
@@ -234,7 +234,7 @@ impl ScheduleProperties {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Default, Debug, Eq, PartialEq, Clone)]
 pub struct IndexedProperties {
     pub geo: Option<GeoProperty>,
     pub related_to: Option<HashSet<RelatedToProperty>>,
@@ -255,19 +255,19 @@ impl IndexedProperties {
     }
 
     pub fn extract_all_location_type_strings(&self) -> Option<HashSet<String>> {
-        self.location_type.as_ref().and_then(|location_type_property| {
+        self.location_type.as_ref().map(|location_type_property| {
             let mut location_types: HashSet<String> = HashSet::new();
 
             for location_type in &location_type_property.types {
                 location_types.insert(location_type.to_string());
             }
 
-            Some(location_types)
+            location_types
         })
     }
 
     pub fn extract_all_category_strings(&self) -> Option<HashSet<String>> {
-        self.categories.as_ref().and_then(|categories_properties| {
+        self.categories.as_ref().map(|categories_properties| {
             let mut categories: HashSet<String> = HashSet::new();
 
             for categories_property in categories_properties {
@@ -276,24 +276,24 @@ impl IndexedProperties {
                 }
             }
 
-            Some(categories)
+            categories
         })
     }
 
     pub fn extract_all_related_to_key_value_pairs(&self) -> Option<HashSet<KeyValuePair>> {
-        self.related_to.as_ref().and_then(|related_to_properties| {
+        self.related_to.as_ref().map(|related_to_properties| {
             let mut related_to_key_value_pairs: HashSet<KeyValuePair> = HashSet::new();
 
             for related_to_property in related_to_properties {
                 related_to_key_value_pairs.insert(related_to_property.to_reltype_uid_pair().into());
             }
 
-            Some(related_to_key_value_pairs)
+            related_to_key_value_pairs
         })
     }
 
     pub fn extract_all_related_to_key_value_map(&self) -> Option<HashMap<String, HashSet<String>>> {
-        self.related_to.as_ref().and_then(|related_to_properties| {
+        self.related_to.as_ref().map(|related_to_properties| {
             let mut related_to_map = HashMap::new();
 
             for related_to_property in related_to_properties {
@@ -305,20 +305,20 @@ impl IndexedProperties {
                     .or_insert(HashSet::from([related_to_property.uid.to_string()]));
             }
 
-            Some(related_to_map)
+            related_to_map
         })
     }
 
     pub fn extract_geo_point(&self) -> Option<GeoPoint> {
         self.geo
             .as_ref()
-            .and_then(|geo_property| Some(GeoPoint::from(geo_property)))
+            .map(GeoPoint::from)
     }
 
     pub fn extract_class(&self) -> Option<String> {
         self.class
             .as_ref()
-            .and_then(|class_property| Some(class_property.class.to_string()))
+            .map(|class_property| class_property.class.to_string())
     }
 
     pub fn insert(&mut self, property: EventProperty) -> Result<&Self, String> {
@@ -359,7 +359,7 @@ impl IndexedProperties {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Default, Debug, Eq, PartialEq, Clone)]
 pub struct PassiveProperties {
     pub properties: BTreeSet<PassiveProperty>,
 }
@@ -560,7 +560,7 @@ impl Event {
             .insert(timestamp, event_occurrence_override.clone());
 
         // Only proceed with updating the indexes of the event if required.
-        if update_indexes == false {
+        if !update_indexes {
             return Ok(true);
         }
 
@@ -615,7 +615,7 @@ impl Event {
         let override_removed = self.overrides.remove(&timestamp);
 
         // Only proceed with updating the indexes of the event if required.
-        if update_indexes == false {
+        if !update_indexes {
             return Ok(override_removed);
         }
 
