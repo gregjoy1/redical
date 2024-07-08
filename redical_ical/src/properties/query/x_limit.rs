@@ -22,15 +22,15 @@ pub struct XLimitProperty {
     pub limit: Integer,
 }
 
-impl Into<usize> for XLimitProperty {
-    fn into(self) -> usize {
-        *self.limit as usize
+impl From<XLimitProperty> for usize {
+    fn from(limit_property: XLimitProperty) -> Self {
+        *limit_property.limit as usize
     }
 }
 
-impl Into<usize> for &XLimitProperty {
-    fn into(self) -> usize {
-        self.to_owned().into()
+impl From<&XLimitProperty> for usize {
+    fn from(limit_property: &XLimitProperty) -> Self {
+        *limit_property.limit as usize
     }
 }
 

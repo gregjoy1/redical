@@ -79,7 +79,7 @@ mod tests {
             (
                 " DESCRIPTION:Description text",
                 CalendarProperty::UID(
-                    UIDProperty::from_str("UID:19960401T080045Z-4000F192713-0052@example.com".into()).unwrap(),
+                    UIDProperty::from_str("UID:19960401T080045Z-4000F192713-0052@example.com").unwrap(),
                 ),
             ),
         );

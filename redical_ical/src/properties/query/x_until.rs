@@ -113,9 +113,12 @@ impl XUntilProperty {
 
 impl ICalendarDateTimeProperty for XUntilProperty {
     fn new(_value_type: Option<&ValueType>, tzid: Option<&Tzid>, date_time: &DateTime) -> Self {
-        let mut params = XUntilPropertyParams::default();
-
-        params.tzid = tzid.cloned();
+        let params =
+            XUntilPropertyParams {
+                prop: WhereRangeProperty::DTStart,
+                op: WhereUntilRangeOperator::LessThan,
+                tzid: tzid.cloned(),
+            };
 
         XUntilProperty {
             params,

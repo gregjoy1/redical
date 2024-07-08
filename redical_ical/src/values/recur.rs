@@ -91,20 +91,20 @@ impl ICalendarEntity for RecurRulePart {
         context(
             "RECUR-RULE-PART",
             alt((
-                map(FreqParam::parse_ical, |param| Self::Freq(param)),
-                map(UntilParam::parse_ical, |param| Self::Until(param)),
-                map(CountParam::parse_ical, |param| Self::Count(param)),
-                map(IntervalParam::parse_ical, |param| Self::Interval(param)),
-                map(BysecondParam::parse_ical, |param| Self::Bysecond(param)),
-                map(ByminuteParam::parse_ical, |param| Self::Byminute(param)),
-                map(ByhourParam::parse_ical, |param| Self::Byhour(param)),
-                map(BydayParam::parse_ical, |param| Self::Byday(param)),
-                map(BymonthdayParam::parse_ical, |param| Self::Bymonthday(param)),
-                map(ByyeardayParam::parse_ical, |param| Self::Byyearday(param)),
-                map(ByweeknoParam::parse_ical, |param| Self::Byweekno(param)),
-                map(BymonthParam::parse_ical, |param| Self::Bymonth(param)),
-                map(BysetposParam::parse_ical, |param| Self::Bysetpos(param)),
-                map(WkstParam::parse_ical, |param| Self::Wkst(param)),
+                map(FreqParam::parse_ical, Self::Freq),
+                map(UntilParam::parse_ical, Self::Until),
+                map(CountParam::parse_ical, Self::Count),
+                map(IntervalParam::parse_ical, Self::Interval),
+                map(BysecondParam::parse_ical, Self::Bysecond),
+                map(ByminuteParam::parse_ical, Self::Byminute),
+                map(ByhourParam::parse_ical, Self::Byhour),
+                map(BydayParam::parse_ical, Self::Byday),
+                map(BymonthdayParam::parse_ical, Self::Bymonthday),
+                map(ByyeardayParam::parse_ical, Self::Byyearday),
+                map(ByweeknoParam::parse_ical, Self::Byweekno),
+                map(BymonthParam::parse_ical, Self::Bymonth),
+                map(BysetposParam::parse_ical, Self::Bysetpos),
+                map(WkstParam::parse_ical, Self::Wkst),
             ))
         )(input)
     }
@@ -501,7 +501,7 @@ impl_icalendar_entity_traits!(WeekDay);
 ///                 ;
 ///                 ; The other rule parts are OPTIONAL,
 ///                 ; but MUST NOT occur more than once.
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Default, Debug, Clone, Eq, PartialEq)]
 pub struct Recur {
     pub freq: Option<FreqParam>,
     pub until: Option<UntilParam>,
@@ -582,27 +582,6 @@ impl ICalendarEntity for Recur {
         }
 
         Ok(())
-    }
-}
-
-impl Default for Recur {
-    fn default() -> Self {
-        Recur {
-            freq: None,
-            until: None,
-            count: None,
-            interval: None,
-            bysecond: None,
-            byminute: None,
-            byhour: None,
-            byday: None,
-            bymonthday: None,
-            byyearday: None,
-            byweekno: None,
-            bymonth: None,
-            bysetpos: None,
-            wkst: None,
-        }
     }
 }
 

@@ -22,15 +22,15 @@ pub struct XOffsetProperty {
     pub offset: Integer,
 }
 
-impl Into<usize> for XOffsetProperty {
-    fn into(self) -> usize {
-        *self.offset as usize
+impl From<XOffsetProperty> for usize {
+    fn from(offset_property: XOffsetProperty) -> Self {
+        *offset_property.offset as usize
     }
 }
 
-impl Into<usize> for &XOffsetProperty {
-    fn into(self) -> usize {
-        self.to_owned().into()
+impl From<&XOffsetProperty> for usize {
+    fn from(offset_property: &XOffsetProperty) -> Self {
+        *offset_property.offset as usize
     }
 }
 

@@ -116,7 +116,7 @@ pub fn date_month(input: ParserInput) -> ParserResult<u32> {
         );
     };
 
-    if parsed_month < 1 || parsed_month > 12 {
+    if !(1..=12).contains(&parsed_month) {
         return Err(
             nom::Err::Error(
                 ParserError::new(String::from("expected month between 01-12"), input)
@@ -157,7 +157,7 @@ pub fn date_mday(input: ParserInput) -> ParserResult<u32> {
         );
     };
 
-    if parsed_mday < 1 || parsed_mday > 31 {
+    if !(1..=31).contains(&parsed_mday) {
         return Err(
             nom::Err::Error(
                 ParserError::new(String::from("expected mday between 01-31"), input)
@@ -315,10 +315,37 @@ mod tests {
         assert_eq!(
             Date {
                 year: 1997_i32,
+                month: 1_u32,
+                day: 14_u32,
+            }.validate(),
+            Ok(()),
+        );
+
+        assert_eq!(
+            Date {
+                year: 1997_i32,
                 month: 7_u32,
                 day: 14_u32,
             }.validate(),
             Ok(()),
+        );
+
+        assert_eq!(
+            Date {
+                year: 1997_i32,
+                month: 12_u32,
+                day: 14_u32,
+            }.validate(),
+            Ok(()),
+        );
+
+        assert_eq!(
+            Date {
+                year: 1997_i32,
+                month: 13_u32,
+                day: 14_u32,
+            }.validate(),
+            Err(String::from("invalid date")),
         );
 
         assert_eq!(

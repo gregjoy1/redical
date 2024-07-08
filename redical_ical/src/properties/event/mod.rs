@@ -374,7 +374,7 @@ mod tests {
             (
                 " DESCRIPTION:Description text",
                 EventProperty::LastModified(
-                    LastModifiedProperty::from_str("LAST-MODIFIED:19960401T080045Z".into()).unwrap(),
+                    LastModifiedProperty::from_str("LAST-MODIFIED:19960401T080045Z").unwrap(),
                 ),
             ),
         );

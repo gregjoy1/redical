@@ -89,7 +89,7 @@ pub trait ICalendarDateTimeProperty {
     fn get_tzid(&self) -> Option<&Tzid>;
 
     fn get_tz(&self) -> Option<&chrono_tz::Tz> {
-        self.get_tzid().and_then(|tzid| Some(&tzid.0))
+        self.get_tzid().map(|tzid| &tzid.0)
     }
 
     fn get_utc_timestamp(&self) -> i64 {
@@ -109,7 +109,7 @@ pub trait ICalendarDateTimeProperty {
         };
 
         if let Some(value_type) = self.get_value_type().as_ref() {
-            value_type.validate_against_date_time(&self.get_date_time())?;
+            value_type.validate_against_date_time(self.get_date_time())?;
         }
 
         Ok(())

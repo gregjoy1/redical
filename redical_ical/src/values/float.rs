@@ -47,9 +47,9 @@ impl ICalendarEntity for Float {
     }
 }
 
-impl Into<f64> for Float {
-    fn into(self) -> f64 {
-        self.0.to_owned()
+impl From<Float> for f64 {
+    fn from(float_value: Float) -> Self {
+        float_value.0.to_owned()
     }
 }
 

@@ -51,7 +51,7 @@ impl ICalendarPropertyParams for LastModifiedPropertyParams {
     fn to_content_line_params_with_context(&self, _context: Option<&RenderingContext>) -> ContentLineParams {
         let mut content_line_params = ContentLineParams::default();
 
-        for (key, value) in self.other.to_owned().into_iter().sorted() {
+        for (key, value) in self.other.clone().into_iter().sorted() {
             content_line_params.insert(key.to_owned(), value.to_owned());
         }
 
@@ -128,17 +128,15 @@ impl ICalendarDateTimeProperty for LastModifiedProperty {
     fn new(_value_type: Option<&ValueType>, tzid: Option<&Tzid>, date_time: &DateTime) -> Self {
         let params = LastModifiedPropertyParams::default();
 
-        let current_tz = tzid.map_or(None, |tzid| Some(&tzid.0));
+        let current_tz = tzid.map(|tzid| &tzid.0);
 
         // This property can only be UTC.
         let date_time = date_time.with_timezone(current_tz, &chrono_tz::Tz::UTC);
 
-        let last_modified_property = LastModifiedProperty {
+        LastModifiedProperty {
             params,
             date_time: date_time.to_owned(),
-        };
-
-        last_modified_property
+        }
     }
 
     fn get_tzid(&self) -> Option<&Tzid> {
@@ -170,13 +168,10 @@ impl ICalendarEntity for LastModifiedProperty {
                             // This property can only be UTC.
                             let date_time = date_time.with_timezone(Some(&chrono_tz::Tz::UTC), &chrono_tz::Tz::UTC);
 
-                            let last_modified_property =
-                                LastModifiedProperty {
-                                    params: params.unwrap_or(LastModifiedPropertyParams::default()),
-                                    date_time,
-                                };
-
-                            last_modified_property
+                            LastModifiedProperty {
+                                params: params.unwrap_or(LastModifiedPropertyParams::default()),
+                                date_time,
+                            }
                         }
                     )
                 )
@@ -252,19 +247,7 @@ impl Ord for LastModifiedProperty {
 
 impl PartialOrd for LastModifiedProperty {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        let partial_ordering =
-            self.date_time
-                .get_utc_timestamp(None)
-                .partial_cmp(
-                    &other.date_time
-                          .get_utc_timestamp(None)
-                );
-
-        if partial_ordering.is_some_and(|partial_ordering| partial_ordering.is_eq()) {
-            self.get_millis().partial_cmp(&other.get_millis())
-        } else {
-            partial_ordering
-        }
+        Some(self.cmp(other))
     }
 }
 

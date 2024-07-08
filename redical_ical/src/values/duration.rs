@@ -40,6 +40,7 @@ pub fn duration(input: ParserInput) -> ParserResult<ParserInput> {
 /// Parse dur_value chars.
 ///
 /// dur-value  = (["+"] / "-") "P" (dur-date / dur-time / dur-week)
+#[allow(clippy::type_complexity)]
 pub fn dur_value(input: ParserInput) -> ParserResult<(Option<PositiveNegative>, (Option<i64>, Option<i64>, Option<(Option<i64>, Option<i64>, Option<i64>)>))> {
     tuple((
         opt(PositiveNegative::parse_ical),
@@ -75,6 +76,7 @@ pub fn dur_week(input: ParserInput) -> ParserResult<i64> {
 /// Parse dur_date chars.
 ///
 /// dur-date   = dur-day [dur-time]
+#[allow(clippy::type_complexity)]
 pub fn dur_date(input: ParserInput) -> ParserResult<(i64, Option<(Option<i64>, Option<i64>, Option<i64>)>)> {
     pair(dur_day, opt(dur_time))(input)
 }
@@ -152,7 +154,7 @@ pub fn dur_second(input: ParserInput) -> ParserResult<i64> {
 }
 
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Default, Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Duration {
     pub positive_negative: Option<PositiveNegative>,
     pub weeks: Option<i64>,
@@ -162,6 +164,7 @@ pub struct Duration {
     pub seconds: Option<i64>,
 }
 
+#[allow(clippy::type_complexity)]
 impl ICalendarEntity for Duration {
     fn parse_ical(input: ParserInput) -> ParserResult<Self>
 where
@@ -200,7 +203,7 @@ where
             output.push_str(positive_negative.render_ical().as_str());
         }
 
-        output.push_str("P");
+        output.push('P');
 
         if let Some(weeks) = self.weeks {
             output.push_str(&format!("{weeks}W"));
@@ -211,7 +214,7 @@ where
         }
 
         if self.hours.is_some() || self.minutes.is_some() || self.seconds.is_some() {
-            output.push_str("T");
+            output.push('T');
         }
 
         if let Some(hours) = self.hours {
@@ -266,19 +269,6 @@ impl Duration {
     }
 }
 
-impl Default for Duration {
-    fn default() -> Self {
-        Duration {
-            positive_negative: None,
-            weeks: None,
-            days: None,
-            hours: None,
-            minutes: None,
-            seconds: None,
-        }
-    }
-}
-
 impl From<i64> for Duration {
     fn from(duration_in_seconds: i64) -> Self {
         let mut remaining_seconds = duration_in_seconds;
@@ -292,25 +282,25 @@ impl From<i64> for Duration {
         if remaining_seconds >= SECONDS_IN_WEEK {
             weeks = Some(remaining_seconds / SECONDS_IN_WEEK);
 
-            remaining_seconds = remaining_seconds % SECONDS_IN_WEEK;
+            remaining_seconds %= SECONDS_IN_WEEK;
         }
 
         if remaining_seconds >= SECONDS_IN_DAY {
             days = Some(remaining_seconds / SECONDS_IN_DAY);
 
-            remaining_seconds = remaining_seconds % SECONDS_IN_DAY;
+            remaining_seconds %= SECONDS_IN_DAY;
         }
 
         if remaining_seconds >= SECONDS_IN_HOUR {
             hours = Some(remaining_seconds / SECONDS_IN_HOUR);
 
-            remaining_seconds = remaining_seconds % SECONDS_IN_HOUR;
+            remaining_seconds %= SECONDS_IN_HOUR;
         }
 
         if remaining_seconds >= SECONDS_IN_MINUTE {
             minutes = Some(remaining_seconds / SECONDS_IN_MINUTE);
 
-            remaining_seconds = remaining_seconds % SECONDS_IN_MINUTE;
+            remaining_seconds %= SECONDS_IN_MINUTE;
         }
 
         if remaining_seconds > 0 || duration_in_seconds == 0 {
