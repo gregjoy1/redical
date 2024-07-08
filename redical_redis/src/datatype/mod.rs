@@ -49,7 +49,7 @@ pub extern "C" fn rdb_load(rdb: *mut raw::RedisModuleIO, _encver: c_int) -> *mut
 
     let bytes: &[u8] = buffer.as_ref();
 
-    let rdb_calendar: RDBCalendar = bincode::deserialize(&bytes).unwrap();
+    let rdb_calendar: RDBCalendar = bincode::deserialize(bytes).unwrap();
 
     let calendar = match Calendar::try_from(&rdb_calendar) {
         Ok(calendar) => calendar,

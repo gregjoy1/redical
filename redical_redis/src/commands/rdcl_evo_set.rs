@@ -23,7 +23,7 @@ fn serialize_event_occurrence_override(event_occurrence_override: &EventOccurren
 
 pub fn redical_event_override_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     if args.len() < 4 {
-        ctx.log_debug(format!("rdcl.evo_set: WrongArity: {{args.len()}}").as_str());
+        ctx.log_debug(format!("rdcl.evo_set: WrongArity: {}", args.len()).as_str());
 
         return Err(RedisError::WrongArity);
     }
@@ -83,9 +83,11 @@ pub fn redical_event_override_set(ctx: &Context, args: Vec<RedisString>) -> Redi
                     ).as_str()
                 );
 
-                return Err(RedisError::String(format!(
-                    "rdcl.evo_set: event occurrence override iCal parser exceeded timeout",
-                )));
+                return Err(
+                    RedisError::String(
+                        String::from("rdcl.evo_set: event occurrence override iCal parser exceeded timeout")
+                    )
+                );
             },
         };
 
@@ -112,7 +114,7 @@ pub fn redical_event_override_set(ctx: &Context, args: Vec<RedisString>) -> Redi
     event.override_occurrence(&event_occurrence_override, calendar.indexes_active.to_owned()).map_err(RedisError::String)?;
 
     // HashMap.insert returns the old value (if present) which we can use in diffing old -> new.
-    let existing_event = calendar.insert_event(event.clone()).and_then(|boxed_event| Some(boxed_event));
+    let existing_event = calendar.insert_event(event.clone());
 
     if calendar.indexes_active {
 
@@ -178,7 +180,7 @@ pub fn redical_event_override_set(ctx: &Context, args: Vec<RedisString>) -> Redi
     // Use this command when replicating across other Redis instances.
     ctx.replicate_verbatim();
 
-    notify_keyspace_event(ctx, &calendar_uid, &event_uid, &override_date_string, &event_occurrence_override.last_modified.to_string())?;
+    notify_keyspace_event(ctx, &calendar_uid, &event_uid, override_date_string, &event_occurrence_override.last_modified.to_string())?;
 
     Ok(serialize_event_occurrence_override(&event_occurrence_override))
 }
@@ -186,7 +188,7 @@ pub fn redical_event_override_set(ctx: &Context, args: Vec<RedisString>) -> Redi
 fn notify_keyspace_event(ctx: &Context, calendar_uid: &RedisString, event_uid: &String, override_date_string: &str, last_modified_ical_property: &String) -> Result<(), RedisError> {
     let event_message = format!("rdcl.evo_set:{}:{} {}", event_uid, override_date_string, last_modified_ical_property);
 
-    if ctx.notify_keyspace_event(NotifyEvent::MODULE, event_message.as_str(), &calendar_uid) == Status::Err {
+    if ctx.notify_keyspace_event(NotifyEvent::MODULE, event_message.as_str(), calendar_uid) == Status::Err {
         return Err(
             RedisError::String(
                 format!("Notify keyspace event \"rdcl.evo_set\" for calendar: \"{}\" event: \"{}\" date string: \"{}\"", &calendar_uid, &event_uid, &override_date_string)

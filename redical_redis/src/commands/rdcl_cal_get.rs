@@ -16,8 +16,8 @@ fn serialize_calendar(calendar: &Calendar) -> RedisValue {
 }
 
 pub fn redical_calendar_get(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
-    if args.len() < 1 {
-        ctx.log_debug(format!("rdcl.cal_get: WrongArity: {{args.len()}}").as_str());
+    if args.is_empty() {
+        ctx.log_debug(format!("rdcl.cal_get: WrongArity: {}", args.len()).as_str());
 
         return Err(RedisError::WrongArity);
     }

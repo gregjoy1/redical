@@ -7,7 +7,7 @@ use redical_ical::ICalendarComponent;
 
 pub fn redical_event_get(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     if args.len() < 2 {
-        ctx.log_debug(format!("rdcl.evt_get: WrongArity: {{args.len()}}").as_str());
+        ctx.log_debug(format!("rdcl.evt_get: WrongArity: {}", args.len()).as_str());
 
         return Err(RedisError::WrongArity);
     }

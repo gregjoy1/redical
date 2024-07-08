@@ -12,7 +12,7 @@ use crate::datatype::CALENDAR_DATA_TYPE;
 fn icalendar_component_to_redis_value_array<I: ICalendarComponent>(component: &I, rendering_context: &RenderingContext) -> RedisValue {
     RedisValue::Array(
         component
-            .to_rendered_content_lines_with_context(Some(&rendering_context))
+            .to_rendered_content_lines_with_context(Some(rendering_context))
             .iter()
             .map(|ical_part| RedisValue::SimpleString(ical_part.to_owned()))
             .collect()
@@ -21,7 +21,7 @@ fn icalendar_component_to_redis_value_array<I: ICalendarComponent>(component: &I
 
 pub fn redical_calendar_query(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     if args.len() < 2 {
-        ctx.log_debug(format!("rdcl.cal_query: event_set WrongArity: {{args.len()}}").as_str());
+        ctx.log_debug("rdcl.cal_query: event_set WrongArity: {{args.len()}}");
 
         return Err(RedisError::WrongArity);
     }
@@ -38,7 +38,7 @@ pub fn redical_calendar_query(ctx: &Context, args: Vec<RedisString>) -> RedisRes
         )));
     };
 
-    if calendar.indexes_active == false {
+    if !calendar.indexes_active {
         return Err(RedisError::String(format!(
             "rdcl.cal_query: Queries disabled on Calendar: {calendar_uid} because it's indexes have been disabled."
         )));

@@ -4,8 +4,8 @@ use crate::core::Calendar;
 use crate::datatype::CALENDAR_DATA_TYPE;
 
 pub fn redical_calendar_idx_disable(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
-    if args.len() < 1 {
-        ctx.log_debug(format!("rdcl.cal_idx_disable: WrongArity: {{args.len()}}").as_str());
+    if args.is_empty() {
+        ctx.log_debug(format!("rdcl.cal_idx_disable: WrongArity: {}", args.len()).as_str());
 
         return Err(RedisError::WrongArity);
     }
@@ -22,7 +22,7 @@ pub fn redical_calendar_idx_disable(ctx: &Context, args: Vec<RedisString>) -> Re
         )));
     };
 
-    if calendar.indexes_active == false {
+    if !calendar.indexes_active {
         ctx.log_debug(format!("rdcl.cal_idx_disable: key: {calendar_uid} skipped - already disabled").as_str());
 
         return Ok(RedisValue::Bool(false));
@@ -40,7 +40,7 @@ pub fn redical_calendar_idx_disable(ctx: &Context, args: Vec<RedisString>) -> Re
 fn notify_keyspace_event(ctx: &Context, calendar_uid: &RedisString) -> Result<(), RedisError> {
     let event_message = "rdcl.cal_idx_disable";
 
-    if ctx.notify_keyspace_event(NotifyEvent::MODULE, event_message, &calendar_uid) == Status::Err {
+    if ctx.notify_keyspace_event(NotifyEvent::MODULE, event_message, calendar_uid) == Status::Err {
         return Err(
             RedisError::String(
                 format!("Notify keyspace event \"rdcl.cal_idx_disable\" for calendar: \"{}\"", &calendar_uid)

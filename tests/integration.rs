@@ -1799,7 +1799,7 @@ mod integration {
                     .arg("TEST_CALENDAR_UID")
                     .arg("EVENT_IN_OXFORD_MON_WED")
                     .arg(
-                        vec![
+                        &[
                             "SUMMARY:Event in Oxford on Mondays and Wednesdays at 5:00PM",
                             "RRULE:BYDAY=MO,WE;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
                             "DTSTART:20201231T170000Z",
@@ -1826,7 +1826,7 @@ mod integration {
                     .arg("EVENT_IN_OXFORD_MON_WED")
                     .arg("20210102T170000Z")
                     .arg(
-                        vec![
+                        &[
                             "LAST-MODIFIED:20210501T090000Z",
                             "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY",
                             "X-SPACES-BOOKED:12",
@@ -1846,7 +1846,7 @@ mod integration {
                 redis::cmd("rdcl.cal_query")
                     .arg("TEST_CALENDAR_UID")
                     .arg(
-                        vec![
+                        &[
                             "X-FROM;PROP=DTSTART;OP=GT;TZID=Europe/London:20210105T180000Z",
                             "X-UNTIL;PROP=DTSTART;OP=LTE;TZID=UTC:20210630T180000Z",
                             "X-GEO;DIST=105.5KM:51.55577390;-1.77971760",

@@ -11,7 +11,7 @@ use redical_ical::values::date_time::DateTime;
 fn notify_keyspace_event(ctx: &Context, calendar_uid: &RedisString, event_uid: &String, override_date_string: &str) -> Result<(), RedisError> {
     let event_message = format!("rdcl.evo_prune:{}:{}", event_uid, override_date_string);
 
-    if ctx.notify_keyspace_event(NotifyEvent::MODULE, event_message.as_str(), &calendar_uid) == Status::Err {
+    if ctx.notify_keyspace_event(NotifyEvent::MODULE, event_message.as_str(), calendar_uid) == Status::Err {
         return Err(
             RedisError::String(
                 format!("Notify keyspace event \"rdcl.evo_prune\" for calendar: \"{}\" event: \"{}\" date string: \"{}\"", &calendar_uid, &event_uid, &override_date_string)
@@ -99,8 +99,8 @@ fn prune_calendar_events_overrides(calendar: &mut Calendar, event_uid: String, f
     Ok(())
 }
 
-fn timestamp_from_date_string(date_string: &String) -> Result<i64, RedisError> {
-    DateTime::from_str(date_string.as_str())
+fn timestamp_from_date_string(date_string: &str) -> Result<i64, RedisError> {
+    DateTime::from_str(date_string)
         .map(|datetime| datetime.get_utc_timestamp(None))
         .map_err(RedisError::String)
 }
@@ -118,7 +118,7 @@ fn timestamps_from_date_strings(from_date_string: String, until_date_string: Str
 
 pub fn redical_event_override_prune(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     if args.len() < 3 || args.len() > 5 {
-        ctx.log_debug(format!("rdcl.evo_prune: WrongArity: {{args.len()}}").as_str());
+        ctx.log_debug(format!("rdcl.evo_prune: WrongArity: {}", args.len()).as_str());
 
         return Err(RedisError::WrongArity);
     }

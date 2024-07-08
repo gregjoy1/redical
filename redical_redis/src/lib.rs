@@ -41,7 +41,7 @@ unsafe impl std::alloc::GlobalAlloc for RedicalAlloc {
 }
 
 fn notify_rdcl_cal_del_keyspace_event(ctx: &Context, calendar_uid: &RedisString) {
-    if ctx.notify_keyspace_event(NotifyEvent::MODULE, "rdcl.cal_del", &calendar_uid) == Status::Err {
+    if ctx.notify_keyspace_event(NotifyEvent::MODULE, "rdcl.cal_del", calendar_uid) == Status::Err {
         ctx.log_warning(
             format!("Notify keyspace event \"rdcl.cal_set\" for calendar: \"{}\" failed", &calendar_uid).as_str()
         );

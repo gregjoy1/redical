@@ -29,7 +29,7 @@ fn serialize_event_occurrence_override(event_occurrence_override: &EventOccurren
 
 pub fn redical_event_override_list(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     if args.len() < 2 {
-        ctx.log_debug(format!("rdcl.evo_list: WrongArity: {{args.len()}}").as_str());
+        ctx.log_debug(format!("rdcl.evo_list: WrongArity: {}", args.len()).as_str());
 
         return Err(RedisError::WrongArity);
     }

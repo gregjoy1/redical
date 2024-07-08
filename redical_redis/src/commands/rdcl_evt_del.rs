@@ -5,7 +5,7 @@ use crate::datatype::CALENDAR_DATA_TYPE;
 
 pub fn redical_event_del(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     if args.len() < 2 {
-        ctx.log_debug(format!("rdcl.evt_del: WrongArity: {{args.len()}}").as_str());
+        ctx.log_debug(format!("rdcl.evt_del: WrongArity: {}", args.len()).as_str());
 
         return Err(RedisError::WrongArity);
     }
@@ -84,7 +84,7 @@ pub fn redical_event_del(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
 fn notify_keyspace_event(ctx: &Context, calendar_uid: &RedisString, event_uid: &String) -> Result<(), RedisError> {
     let event_message = format!("rdcl.evt_del:{}", event_uid);
 
-    if ctx.notify_keyspace_event(NotifyEvent::MODULE, event_message.as_str(), &calendar_uid) == Status::Err {
+    if ctx.notify_keyspace_event(NotifyEvent::MODULE, event_message.as_str(), calendar_uid) == Status::Err {
         return Err(
             RedisError::String(
                 format!("Notify keyspace event \"rdcl.evo_set\" for calendar: \"{}\" event: \"{}\"", &calendar_uid, &event_uid)
