@@ -246,8 +246,8 @@ fn where_properties_group_to_where_conditional(where_properties_group: &WherePro
         }
     }
 
-    current_where_conditional.and_then(|where_conditional| {
-        Some(WhereConditional::Group(Box::new(where_conditional)))
+    current_where_conditional.map(|where_conditional| {
+        WhereConditional::Group(Box::new(where_conditional))
     })
 }
 
@@ -604,7 +604,7 @@ mod test {
                             WhereOperator::And,
                         )),
                         Box::new(WhereConditional::Property(
-                            WhereConditionalProperty::Class(String::from(String::from("PRIVATE"),)),
+                            WhereConditionalProperty::Class(String::from("PRIVATE")),
                         )),
                         WhereOperator::And,
                     )),

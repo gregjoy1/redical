@@ -111,7 +111,7 @@ impl WhereConditionalProperty {
             }
 
             WhereConditionalProperty::Geo(distance, long_lat) => {
-                format!("GEO;DIST={}:{}", distance.to_string(), long_lat.to_string())
+                format!("GEO;DIST={}:{}", distance, long_lat)
             }
 
             WhereConditionalProperty::Class(classification) => {

@@ -53,15 +53,11 @@ impl EventOccurrenceOverride {
     }
 
     pub fn get_dtstart_timestamp(&self) -> Option<i64> {
-        self.dtstart
-            .as_ref()
-            .and_then(|dtstart| Some(dtstart.get_utc_timestamp()))
+        self.dtstart.as_ref().map(|dtstart| dtstart.get_utc_timestamp())
     }
 
     pub fn get_dtend_timestamp(&self) -> Option<i64> {
-        self.dtend
-            .as_ref()
-            .and_then(|dtend| Some(dtend.get_utc_timestamp()))
+        self.dtend.as_ref().map(|dtend| dtend.get_utc_timestamp())
     }
 
     pub fn get_duration_in_seconds(&self) -> Option<i64> {

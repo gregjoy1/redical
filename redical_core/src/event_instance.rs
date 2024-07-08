@@ -196,10 +196,7 @@ impl EventInstance {
         // If not found:
         //  Add the base event property
         for base_passive_property in &event.passive_properties.properties {
-            if passive_properties
-                .iter()
-                .find(|passive_property| passive_property.property_name_eq(base_passive_property))
-                .is_none()
+            if !passive_properties.iter().any(|passive_property| passive_property.property_name_eq(base_passive_property))
             {
                 passive_properties.insert(base_passive_property.to_owned());
             }
@@ -282,18 +279,7 @@ impl ICalendarComponent for EventInstance {
 
 impl PartialOrd for EventInstance {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        let dtstart_timestamp_comparison = self
-            .dtstart
-            .get_utc_timestamp()
-            .partial_cmp(&other.dtstart.get_utc_timestamp());
-
-        if dtstart_timestamp_comparison.is_some_and(|comparison| comparison.is_eq()) {
-            self.dtend
-                .get_utc_timestamp()
-                .partial_cmp(&other.dtend.get_utc_timestamp())
-        } else {
-            dtstart_timestamp_comparison
-        }
+        Some(self.cmp(other))
     }
 }
 
@@ -346,13 +332,13 @@ impl<'a> Iterator for EventInstanceIterator<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         // Filter occurrence index iterator timestamps according to IndexedConclusion if
         // present, else include all.
-        self.internal_iter.next().and_then(
+        self.internal_iter.next().map(
             |(dtstart_timestamp, _dtend_timestamp, event_occurrence_override)| {
-                Some(EventInstance::new(
+                EventInstance::new(
                     &dtstart_timestamp,
                     self.event,
                     event_occurrence_override.as_ref(),
-                ))
+                )
             },
         )
     }
@@ -522,7 +508,7 @@ mod test {
         };
 
         let event_instance =
-            EventInstance::new(&1609439400, &event, Some(&event_occurrence_override));
+            EventInstance::new(&1609439400, &event, Some(event_occurrence_override));
 
         assert_eq!(
             event_instance,
@@ -704,37 +690,27 @@ mod test {
             EventInstanceIterator::new(&event, None, None, None, None).unwrap();
 
         assert_eq!(
-            event_instance_iterator
-                .next()
-                .and_then(|event_instance| Some(event_instance.to_rendered_content_lines())),
+            event_instance_iterator.next().map(|event_instance| event_instance.to_rendered_content_lines()),
             Some(expected_event_instances_ical[&1609871400].clone())
         );
 
         assert_eq!(
-            event_instance_iterator
-                .next()
-                .and_then(|event_instance| Some(event_instance.to_rendered_content_lines())),
+            event_instance_iterator.next().map(|event_instance| event_instance.to_rendered_content_lines()),
             Some(expected_event_instances_ical[&1610476200].clone())
         );
 
         assert_eq!(
-            event_instance_iterator
-                .next()
-                .and_then(|event_instance| Some(event_instance.to_rendered_content_lines())),
+            event_instance_iterator.next().map(|event_instance| event_instance.to_rendered_content_lines()),
             Some(expected_event_instances_ical[&1611081000].clone())
         );
 
         assert_eq!(
-            event_instance_iterator
-                .next()
-                .and_then(|event_instance| Some(event_instance.to_rendered_content_lines())),
+            event_instance_iterator.next().map(|event_instance| event_instance.to_rendered_content_lines()),
             Some(expected_event_instances_ical[&1611685800].clone())
         );
 
         assert_eq!(
-            event_instance_iterator
-                .next()
-                .and_then(|event_instance| Some(event_instance.to_rendered_content_lines())),
+            event_instance_iterator.next().map(|event_instance| event_instance.to_rendered_content_lines()),
             Some(expected_event_instances_ical[&1612290600].clone())
         );
 
@@ -751,37 +727,27 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            event_instance_iterator
-                .next()
-                .and_then(|event_instance| Some(event_instance.to_rendered_content_lines())),
+            event_instance_iterator.next().map(|event_instance| event_instance.to_rendered_content_lines()),
             Some(expected_event_instances_ical[&1609871400].clone())
         );
 
         assert_eq!(
-            event_instance_iterator
-                .next()
-                .and_then(|event_instance| Some(event_instance.to_rendered_content_lines())),
+            event_instance_iterator.next().map(|event_instance| event_instance.to_rendered_content_lines()),
             Some(expected_event_instances_ical[&1610476200].clone())
         );
 
         assert_eq!(
-            event_instance_iterator
-                .next()
-                .and_then(|event_instance| Some(event_instance.to_rendered_content_lines())),
+            event_instance_iterator.next().map(|event_instance| event_instance.to_rendered_content_lines()),
             Some(expected_event_instances_ical[&1611081000].clone())
         );
 
         assert_eq!(
-            event_instance_iterator
-                .next()
-                .and_then(|event_instance| Some(event_instance.to_rendered_content_lines())),
+            event_instance_iterator.next().map(|event_instance| event_instance.to_rendered_content_lines()),
             Some(expected_event_instances_ical[&1611685800].clone())
         );
 
         assert_eq!(
-            event_instance_iterator
-                .next()
-                .and_then(|event_instance| Some(event_instance.to_rendered_content_lines())),
+            event_instance_iterator.next().map(|event_instance| event_instance.to_rendered_content_lines()),
             Some(expected_event_instances_ical[&1612290600].clone())
         );
 
@@ -800,16 +766,12 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            event_instance_iterator
-                .next()
-                .and_then(|event_instance| Some(event_instance.to_rendered_content_lines())),
+            event_instance_iterator.next().map(|event_instance| event_instance.to_rendered_content_lines()),
             Some(expected_event_instances_ical[&1610476200].clone())
         );
 
         assert_eq!(
-            event_instance_iterator
-                .next()
-                .and_then(|event_instance| Some(event_instance.to_rendered_content_lines())),
+            event_instance_iterator.next().map(|event_instance| event_instance.to_rendered_content_lines()),
             Some(expected_event_instances_ical[&1611685800].clone())
         );
 
@@ -842,23 +804,17 @@ mod test {
         .unwrap();
 
         assert_eq!(
-            event_instance_iterator
-                .next()
-                .and_then(|event_instance| Some(event_instance.to_rendered_content_lines())),
+            event_instance_iterator.next().map(|event_instance| event_instance.to_rendered_content_lines()),
             Some(expected_event_instances_ical[&1609871400].clone())
         );
 
         assert_eq!(
-            event_instance_iterator
-                .next()
-                .and_then(|event_instance| Some(event_instance.to_rendered_content_lines())),
+            event_instance_iterator.next().map(|event_instance| event_instance.to_rendered_content_lines()),
             Some(expected_event_instances_ical[&1611081000].clone())
         );
 
         assert_eq!(
-            event_instance_iterator
-                .next()
-                .and_then(|event_instance| Some(event_instance.to_rendered_content_lines())),
+            event_instance_iterator.next().map(|event_instance| event_instance.to_rendered_content_lines()),
             Some(expected_event_instances_ical[&1612290600].clone())
         );
 

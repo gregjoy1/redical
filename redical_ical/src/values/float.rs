@@ -80,7 +80,7 @@ mod tests {
         );
 
         assert_parser_output!(
-            Float::parse_ical("-3.14 TESTING".into()),
+            Float::parse_ical("-3.141592653589793 TESTING".into()),
             (
                 " TESTING",
                 Float(-std::f64::consts::PI),
@@ -105,7 +105,7 @@ mod tests {
 
         assert_eq!(
             Float(-std::f64::consts::PI).render_ical(),
-            String::from("-3.14"),
+            String::from("-3.141592653589793"),
         );
     }
 }

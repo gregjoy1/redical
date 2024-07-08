@@ -27,7 +27,7 @@ fn validate_timestamp_bounds(from_timestamp_bound: Bound<i64>, until_timestamp_b
             Bound::Excluded(from_timestamp) => from_timestamp,
 
             Bound::Unbounded => {
-                return Err(format!("Lower bound cannot be unbounded and have no value"));
+                return Err(String::from("Lower bound cannot be unbounded and have no value"));
             }
         };
 
@@ -37,7 +37,7 @@ fn validate_timestamp_bounds(from_timestamp_bound: Bound<i64>, until_timestamp_b
             Bound::Excluded(until_timestamp) => until_timestamp,
 
             Bound::Unbounded => {
-                return Err(format!("Upper bound cannot be unbounded and have no value"));
+                return Err(String::from("Upper bound cannot be unbounded and have no value"));
             }
         };
 

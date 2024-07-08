@@ -11,12 +11,13 @@ pub enum RangeConditionProperty {
     DtEnd(i64),
 }
 
-impl Into<FilterProperty> for RangeConditionProperty {
-    fn into(self) -> FilterProperty {
-        match self {
+impl From<RangeConditionProperty> for FilterProperty {
+    fn from(range_condition_property: RangeConditionProperty) -> Self {
+        match range_condition_property {
             RangeConditionProperty::DtStart(dtstart_timestamp) => {
                 FilterProperty::DtStart(dtstart_timestamp)
             }
+
             RangeConditionProperty::DtEnd(dtend_timestamp) => {
                 FilterProperty::DtEnd(dtend_timestamp)
             }
@@ -74,9 +75,9 @@ impl From<&XFromProperty> for LowerBoundRangeCondition {
     }
 }
 
-impl Into<LowerBoundFilterCondition> for LowerBoundRangeCondition {
-    fn into(self) -> LowerBoundFilterCondition {
-        match self {
+impl From<LowerBoundRangeCondition> for LowerBoundFilterCondition {
+    fn from(lower_bound_range_condition: LowerBoundRangeCondition) -> Self {
+        match lower_bound_range_condition {
             LowerBoundRangeCondition::GreaterThan(range_condition_property) => {
                 LowerBoundFilterCondition::GreaterThan(range_condition_property.into())
             }
@@ -145,9 +146,9 @@ impl From<&XUntilProperty> for UpperBoundRangeCondition {
     }
 }
 
-impl Into<UpperBoundFilterCondition> for UpperBoundRangeCondition {
-    fn into(self) -> UpperBoundFilterCondition {
-        match self {
+impl From<UpperBoundRangeCondition> for UpperBoundFilterCondition {
+    fn from(upper_bound_range_condition: UpperBoundRangeCondition) -> Self {
+        match upper_bound_range_condition {
             UpperBoundRangeCondition::LessThan(range_condition_property) => {
                 UpperBoundFilterCondition::LessThan(range_condition_property.into())
             }

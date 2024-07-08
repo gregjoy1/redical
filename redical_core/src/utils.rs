@@ -15,13 +15,15 @@ pub struct KeyValuePair {
     pub value: String,
 }
 
+impl std::fmt::Display for KeyValuePair {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}{}", self.key.clone(), &self.value)
+    }
+}
+
 impl KeyValuePair {
     pub fn new(key: String, value: String) -> Self {
         KeyValuePair { key, value }
-    }
-
-    pub fn to_string(&self) -> String {
-        self.key.clone() + &self.value
     }
 }
 
@@ -182,18 +184,9 @@ where
             },
 
             (Some(original_set), Some(updated_set)) => {
-                let removed = original_set
-                    .difference(&updated_set)
-                    .map(|value| value.clone())
-                    .collect();
-                let added = updated_set
-                    .difference(&original_set)
-                    .map(|value| value.clone())
-                    .collect();
-                let maintained = original_set
-                    .intersection(&updated_set)
-                    .map(|value| value.clone())
-                    .collect();
+                let removed = original_set.difference(updated_set).cloned().collect();
+                let added = updated_set.difference(original_set).cloned().collect();
+                let maintained = original_set.intersection(updated_set).cloned().collect();
 
                 UpdatedSetMembers {
                     removed,
@@ -207,7 +200,7 @@ where
     pub fn all_present_members(&self) -> HashSet<T> {
         let mut present_members_set = self.maintained.clone();
 
-        present_members_set.extend(self.added.clone().into_iter());
+        present_members_set.extend(self.added.clone());
 
         present_members_set
     }
@@ -267,9 +260,9 @@ where
 
             (Some(original_map), Some(updated_map)) => {
                 let original_map_key_set: HashSet<K> =
-                    HashSet::from_iter(original_map.keys().map(|key| key.clone()));
+                    HashSet::from_iter(original_map.keys().cloned());
                 let updated_map_key_set: HashSet<K> =
-                    HashSet::from_iter(updated_map.keys().map(|key| key.clone()));
+                    HashSet::from_iter(updated_map.keys().cloned());
 
                 let mut removed: HashMap<K, T> = HashMap::new();
                 let mut added: HashMap<K, T> = HashMap::new();
@@ -368,6 +361,16 @@ where
     buffer: BTreeSet<MergedIteratorBufferItem<T, I>>,
 }
 
+impl<T, I> Default for MergedIterator<T, I>
+where
+    T: Ord + Debug,
+    I: Iterator<Item = T> + Debug,
+{
+    fn default() -> Self {
+        MergedIterator::new()
+    }
+}
+
 impl<T, I> MergedIterator<T, I>
 where
     T: Ord + Debug,
@@ -399,10 +402,10 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         self.buffer
             .pop_first()
-            .and_then(|MergedIteratorBufferItem(tag, item, iterator)| {
+            .map(|MergedIteratorBufferItem(tag, item, iterator)| {
                 let _result = self.add_iter(tag.clone(), iterator);
 
-                Some((tag, item))
+                (tag, item)
             })
     }
 }

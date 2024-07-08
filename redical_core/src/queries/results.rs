@@ -45,6 +45,10 @@ impl QueryResults {
         self.results.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     pub fn push(&mut self, event_instance: EventInstance) {
         let event_instance_uid = event_instance.uid.uid.clone();
 
@@ -102,15 +106,7 @@ pub struct QueryResult {
 
 impl PartialOrd for QueryResult {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        let partial_ordering = self.result_ordering.partial_cmp(&other.result_ordering);
-
-        if partial_ordering.is_some_and(|partial_ordering| partial_ordering.is_eq()) {
-            self.event_instance
-                .uid
-                .partial_cmp(&other.event_instance.uid)
-        } else {
-            partial_ordering
-        }
+        Some(self.cmp(other))
     }
 }
 

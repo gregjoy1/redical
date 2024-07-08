@@ -88,22 +88,22 @@ impl Query {
     fn get_lower_bound_filter_condition(&self) -> Option<LowerBoundFilterCondition> {
         self.lower_bound_range_condition
             .clone()
-            .and_then(|lower_bound_range_condition| {
+            .map(|lower_bound_range_condition| {
                 let lower_bound_filter_condition: LowerBoundFilterCondition =
                     lower_bound_range_condition.into();
 
-                Some(lower_bound_filter_condition)
+                lower_bound_filter_condition
             })
     }
 
     fn get_upper_bound_filter_condition(&self) -> Option<UpperBoundFilterCondition> {
         self.upper_bound_range_condition
             .clone()
-            .and_then(|upper_bound_range_condition| {
+            .map(|upper_bound_range_condition| {
                 let upper_bound_filter_condition: UpperBoundFilterCondition =
                     upper_bound_range_condition.into();
 
-                Some(upper_bound_filter_condition)
+                upper_bound_filter_condition
             })
     }
 
@@ -136,7 +136,7 @@ impl Query {
             }
 
             None => {
-                for (_event_uid, event) in &calendar.events {
+                for event in calendar.events.values() {
                     self.add_event_to_merged_iterator(
                         event,
                         merged_iterator,
@@ -214,7 +214,7 @@ impl Query {
                 break;
             }
 
-            previous_dtstart_timestamp = Some(event_instance.dtstart.get_utc_timestamp().clone());
+            previous_dtstart_timestamp = Some(event_instance.dtstart.get_utc_timestamp());
 
             query_results.push(event_instance);
         }
