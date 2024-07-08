@@ -41,6 +41,7 @@ use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, Parser
 ///     ),
 /// );
 /// ```
+#[allow(clippy::needless_lifetimes)]
 pub fn tag<'a>(tag: &'a str) -> impl Fn(ParserInput) -> ParserResult<ParserInput> + 'a {
     move |input: ParserInput| {
         match nom::bytes::complete::tag::<&'a str, ParserInput, ParserError>(tag)(input) {
@@ -908,6 +909,7 @@ pub fn crlf(input: ParserInput) -> ParserResult<ParserInput> {
 /// ; and value string
 /// 
 /// contentline   = name *(";" param ) ":" value CRLF
+#[allow(clippy::type_complexity)]
 pub fn contentline(input: ParserInput) -> ParserResult<(ParserInput, Vec<(ParserInput, ParserInput)>, ParserInput)> {
     context(
         "CONTENTLINE",
@@ -1147,6 +1149,7 @@ pub fn quoted_string(input: ParserInput) -> ParserResult<ParserInput> {
 ///
 /// QSAFE-CHAR    = WSP / %x21 / %x23-7E / NON-US-ASCII
 /// ; Any character except CONTROL and DQUOTE
+#[allow(clippy::manual_range_contains)]
 pub fn is_qsafe_char(input: char) -> bool {
     is_wsp_char(input)     ||
     is_non_us_ascii_char(input) ||
@@ -1198,6 +1201,7 @@ pub fn qsafe_char(input: ParserInput) -> ParserResult<ParserInput> {
 /// SAFE-CHAR     = WSP / %x21 / %x23-2B / %x2D-39 / %x3C-7E
 ///               / NON-US-ASCII
 /// ; Any character except CONTROL, DQUOTE, ";", ":", ","
+#[allow(clippy::manual_range_contains)]
 pub fn is_safe_char(input: char) -> bool {
     is_wsp_char(input)     ||
     is_non_us_ascii_char(input) ||
@@ -1244,6 +1248,7 @@ pub fn safe_char(input: ParserInput) -> ParserResult<ParserInput> {
 ///
 /// VALUE-CHAR    = WSP / %x21-7E / NON-US-ASCII
 /// ; Any textual character
+#[allow(clippy::manual_range_contains)]
 pub fn is_value_char(input: char) -> bool {
     is_wsp_char(input)     ||
     is_non_us_ascii_char(input) ||
@@ -1401,6 +1406,7 @@ pub fn non_us_ascii(input: ParserInput) -> ParserResult<ParserInput> {
 ///
 /// CONTROL       = %x00-08 / %x0A-1F / %x7F
 /// ; All the controls except HTAB
+#[allow(clippy::manual_range_contains)]
 pub fn is_control_char(input: char) -> bool {
     (input >= '\x00' && input <= '\x09') ||
     (input >= '\x0A' && input <= '\x1F') ||
@@ -1505,6 +1511,7 @@ impl PositiveNegative {
     /// assert!(parser("10".into()).is_err());
     /// ```
     /// [plus / minus] 1*digit
+    #[allow(clippy::extra_unused_lifetimes)]
     pub fn parse_i32_m_n<'a>(min_chars: usize, max_chars: usize, min_value: i32, max_value: i32) -> impl FnMut(ParserInput) -> ParserResult<i32> {
         move |input: ParserInput| {
             let (remaining, parsed_positive_negative) = opt(Self::parse_ical)(input)?;
