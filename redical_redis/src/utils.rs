@@ -17,10 +17,7 @@ where
     let _ = thread::spawn(move || {
         let result = function();
 
-        match tx.send(result) {
-            Ok(()) => {} // Everything good!
-            Err(_) => {} // Thread has been released, don't panic.
-        }
+        let _ = tx.send(result);
     });
 
     match rx.recv_timeout(timeout) {

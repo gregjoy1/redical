@@ -5,16 +5,14 @@ use crate::geo_index::GeoPoint;
 
 use crate::utils::{KeyValuePair, UpdatedHashMapMembers, UpdatedSetMembers};
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Default, Debug, PartialEq, Eq, Clone)]
 pub struct InvertedCalendarIndexTerm {
     pub events: HashMap<String, IndexedConclusion>,
 }
 
 impl InvertedCalendarIndexTerm {
     pub fn new() -> Self {
-        InvertedCalendarIndexTerm {
-            events: HashMap::new(),
-        }
+        Self::default()
     }
 
     pub fn new_with_event(event_uid: String, indexed_conclusion: IndexedConclusion) -> Self {
@@ -72,8 +70,8 @@ impl InvertedCalendarIndexTerm {
         //   * clone()/borrowing etc
         //   * refine this logic to be more concise/readable...
 
-        let events_a_uids = HashSet::<String>::from_iter(events_a.keys().into_iter().cloned());
-        let events_b_uids = HashSet::<String>::from_iter(events_b.keys().into_iter().cloned());
+        let events_a_uids = HashSet::<String>::from_iter(events_a.keys().cloned());
+        let events_b_uids = HashSet::<String>::from_iter(events_b.keys().cloned());
 
         let uid_key_diff = UpdatedSetMembers::new(Some(&events_a_uids), Some(&events_b_uids));
 
@@ -218,7 +216,7 @@ where
                 .indexed_properties
                 .extract_all_category_strings()
             {
-                indexed_categories.insert_override(timestamp.clone(), &override_categories_set);
+                indexed_categories.insert_override(timestamp.to_owned(), override_categories_set);
             }
         }
 
@@ -241,7 +239,7 @@ where
                 .indexed_properties
                 .extract_all_related_to_key_value_pairs()
             {
-                indexed_related_to.insert_override(timestamp.clone(), &override_related_to_set);
+                indexed_related_to.insert_override(timestamp.to_owned(), override_related_to_set);
             }
         }
 
@@ -261,7 +259,7 @@ where
         for (timestamp, event_override) in event.overrides.iter() {
             if let Some(overridden_geo) = &event_override.indexed_properties.extract_geo_point() {
                 indexed_geo
-                    .insert_override(timestamp.clone(), &HashSet::from([overridden_geo.clone()]));
+                    .insert_override(timestamp.to_owned(), &HashSet::from([overridden_geo.clone()]));
             }
         }
 
@@ -281,7 +279,7 @@ where
         for (timestamp, event_override) in event.overrides.iter() {
             if let Some(overridden_class) = &event_override.indexed_properties.extract_class() {
                 indexed_class.insert_override(
-                    timestamp.clone(),
+                    timestamp.to_owned(),
                     &HashSet::from([overridden_class.to_string()]),
                 );
             }
@@ -294,8 +292,8 @@ where
         original: Option<&InvertedEventIndex<K>>,
         updated: Option<&InvertedEventIndex<K>>,
     ) -> UpdatedHashMapMembers<K, IndexedConclusion> {
-        let original_terms = original.and_then(|inverted_index| Some(inverted_index.terms.to_owned()));
-        let updated_terms = updated.and_then(|inverted_index| Some(inverted_index.terms.to_owned()));
+        let original_terms = original.map(|inverted_index| inverted_index.terms.to_owned());
+        let updated_terms = updated.map(|inverted_index| inverted_index.terms.to_owned());
 
         UpdatedHashMapMembers::new(original_terms.as_ref(), updated_terms.as_ref())
     }
@@ -342,11 +340,11 @@ where
 
         // Check for currently indexed terms NOT present in the override, and add them as an exception to
         // IndexedConclusion::Include (include all except timestamp).
-        for excluded_term in indexed_terms_set.difference(&override_terms_set) {
-            self.terms.get_mut(excluded_term).and_then(|indexed_term| {
+        for excluded_term in indexed_terms_set.difference(override_terms_set) {
+            self.terms.get_mut(excluded_term).map(|indexed_term| {
                 indexed_term.insert_exception(timestamp);
 
-                Some(indexed_term)
+                indexed_term
             });
         }
 
@@ -364,13 +362,8 @@ where
 
     pub fn remove_override(&mut self, timestamp: i64) {
         self.terms.retain(|_removed_term, indexed_conclusion| {
-            if indexed_conclusion.remove_exception(timestamp)
-                && indexed_conclusion.is_empty_exclude()
-            {
-                false
-            } else {
-                true
-            }
+            // Remove empty and redundant indexed conclusion (empty as in no exceptions).
+            !(indexed_conclusion.remove_exception(timestamp) && indexed_conclusion.is_empty_exclude())
         });
     }
 }
@@ -382,6 +375,15 @@ where
     K: std::hash::Hash + Clone + Eq,
 {
     pub terms: HashMap<K, InvertedCalendarIndexTerm>,
+}
+
+impl<K> Default for InvertedCalendarIndex<K>
+where
+    K: std::hash::Hash + Clone + Eq,
+{
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl<K> InvertedCalendarIndex<K>
@@ -470,8 +472,8 @@ impl IndexedConclusion {
             exceptions_a: &Option<HashSet<i64>>,
             exceptions_b: &Option<HashSet<i64>>,
         ) -> Option<HashSet<i64>> {
-            let exception_set_a = exceptions_a.clone().unwrap_or(HashSet::new());
-            let exception_set_b = exceptions_b.clone().unwrap_or(HashSet::new());
+            let exception_set_a = exceptions_a.clone().unwrap_or_default();
+            let exception_set_b = exceptions_b.clone().unwrap_or_default();
 
             // Take all exceptions to include_a and combine with all exceptions to include_b with it.
             // e.g.
@@ -481,7 +483,7 @@ impl IndexedConclusion {
             //    include all except  [ 1, 2, 3, 4, 5, 8 ]
             let compound_exception_set: HashSet<i64> = exception_set_a
                 .union(&exception_set_b)
-                .map(|element| *element)
+                .cloned()
                 .collect();
 
             if compound_exception_set.is_empty() {
@@ -497,9 +499,9 @@ impl IndexedConclusion {
             exceptions_to_include_b: &Option<HashSet<i64>>,
         ) -> Option<HashSet<i64>> {
             let exception_set_to_include_a =
-                exceptions_to_include_a.clone().unwrap_or(HashSet::new());
+                exceptions_to_include_a.clone().unwrap_or_default();
             let exception_set_to_include_b =
-                exceptions_to_include_b.clone().unwrap_or(HashSet::new());
+                exceptions_to_include_b.clone().unwrap_or_default();
 
             // Take all intersecting exceptions to exclude_a, and exclude_b.
             // e.g.
@@ -509,7 +511,7 @@ impl IndexedConclusion {
             //    exclude all except  [ 2, 3 ]
             let compound_exception_set: HashSet<i64> = exception_set_to_include_a
                 .intersection(&exception_set_to_include_b)
-                .map(|element| *element)
+                .cloned()
                 .collect();
 
             if compound_exception_set.is_empty() {
@@ -525,8 +527,8 @@ impl IndexedConclusion {
             exceptions_to_include: &Option<HashSet<i64>>,
             exceptions_to_exclude: &Option<HashSet<i64>>,
         ) -> Option<HashSet<i64>> {
-            let exception_set_to_include = exceptions_to_include.clone().unwrap_or(HashSet::new());
-            let exception_set_to_exclude = exceptions_to_exclude.clone().unwrap_or(HashSet::new());
+            let exception_set_to_include = exceptions_to_include.clone().unwrap_or_default();
+            let exception_set_to_exclude = exceptions_to_exclude.clone().unwrap_or_default();
 
             // Take all exceptions to include and subtract all exceptions to exclude from it.
             // e.g.
@@ -536,7 +538,7 @@ impl IndexedConclusion {
             //    exclude all except  [ 5, 8 ]
             let compound_exception_set: HashSet<i64> = exception_set_to_include
                 .difference(&exception_set_to_exclude)
-                .map(|element| *element)
+                .cloned()
                 .collect();
 
             if compound_exception_set.is_empty() {
@@ -591,8 +593,8 @@ impl IndexedConclusion {
                 return None;
             }
 
-            let exception_set_a = exceptions_a.clone().unwrap_or(HashSet::new());
-            let exception_set_b = exceptions_b.clone().unwrap_or(HashSet::new());
+            let exception_set_a = exceptions_a.clone().unwrap_or_default();
+            let exception_set_b = exceptions_b.clone().unwrap_or_default();
 
             // Combine all exceptions to include_a, and include_b removing intersecting exceptions.
             // e.g.
@@ -602,17 +604,17 @@ impl IndexedConclusion {
             //    include all except  [ 1, 4, 5, 8 ]
             let combined_exception_set: HashSet<i64> = exception_set_a
                 .union(&exception_set_b)
-                .map(|element| *element)
+                .cloned()
                 .collect();
 
             let intersecting_exception_set: HashSet<i64> = exception_set_a
                 .intersection(&exception_set_b)
-                .map(|element| *element)
+                .cloned()
                 .collect();
 
             let subtracted_exception_set: HashSet<i64> = combined_exception_set
                 .difference(&intersecting_exception_set)
-                .map(|element| *element)
+                .cloned()
                 .collect();
 
             if subtracted_exception_set.is_empty() {
@@ -628,9 +630,9 @@ impl IndexedConclusion {
             exceptions_to_include_b: &Option<HashSet<i64>>,
         ) -> Option<HashSet<i64>> {
             let exception_set_to_include_a =
-                exceptions_to_include_a.clone().unwrap_or(HashSet::new());
+                exceptions_to_include_a.clone().unwrap_or_default();
             let exception_set_to_include_b =
-                exceptions_to_include_b.clone().unwrap_or(HashSet::new());
+                exceptions_to_include_b.clone().unwrap_or_default();
 
             // Take all exceptions to exclude_a and combine with all exceptions to exclude_b with it.
             // e.g.
@@ -640,7 +642,7 @@ impl IndexedConclusion {
             //    exclude all except  [ 2, 3 ]
             let compound_exception_set: HashSet<i64> = exception_set_to_include_a
                 .union(&exception_set_to_include_b)
-                .map(|element| *element)
+                .cloned()
                 .collect();
 
             if compound_exception_set.is_empty() {
@@ -656,8 +658,8 @@ impl IndexedConclusion {
             exceptions_to_include: &Option<HashSet<i64>>,
             exceptions_to_exclude: &Option<HashSet<i64>>,
         ) -> Option<HashSet<i64>> {
-            let exception_set_to_include = exceptions_to_include.clone().unwrap_or(HashSet::new());
-            let exception_set_to_exclude = exceptions_to_exclude.clone().unwrap_or(HashSet::new());
+            let exception_set_to_include = exceptions_to_include.clone().unwrap_or_default();
+            let exception_set_to_exclude = exceptions_to_exclude.clone().unwrap_or_default();
 
             // Take all exceptions to exclude and subtract all exceptions to include from it.
             // e.g.
@@ -667,7 +669,7 @@ impl IndexedConclusion {
             //    include all except  [ 1, 4 ]
             let compound_exception_set: HashSet<i64> = exception_set_to_exclude
                 .difference(&exception_set_to_include)
-                .map(|element| *element)
+                .cloned()
                 .collect();
 
             if compound_exception_set.is_empty() {
@@ -749,7 +751,7 @@ impl IndexedConclusion {
     }
 
     pub fn exclude_event_occurrence(&self, occurrence: i64) -> bool {
-        self.include_event_occurrence(occurrence) == false
+        !self.include_event_occurrence(occurrence)
     }
 
     pub fn include_event_occurrence(&self, occurrence: i64) -> bool {

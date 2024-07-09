@@ -1,4 +1,3 @@
-use geo::prelude::*;
 use geo::{HaversineDistance, Point};
 use rstar::{PointDistance, RTree, RTreeObject};
 use std::cmp::Ordering;
@@ -10,23 +9,25 @@ use std::hash::{Hash, Hasher};
 use crate::{IndexedConclusion, InvertedCalendarIndexTerm};
 use redical_ical::properties::ICalendarGeoProperty;
 
-#[derive(Debug, PartialOrd, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum GeoDistance {
     Kilometers((u32, u32)), // (km, fractional (6dp))
     Miles((u32, u32)),      // (ml, fractional (6dp))
+}
+
+impl std::fmt::Display for GeoDistance {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            GeoDistance::Kilometers(_) => write!(f, "{}KM", self.to_kilometers_float()),
+            GeoDistance::Miles(_) => write!(f, "{}MI", self.to_miles_float()),
+        }
+    }
 }
 
 impl GeoDistance {
     const FRACTIONAL_PREC: f64 = 1000000.0_f64;
     const KM_TO_MILE: f64 = 1.609344_f64;
     const MILE_TO_KM: f64 = 0.621371_f64;
-
-    pub fn to_string(&self) -> String {
-        match self {
-            GeoDistance::Kilometers(_) => format!("{}KM", self.to_kilometers_float()),
-            GeoDistance::Miles(_) => format!("{}MI", self.to_miles_float()),
-        }
-    }
 
     pub fn to_meters_float(&self) -> f64 {
         match self {
@@ -95,8 +96,8 @@ impl GeoDistance {
     }
 
     fn int_fractional_tuple_to_float(int_fractional_tuple: (&u32, &u32)) -> f64 {
-        let whole_int_float: f64 = num::cast(int_fractional_tuple.0.clone()).unwrap();
-        let fractional_int_float: f64 = num::cast(int_fractional_tuple.1.clone()).unwrap();
+        let whole_int_float: f64 = num::cast(int_fractional_tuple.0.to_owned()).unwrap();
+        let fractional_int_float: f64 = num::cast(int_fractional_tuple.1.to_owned()).unwrap();
 
         whole_int_float + (fractional_int_float / Self::FRACTIONAL_PREC)
     }
@@ -104,7 +105,7 @@ impl GeoDistance {
     fn float_to_int_fractional_tuple(value_float: &f64) -> (u32, u32) {
         let mut value_float = value_float.abs();
 
-        if value_float.is_normal() == false {
+        if !value_float.is_normal() {
             value_float = 0f64;
         };
 
@@ -112,6 +113,12 @@ impl GeoDistance {
         let fractional_int: u32 = num::cast(value_float.fract() * Self::FRACTIONAL_PREC).unwrap();
 
         (whole_int, fractional_int)
+    }
+}
+
+impl PartialOrd for GeoDistance {
+    fn partial_cmp(&self, other: &GeoDistance) -> Option<Ordering> {
+       Some(self.cmp(other))
     }
 }
 
@@ -200,10 +207,6 @@ impl GeoPoint {
         Ok(self)
     }
 
-    pub fn to_string(&self) -> String {
-        format!("{};{}", self.lat, self.long)
-    }
-
     pub fn geohash(&self) -> Result<String, String> {
         geohash::encode(
             geohash::Coord {
@@ -213,6 +216,12 @@ impl GeoPoint {
             12, // Accurrate to 37.2mm × 18.6mm
         )
         .map_err(|geohash_error| geohash_error.to_string())
+    }
+}
+
+impl std::fmt::Display for GeoPoint {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{};{}", self.lat, self.long)
     }
 }
 
@@ -293,11 +302,17 @@ impl PartialEq for GeoSpatialCalendarIndex {
     }
 }
 
-impl GeoSpatialCalendarIndex {
-    pub fn new() -> Self {
+impl Default for GeoSpatialCalendarIndex {
+    fn default() -> Self {
         GeoSpatialCalendarIndex {
             coords: RTree::new(),
         }
+    }
+}
+
+impl GeoSpatialCalendarIndex {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn locate_within_distance(
@@ -752,6 +767,7 @@ mod test {
     }
 
     #[test]
+    #[allow(clippy::excessive_precision)]
     fn test_geo_distance_rtree() {
         let mut tree = RTree::new();
 
@@ -799,7 +815,7 @@ mod test {
         assert_eq!(results.next(), None);
 
         let results: Vec<&GeoPoint> = tree
-            .locate_within_distance(oxford.to_point().clone(), 65000.0_f64)
+            .locate_within_distance(oxford.to_point(), 65000.0_f64)
             .collect();
 
         assert_eq_sorted!(results, vec![&churchdown, &random_plus_offset, &random]);

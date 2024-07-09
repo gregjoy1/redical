@@ -121,20 +121,15 @@ pub struct RenderingContext {
     pub distance_unit: Option<DistanceUnit>,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Default, Debug, Clone, Eq, PartialEq)]
 pub enum ParserContext {
+    #[default]
     None,
     Event,
     Query,
 }
 
 impl Copy for ParserContext {}
-
-impl Default for ParserContext {
-    fn default() -> Self {
-        ParserContext::None
-    }
-}
 
 impl ParserContext {
     fn terminating_property_lookahead(&self) -> impl FnMut(ParserInput) -> ParserResult<ParserInput> + '_ {
@@ -178,10 +173,7 @@ pub type ParserResult<'a, O> = nom::IResult<ParserInput<'a>, O, ParserError<'a>>
 
 // TODO: document this
 pub trait UnicodeSegmentation {
-    fn wrapped_grapheme_indices<'a>(
-        &'a self,
-        is_extended: bool,
-    ) -> unicode_segmentation::GraphemeIndices<'a>;
+    fn wrapped_grapheme_indices(&self, is_extended: bool) -> unicode_segmentation::GraphemeIndices;
 }
 
 impl<'a> UnicodeSegmentation for ParserInput<'a> {
@@ -297,7 +289,7 @@ where
     F2: nom::Parser<I, O2, E>,
 {
     move |input: I| {
-        let (remaining, output) = parser.parse(input.clone())?;
+        let (remaining, output) = parser.parse(input)?;
 
         let parser_max_index = input.input_len() - remaining.input_len();
         let input_max_index = input.input_len();
@@ -379,7 +371,7 @@ where
     T: ICalendarEntity,
 {
     fn parse_ical(input: ParserInput) -> ParserResult<Self> {
-        T::parse_ical(input).and_then(|(remaining, parsed)| Ok((remaining, Some(parsed))))
+        T::parse_ical(input).map(|(remaining, parsed)| (remaining, Some(parsed)))
     }
 
     fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
@@ -394,9 +386,9 @@ where
 #[macro_export]
 macro_rules! map_err_message {
     ($parser:expr, $error_message:expr $(,)*) => {
-        crate::map_err(
+        $crate::map_err(
             $parser,
-            |mut error: crate::ParserError| {
+            |mut error: $crate::ParserError| {
                 error.clear_context();
                 error.message = Some(String::from($error_message));
 
@@ -420,7 +412,7 @@ macro_rules! impl_icalendar_entity_traits {
 
                     Err(error) => {
                         if let nom::Err::Error(error) = error {
-                            Err(crate::convert_error(input, error))
+                            Err($crate::convert_error(input, error))
                         } else {
                             Err(error.to_string())
                         }

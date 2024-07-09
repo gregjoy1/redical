@@ -157,6 +157,6 @@ where
     type IntoIter = std::vec::IntoIter<T>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.0.to_owned().into_iter()
+        self.0.clone().into_iter()
     }
 }

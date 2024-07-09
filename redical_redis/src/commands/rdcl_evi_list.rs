@@ -7,7 +7,7 @@ use redical_core::{Calendar, EventInstanceIterator};
 
 pub fn redical_event_instance_list(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     if args.len() < 2 {
-        ctx.log_debug(format!("rdcl.evi_list: WrongArity: {{args.len()}}").as_str());
+        ctx.log_debug(format!("rdcl.evi_list: WrongArity: {}", args.len()).as_str());
 
         return Err(RedisError::WrongArity);
     }

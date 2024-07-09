@@ -52,7 +52,7 @@ impl_icalendar_entity_traits!(ContentLineParam);
 #[derive(Debug, Clone, Eq, PartialEq, Default, Ord, PartialOrd)]
 pub struct ContentLineParams(pub Vec<ContentLineParam>);
 
-impl<'a> From<Vec<ContentLineParam>> for ContentLineParams {
+impl From<Vec<ContentLineParam>> for ContentLineParams {
     fn from(params: Vec<ContentLineParam>) -> Self {
         ContentLineParams(params)
     }
@@ -129,13 +129,13 @@ impl<'a> From<(ParserInput<'a>, ContentLineParams, ParserInput<'a>)> for Content
     }
 }
 
-impl<'a> From<(&str, (ContentLineParams, String))> for ContentLine {
+impl From<(&str, (ContentLineParams, String))> for ContentLine {
     fn from((name, (params, value)): (&str, (ContentLineParams, String))) -> Self {
         ContentLine(name.to_string(), params, value)
     }
 }
 
-impl<'a> From<(&str, (&ContentLineParams, &String))> for ContentLine {
+impl From<(&str, (&ContentLineParams, &String))> for ContentLine {
     fn from((name, (params, value)): (&str, (&ContentLineParams, &String))) -> Self {
         ContentLine(name.to_string(), params.to_owned(), value.to_owned())
     }
@@ -143,11 +143,7 @@ impl<'a> From<(&str, (&ContentLineParams, &String))> for ContentLine {
 
 impl From<(String, Vec<(String, String)>, String)> for ContentLine {
     fn from((name, params, value): (String, Vec<(String, String)>, String)) -> Self {
-        ContentLine(
-            name.into(),
-            params.into(),
-            value.into(),
-        )
+        ContentLine(name, params.into(), value)
     }
 }
 

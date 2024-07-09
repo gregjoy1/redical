@@ -1,7 +1,7 @@
 use redis_module::{Context, NextArg, NotifyEvent, RedisError, RedisResult, RedisString, RedisValue, Status};
 
 use crate::core::{
-    rebase_overrides, Calendar, CalendarIndexUpdater, Event, EventDiff, InvertedEventIndex,
+    Calendar, CalendarIndexUpdater, Event, InvertedEventIndex,
 };
 
 use crate::datatype::CALENDAR_DATA_TYPE;
@@ -12,10 +12,8 @@ use crate::CONFIGURATION_ICAL_PARSER_TIMEOUT_MS;
 use redical_ical::ICalendarComponent;
 
 pub fn redical_event_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
-    // TODO: Add option to "rebase" overrides against changes, i.e. add/remove all
-    // base added/removed properties to all overrides.
     if args.len() < 3 {
-        ctx.log_debug(format!("rdcl.evt_set: WrongArity: {{args.len()}}").as_str());
+        ctx.log_debug(format!("rdcl.evt_set: WrongArity: {}", args.len()).as_str());
 
         return Err(RedisError::WrongArity);
     }
@@ -67,7 +65,7 @@ pub fn redical_event_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
                     ).as_str()
                 );
 
-                return Err(RedisError::String(format!(
+                return Err(RedisError::String(String::from(
                     "rdcl.evt_set: event iCal parser exceeded timeout"
                 )));
             },
@@ -97,17 +95,8 @@ pub fn redical_event_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
         }
     }
 
-    let event_diff = if let Some(existing_event) = existing_event.as_ref() {
-        EventDiff::new(existing_event, &event)
-    } else {
-        EventDiff::new(&Event::new(event.uid.uid.to_string()), &event)
-    };
-
     if let Some(existing_event) = existing_event.as_ref() {
         event.overrides = existing_event.overrides.clone();
-
-        rebase_overrides(&mut event.overrides, &event_diff)
-            .map_err(RedisError::String)?;
     }
 
     if calendar.indexes_active {
@@ -196,7 +185,7 @@ pub fn redical_event_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
 fn notify_keyspace_event(ctx: &Context, calendar_uid: &RedisString, event_uid: &String, last_modified_ical_property: &String) -> Result<(), RedisError> {
     let event_message = format!("rdcl.evt_set:{} {}", event_uid, last_modified_ical_property);
 
-    if ctx.notify_keyspace_event(NotifyEvent::MODULE, event_message.as_str(), &calendar_uid) == Status::Err {
+    if ctx.notify_keyspace_event(NotifyEvent::MODULE, event_message.as_str(), calendar_uid) == Status::Err {
         return Err(
             RedisError::String(
                 format!("Notify keyspace event \"rdcl.evt_set\" for calendar: \"{}\" event: \"{}\"", &calendar_uid, &event_uid)

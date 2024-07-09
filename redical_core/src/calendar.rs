@@ -60,7 +60,7 @@ impl Calendar {
     }
 
     pub fn get_event(&self, event_uid: &String) -> Option<&Event> {
-        self.events.get(event_uid).and_then(|boxed_event| Some(boxed_event.as_ref()))
+        self.events.get(event_uid).map(|boxed_event| boxed_event.as_ref())
     }
 
     pub fn insert_event(&mut self, event: Event) -> Option<Event> {

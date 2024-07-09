@@ -88,22 +88,22 @@ impl Query {
     fn get_lower_bound_filter_condition(&self) -> Option<LowerBoundFilterCondition> {
         self.lower_bound_range_condition
             .clone()
-            .and_then(|lower_bound_range_condition| {
+            .map(|lower_bound_range_condition| {
                 let lower_bound_filter_condition: LowerBoundFilterCondition =
                     lower_bound_range_condition.into();
 
-                Some(lower_bound_filter_condition)
+                lower_bound_filter_condition
             })
     }
 
     fn get_upper_bound_filter_condition(&self) -> Option<UpperBoundFilterCondition> {
         self.upper_bound_range_condition
             .clone()
-            .and_then(|upper_bound_range_condition| {
+            .map(|upper_bound_range_condition| {
                 let upper_bound_filter_condition: UpperBoundFilterCondition =
                     upper_bound_range_condition.into();
 
-                Some(upper_bound_filter_condition)
+                upper_bound_filter_condition
             })
     }
 
@@ -136,7 +136,7 @@ impl Query {
             }
 
             None => {
-                for (_event_uid, event) in &calendar.events {
+                for event in calendar.events.values() {
                     self.add_event_to_merged_iterator(
                         event,
                         merged_iterator,
@@ -214,7 +214,7 @@ impl Query {
                 break;
             }
 
-            previous_dtstart_timestamp = Some(event_instance.dtstart.get_utc_timestamp().clone());
+            previous_dtstart_timestamp = Some(event_instance.dtstart.get_utc_timestamp());
 
             query_results.push(event_instance);
         }
@@ -335,69 +335,8 @@ mod test {
         LowerBoundRangeCondition, RangeConditionProperty, UpperBoundRangeCondition,
     };
 
-    use crate::{Event, GeoPoint, KeyValuePair};
-    use crate::testing::utils::{build_event_and_overrides_from_ical, build_event_from_ical};
+    use crate::{GeoPoint, KeyValuePair};
     use pretty_assertions_sorted::assert_eq;
-
-    fn build_overridden_recurring_event() -> Event {
-        build_event_and_overrides_from_ical(
-            "overridden_recurring_event_UID",
-            vec![
-                "DESCRIPTION:BASE description text.",
-                "DTSTART:20210105T183000Z",
-                "DTEND:20210105T190000Z",
-                "RRULE:FREQ=WEEKLY;UNTIL=20210202T183000Z;INTERVAL=1",
-                "CATEGORIES:BASE_CATEGORY_ONE,BASE_CATEGORY_TWO",
-                "RELATED-TO;RELTYPE=PARENT:BASE_ParentdUID",
-                "RELATED-TO;RELTYPE=CHILD:BASE_ChildUID",
-            ],
-            vec![
-                (
-                    "20210105T183000Z",
-                    vec![
-                        "DESCRIPTION:OVERRIDDEN description text.",
-                        "CATEGORIES:BASE_CATEGORY_ONE,OVERRIDDEN_CATEGORY_ONE",
-                        "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUID",
-                    ],
-                ),
-                (
-                    "20210112T183000Z",
-                    vec![
-                        "RELATED-TO;RELTYPE=CHILD:BASE_ChildUID",
-                        "RELATED-TO;RELTYPE=CHILD:OVERRIDDEN_ChildUID",
-                    ],
-                ),
-                (
-                    "20210126T183000Z",
-                    vec![
-                        "DESCRIPTION:OVERRIDDEN description text.",
-                        "CATEGORIES:OVERRIDDEN_CATEGORY_ONE,OVERRIDDEN_CATEGORY_TWO",
-                        "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUID",
-                        "RELATED-TO;RELTYPE=CHILD:OVERRIDDEN_ChildUID",
-                    ],
-                ),
-            ],
-        )
-    }
-
-    fn build_one_off_event() -> Event {
-        build_event_from_ical(
-            "one_off_event_UID",
-            vec![
-                "DTSTART:20201231T183000Z",
-                "DTEND:20201231T183100Z",
-                "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,CATEGORY THREE",
-                "RELATED-TO;RELTYPE=CHILD:ChildUID",
-                "RELATED-TO;RELTYPE=PARENT:ParentUID_One",
-                "RELATED-TO;RELTYPE=PARENT:ParentUID_Two",
-                "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_One",
-                "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Three",
-                "RELATED-TO;RELTYPE=X-IDX-CAL:redical//IndexedCalendar_Two",
-                "DESCRIPTION:Event description text.",
-                "LOCATION:Event address text.",
-            ],
-        )
-    }
 
     #[test]
     fn test_from_str() {

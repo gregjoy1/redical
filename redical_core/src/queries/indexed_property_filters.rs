@@ -56,8 +56,6 @@ pub enum WhereConditional {
 
 impl WhereConditional {
     pub fn execute(&mut self, calendar: &Calendar) -> Result<InvertedCalendarIndexTerm, String> {
-        let start = std::time::Instant::now();
-
         match self {
             WhereConditional::Property(where_conditional_property) => {
                 let inverted_calendar_index_term = where_conditional_property.execute(calendar)?;
@@ -113,7 +111,7 @@ impl WhereConditionalProperty {
             }
 
             WhereConditionalProperty::Geo(distance, long_lat) => {
-                format!("GEO;DIST={}:{}", distance.to_string(), long_lat.to_string())
+                format!("GEO;DIST={}:{}", distance, long_lat)
             }
 
             WhereConditionalProperty::Class(classification) => {

@@ -37,123 +37,9 @@ use crate::inverted_index::InvertedEventIndex;
 
 use crate::geo_index::GeoPoint;
 
-use crate::event_diff::EventDiff;
-
 use crate::utils::KeyValuePair;
 
-// Rebase all overrides with added/removed EventDiff properties.
-//
-// This is when an existing event with overrides is updated, and we want to update all the base
-// categories/related_to/properties on each one.
-//
-// If we don't do this, then when we update an existing event to have an additional category,
-// each overridden occurrence with not include that category.
-//
-// TODO: Look into storing diffs in the overrides as opposed to the current state of all overridden properties.
-pub fn rebase_overrides(
-    overrides: &mut BTreeMap<i64, EventOccurrenceOverride>,
-    event_diff: &EventDiff,
-) -> Result<(), String> {
-    /*
-     * TODO: come back to this:
-    for (_timestamp, event_occurrence_override) in overrides.iter_mut() {
-        rebase_override(event_occurrence_override, event_diff);
-    }
-    */
-
-    Ok(())
-}
-
-/*
- * TODO: Come back to this and add class and geo properties...
- *
-// Rebase specified override with added/removed EventDiff properties.
-fn rebase_override(
-    event_occurrence_override: &mut EventOccurrenceOverride,
-    event_diff: &EventDiff,
-) {
-    if let Some(indexed_categories) = &event_diff.indexed_categories {
-        match event_occurrence_override.categories.as_mut() {
-            Some(overridden_categories) => {
-                for removed_category in indexed_categories.removed.iter() {
-                    overridden_categories.remove(removed_category);
-                }
-
-                for added_category in indexed_categories.added.iter() {
-                    overridden_categories.insert(added_category.clone());
-                }
-            }
-
-            None => {
-                event_occurrence_override.categories = Some(indexed_categories.added.clone());
-            }
-        };
-    }
-
-    if let Some(indexed_related_to) = &event_diff.indexed_related_to {
-        match event_occurrence_override.related_to.as_mut() {
-            Some(overridden_related_to) => {
-                for removed_reltype_uid_pair in indexed_related_to.removed.iter() {
-                    if let Some(reltype_uids) =
-                        overridden_related_to.get_mut(&removed_reltype_uid_pair.key)
-                    {
-                        reltype_uids.remove(&removed_reltype_uid_pair.value);
-                    }
-                }
-
-                for added_reltype_uid_pair in indexed_related_to.added.iter() {
-                    overridden_related_to
-                        .entry(added_reltype_uid_pair.key.clone())
-                        .and_modify(|reltype_uids| {
-                            reltype_uids.insert(added_reltype_uid_pair.value.clone());
-                        })
-                        .or_insert(HashSet::from([added_reltype_uid_pair.value.clone()]));
-                }
-            }
-
-            None => {
-                let mut overridden_related_to = HashMap::new();
-
-                for added_reltype_uid_pair in indexed_related_to.added.iter() {
-                    overridden_related_to
-                        .entry(added_reltype_uid_pair.key.clone())
-                        .and_modify(|reltype_uids: &mut HashSet<String>| {
-                            reltype_uids.insert(added_reltype_uid_pair.value.clone());
-                        })
-                        .or_insert(HashSet::from([added_reltype_uid_pair.value.clone()]));
-                }
-
-                event_occurrence_override.related_to = Some(overridden_related_to);
-            }
-        };
-    }
-
-    if let Some(indexed_passive_properties) = &event_diff.passive_properties {
-        match event_occurrence_override.properties.as_mut() {
-            Some(overridden_passive_properties) => {
-                for removed_property_pair in indexed_passive_properties.removed.iter() {
-                    overridden_passive_properties.remove(&removed_property_pair);
-                }
-
-                for added_property_pair in indexed_passive_properties.added.iter() {
-                    overridden_passive_properties.insert(added_property_pair.clone());
-                }
-            }
-
-            None => {
-                event_occurrence_override.properties = Some(BTreeSet::from_iter(
-                    indexed_passive_properties
-                        .added
-                        .iter()
-                        .map(|added_key_value_pair| added_key_value_pair.clone()),
-                ));
-            }
-        };
-    }
-}
-*/
-
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Default, Debug, PartialEq, Clone)]
 pub struct ScheduleProperties {
     pub rrule: Option<RRuleProperty>,
     pub exrule: Option<ExRuleProperty>,
@@ -182,55 +68,55 @@ impl ScheduleProperties {
     pub fn extract_serialized_rrule_ical_key_value_pair(&self) -> Option<KeyValuePair> {
         self.rrule
             .as_ref()
-            .and_then(|property| Some(property.to_content_line().into()))
+            .map(|property| property.to_content_line().into())
     }
 
     pub fn extract_serialized_exrule_ical_key_value_pair(&self) -> Option<KeyValuePair> {
         self.exrule
             .as_ref()
-            .and_then(|property| Some(property.to_content_line().into()))
+            .map(|property| property.to_content_line().into())
     }
 
     pub fn extract_serialized_rdates_ical_key_value_pairs(&self) -> Option<HashSet<KeyValuePair>> {
-        self.rdates.as_ref().and_then(|properties| {
+        self.rdates.as_ref().map(|properties| {
             let mut key_value_pairs = HashSet::new();
 
             for property in properties {
                 key_value_pairs.insert(property.to_content_line().into());
             }
 
-            Some(key_value_pairs)
+            key_value_pairs
         })
     }
 
     pub fn extract_serialized_exdates_ical_key_value_pairs(&self) -> Option<HashSet<KeyValuePair>> {
-        self.exdates.as_ref().and_then(|properties| {
+        self.exdates.as_ref().map(|properties| {
             let mut key_value_pairs = HashSet::new();
 
             for property in properties {
                 key_value_pairs.insert(property.to_content_line().into());
             }
 
-            Some(key_value_pairs)
+            key_value_pairs
         })
     }
 
     pub fn extract_serialized_duration_ical_key_value_pair(&self) -> Option<KeyValuePair> {
         self.duration
             .as_ref()
-            .and_then(|property| Some(property.to_content_line().into()))
+            .map(|property| property.to_content_line().into())
     }
 
     pub fn extract_serialized_dtstart_ical_key_value_pair(&self) -> Option<KeyValuePair> {
         self.dtstart
             .as_ref()
-            .and_then(|property| Some(property.to_content_line().into()))
+            .map(|property| property.to_content_line().into())
     }
 
     pub fn extract_serialized_dtend_ical_key_value_pair(&self) -> Option<KeyValuePair> {
         self.dtend
             .as_ref()
-            .and_then(|property| Some(property.to_content_line().into()))
+            .map(|property| property.to_content_line().into())
     }
 
     pub fn insert(&mut self, property: EventProperty) -> Result<&Self, String> {
@@ -316,13 +202,13 @@ impl ScheduleProperties {
     pub fn get_dtstart_timestamp(&self) -> Option<i64> {
         self.dtstart
             .as_ref()
-            .and_then(|dtstart| Some(dtstart.get_utc_timestamp()))
+            .map(|dtstart| dtstart.get_utc_timestamp())
     }
 
     pub fn get_dtend_timestamp(&self) -> Option<i64> {
         self.dtend
             .as_ref()
-            .and_then(|dtend| Some(dtend.get_utc_timestamp()))
+            .map(|dtend| dtend.get_utc_timestamp())
     }
 
     pub fn get_duration_in_seconds(&self) -> Option<i64> {
@@ -348,7 +234,7 @@ impl ScheduleProperties {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Default, Debug, Eq, PartialEq, Clone)]
 pub struct IndexedProperties {
     pub geo: Option<GeoProperty>,
     pub related_to: Option<HashSet<RelatedToProperty>>,
@@ -369,19 +255,19 @@ impl IndexedProperties {
     }
 
     pub fn extract_all_location_type_strings(&self) -> Option<HashSet<String>> {
-        self.location_type.as_ref().and_then(|location_type_property| {
+        self.location_type.as_ref().map(|location_type_property| {
             let mut location_types: HashSet<String> = HashSet::new();
 
             for location_type in &location_type_property.types {
                 location_types.insert(location_type.to_string());
             }
 
-            Some(location_types)
+            location_types
         })
     }
 
     pub fn extract_all_category_strings(&self) -> Option<HashSet<String>> {
-        self.categories.as_ref().and_then(|categories_properties| {
+        self.categories.as_ref().map(|categories_properties| {
             let mut categories: HashSet<String> = HashSet::new();
 
             for categories_property in categories_properties {
@@ -390,24 +276,24 @@ impl IndexedProperties {
                 }
             }
 
-            Some(categories)
+            categories
         })
     }
 
     pub fn extract_all_related_to_key_value_pairs(&self) -> Option<HashSet<KeyValuePair>> {
-        self.related_to.as_ref().and_then(|related_to_properties| {
+        self.related_to.as_ref().map(|related_to_properties| {
             let mut related_to_key_value_pairs: HashSet<KeyValuePair> = HashSet::new();
 
             for related_to_property in related_to_properties {
                 related_to_key_value_pairs.insert(related_to_property.to_reltype_uid_pair().into());
             }
 
-            Some(related_to_key_value_pairs)
+            related_to_key_value_pairs
         })
     }
 
     pub fn extract_all_related_to_key_value_map(&self) -> Option<HashMap<String, HashSet<String>>> {
-        self.related_to.as_ref().and_then(|related_to_properties| {
+        self.related_to.as_ref().map(|related_to_properties| {
             let mut related_to_map = HashMap::new();
 
             for related_to_property in related_to_properties {
@@ -419,20 +305,20 @@ impl IndexedProperties {
                     .or_insert(HashSet::from([related_to_property.uid.to_string()]));
             }
 
-            Some(related_to_map)
+            related_to_map
         })
     }
 
     pub fn extract_geo_point(&self) -> Option<GeoPoint> {
         self.geo
             .as_ref()
-            .and_then(|geo_property| Some(GeoPoint::from(geo_property)))
+            .map(GeoPoint::from)
     }
 
     pub fn extract_class(&self) -> Option<String> {
         self.class
             .as_ref()
-            .and_then(|class_property| Some(class_property.class.to_string()))
+            .map(|class_property| class_property.class.to_string())
     }
 
     pub fn insert(&mut self, property: EventProperty) -> Result<&Self, String> {
@@ -473,7 +359,7 @@ impl IndexedProperties {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Default, Debug, Eq, PartialEq, Clone)]
 pub struct PassiveProperties {
     pub properties: BTreeSet<PassiveProperty>,
 }
@@ -674,7 +560,7 @@ impl Event {
             .insert(timestamp, event_occurrence_override.clone());
 
         // Only proceed with updating the indexes of the event if required.
-        if update_indexes == false {
+        if !update_indexes {
             return Ok(true);
         }
 
@@ -729,7 +615,7 @@ impl Event {
         let override_removed = self.overrides.remove(&timestamp);
 
         // Only proceed with updating the indexes of the event if required.
-        if update_indexes == false {
+        if !update_indexes {
             return Ok(override_removed);
         }
 
@@ -763,6 +649,28 @@ impl Event {
         }
 
         Ok(override_removed)
+    }
+
+    pub fn prune_event_overrides(&mut self, from_timestamp: i64, until_timestamp: i64) -> Result<Vec<(i64, EventOccurrenceOverride)>, String> {
+        if from_timestamp > until_timestamp {
+            return Err(format!("Lower bound value: {from_timestamp} cannot be greater than upper bound value: {until_timestamp}"));
+        }
+
+        let mut removed_event_occurrence_overrides: Vec<(i64, EventOccurrenceOverride)> = Vec::new();
+
+        let timestamps_to_remove: Vec<i64> =
+            self.overrides
+                .range((std::ops::Bound::Included(from_timestamp), std::ops::Bound::Included(until_timestamp)))
+                .map(|(timestamp, _)| timestamp.to_owned())
+                .collect();
+
+        for timestamp_to_remove in timestamps_to_remove {
+            if let Some(removed_event_occurrence_override) = self.remove_occurrence_override(timestamp_to_remove, true)? {
+                removed_event_occurrence_overrides.push((timestamp_to_remove, removed_event_occurrence_override));
+            }
+        }
+
+        Ok(removed_event_occurrence_overrides)
     }
 }
 
@@ -845,7 +753,16 @@ mod test {
 
     use crate::testing::macros::build_property_from_ical;
 
-    use std::collections::BTreeMap;
+    use std::collections::{HashSet, BTreeMap, BTreeSet};
+
+    use std::str::FromStr;
+
+    use redical_ical::properties::{
+        LastModifiedProperty,
+        CategoriesProperty,
+    };
+
+    use crate::{IndexedProperties, PassiveProperties, ScheduleProperties};
 
     use pretty_assertions_sorted::assert_eq;
 
@@ -1478,211 +1395,178 @@ mod test {
         );
     }
 
-    /*
-     * TODO: Come back to this and add class and geo properties...
-    #[test]
-    fn test_event_occurrence_overrides_rebase_overrides() {
-        let mut event_occurrence_overrides = BTreeMap::from([
-            (
-                1610476300,
-                EventOccurrenceOverride {
-                    geo: None,
-                    class: None,
-                    properties: None,
-                    categories: None,
-                    duration: None,
-                    dtstart: None,
-                    dtend: None,
-                    related_to: None,
-                },
-            ),
-            (
-                1610476200,
-                EventOccurrenceOverride {
-                    geo: None,
-                    class: None,
-                    properties: Some(BTreeSet::from([
-                        KeyValuePair::new(
-                            String::from("X-PROPERTY-ONE"),
-                            String::from(":PROPERTY_VALUE_ONE"),
-                        ),
-                        KeyValuePair::new(
-                            String::from("X-PROPERTY-ONE"),
-                            String::from(":PROPERTY_VALUE_TWO"),
-                        ),
-                        KeyValuePair::new(
-                            String::from("X-PROPERTY-TWO"),
-                            String::from(":PROPERTY_VALUE_ONE"),
-                        ),
-                        KeyValuePair::new(
-                            String::from("X-PROPERTY-TWO"),
-                            String::from(":PROPERTY_VALUE_TWO"),
-                        ),
-                    ])),
-                    categories: Some(HashSet::from([
-                        String::from("CATEGORY_ONE"),
-                        String::from("CATEGORY_TWO"),
-                    ])),
-                    duration: None,
-                    dtstart: None,
-                    dtend: None,
-                    related_to: Some(HashMap::from([
-                        (
-                            String::from("PARENT"),
-                            HashSet::from([
-                                String::from("PARENT_UID_ONE"),
-                                String::from("PARENT_UID_TWO"),
-                            ]),
-                        ),
-                        (
-                            String::from("CHILD"),
-                            HashSet::from([
-                                String::from("CHILD_UID_ONE"),
-                                String::from("CHILD_UID_TWO"),
-                            ]),
-                        ),
-                    ])),
-                },
-            ),
-        ]);
+    // Override 100 has all event categories plus CATEGORY_FOUR
+    fn build_event_occurrence_override_100() -> EventOccurrenceOverride {
+        EventOccurrenceOverride {
+            last_modified: build_property_from_ical!(LastModifiedProperty, "LAST-MODIFIED:20201230T173000Z"),
+            indexed_properties: IndexedProperties {
+                geo: None,
+                related_to: None,
+                location_type: None,
+                categories: Some(HashSet::from([build_property_from_ical!(
+                    CategoriesProperty,
+                    "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,CATEGORY_THREE,CATEGORY_FOUR"
+                )])),
+                class: None,
+            },
+            passive_properties: PassiveProperties::new(),
+            dtstart: None,
+            dtend: None,
+            duration: None,
+        }
+    }
 
-        let event_diff = EventDiff {
-            indexed_categories: Some(UpdatedSetMembers {
-                removed: HashSet::from([
-                    String::from("CATEGORY_THREE"),
-                    String::from("CATEGORY_FIVE"),
-                ]),
-                maintained: HashSet::from([
-                    String::from("CATEGORY_ONE"),
-                    String::from("CATEGORY_TWO"),
-                ]),
-                added: HashSet::from([String::from("CATEGORY_FOUR")]),
-            }),
-            indexed_related_to: Some(UpdatedSetMembers {
-                removed: HashSet::from([KeyValuePair::new(
-                    String::from("PARENT"),
-                    String::from("PARENT_UID_ONE"),
-                )]),
-                maintained: HashSet::from([
-                    KeyValuePair::new(String::from("PARENT"), String::from("PARENT_UID_TWO")),
-                    KeyValuePair::new(String::from("CHILD"), String::from("CHILD_UID_ONE")),
-                    KeyValuePair::new(String::from("CHILD"), String::from("CHILD_UID_TWO")),
-                ]),
-                added: HashSet::from([KeyValuePair::new(
-                    String::from("X-IDX-CAL"),
-                    String::from("INDEXED_CALENDAR_UID"),
-                )]),
-            }),
+    // Override 200 has only some event categories (missing CATEGORY_THREE)
+    fn build_event_occurrence_override_200() -> EventOccurrenceOverride {
+        EventOccurrenceOverride {
+            last_modified: build_property_from_ical!(LastModifiedProperty, "LAST-MODIFIED:20201230T173000Z"),
+            indexed_properties: IndexedProperties {
+                geo: None,
+                related_to: None,
+                location_type: None,
+                categories: Some(HashSet::from([build_property_from_ical!(
+                    CategoriesProperty,
+                    "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO"
+                )])),
+                class: None,
+            },
+            passive_properties: PassiveProperties::new(),
+            dtstart: None,
+            dtend: None,
+            duration: None,
+        }
+    }
+
+    // Override 300 has no overridden categories
+    fn build_event_occurrence_override_300() -> EventOccurrenceOverride {
+        EventOccurrenceOverride {
+            last_modified: build_property_from_ical!(LastModifiedProperty, "LAST-MODIFIED:20201230T173000Z"),
+            indexed_properties: IndexedProperties::new(),
+            passive_properties: PassiveProperties::new(),
+            dtstart: None,
+            dtend: None,
+            duration: None,
+        }
+    }
+
+    // Override 400 has removed all categories
+    fn build_event_occurrence_override_400() -> EventOccurrenceOverride {
+        EventOccurrenceOverride {
+            last_modified: build_property_from_ical!(LastModifiedProperty, "LAST-MODIFIED:20201230T173000Z"),
+            indexed_properties: IndexedProperties {
+                geo: None,
+                related_to: None,
+                location_type: None,
+                categories: Some(HashSet::new()),
+                class: None,
+            },
+            passive_properties: PassiveProperties::new(),
+            dtstart: None,
+            dtend: None,
+            duration: None,
+        }
+    }
+
+    // Override 500 has no base event categories, but does have CATEGORY_FOUR
+    fn build_event_occurrence_override_500() -> EventOccurrenceOverride {
+        EventOccurrenceOverride {
+            last_modified: build_property_from_ical!(LastModifiedProperty, "LAST-MODIFIED:20201230T173000Z"),
+            indexed_properties: IndexedProperties {
+                geo: None,
+                related_to: None,
+                location_type: None,
+                categories: Some(HashSet::from([build_property_from_ical!(
+                    CategoriesProperty,
+                    "CATEGORIES:CATEGORY_FOUR"
+                )])),
+                class: None,
+            },
+            passive_properties: PassiveProperties::new(),
+            dtstart: None,
+            dtend: None,
+            duration: None,
+        }
+    }
+
+    fn build_event() -> Event {
+        Event {
+            uid: String::from("event_UID").into(),
+            last_modified: build_property_from_ical!(LastModifiedProperty, "LAST-MODIFIED:20201230T173000Z"),
+
+            schedule_properties: ScheduleProperties {
+                rrule: None,
+                exrule: None,
+                rdates: None,
+                exdates: None,
+                duration: None,
+                dtstart: None,
+                dtend: None,
+                parsed_rrule_set: None,
+            },
+
+            indexed_properties: IndexedProperties {
+                geo: None,
+                class: None,
+                related_to: None,
+                location_type: None,
+                categories: Some(HashSet::from([build_property_from_ical!(
+                    CategoriesProperty,
+                    "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,CATEGORY_THREE"
+                )])),
+            },
+
+            passive_properties: PassiveProperties {
+                properties: BTreeSet::new(),
+            },
+
+            overrides: BTreeMap::from([
+                (100, build_event_occurrence_override_100()), // Override 100 has all event categories plus CATEGORY_FOUR
+                (200, build_event_occurrence_override_200()), // Override 200 has only some event categories (missing CATEGORY_THREE)
+                (300, build_event_occurrence_override_300()), // Override 300 has no overridden categories
+                (400, build_event_occurrence_override_400()), // Override 400 has removed all categories
+                (500, build_event_occurrence_override_500()), // Override 500 has no base event categories, but does have CATEGORY_FOUR
+            ]),
+            indexed_categories: None,
+            indexed_related_to: None,
             indexed_geo: None,
             indexed_class: None,
-            passive_properties: Some(UpdatedSetMembers {
-                removed: HashSet::from([KeyValuePair {
-                    key: String::from("X-PROPERTY-TWO"),
-                    value: String::from(":PROPERTY_VALUE_TWO"),
-                }]),
-                maintained: HashSet::from([
-                    KeyValuePair {
-                        key: String::from("X-PROPERTY-ONE"),
-                        value: String::from(":PROPERTY_VALUE_ONE"),
-                    },
-                    KeyValuePair {
-                        key: String::from("X-PROPERTY-ONE"),
-                        value: String::from(":PROPERTY_VALUE_TWO"),
-                    },
-                    KeyValuePair {
-                        key: String::from("X-PROPERTY-TWO"),
-                        value: String::from(":PROPERTY_VALUE_ONE"),
-                    },
-                ]),
-                added: HashSet::from([KeyValuePair {
-                    key: String::from("X-PROPERTY-THREE"),
-                    value: String::from(":PROPERTY_VALUE_ONE"),
-                }]),
-            }),
-            schedule_properties: None,
-        };
+        }
+    }
 
-        // Assert that:
-        // * Missing event diff properties marked as maintained are silently ignored
-        // * Missing overrides properties marked as removed in the event diff are silently ignored
-        // * Existing overrides properties marked as added in the event diff are silently ignored
-        // * It applies the diff to the event overrides.
-        assert!(rebase_overrides(&mut event_occurrence_overrides, &event_diff).is_ok());
+    #[test]
+    fn test_prune_event_overrides() {
+        let mut event = build_event();
 
-        assert_eq_sorted!(
-            event_occurrence_overrides,
+        assert_eq!(
+            event.prune_event_overrides(125, 400),
+            Ok(
+                vec![
+                    (200, build_event_occurrence_override_200()), // Override 200 has only some event categories (missing CATEGORY_THREE)
+                    (300, build_event_occurrence_override_300()), // Override 300 has no overridden categories
+                    (400, build_event_occurrence_override_400()), // Override 400 has removed all categories
+                ]
+            ),
+        );
+
+        assert_eq!(
+            event.overrides,
             BTreeMap::from([
-                (
-                    1610476300,
-                    EventOccurrenceOverride {
-                        geo: None,
-                        class: None,
-                        properties: Some(BTreeSet::from([KeyValuePair::new(
-                            String::from("X-PROPERTY-THREE"),
-                            String::from(":PROPERTY_VALUE_ONE"),
-                        )])),
-                        categories: Some(HashSet::from([String::from("CATEGORY_FOUR"),])),
-                        duration: None,
-                        dtstart: None,
-                        dtend: None,
-                        related_to: Some(HashMap::from([(
-                            String::from("X-IDX-CAL"),
-                            HashSet::from([String::from("INDEXED_CALENDAR_UID"),])
-                        ),]))
-                    }
-                ),
-                (
-                    1610476200,
-                    EventOccurrenceOverride {
-                        geo: None,
-                        class: None,
-                        properties: Some(BTreeSet::from([
-                            KeyValuePair::new(
-                                String::from("X-PROPERTY-ONE"),
-                                String::from(":PROPERTY_VALUE_ONE"),
-                            ),
-                            KeyValuePair::new(
-                                String::from("X-PROPERTY-ONE"),
-                                String::from(":PROPERTY_VALUE_TWO"),
-                            ),
-                            KeyValuePair::new(
-                                String::from("X-PROPERTY-THREE"),
-                                String::from(":PROPERTY_VALUE_ONE"),
-                            ),
-                            KeyValuePair::new(
-                                String::from("X-PROPERTY-TWO"),
-                                String::from(":PROPERTY_VALUE_ONE"),
-                            ),
-                        ])),
-                        categories: Some(HashSet::from([
-                            String::from("CATEGORY_FOUR"),
-                            String::from("CATEGORY_ONE"),
-                            String::from("CATEGORY_TWO"),
-                        ])),
-                        duration: None,
-                        dtstart: None,
-                        dtend: None,
-                        related_to: Some(HashMap::from([
-                            (
-                                String::from("PARENT"),
-                                HashSet::from([String::from("PARENT_UID_TWO"),])
-                            ),
-                            (
-                                String::from("CHILD"),
-                                HashSet::from([
-                                    String::from("CHILD_UID_ONE"),
-                                    String::from("CHILD_UID_TWO"),
-                                ])
-                            ),
-                            (
-                                String::from("X-IDX-CAL"),
-                                HashSet::from([String::from("INDEXED_CALENDAR_UID"),])
-                            ),
-                        ]))
-                    }
-                )
-            ])
+                (100, build_event_occurrence_override_100()), // Override 100 has all event categories plus CATEGORY_FOUR
+                (500, build_event_occurrence_override_500()), // Override 500 has no base event categories, but does have CATEGORY_FOUR
+            ]),
         );
     }
-    */
+
+    #[test]
+    fn test_prune_event_overrides_validation() {
+        let mut event = build_event();
+
+        assert!(event.prune_event_overrides(125, 125).is_ok());
+        assert!(event.prune_event_overrides(125, 130).is_ok());
+
+        assert_eq!(
+            event.prune_event_overrides(125, 120),
+            Err(String::from("Lower bound value: 125 cannot be greater than upper bound value: 120")),
+        );
+    }
 }

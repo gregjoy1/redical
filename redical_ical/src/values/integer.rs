@@ -36,7 +36,7 @@ impl ICalendarEntity for Integer {
     where
         Self: Sized
     {
-        map(integer, |value| Self(value))(input)
+        map(integer, Self)(input)
     }
 
     fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
@@ -94,7 +94,7 @@ impl Integer {
     /// assert!(parser("10".into()).is_err());
     /// ```
     /// [plus / minus] 1*digit
-    pub fn parse_signed_m_n<'a>(min_chars: usize, max_chars: usize, min_value: i64, max_value: i64) -> impl FnMut(ParserInput) -> ParserResult<Integer> {
+    pub fn parse_signed_m_n(min_chars: usize, max_chars: usize, min_value: i64, max_value: i64) -> impl FnMut(ParserInput) -> ParserResult<Integer> {
         move |input: ParserInput| {
             let (remaining, parsed_positive_negative) = opt(PositiveNegative::parse_ical)(input)?;
             let (remaining, mut parsed_integer) = Self::parse_unsigned_m_n(min_chars, max_chars, min_value, max_value)(remaining)?;
@@ -160,7 +160,7 @@ impl Integer {
     /// assert!(parser("10".into()).is_err());
     /// ```
     /// [plus / minus] 1*digit
-    pub fn parse_unsigned_m_n<'a>(min_chars: usize, max_chars: usize, min_value: i64, max_value: i64) -> impl FnMut(ParserInput) -> ParserResult<Integer> {
+    pub fn parse_unsigned_m_n(min_chars: usize, max_chars: usize, min_value: i64, max_value: i64) -> impl FnMut(ParserInput) -> ParserResult<Integer> {
         move |input: ParserInput| {
             let (remaining, parsed_value) = take_while_m_n(min_chars, max_chars, |value| is_digit(value as u8))(input)?;
 

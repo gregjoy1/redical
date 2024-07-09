@@ -39,7 +39,7 @@ impl ICalendarEntity for Float {
     where
         Self: Sized
     {
-        map(float, |value| Self(value))(input)
+        map(float, Self)(input)
     }
 
     fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
@@ -47,9 +47,9 @@ impl ICalendarEntity for Float {
     }
 }
 
-impl Into<f64> for Float {
-    fn into(self) -> f64 {
-        self.0.to_owned()
+impl From<Float> for f64 {
+    fn from(float_value: Float) -> Self {
+        float_value.0.to_owned()
     }
 }
 
@@ -80,10 +80,10 @@ mod tests {
         );
 
         assert_parser_output!(
-            Float::parse_ical("-3.14 TESTING".into()),
+            Float::parse_ical("-3.141592653589793 TESTING".into()),
             (
                 " TESTING",
-                Float(-3.14_f64),
+                Float(-std::f64::consts::PI),
             ),
         );
 
@@ -104,8 +104,8 @@ mod tests {
         );
 
         assert_eq!(
-            Float(-3.14_f64).render_ical(),
-            String::from("-3.14"),
+            Float(-std::f64::consts::PI).render_ical(),
+            String::from("-3.141592653589793"),
         );
     }
 }

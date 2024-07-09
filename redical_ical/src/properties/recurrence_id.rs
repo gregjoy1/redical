@@ -55,7 +55,7 @@ impl ICalendarPropertyParams for RecurrenceIDPropertyParams {
     fn to_content_line_params_with_context(&self, context: Option<&RenderingContext>) -> ContentLineParams {
         let mut content_line_params = ContentLineParams::default();
 
-        for (key, value) in self.other.to_owned().into_iter().sorted() {
+        for (key, value) in self.other.clone().into_iter().sorted() {
             content_line_params.insert(key.to_owned(), value.to_owned());
         }
 
@@ -164,10 +164,12 @@ impl RecurrenceIDProperty {
 
 impl ICalendarDateTimeProperty for RecurrenceIDProperty {
     fn new(value_type: Option<&ValueType>, tzid: Option<&Tzid>, date_time: &DateTime) -> Self {
-        let mut params = RecurrenceIDPropertyParams::default();
-
-        params.tzid = tzid.cloned();
-        params.value_type = value_type.cloned();
+        let params =
+            RecurrenceIDPropertyParams {
+                tzid: tzid.cloned(),
+                value_type: value_type.cloned(),
+                other: HashMap::new(),
+            };
 
         let mut recurrence_id_property = RecurrenceIDProperty {
             params,

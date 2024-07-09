@@ -78,10 +78,10 @@ impl<'a> EventOccurrenceIterator<'a> {
         filter_until: Option<UpperBoundFilterCondition>,
         filtering_indexed_conclusion: Option<IndexedConclusion>,
     ) -> Result<EventOccurrenceIterator<'a>, String> {
-        let rrule_set_iter = match &schedule_properties.parsed_rrule_set {
-            Some(parsed_rrule_set) => Some(parsed_rrule_set.into_iter()),
-            None => None,
-        };
+        let rrule_set_iter =
+            schedule_properties.parsed_rrule_set
+                               .as_ref()
+                               .map(|parsed_rrule_set| parsed_rrule_set.into_iter());
 
         let base_duration = schedule_properties.get_duration_in_seconds().unwrap_or(0);
 
@@ -237,7 +237,7 @@ impl<'a> EventOccurrenceIterator<'a> {
         duration: &i64,
     ) -> bool {
         if let Some(filtering_indexed_conclusion) = &self.filtering_indexed_conclusion {
-            if filtering_indexed_conclusion.exclude_event_occurrence(dtstart_timestamp.clone()) {
+            if filtering_indexed_conclusion.exclude_event_occurrence(dtstart_timestamp.to_owned()) {
                 return true;
             }
         }

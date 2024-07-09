@@ -49,7 +49,7 @@ pub fn start_redis_server_with_module(module_name: &str, port: u16) -> Result<Ch
 
     let test_config_path: PathBuf = [
         std::env::current_dir()?,
-        PathBuf::from(format!("tests/redis_test_config.conf")),
+        PathBuf::from("tests/redis_test_config.conf"),
     ]
     .iter()
     .collect();
@@ -87,14 +87,14 @@ pub fn start_redis_server_with_module(module_name: &str, port: u16) -> Result<Ch
 pub fn delete_existing_test_rdb_dump() -> Result<()> {
     let test_rdb_dump_path: PathBuf = [
         std::env::current_dir()?,
-        PathBuf::from(format!("test_dump.rdb")),
+        PathBuf::from("test_dump.rdb"),
     ]
     .iter()
     .collect();
 
     if fs::metadata(&test_rdb_dump_path).is_ok() {
         if let Err(error) = fs::remove_file(&test_rdb_dump_path) {
-            panic!("There was a problem removing test_dump.rdb from path: {}, with error: {}", test_rdb_dump_path.display(), error.to_string());
+            panic!("There was a problem removing test_dump.rdb from path: {}, with error: {}", test_rdb_dump_path.display(), error);
         }
     }
 
@@ -150,7 +150,7 @@ pub fn listen_for_keyspace_events(port: u16, mut handler: impl FnMut(&mut Arc<Mu
         let _ = pub_sub.set_read_timeout(Some(Duration::new(0, 500)));
 
         loop {
-            if let Ok(_) = kill_rx.try_recv() {
+            if kill_rx.try_recv().is_ok() {
                 break;
             }
 

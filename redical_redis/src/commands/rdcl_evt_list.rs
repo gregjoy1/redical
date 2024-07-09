@@ -16,6 +16,7 @@ fn serialize_calendar_events(calendar: &Calendar, offset: usize, count: usize) -
     )
 }
 
+#[allow(clippy::borrowed_box)]
 fn serialize_event(event: &Box<Event>) -> RedisValue {
     RedisValue::Array(
         event
@@ -27,8 +28,8 @@ fn serialize_event(event: &Box<Event>) -> RedisValue {
 }
 
 pub fn redical_event_list(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
-    if args.len() < 1 {
-        ctx.log_debug(format!("rdcl.evt_list: WrongArity: {{args.len()}}").as_str());
+    if args.is_empty() {
+        ctx.log_debug(format!("rdcl.evt_list: WrongArity: {}", args.len()).as_str());
 
         return Err(RedisError::WrongArity);
     }

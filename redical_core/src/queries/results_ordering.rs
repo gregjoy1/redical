@@ -3,7 +3,7 @@ use std::collections::BTreeSet;
 
 use geo::HaversineDistance;
 
-use crate::{EventInstance, GeoDistance, GeoPoint, KeyValuePair};
+use crate::{EventInstance, GeoDistance, GeoPoint};
 
 use redical_ical::{
     ICalendarComponent,
@@ -61,7 +61,7 @@ impl OrderingCondition {
     ) -> QueryResultOrdering {
         match &self {
             OrderingCondition::DtStart => {
-                QueryResultOrdering::DtStart(event_instance.dtstart.get_utc_timestamp().clone())
+                QueryResultOrdering::DtStart(event_instance.dtstart.get_utc_timestamp())
             }
 
             OrderingCondition::DtStartGeoDist(ordering_geo_point) => {
@@ -72,12 +72,12 @@ impl OrderingCondition {
                         .indexed_properties
                         .geo
                         .clone()
-                        .and_then(|event_instance_geo| {
+                        .map(|event_instance_geo| {
                             let event_instance_geo_point = GeoPoint::from(&event_instance_geo);
 
-                            Some(GeoDistance::new_from_meters_float(
-                                event_instance_geo_point.haversine_distance(&ordering_geo_point),
-                            ))
+                            GeoDistance::new_from_meters_float(
+                                event_instance_geo_point.haversine_distance(ordering_geo_point),
+                            )
                         });
 
                 QueryResultOrdering::DtStartGeoDist(dtstart_timestamp, geo_distance)
@@ -91,12 +91,12 @@ impl OrderingCondition {
                         .indexed_properties
                         .geo
                         .as_ref()
-                        .and_then(|event_instance_geo| {
+                        .map(|event_instance_geo| {
                             let event_instance_geo_point = GeoPoint::from(event_instance_geo);
 
-                            Some(GeoDistance::new_from_meters_float(
-                                event_instance_geo_point.haversine_distance(&ordering_geo_point),
-                            ))
+                            GeoDistance::new_from_meters_float(
+                                event_instance_geo_point.haversine_distance(ordering_geo_point),
+                            )
                         });
 
                 QueryResultOrdering::GeoDistDtStart(geo_distance, dtstart_timestamp)
@@ -105,7 +105,7 @@ impl OrderingCondition {
     }
 }
 
-#[derive(Debug, PartialOrd, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum QueryResultOrdering {
     DtStart(i64),
     DtStartGeoDist(i64, Option<GeoDistance>),
@@ -114,10 +114,6 @@ pub enum QueryResultOrdering {
 
 impl ICalendarComponent for QueryResultOrdering {
     fn to_content_line_set_with_context(&self, context: Option<&RenderingContext>) -> BTreeSet<ContentLine> {
-        let timezone =
-            context.and_then(|context| context.tz)
-                   .map_or(rrule::Tz::UTC, |tz| rrule::Tz::Tz(tz));
-
         let mut serialized_ical_set = BTreeSet::new();
 
         match self {
@@ -174,23 +170,29 @@ impl ICalendarComponent for QueryResultOrdering {
     }
 }
 
+impl PartialOrd for QueryResultOrdering {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
 impl Ord for QueryResultOrdering {
     fn cmp(&self, other: &Self) -> Ordering {
         match (&self, &other) {
             (
                 QueryResultOrdering::DtStart(self_dtstart_timestamp),
                 QueryResultOrdering::DtStart(other_dtstart_timestamp),
-            ) => self_dtstart_timestamp.cmp(&other_dtstart_timestamp),
+            ) => self_dtstart_timestamp.cmp(other_dtstart_timestamp),
 
             (
                 QueryResultOrdering::DtStartGeoDist(self_dtstart_timestamp, self_geo_distance),
                 QueryResultOrdering::DtStartGeoDist(other_dtstart_timestamp, other_geo_distance),
             ) => {
                 let dtstart_timestamp_comparison =
-                    self_dtstart_timestamp.cmp(&other_dtstart_timestamp);
+                    self_dtstart_timestamp.cmp(other_dtstart_timestamp);
 
                 if dtstart_timestamp_comparison.is_eq() {
-                    self_geo_distance.cmp(&other_geo_distance)
+                    self_geo_distance.cmp(other_geo_distance)
                 } else {
                     dtstart_timestamp_comparison
                 }
@@ -203,7 +205,7 @@ impl Ord for QueryResultOrdering {
                 // Ensure that None is always Greater than Some(...)
                 let geo_distance_comparison = match (self_geo_distance, other_geo_distance) {
                     (Some(self_geo_distance), Some(other_geo_distance)) => {
-                        self_geo_distance.cmp(&other_geo_distance)
+                        self_geo_distance.cmp(other_geo_distance)
                     }
 
                     (Some(_), None) => Ordering::Less,
@@ -214,7 +216,7 @@ impl Ord for QueryResultOrdering {
                 };
 
                 if geo_distance_comparison.is_eq() {
-                    self_dtstart_timestamp.cmp(&other_dtstart_timestamp)
+                    self_dtstart_timestamp.cmp(other_dtstart_timestamp)
                 } else {
                     geo_distance_comparison
                 }

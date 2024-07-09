@@ -113,9 +113,12 @@ impl XFromProperty {
 
 impl ICalendarDateTimeProperty for XFromProperty {
     fn new(_value_type: Option<&ValueType>, tzid: Option<&Tzid>, date_time: &DateTime) -> Self {
-        let mut params = XFromPropertyParams::default();
-
-        params.tzid = tzid.cloned();
+        let params =
+            XFromPropertyParams {
+                prop: WhereRangeProperty::DTStart,
+                op: WhereFromRangeOperator::GreaterThan,
+                tzid: tzid.cloned(),
+            };
 
         XFromProperty {
             params,

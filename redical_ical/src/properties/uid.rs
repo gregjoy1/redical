@@ -43,7 +43,7 @@ impl ICalendarPropertyParams for UIDPropertyParams {
     fn to_content_line_params_with_context(&self, _context: Option<&RenderingContext>) -> ContentLineParams {
         let mut content_line_params = ContentLineParams::default();
 
-        for (key, value) in self.other.to_owned().into_iter().sorted() {
+        for (key, value) in self.other.clone().into_iter().sorted() {
             content_line_params.insert(key.to_owned(), value.to_owned());
         }
 
@@ -90,7 +90,7 @@ pub struct UIDProperty {
 
 impl PartialOrd for UIDProperty {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.uid.to_string().partial_cmp(&other.uid.to_string())
+        Some(self.cmp(other))
     }
 }
 

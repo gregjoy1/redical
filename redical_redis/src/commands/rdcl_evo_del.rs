@@ -9,7 +9,7 @@ use redical_ical::values::date_time::DateTime;
 
 pub fn redical_event_override_del(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     if args.len() < 3 {
-        ctx.log_debug(format!("rdcl.evo_del: WrongArity: {{args.len()}}").as_str());
+        ctx.log_debug(format!("rdcl.evo_del: WrongArity: {}", args.len()).as_str());
 
         return Err(RedisError::WrongArity);
     }
@@ -108,7 +108,7 @@ pub fn redical_event_override_del(ctx: &Context, args: Vec<RedisString>) -> Redi
     ctx.replicate_verbatim();
 
     if was_override_removed {
-        notify_keyspace_event(ctx, &calendar_uid, &event_uid, &override_date_string)?;
+        notify_keyspace_event(ctx, &calendar_uid, &event_uid, override_date_string)?;
     }
 
     Ok(RedisValue::Bool(was_override_removed))
@@ -117,7 +117,7 @@ pub fn redical_event_override_del(ctx: &Context, args: Vec<RedisString>) -> Redi
 fn notify_keyspace_event(ctx: &Context, calendar_uid: &RedisString, event_uid: &String, override_date_string: &str) -> Result<(), RedisError> {
     let event_message = format!("rdcl.evo_del:{}:{}", event_uid, override_date_string);
 
-    if ctx.notify_keyspace_event(NotifyEvent::MODULE, event_message.as_str(), &calendar_uid) == Status::Err {
+    if ctx.notify_keyspace_event(NotifyEvent::MODULE, event_message.as_str(), calendar_uid) == Status::Err {
         return Err(
             RedisError::String(
                 format!("Notify keyspace event \"rdcl.evo_del\" for calendar: \"{}\" event: \"{}\" date string: \"{}\"", &calendar_uid, &event_uid, &override_date_string)
