@@ -650,6 +650,28 @@ impl Event {
 
         Ok(override_removed)
     }
+
+    pub fn prune_event_overrides(&mut self, from_timestamp: i64, until_timestamp: i64) -> Result<Vec<(i64, EventOccurrenceOverride)>, String> {
+        if from_timestamp > until_timestamp {
+            return Err(format!("Lower bound value: {from_timestamp} cannot be greater than upper bound value: {until_timestamp}"));
+        }
+
+        let mut removed_event_occurrence_overrides: Vec<(i64, EventOccurrenceOverride)> = Vec::new();
+
+        let timestamps_to_remove: Vec<i64> =
+            self.overrides
+                .range((std::ops::Bound::Included(from_timestamp), std::ops::Bound::Included(until_timestamp)))
+                .map(|(timestamp, _)| timestamp.to_owned())
+                .collect();
+
+        for timestamp_to_remove in timestamps_to_remove {
+            if let Some(removed_event_occurrence_override) = self.remove_occurrence_override(timestamp_to_remove, true)? {
+                removed_event_occurrence_overrides.push((timestamp_to_remove, removed_event_occurrence_override));
+            }
+        }
+
+        Ok(removed_event_occurrence_overrides)
+    }
 }
 
 impl ICalendarComponent for Event {
@@ -731,7 +753,16 @@ mod test {
 
     use crate::testing::macros::build_property_from_ical;
 
-    use std::collections::BTreeMap;
+    use std::collections::{HashSet, BTreeMap, BTreeSet};
+
+    use std::str::FromStr;
+
+    use redical_ical::properties::{
+        LastModifiedProperty,
+        CategoriesProperty,
+    };
+
+    use crate::{IndexedProperties, PassiveProperties, ScheduleProperties};
 
     use pretty_assertions_sorted::assert_eq;
 
@@ -1361,6 +1392,181 @@ mod test {
                 indexed_geo: None,
                 indexed_class: None,
             }
+        );
+    }
+
+    // Override 100 has all event categories plus CATEGORY_FOUR
+    fn build_event_occurrence_override_100() -> EventOccurrenceOverride {
+        EventOccurrenceOverride {
+            last_modified: build_property_from_ical!(LastModifiedProperty, "LAST-MODIFIED:20201230T173000Z"),
+            indexed_properties: IndexedProperties {
+                geo: None,
+                related_to: None,
+                location_type: None,
+                categories: Some(HashSet::from([build_property_from_ical!(
+                    CategoriesProperty,
+                    "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,CATEGORY_THREE,CATEGORY_FOUR"
+                )])),
+                class: None,
+            },
+            passive_properties: PassiveProperties::new(),
+            dtstart: None,
+            dtend: None,
+            duration: None,
+        }
+    }
+
+    // Override 200 has only some event categories (missing CATEGORY_THREE)
+    fn build_event_occurrence_override_200() -> EventOccurrenceOverride {
+        EventOccurrenceOverride {
+            last_modified: build_property_from_ical!(LastModifiedProperty, "LAST-MODIFIED:20201230T173000Z"),
+            indexed_properties: IndexedProperties {
+                geo: None,
+                related_to: None,
+                location_type: None,
+                categories: Some(HashSet::from([build_property_from_ical!(
+                    CategoriesProperty,
+                    "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO"
+                )])),
+                class: None,
+            },
+            passive_properties: PassiveProperties::new(),
+            dtstart: None,
+            dtend: None,
+            duration: None,
+        }
+    }
+
+    // Override 300 has no overridden categories
+    fn build_event_occurrence_override_300() -> EventOccurrenceOverride {
+        EventOccurrenceOverride {
+            last_modified: build_property_from_ical!(LastModifiedProperty, "LAST-MODIFIED:20201230T173000Z"),
+            indexed_properties: IndexedProperties::new(),
+            passive_properties: PassiveProperties::new(),
+            dtstart: None,
+            dtend: None,
+            duration: None,
+        }
+    }
+
+    // Override 400 has removed all categories
+    fn build_event_occurrence_override_400() -> EventOccurrenceOverride {
+        EventOccurrenceOverride {
+            last_modified: build_property_from_ical!(LastModifiedProperty, "LAST-MODIFIED:20201230T173000Z"),
+            indexed_properties: IndexedProperties {
+                geo: None,
+                related_to: None,
+                location_type: None,
+                categories: Some(HashSet::new()),
+                class: None,
+            },
+            passive_properties: PassiveProperties::new(),
+            dtstart: None,
+            dtend: None,
+            duration: None,
+        }
+    }
+
+    // Override 500 has no base event categories, but does have CATEGORY_FOUR
+    fn build_event_occurrence_override_500() -> EventOccurrenceOverride {
+        EventOccurrenceOverride {
+            last_modified: build_property_from_ical!(LastModifiedProperty, "LAST-MODIFIED:20201230T173000Z"),
+            indexed_properties: IndexedProperties {
+                geo: None,
+                related_to: None,
+                location_type: None,
+                categories: Some(HashSet::from([build_property_from_ical!(
+                    CategoriesProperty,
+                    "CATEGORIES:CATEGORY_FOUR"
+                )])),
+                class: None,
+            },
+            passive_properties: PassiveProperties::new(),
+            dtstart: None,
+            dtend: None,
+            duration: None,
+        }
+    }
+
+    fn build_event() -> Event {
+        Event {
+            uid: String::from("event_UID").into(),
+            last_modified: build_property_from_ical!(LastModifiedProperty, "LAST-MODIFIED:20201230T173000Z"),
+
+            schedule_properties: ScheduleProperties {
+                rrule: None,
+                exrule: None,
+                rdates: None,
+                exdates: None,
+                duration: None,
+                dtstart: None,
+                dtend: None,
+                parsed_rrule_set: None,
+            },
+
+            indexed_properties: IndexedProperties {
+                geo: None,
+                class: None,
+                related_to: None,
+                location_type: None,
+                categories: Some(HashSet::from([build_property_from_ical!(
+                    CategoriesProperty,
+                    "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO,CATEGORY_THREE"
+                )])),
+            },
+
+            passive_properties: PassiveProperties {
+                properties: BTreeSet::new(),
+            },
+
+            overrides: BTreeMap::from([
+                (100, build_event_occurrence_override_100()), // Override 100 has all event categories plus CATEGORY_FOUR
+                (200, build_event_occurrence_override_200()), // Override 200 has only some event categories (missing CATEGORY_THREE)
+                (300, build_event_occurrence_override_300()), // Override 300 has no overridden categories
+                (400, build_event_occurrence_override_400()), // Override 400 has removed all categories
+                (500, build_event_occurrence_override_500()), // Override 500 has no base event categories, but does have CATEGORY_FOUR
+            ]),
+            indexed_categories: None,
+            indexed_related_to: None,
+            indexed_geo: None,
+            indexed_class: None,
+        }
+    }
+
+    #[test]
+    fn test_prune_event_overrides() {
+        let mut event = build_event();
+
+        assert_eq!(
+            event.prune_event_overrides(125, 400),
+            Ok(
+                vec![
+                    (200, build_event_occurrence_override_200()), // Override 200 has only some event categories (missing CATEGORY_THREE)
+                    (300, build_event_occurrence_override_300()), // Override 300 has no overridden categories
+                    (400, build_event_occurrence_override_400()), // Override 400 has removed all categories
+                ]
+            ),
+        );
+
+        assert_eq!(
+            event.overrides,
+            BTreeMap::from([
+                (100, build_event_occurrence_override_100()), // Override 100 has all event categories plus CATEGORY_FOUR
+                (500, build_event_occurrence_override_500()), // Override 500 has no base event categories, but does have CATEGORY_FOUR
+            ]),
+        );
+    }
+
+    #[test]
+    fn test_prune_event_overrides_validation() {
+        let mut event = build_event();
+
+        assert!(event.prune_event_overrides(125, 125).is_ok());
+        assert!(event.prune_event_overrides(125, 130).is_ok());
+
+        assert_eq!(
+            event.prune_event_overrides(125, 120),
+            Err(String::from("Lower bound value: 125 cannot be greater than upper bound value: 120")),
         );
     }
 }
