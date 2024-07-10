@@ -18,6 +18,7 @@ pub mod x_location_type;
 pub mod x_related_to;
 pub mod x_geo;
 pub mod x_class;
+pub mod x_uid;
 pub mod where_properties_group;
 
 
@@ -35,6 +36,7 @@ pub use x_location_type::{XLocationTypeProperty, XLocationTypePropertyParams};
 pub use x_related_to::{XRelatedToProperty, XRelatedToPropertyParams};
 pub use x_geo::{DistValue, XGeoProperty, XGeoPropertyParams};
 pub use x_class::{XClassProperty, XClassPropertyParams};
+pub use x_uid::{XUIDProperty, XUIDPropertyParams};
 pub use where_properties_group::{WherePropertiesGroup, GroupedWhereProperty};
 
 use crate::values::where_operator::WhereOperator;
