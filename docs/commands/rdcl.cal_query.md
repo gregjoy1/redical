@@ -197,6 +197,26 @@ Query all event instances with `MEETING` `CATEGORIES` values **and** either `APP
 X-CATEGORIES:MEETING X-CATEGORIES;OP=OR:APPOINTMENT,EDUCATION
 ```
 
+#### `X-UID` property
+This property defines the `UID` values on each event instance to query. This can be specified multiple times and outside of a where query group all properties will be queried with the `OR` operator (an event cannot have multiple UIDs defined which precludes the use of the `AND` operator).
+
+##### Usage:
+```
+X-UID:<uids>[,<uids>...]
+```
+
+##### Example:
+
+Query all event instances with `UID_ONE` `UID` value:
+```
+X-UID:UID_ONE
+```
+
+Query all event instances with either `UID_ONE`, **or** `UID_TWO` `UID` values:
+```
+X-UID:UID_ONE,UID_TWO
+```
+
 #### `X-LOCATION-TYPE` property
 This property defines the `LOCATION-TYPE` values on each event instance to query. This can be specified multiple times and outside of a where query group all properties default to the `AND` operator.
 
@@ -326,6 +346,7 @@ X-GEO;DIST=30MI:48.85299;2.36885
 #### Where group group
 This allows the following properties to be grouped into sub-queries which can be delimited by either `AND`/`OR` operators:
 * `X-CATEGORIES`
+* `X-UID`
 * `X-LOCATION-TYPE`
 * `X-RELATED-TO`
 * `X-CLASS`
@@ -333,7 +354,7 @@ This allows the following properties to be grouped into sub-queries which can be
 
 ##### Usage:
 ```
-([(X-CATEGORIES...|X-LOCATION-TYPE...|X-RELATED-TO...|X-CLASS...|X-GEO...)] [[(AND|OR)] [(X-CATEGORIES...|X-LOCATION-TYPE...|X-RELATED-TO...|X-CLASS...|X-GEO...])] ...)
+([(X-CATEGORIES...|X-UID...|X-LOCATION-TYPE...|X-RELATED-TO...|X-CLASS...|X-GEO...)] [[(AND|OR)] [(X-CATEGORIES...|X-UID...|X-LOCATION-TYPE...|X-RELATED-TO...|X-CLASS...|X-GEO...])] ...)
 ```
 
 ##### Example:
