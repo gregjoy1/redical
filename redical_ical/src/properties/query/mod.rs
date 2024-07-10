@@ -36,7 +36,7 @@ pub use x_location_type::{XLocationTypeProperty, XLocationTypePropertyParams};
 pub use x_related_to::{XRelatedToProperty, XRelatedToPropertyParams};
 pub use x_geo::{DistValue, XGeoProperty, XGeoPropertyParams};
 pub use x_class::{XClassProperty, XClassPropertyParams};
-pub use x_uid::{XUIDProperty, XUIDPropertyParams};
+pub use x_uid::XUIDProperty;
 pub use where_properties_group::{WherePropertiesGroup, GroupedWhereProperty};
 
 use crate::values::where_operator::WhereOperator;

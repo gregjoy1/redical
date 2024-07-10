@@ -239,7 +239,6 @@ mod tests {
 
     use crate::properties::query::{
         x_class::XClassPropertyParams,
-        x_uid::XUIDPropertyParams,
         x_categories::XCategoriesPropertyParams,
         x_location_type::XLocationTypePropertyParams,
     };
@@ -524,7 +523,6 @@ mod tests {
                                 GroupedWhereProperty::XUID(
                                     Some(WhereOperator::Or),
                                     XUIDProperty {
-                                        params: XUIDPropertyParams::default(),
                                         uids: List::from(vec![Text(String::from("UID_ONE")), Text(String::from("UID_TWO"))]),
                                     },
                                 ),
@@ -533,7 +531,7 @@ mod tests {
                     ),
                 ]
             }.render_ical(),
-            String::from("(X-CLASS;OP=AND:PUBLIC OR X-CATEGORIES;OP=AND:APPOINTMENT AND (X-CLASS;OP=AND:PRIVATE OR X-UID;OP=AND:UID_ONE,UID_TWO))"),
+            String::from("(X-CLASS;OP=AND:PUBLIC OR X-CATEGORIES;OP=AND:APPOINTMENT AND (X-CLASS;OP=AND:PRIVATE OR X-UID:UID_ONE,UID_TWO))"),
         );
     }
 }

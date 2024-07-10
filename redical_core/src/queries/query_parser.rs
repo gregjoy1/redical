@@ -300,7 +300,7 @@ fn x_uid_query_property_to_where_conditional(x_uid_property: &XUIDProperty) -> O
                     Box::new(WhereConditional::Property(
                         WhereConditionalProperty::UID(uid.to_owned()),
                     )),
-                    x_uid_property.params.op.to_owned().into(),
+                    WhereOperator::Or,
                 );
             }
 

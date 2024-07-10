@@ -1357,13 +1357,9 @@ mod integration {
                 "X-FROM;PROP=DTSTART;OP=GT;TZID=Europe/London:20210105T180000Z",
                 "X-UNTIL;PROP=DTSTART;OP=LTE;TZID=UTC:20210630T180000Z",
                 "(",
-                "(",
-                "X-UID:OVERRIDDEN_EVENT_IN_BRISTOL_TUE_THU",
+                "X-UID:EVENT_IN_CHELTENHAM_TUE_THU,OVERRIDDEN_EVENT_IN_BRISTOL_TUE_THU",
                 "OR",
-                "X-UID:EVENT_IN_CHELTENHAM_TUE_THU",
-                ")",
-                "OR",
-                "X-UID;OP=AND:ONLINE_EVENT_MON_WED,EVENT_IN_OXFORD_MON_WED", // Impossible condition - returns nothing because an event cannot have multiple UIDs.
+                "(X-UID:ONLINE_EVENT_MON_WED AND X-UID:EVENT_IN_OXFORD_MON_WED)", // Impossible condition - returns nothing because an event cannot have multiple UIDs.
                 ")",
                 "X-LIMIT:50",
                 "X-OFFSET:0",
