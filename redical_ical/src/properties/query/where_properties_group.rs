@@ -525,7 +525,7 @@ mod tests {
                                     Some(WhereOperator::Or),
                                     XUIDProperty {
                                         params: XUIDPropertyParams::default(),
-                                        uid: List::from(vec![Text(String::from("UID_ONE")), Text(String::from("UID_TWO"))]),
+                                        uids: List::from(vec![Text(String::from("UID_ONE")), Text(String::from("UID_TWO"))]),
                                     },
                                 ),
                             ]

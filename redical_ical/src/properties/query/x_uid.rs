@@ -70,7 +70,7 @@ impl Default for XUIDPropertyParams {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct XUIDProperty {
     pub params: XUIDPropertyParams,
-    pub uid: List<Text>,
+    pub uids: List<Text>,
 }
 
 impl ICalendarEntity for XUIDProperty {
@@ -85,10 +85,10 @@ impl ICalendarEntity for XUIDProperty {
                             opt(XUIDPropertyParams::parse_ical),
                             preceded(colon, List::parse_ical),
                         ),
-                        |(params, uid)| {
+                        |(params, uids)| {
                             XUIDProperty {
                                 params: params.unwrap_or(XUIDPropertyParams::default()),
-                                uid,
+                                uids,
                             }
                         }
                     )
@@ -110,7 +110,7 @@ impl ICalendarProperty for XUIDProperty {
             "X-UID",
             (
                 ContentLineParams::from(&self.params),
-                self.uid.to_string(),
+                self.uids.to_string(),
             )
         ))
     }
@@ -118,8 +118,8 @@ impl ICalendarProperty for XUIDProperty {
 
 impl XUIDProperty {
     /// Return all UID Strings (blanks stripped out).
-    pub fn get_uid(&self) -> Vec<String> {
-        self.uid
+    pub fn get_uids(&self) -> Vec<String> {
+        self.uids
             .iter()
             .map(|text| text.to_string())
             .skip_while(|text| text.is_empty())
@@ -149,7 +149,7 @@ mod tests {
                 " DESCRIPTION:Description text",
                 XUIDProperty {
                     params: XUIDPropertyParams { op: WhereOperator::And },
-                    uid: List::from(vec![Text(String::from("UID_ONE")), Text(String::from("UID_TWO"))]),
+                    uids: List::from(vec![Text(String::from("UID_ONE")), Text(String::from("UID_TWO"))]),
                 },
             ),
         );
@@ -160,7 +160,7 @@ mod tests {
                 " DESCRIPTION:Description text",
                 XUIDProperty {
                     params: XUIDPropertyParams { op: WhereOperator::And },
-                    uid: List::from(vec![Text(String::from("UID_ONE")), Text(String::from("UID_TWO"))]),
+                    uids: List::from(vec![Text(String::from("UID_ONE")), Text(String::from("UID_TWO"))]),
                 },
             ),
         );
@@ -171,7 +171,7 @@ mod tests {
                 " DESCRIPTION:Description text",
                 XUIDProperty {
                     params: XUIDPropertyParams { op: WhereOperator::Or },
-                    uid: List::from(vec![Text(String::from("UID_ONE")), Text(String::from("UID_TWO"))]),
+                    uids: List::from(vec![Text(String::from("UID_ONE")), Text(String::from("UID_TWO"))]),
                 },
             ),
         );
@@ -185,7 +185,7 @@ mod tests {
         assert_eq!(
             XUIDProperty {
                 params: XUIDPropertyParams { op: WhereOperator::And },
-                uid: List::from(vec![Text(String::from("UID_ONE")), Text(String::from("UID_TWO"))]),
+                uids: List::from(vec![Text(String::from("UID_ONE")), Text(String::from("UID_TWO"))]),
             }.render_ical(),
             String::from("X-UID;OP=AND:UID_ONE,UID_TWO"),
         );
@@ -193,7 +193,7 @@ mod tests {
         assert_eq!(
             XUIDProperty {
                 params: XUIDPropertyParams { op: WhereOperator::Or },
-                uid: List::from(vec![Text(String::from("UID_ONE")), Text(String::from("UID_TWO"))]),
+                uids: List::from(vec![Text(String::from("UID_ONE")), Text(String::from("UID_TWO"))]),
             }.render_ical(),
             String::from("X-UID;OP=OR:UID_ONE,UID_TWO"),
         );
