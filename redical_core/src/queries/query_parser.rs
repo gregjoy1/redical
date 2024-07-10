@@ -11,6 +11,7 @@ use crate::{GeoDistance, KeyValuePair};
 use redical_ical::properties::query::{
     QueryProperty,
     QueryProperties,
+    XUIDProperty,
     XDistinctProperty,
     XCategoriesProperty,
     XLocationTypeProperty,
@@ -61,6 +62,27 @@ pub fn parse_query_string(input: &str) -> Result<Query, String> {
 
                     QueryProperty::XOrderBy(x_order_by_property) => {
                         query.ordering_condition = x_order_by_property.into();
+                    }
+
+                    QueryProperty::XUID(x_uid_property) => {
+                        let Some(mut new_where_conditional) =
+                            x_uid_query_property_to_where_conditional(x_uid_property)
+                        else {
+                            return query;
+                        };
+
+                        new_where_conditional =
+                            if let Some(current_where_conditional) = query.where_conditional {
+                                WhereConditional::Operator(
+                                    Box::new(current_where_conditional),
+                                    Box::new(new_where_conditional),
+                                    WhereOperator::And,
+                                )
+                            } else {
+                                new_where_conditional
+                            };
+
+                        query.where_conditional = Some(new_where_conditional);
                     }
 
                     QueryProperty::XLocationType(x_location_type_property) => {
@@ -206,6 +228,11 @@ fn where_properties_group_to_where_conditional(where_properties_group: &WherePro
                 external_operator,
             ),
 
+            GroupedWhereProperty::XUID(external_operator, x_uid_property) => (
+                x_uid_query_property_to_where_conditional(x_uid_property),
+                external_operator,
+            ),
+
             GroupedWhereProperty::XCategories(external_operator, x_categories_property) => (
                 x_categories_query_property_to_where_conditional(x_categories_property),
                 external_operator,
@@ -226,6 +253,7 @@ fn where_properties_group_to_where_conditional(where_properties_group: &WherePro
                 external_operator,
             ),
 
+            // TODO: Return error instead of panicking...
             _ => panic!("Expected where query property."),
         };
 
@@ -249,6 +277,36 @@ fn where_properties_group_to_where_conditional(where_properties_group: &WherePro
     current_where_conditional.map(|where_conditional| {
         WhereConditional::Group(Box::new(where_conditional))
     })
+}
+
+fn x_uid_query_property_to_where_conditional(x_uid_property: &XUIDProperty) -> Option<WhereConditional> {
+    let uids = x_uid_property.get_uids();
+
+    match uids.len() {
+        0 => None,
+
+        1 => Some(WhereConditional::Property(
+            WhereConditionalProperty::UID(uids[0].to_owned()),
+        )),
+
+        _ => {
+            let mut current_property = WhereConditional::Property(
+                WhereConditionalProperty::UID(uids[0].to_owned()),
+            );
+
+            for uid in uids[1..].iter() {
+                current_property = WhereConditional::Operator(
+                    Box::new(current_property),
+                    Box::new(WhereConditional::Property(
+                        WhereConditionalProperty::UID(uid.to_owned()),
+                    )),
+                    WhereOperator::Or,
+                );
+            }
+
+            Some(WhereConditional::Group(Box::new(current_property)))
+        }
+    }
 }
 
 fn x_location_type_query_property_to_where_conditional(x_location_type_property: &XLocationTypeProperty) -> Option<WhereConditional> {

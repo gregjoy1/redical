@@ -1,4 +1,4 @@
-use crate::{Calendar, GeoDistance, GeoPoint, InvertedCalendarIndexTerm, KeyValuePair};
+use crate::{Calendar, GeoDistance, GeoPoint, InvertedCalendarIndexTerm, IndexedConclusion, KeyValuePair};
 
 use redical_ical::values::where_operator as ical_where_operator;
 
@@ -85,6 +85,7 @@ impl WhereConditional {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum WhereConditionalProperty {
+    UID(String),
     Categories(String),
     LocationType(String),
     RelatedTo(KeyValuePair),
@@ -97,6 +98,10 @@ impl WhereConditionalProperty {
         match &self {
             WhereConditionalProperty::Categories(category) => {
                 format!("CATEGORIES:{category}")
+            }
+
+            WhereConditionalProperty::UID(uid) => {
+                format!("UID:{uid}")
             }
 
             WhereConditionalProperty::LocationType(location_type) => {
@@ -122,6 +127,16 @@ impl WhereConditionalProperty {
 
     pub fn execute(&self, calendar: &Calendar) -> Result<InvertedCalendarIndexTerm, String> {
         match &self {
+            // For UID, we just return an "include all" consensus for that event UID.
+            WhereConditionalProperty::UID(uid) => {
+                Ok(
+                    InvertedCalendarIndexTerm::new_with_event(
+                        uid.to_owned(),
+                        IndexedConclusion::Include(None),
+                    )
+                )
+            },
+
             WhereConditionalProperty::Categories(category) => Ok(calendar
                 .indexed_categories
                 .terms
@@ -164,6 +179,19 @@ impl WhereConditionalProperty {
         let empty_calendar_index_term = InvertedCalendarIndexTerm::new();
 
         match &self {
+            WhereConditionalProperty::UID(uid) => {
+                let inverted_index_term_b =
+                    &InvertedCalendarIndexTerm::new_with_event(
+                        uid.to_owned(),
+                        IndexedConclusion::Include(None),
+                    );
+
+                Ok(InvertedCalendarIndexTerm::merge_and(
+                    inverted_index_term_a,
+                    inverted_index_term_b,
+                ))
+            }
+
             WhereConditionalProperty::LocationType(location_type) => {
                 let inverted_index_term_b = calendar
                     .indexed_location_type
@@ -237,6 +265,19 @@ impl WhereConditionalProperty {
         let empty_calendar_index_term = InvertedCalendarIndexTerm::new();
 
         match &self {
+            WhereConditionalProperty::UID(uid) => {
+                let inverted_index_term_b =
+                    &InvertedCalendarIndexTerm::new_with_event(
+                        uid.to_owned(),
+                        IndexedConclusion::Include(None),
+                    );
+
+                Ok(InvertedCalendarIndexTerm::merge_or(
+                    inverted_index_term_a,
+                    inverted_index_term_b,
+                ))
+            }
+
             WhereConditionalProperty::LocationType(location_type) => {
                 let inverted_index_term_b = calendar
                     .indexed_location_type

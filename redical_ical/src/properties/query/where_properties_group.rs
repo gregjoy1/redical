@@ -15,6 +15,7 @@ use crate::content_line::ContentLine;
 use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, ParserError, impl_icalendar_entity_traits};
 
 use crate::properties::query::{
+    x_uid::XUIDProperty,
     x_geo::XGeoProperty,
     x_class::XClassProperty,
     x_related_to::XRelatedToProperty,
@@ -24,6 +25,7 @@ use crate::properties::query::{
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum GroupedWhereProperty {
+    XUID(Option<WhereOperator>, XUIDProperty),
     XGeo(Option<WhereOperator>, XGeoProperty),
     XClass(Option<WhereOperator>, XClassProperty),
     XRelatedTo(Option<WhereOperator>, XRelatedToProperty),
@@ -35,6 +37,7 @@ pub enum GroupedWhereProperty {
 impl GroupedWhereProperty {
     fn get_external_operator(&self) -> &Option<WhereOperator> {
         match self {
+            Self::XUID(external_operator, _) => external_operator,
             Self::XGeo(external_operator, _) => external_operator,
             Self::XClass(external_operator, _) => external_operator,
             Self::XRelatedTo(external_operator, _) => external_operator,
@@ -46,6 +49,7 @@ impl GroupedWhereProperty {
 
     fn get_property_content_line(&self, context: Option<&RenderingContext>) -> ContentLine {
         match self {
+            Self::XUID(_, property) => property.to_content_line_with_context(context),
             Self::XGeo(_, property) => property.to_content_line_with_context(context),
             Self::XClass(_, property) => property.to_content_line_with_context(context),
             Self::XRelatedTo(_, property) => property.to_content_line_with_context(context),
@@ -66,6 +70,11 @@ impl ICalendarEntity for GroupedWhereProperty {
                     map(
                         pair(opt(terminated(WhereOperator::parse_ical, wsp)), WherePropertiesGroup::parse_ical),
                         |(external_operator, where_properties_group)| GroupedWhereProperty::WherePropertiesGroup(external_operator, where_properties_group),
+                    ),
+
+                    map(
+                        pair(opt(terminated(WhereOperator::parse_ical, wsp)), XUIDProperty::parse_ical),
+                        |(external_operator, x_uid_property)| GroupedWhereProperty::XUID(external_operator, x_uid_property),
                     ),
 
                     map(
@@ -511,11 +520,10 @@ mod tests {
                                         classes: List::from(vec![ClassValue::Private]),
                                     },
                                 ),
-                                GroupedWhereProperty::XCategories(
+                                GroupedWhereProperty::XUID(
                                     Some(WhereOperator::Or),
-                                    XCategoriesProperty {
-                                        params: XCategoriesPropertyParams::default(),
-                                        categories: List::from(vec![Text(String::from("EDUCATION"))]),
+                                    XUIDProperty {
+                                        uids: List::from(vec![Text(String::from("UID_ONE")), Text(String::from("UID_TWO"))]),
                                     },
                                 ),
                             ]
@@ -523,7 +531,7 @@ mod tests {
                     ),
                 ]
             }.render_ical(),
-            String::from("(X-CLASS;OP=AND:PUBLIC OR X-CATEGORIES;OP=AND:APPOINTMENT AND (X-CLASS;OP=AND:PRIVATE OR X-CATEGORIES;OP=AND:EDUCATION))"),
+            String::from("(X-CLASS;OP=AND:PUBLIC OR X-CATEGORIES;OP=AND:APPOINTMENT AND (X-CLASS;OP=AND:PRIVATE OR X-UID:UID_ONE,UID_TWO))"),
         );
     }
 }

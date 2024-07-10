@@ -18,6 +18,7 @@ pub mod x_location_type;
 pub mod x_related_to;
 pub mod x_geo;
 pub mod x_class;
+pub mod x_uid;
 pub mod where_properties_group;
 
 
@@ -35,6 +36,7 @@ pub use x_location_type::{XLocationTypeProperty, XLocationTypePropertyParams};
 pub use x_related_to::{XRelatedToProperty, XRelatedToPropertyParams};
 pub use x_geo::{DistValue, XGeoProperty, XGeoPropertyParams};
 pub use x_class::{XClassProperty, XClassPropertyParams};
+pub use x_uid::XUIDProperty;
 pub use where_properties_group::{WherePropertiesGroup, GroupedWhereProperty};
 
 use crate::values::where_operator::WhereOperator;
@@ -49,6 +51,7 @@ pub enum QueryProperty {
     XUntil(XUntilProperty),
     XTzid(XTzidProperty),
     XOrderBy(XOrderByProperty),
+    XUID(XUIDProperty),
     XCategories(XCategoriesProperty),
     XLocationType(XLocationTypeProperty),
     XRelatedTo(XRelatedToProperty),
@@ -107,6 +110,7 @@ impl ICalendarEntity for QueryProperty {
             Self::XTzid(property) => property.render_ical(),
             Self::XOrderBy(property) => property.render_ical(),
             Self::XCategories(property) => property.render_ical(),
+            Self::XUID(property) => property.render_ical(),
             Self::XLocationType(property) => property.render_ical(),
             Self::XRelatedTo(property) => property.render_ical(),
             Self::XGeo(property) => property.render_ical(),
