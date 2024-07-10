@@ -1349,6 +1349,66 @@ mod integration {
             ],
         );
 
+        // Assert comprehensive query with more events (and overrides) added
+        query_calendar_and_assert_matching_event_instances!(
+            connection,
+            "TEST_CALENDAR_UID",
+            [
+                "X-FROM;PROP=DTSTART;OP=GT;TZID=Europe/London:20210105T180000Z",
+                "X-UNTIL;PROP=DTSTART;OP=LTE;TZID=UTC:20210630T180000Z",
+                "(",
+                "(",
+                "X-UID:OVERRIDDEN_EVENT_IN_BRISTOL_TUE_THU",
+                "OR",
+                "X-UID:EVENT_IN_CHELTENHAM_TUE_THU",
+                ")",
+                "OR",
+                "X-UID;OP=AND:ONLINE_EVENT_MON_WED,EVENT_IN_OXFORD_MON_WED", // Impossible condition - returns nothing because an event cannot have multiple UIDs.
+                ")",
+                "X-LIMIT:50",
+                "X-OFFSET:0",
+                "X-DISTINCT:UID",
+                "X-TZID:Europe/Vilnius",
+                "X-ORDER-BY:DTSTART-GEO-DIST;51.55577390;-1.77971760",
+            ],
+            [
+                [
+                    [
+                        "DTSTART;TZID=Europe/Vilnius:20210105T203000",
+                        "X-GEO-DIST:43.390803KM",
+                    ],
+                    [
+                        "CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE",
+                        "DTEND;TZID=Europe/Vilnius:20210105T210000",
+                        "DTSTART;TZID=Europe/Vilnius:20210105T203000",
+                        "DURATION:PT30M",
+                        "GEO:51.89936851432488;-2.078357552295971",
+                        "RECURRENCE-ID;VALUE=DATE-TIME;TZID=Europe/Vilnius:20210105T203000",
+                        "RELATED-TO;RELTYPE=PARENT:PARENT_UUID",
+                        "SUMMARY:Event in Cheltenham on Tuesdays and Thursdays at 6:30PM",
+                        "UID:EVENT_IN_CHELTENHAM_TUE_THU",
+                    ],
+                ],
+                [
+                    [
+                        "DTSTART;TZID=Europe/Vilnius:20210105T203000",
+                        "X-GEO-DIST:57.088038KM",
+                    ],
+                    [
+                        "CATEGORIES:CATEGORY_OVERRIDE",
+                        "DTEND;TZID=Europe/Vilnius:20210105T210000",
+                        "DTSTART;TZID=Europe/Vilnius:20210105T203000",
+                        "DURATION:PT30M",
+                        "GEO:51.454481838260214;-2.588329192623361",
+                        "RECURRENCE-ID;VALUE=DATE-TIME;TZID=Europe/Vilnius:20210105T203000",
+                        "RELATED-TO;RELTYPE=PARENT:PARENT_UUID_OVERRIDE",
+                        "SUMMARY:Overridden Event in Bristol on Tuesdays and Thursdays at 6:30PM",
+                        "UID:OVERRIDDEN_EVENT_IN_BRISTOL_TUE_THU",
+                    ],
+                ],
+            ],
+        );
+
         assert_error_returned!(
             connection,
             "Error: - expected iCalendar RFC-5545 DATE-VALUE (DATE-FULLYEAR DATE-MONTH DATE-MDAY) at \"41T180000Z\" -- Context: X-UNTIL -> DATE-TIME -> DATE",
