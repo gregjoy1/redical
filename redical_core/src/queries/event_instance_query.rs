@@ -91,6 +91,10 @@ impl Query for EventInstanceQuery {
         self.where_conditional = where_conditional;
     }
 
+    fn get_where_conditional(&self) -> &Option<WhereConditional> {
+        &self.where_conditional
+    }
+
     fn set_ordering_condition(&mut self, ordering_condition: OrderingCondition) {
         self.ordering_condition = ordering_condition;
     }
