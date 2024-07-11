@@ -4,6 +4,7 @@ use std::str::FromStr;
 
 use redical_ical::{ICalendarComponent, RenderingContext};
 use crate::core::queries::query::Query;
+use crate::core::queries::event_instance_query::EventInstanceQuery;
 use crate::utils::{run_with_timeout, TimeoutError};
 use crate::CONFIGURATION_ICAL_PARSER_TIMEOUT_MS;
 use redical_core::Calendar;
@@ -66,7 +67,7 @@ pub fn redical_calendar_query(ctx: &Context, args: Vec<RedisString>) -> RedisRes
         // against malicious payloads intended to cause hangs.
         let mut parsed_query =
             match run_with_timeout(
-                move || Query::from_str(query_string.as_str()).map_err(RedisError::String),
+                move || EventInstanceQuery::from_str(query_string.as_str()).map_err(RedisError::String),
                 std::time::Duration::from_millis(ical_parser_timeout_ms),
             ) {
                 Ok(parser_result) => {

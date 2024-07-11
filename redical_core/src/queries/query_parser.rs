@@ -5,6 +5,7 @@ use crate::queries::indexed_property_filters::{
 };
 
 use crate::queries::query::Query;
+use crate::queries::event_instance_query::EventInstanceQuery;
 
 use crate::{GeoDistance, KeyValuePair};
 
@@ -22,10 +23,10 @@ use redical_ical::properties::query::{
     GroupedWhereProperty,
 };
 
-pub fn parse_query_string(input: &str) -> Result<Query, String> {
+pub fn parse_query_string(input: &str) -> Result<EventInstanceQuery, String> {
     // Just return the default Query (return everything) if passed empty string ("").
     if input.is_empty() {
-        return Ok(Query::default());
+        return Ok(EventInstanceQuery::default());
     }
 
     let query_properties = QueryProperties::from_str(input)?;
@@ -34,7 +35,7 @@ pub fn parse_query_string(input: &str) -> Result<Query, String> {
         query_properties
             .0
             .iter()
-            .fold(Query::default(), |mut query, query_property| {
+            .fold(EventInstanceQuery::default(), |mut query, query_property| {
                 match query_property {
                     QueryProperty::XOffset(x_offset_property) => {
                         query.offset = x_offset_property.into();
@@ -605,7 +606,7 @@ mod test {
 
     #[test]
     fn test_parse_query_string() {
-        assert_eq!(parse_query_string(""), Ok(Query::default()));
+        assert_eq!(parse_query_string(""), Ok(EventInstanceQuery::default()));
 
         let query_string = [
             "X-FROM;PROP=DTSTART;OP=GT;TZID=Europe/London:19971002T090000",
@@ -623,7 +624,7 @@ mod test {
         assert_eq!(
             parse_query_string(query_string.as_str()),
             Ok(
-                Query {
+                EventInstanceQuery {
                     where_conditional: Some(WhereConditional::Operator(
                         Box::new(WhereConditional::Operator(
                             Box::new(WhereConditional::Operator(
@@ -717,7 +718,7 @@ mod test {
         assert_eq!(
             parse_query_string(query_string.as_str()),
             Ok(
-                Query {
+                EventInstanceQuery {
                     where_conditional: Some(WhereConditional::Group(
                         Box::new(WhereConditional::Operator(
                             Box::new(WhereConditional::Group(
