@@ -1408,7 +1408,7 @@ mod integration {
         assert_error_returned!(
             connection,
             "Error: - expected iCalendar RFC-5545 DATE-VALUE (DATE-FULLYEAR DATE-MONTH DATE-MDAY) at \"41T180000Z\" -- Context: X-UNTIL -> DATE-TIME -> DATE",
-            "rdcl.cal_query",
+            "rdcl.evi_query",
             "TEST_CALENDAR_UID",
             "X-UNTIL;PROP=DTSTART;OP=LTE;TZID=UTC:20210641T180000Z",
         );
@@ -1499,12 +1499,12 @@ mod integration {
             assert_keyspace_events_published!(message_queue, []);
 
             // Assert error reporting Calendar querying disabled
-            let disabled_query_result: Result<Vec<String>, String> = redis::cmd("rdcl.cal_query").arg("TEST_CALENDAR_UID").arg("X-RELATED-TO;RELTYPE=PARENT:PARENT_UUID").query(connection).map_err(|error| error.to_string());
+            let disabled_query_result: Result<Vec<String>, String> = redis::cmd("rdcl.evi_query").arg("TEST_CALENDAR_UID").arg("X-RELATED-TO;RELTYPE=PARENT:PARENT_UUID").query(connection).map_err(|error| error.to_string());
 
             assert_eq!(
                 disabled_query_result,
                 Err(
-                    String::from("rdcl.cal_query:: Queries disabled on Calendar: TEST_CALENDAR_UID because it's indexes have been disabled."),
+                    String::from("rdcl.evi_query:: Queries disabled on Calendar: TEST_CALENDAR_UID because it's indexes have been disabled."),
                 ),
             );
 
@@ -1899,7 +1899,7 @@ mod integration {
 
         {
             let calendar_query_result: Result<Vec<String>, String> =
-                redis::cmd("rdcl.cal_query")
+                redis::cmd("rdcl.evi_query")
                     .arg("TEST_CALENDAR_UID")
                     .arg(
                         &[
@@ -1915,7 +1915,7 @@ mod integration {
 
             assert_eq!(
                 calendar_query_result,
-                Err(String::from("rdcl.cal_query:: query iCal parser exceeded timeout")),
+                Err(String::from("rdcl.evi_query:: query iCal parser exceeded timeout")),
             );
         }
 

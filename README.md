@@ -110,22 +110,22 @@ Query all the combined extrapolated event instances for all events in the calend
 
 * Empty query -- returns everything
   ```bash
-  redis> RDCL.CAL_QUERY DEMO_CALENDAR_UID
+  redis> RDCL.EVI_QUERY DEMO_CALENDAR_UID
   ```
 
 * Empty query -- returns everything ordered by distance to Reading
   ```bash
-  redis> RDCL.CAL_QUERY DEMO_CALENDAR_UID X-ORDER-BY:GEO-DIST-DTSTART;51.4514278;-1.078448
+  redis> RDCL.EVI_QUERY DEMO_CALENDAR_UID X-ORDER-BY:GEO-DIST-DTSTART;51.4514278;-1.078448
   ```
 
 * Empty query -- returns everything ordered by distance to Reading (grouped by UID)
   ```bash
-  redis> RDCL.CAL_QUERY DEMO_CALENDAR_UID X-ORDER-BY:GEO-DIST-DTSTART;51.4514278;-1.078448 X-DISTINCT:UID
+  redis> RDCL.EVI_QUERY DEMO_CALENDAR_UID X-ORDER-BY:GEO-DIST-DTSTART;51.4514278;-1.078448 X-DISTINCT:UID
   ```
 
 * Find all events within 60KM of Western-Super-Mare OR with the `OVERRIDDEN_CATEGORY`:
   ```bash
-  redis> RDCL.CAL_QUERY DEMO_CALENDAR_UID (X-GEO;DIST=60KM:51.3432622;-3.1608606 OR X-CATEGORIES:OVERRIDDEN_CATEGORY) X-ORDER-BY:GEO-DIST-DTSTART;51.4514278;-1.078448
+  redis> RDCL.EVI_QUERY DEMO_CALENDAR_UID (X-GEO;DIST=60KM:51.3432622;-3.1608606 OR X-CATEGORIES:OVERRIDDEN_CATEGORY) X-ORDER-BY:GEO-DIST-DTSTART;51.4514278;-1.078448
   ```
 
 ## Documentation

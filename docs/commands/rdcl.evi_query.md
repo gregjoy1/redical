@@ -1,8 +1,8 @@
-# RDCL.CAL_QUERY
+# RDCL.EVI_QUERY
 
 ### Syntax
 ```bash
-RDCL.CAL_QUERY key event-uid query-property [query-property ...]
+RDCL.EVI_QUERY key event-uid query-property [query-property ...]
 ```
 
 Query the extrapolated event instances of all events stored in the specified calendar.
@@ -386,7 +386,7 @@ Restrict event instances to those with `PUBLIC` `CLASS` **or** `APPOINTMENT` `CA
 
 ## Return value 
 
-`RDCL.CAL_QUERY` returns a multi dimensional [array](https://redis.io/docs/reference/protocol-spec/#arrays) of string replies for each event instance returned by the query.
+`RDCL.EVI_QUERY` returns a multi dimensional [array](https://redis.io/docs/reference/protocol-spec/#arrays) of string replies for each event instance returned by the query.
 
 This is comprised of two nested arrays:
 * The first highlights the utilised ordering attributes of the event instance
@@ -419,7 +419,7 @@ For more information about replies, see [Redis serialization protocol specificat
 
 Empty query -- returns everything
 ```bash
-redis> RDCL.CAL_QUERY CALENDAR_UID
+redis> RDCL.EVI_QUERY CALENDAR_UID
 1) 1) 1) DTSTART:20201231T183000Z
    2) 1) CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE
       2) DTEND:20201231T190000Z
@@ -455,7 +455,7 @@ redis> RDCL.CAL_QUERY CALENDAR_UID
 
 Empty query -- returns everything ordered by distance to Reading
 ```bash
-redis> RDCL.CAL_QUERY CALENDAR_UID X-ORDER-BY:GEO-DIST-DTSTART;51.4514278;-1.078448
+redis> RDCL.EVI_QUERY CALENDAR_UID X-ORDER-BY:GEO-DIST-DTSTART;51.4514278;-1.078448
 1) 1) 1) DTSTART:20210104T170000Z
       2) X-GEO-DIST:35.633761KM
    2) 1) CATEGORIES:OVERRIDDEN_CATEGORY
@@ -495,7 +495,7 @@ redis> RDCL.CAL_QUERY CALENDAR_UID X-ORDER-BY:GEO-DIST-DTSTART;51.4514278;-1.078
 
 Empty query -- returns everything ordered by distance to Reading (grouped by UID) limited to 2 results
 ```bash
-redis> RDCL.CAL_QUERY CALENDAR_UID X-ORDER-BY:GEO-DIST-DTSTART;51.4514278;-1.078448 X-DISTINCT:UID X-LIMIT:2
+redis> RDCL.EVI_QUERY CALENDAR_UID X-ORDER-BY:GEO-DIST-DTSTART;51.4514278;-1.078448 X-DISTINCT:UID X-LIMIT:2
 1) 1) 1) DTSTART:20210104T170000Z
       2) X-GEO-DIST:35.633761KM
    2) 1) CATEGORIES:OVERRIDDEN_CATEGORY
@@ -523,7 +523,7 @@ redis> RDCL.CAL_QUERY CALENDAR_UID X-ORDER-BY:GEO-DIST-DTSTART;51.4514278;-1.078
 
 Find all events with the `PARENT` relation to `PARENT_UID` that are within 60KM of Western-Super-Mare OR with the `OVERRIDDEN_CATEGORY` limited to 2 results:
 ```bash
-redis> RDCL.CAL_QUERY CALENDAR_UID (X-GEO;DIST=60KM:51.3432622;-3.1608606 OR X-CATEGORIES:OVERRIDDEN_CATEGORY) X-ORDER-BY:GEO-DIST-DTSTART;51.4514278;-1.078448 X-RELATED-TO;RELTYPE=PARENT:PARENT_UUID X-LIMIT:2
+redis> RDCL.EVI_QUERY CALENDAR_UID (X-GEO;DIST=60KM:51.3432622;-3.1608606 OR X-CATEGORIES:OVERRIDDEN_CATEGORY) X-ORDER-BY:GEO-DIST-DTSTART;51.4514278;-1.078448 X-RELATED-TO;RELTYPE=PARENT:PARENT_UUID X-LIMIT:2
 1) 1) 1) DTSTART:20201231T183000Z
       2) X-GEO-DIST:104.621379KM
    2) 1) CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE
@@ -550,4 +550,4 @@ redis> RDCL.CAL_QUERY CALENDAR_UID (X-GEO;DIST=60KM:51.3432622;-3.1608606 OR X-C
 
 ## See also
 
-[`RDCL.EVI_SET`](rdcl.evi_set.md) | [`RDCL.EVT_LIST`](rdcl.evt_list.md) | [`RDCL.EVT_LIST`](rdcl.evt_list.md) | [`RDCL.EVT_SET`](rdcl.evt_set.md) | [`RDCL.EVT_DEL`](rdcl.evt_del.md) | [`RDCL.CAL_QUERY`](rdcl.evo_set.md) | [`RDCL.EVO_DEL`](rdcl.evo_del.md) | [`RDCL.EVO_GET`](rdcl.evo_get.md) | [`RDCL.EVO_LIST`](rdcl.evo_list.md)
+[`RDCL.EVI_SET`](rdcl.evi_set.md) | [`RDCL.EVT_LIST`](rdcl.evt_list.md) | [`RDCL.EVT_LIST`](rdcl.evt_list.md) | [`RDCL.EVT_SET`](rdcl.evt_set.md) | [`RDCL.EVT_DEL`](rdcl.evt_del.md) | [`RDCL.EVI_QUERY`](rdcl.evo_set.md) | [`RDCL.EVO_DEL`](rdcl.evo_del.md) | [`RDCL.EVO_GET`](rdcl.evo_get.md) | [`RDCL.EVO_LIST`](rdcl.evo_list.md)

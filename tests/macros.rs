@@ -831,12 +831,12 @@ macro_rules! list_and_assert_matching_event_instances {
 #[macro_export]
 macro_rules! query_calendar_and_assert_matching_event_instances {
     ($connection:expr, $calendar_uid:expr, [], [$([$([$($ical_component_meta_property:expr),+ $(,)*], [$($ical_component_property:expr),+ $(,)*]),+ $(,)*]),+ $(,)*] $(,)*) => {
-        let calendar_query_result: Vec<Vec<Vec<String>>> = redis::cmd("rdcl.cal_query")
+        let calendar_query_result: Vec<Vec<Vec<String>>> = redis::cmd("rdcl.evi_query")
             .arg($calendar_uid)
             .query($connection)
             .with_context(|| {
                 format!(
-                    "failed to query calendar with UID: '{}' events via rdcl.cal_query", $calendar_uid,
+                    "failed to query calendar with UID: '{}' events via rdcl.evi_query", $calendar_uid,
                 )
             })?;
 
@@ -863,12 +863,12 @@ macro_rules! query_calendar_and_assert_matching_event_instances {
     };
 
     ($connection:expr, $calendar_uid:expr, [], [] $(,)*) => {
-        let calendar_query_result: Vec<Vec<Vec<String>>> = redis::cmd("rdcl.cal_query")
+        let calendar_query_result: Vec<Vec<Vec<String>>> = redis::cmd("rdcl.evi_query")
             .arg($calendar_uid)
             .query($connection)
             .with_context(|| {
                 format!(
-                    "failed to query calendar with UID: '{}' query: '' events via rdcl.cal_query",
+                    "failed to query calendar with UID: '{}' query: '' events via rdcl.evi_query",
                     $calendar_uid
                 )
             })?;
@@ -887,13 +887,13 @@ macro_rules! query_calendar_and_assert_matching_event_instances {
 
         let joined_ical_query_properties = ical_query_properties.join(" ");
 
-        let calendar_query_result: Vec<Vec<Vec<String>>> = redis::cmd("rdcl.cal_query")
+        let calendar_query_result: Vec<Vec<Vec<String>>> = redis::cmd("rdcl.evi_query")
             .arg($calendar_uid)
             .arg(joined_ical_query_properties)
             .query($connection)
             .with_context(|| {
                 format!(
-                    "failed to query calendar with UID: '{}' events via rdcl.cal_query", $calendar_uid,
+                    "failed to query calendar with UID: '{}' events via rdcl.evi_query", $calendar_uid,
                 )
             })?;
 
@@ -911,13 +911,13 @@ macro_rules! query_calendar_and_assert_matching_event_instances {
 
         let joined_ical_query_properties = ical_query_properties.join(" ");
 
-        let calendar_query_result: Vec<Vec<Vec<String>>> = redis::cmd("rdcl.cal_query")
+        let calendar_query_result: Vec<Vec<Vec<String>>> = redis::cmd("rdcl.evi_query")
             .arg($calendar_uid)
             .arg(joined_ical_query_properties)
             .query($connection)
             .with_context(|| {
                 format!(
-                    "failed to query calendar with UID: '{}' events via rdcl.cal_query", $calendar_uid,
+                    "failed to query calendar with UID: '{}' events via rdcl.evi_query", $calendar_uid,
                 )
             })?;
 
