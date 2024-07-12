@@ -1013,7 +1013,7 @@ mod integration {
         Ok(())
     }
 
-    fn test_calendar_query(connection: &mut Connection) -> Result<()> {
+    fn test_calendar_event_instance_query(connection: &mut Connection) -> Result<()> {
         set_and_assert_calendar!(connection, "TEST_CALENDAR_UID");
 
         // Assert blank results when no events exist
@@ -1937,7 +1937,7 @@ mod integration {
         test_event_override_set_last_modified,
         test_event_override_prune,
         test_event_instance_list,
-        test_calendar_query,
+        test_calendar_event_instance_query,
         test_calendar_index_disable_rebuild,
         test_rdb_save_load,
         test_key_expire_eviction_keyspace_events,

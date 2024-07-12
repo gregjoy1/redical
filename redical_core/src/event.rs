@@ -35,11 +35,14 @@ use crate::event_occurrence_override::EventOccurrenceOverride;
 
 use crate::inverted_index::InvertedEventIndex;
 
+use crate::queries::results::QueryableEntity;
+use crate::queries::results_ordering::{QueryResultOrdering, OrderingCondition};
+
 use crate::geo_index::GeoPoint;
 
 use crate::utils::KeyValuePair;
 
-#[derive(Default, Debug, PartialEq, Clone)]
+#[derive(Default, Debug, Eq, PartialEq, Clone)]
 pub struct ScheduleProperties {
     pub rrule: Option<RRuleProperty>,
     pub exrule: Option<ExRuleProperty>,
@@ -412,7 +415,7 @@ impl PassiveProperties {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Event {
     pub uid: UIDProperty,
     pub last_modified: LastModifiedProperty,
@@ -671,6 +674,16 @@ impl Event {
         }
 
         Ok(removed_event_occurrence_overrides)
+    }
+}
+
+impl QueryableEntity for Event {
+    fn get_uid(&self) -> String {
+        self.uid.uid.to_string()
+    }
+
+    fn build_result_ordering(&self, ordering_condition: &OrderingCondition) -> QueryResultOrdering {
+        ordering_condition.build_result_ordering_for_event(self)
     }
 }
 

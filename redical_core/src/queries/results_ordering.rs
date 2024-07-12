@@ -3,7 +3,7 @@ use std::collections::BTreeSet;
 
 use geo::HaversineDistance;
 
-use crate::{EventInstance, GeoDistance, GeoPoint};
+use crate::{Event, EventInstance, GeoDistance, GeoPoint};
 
 use redical_ical::{
     ICalendarComponent,
@@ -96,6 +96,55 @@ impl OrderingCondition {
 
                             GeoDistance::new_from_meters_float(
                                 event_instance_geo_point.haversine_distance(ordering_geo_point),
+                            )
+                        });
+
+                QueryResultOrdering::GeoDistDtStart(geo_distance, dtstart_timestamp)
+            }
+        }
+    }
+
+    pub fn build_result_ordering_for_event(
+        &self,
+        event: &Event,
+    ) -> QueryResultOrdering {
+        match &self {
+            OrderingCondition::DtStart => {
+                QueryResultOrdering::DtStart(event.schedule_properties.get_dtstart_timestamp().unwrap_or(0))
+            }
+
+            OrderingCondition::DtStartGeoDist(ordering_geo_point) => {
+                let dtstart_timestamp = event.schedule_properties.get_dtstart_timestamp().unwrap_or(0);
+
+                let geo_distance =
+                    event
+                        .indexed_properties
+                        .geo
+                        .clone()
+                        .map(|event_geo| {
+                            let event_geo_point = GeoPoint::from(&event_geo);
+
+                            GeoDistance::new_from_meters_float(
+                                event_geo_point.haversine_distance(ordering_geo_point),
+                            )
+                        });
+
+                QueryResultOrdering::DtStartGeoDist(dtstart_timestamp, geo_distance)
+            }
+
+            OrderingCondition::GeoDistDtStart(ordering_geo_point) => {
+                let dtstart_timestamp = event.schedule_properties.get_dtstart_timestamp().unwrap_or(0);
+
+                let geo_distance =
+                    event
+                        .indexed_properties
+                        .geo
+                        .as_ref()
+                        .map(|event_geo| {
+                            let event_geo_point = GeoPoint::from(event_geo);
+
+                            GeoDistance::new_from_meters_float(
+                                event_geo_point.haversine_distance(ordering_geo_point),
                             )
                         });
 

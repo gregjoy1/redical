@@ -124,7 +124,7 @@ pub fn redical_event_instance_query(ctx: &Context, args: Vec<RedisString>) -> Re
 
                 RedisValue::Array(vec![
                     icalendar_component_to_redis_value_array(&query_result.result_ordering, &rendering_context),
-                    icalendar_component_to_redis_value_array(&query_result.event_instance, &rendering_context),
+                    icalendar_component_to_redis_value_array(&query_result.result, &rendering_context),
                 ])
             })
             .collect();

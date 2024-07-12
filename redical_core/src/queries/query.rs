@@ -3,7 +3,7 @@ use std::str::FromStr;
 use chrono_tz::Tz;
 
 use crate::Calendar;
-use crate::queries::results::QueryResults;
+use crate::queries::results::{QueryableEntity, QueryResults};
 
 use crate::queries::results_ordering::OrderingCondition;
 use crate::queries::results_range_bounds::{
@@ -14,8 +14,8 @@ use crate::queries::indexed_property_filters::{
     WhereConditional, WhereOperator,
 };
 
-pub trait Query: FromStr + PartialEq + Clone + Default {
-    fn execute(&mut self, calendar: &Calendar) -> Result<QueryResults, String>;
+pub trait Query<T: QueryableEntity>: FromStr + PartialEq + Clone + Default {
+    fn execute(&mut self, calendar: &Calendar) -> Result<QueryResults<T>, String>;
     fn set_where_conditional(&mut self, where_conditional: Option<WhereConditional>);
     fn get_where_conditional(&self) -> &Option<WhereConditional>;
     fn set_ordering_condition(&mut self, ordering_condition: OrderingCondition);

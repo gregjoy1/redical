@@ -5,6 +5,7 @@ use crate::queries::indexed_property_filters::{
 };
 
 use crate::queries::query::Query;
+use crate::queries::results::QueryableEntity;
 
 use crate::{GeoDistance, KeyValuePair};
 
@@ -22,7 +23,7 @@ use redical_ical::properties::query::{
     GroupedWhereProperty,
 };
 
-pub fn parse_query_string<Q: Query>(input: &str) -> Result<Q, String> {
+pub fn parse_query_string<T: QueryableEntity, Q: Query<T>>(input: &str) -> Result<Q, String> {
     // Just return the default Query (return everything) if passed empty string ("").
     if input.is_empty() {
         return Ok(Q::default());

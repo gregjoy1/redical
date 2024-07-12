@@ -186,7 +186,7 @@ impl InvertedCalendarIndexTerm {
 
 // TODO: Make more generic as this is used into the geo index
 // Single layer inverted index (for one event) - indexed term - include/exclude
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct InvertedEventIndex<K>
 where
     K: std::hash::Hash + Clone + std::cmp::Eq,

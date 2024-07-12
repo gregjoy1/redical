@@ -3,8 +3,9 @@ use std::str::FromStr;
 use chrono_tz::Tz;
 
 use crate::{
-    Calendar, Event, EventInstance, EventInstanceIterator, GeoPoint, IndexedConclusion,
+    Calendar, Event, GeoPoint, IndexedConclusion,
     InvertedCalendarIndexTerm, LowerBoundFilterCondition, UpperBoundFilterCondition,
+    FilterProperty,
 };
 
 use crate::queries::indexed_property_filters::WhereConditional;
@@ -16,12 +17,8 @@ use crate::queries::results_range_bounds::{
     LowerBoundRangeCondition, UpperBoundRangeCondition,
 };
 
-use redical_ical::properties::ICalendarDateTimeProperty;
-
-use crate::MergedIterator;
-
 #[derive(Debug, PartialEq, Clone)]
-pub struct EventInstanceQuery {
+pub struct EventQuery {
     pub where_conditional: Option<WhereConditional>,
     pub ordering_condition: OrderingCondition,
     pub lower_bound_range_condition: Option<LowerBoundRangeCondition>,
@@ -32,7 +29,7 @@ pub struct EventInstanceQuery {
     pub limit: usize,
 }
 
-impl FromStr for EventInstanceQuery {
+impl FromStr for EventQuery {
     type Err = String;
 
     fn from_str(input: &str) -> Result<Self, Self::Err> {
@@ -42,8 +39,8 @@ impl FromStr for EventInstanceQuery {
     }
 }
 
-impl Query<EventInstance> for EventInstanceQuery {
-    fn execute(&mut self, calendar: &Calendar) -> Result<QueryResults<EventInstance>, String> {
+impl Query<Event> for EventQuery {
+    fn execute(&mut self, calendar: &Calendar) -> Result<QueryResults<Event>, String> {
         let where_conditional_result = if let Some(where_conditional) = &mut self.where_conditional
         {
             Some(where_conditional.execute(calendar)?)
@@ -124,7 +121,7 @@ impl Query<EventInstance> for EventInstanceQuery {
     }
 }
 
-impl EventInstanceQuery {
+impl EventQuery {
     fn get_lower_bound_filter_condition(&self) -> Option<LowerBoundFilterCondition> {
         self.lower_bound_range_condition
             .to_owned()
@@ -137,14 +134,66 @@ impl EventInstanceQuery {
             .map(UpperBoundFilterCondition::from)
     }
 
-    fn populate_merged_iterator_for_dtstart_ordering<'iter, 'cal: 'iter>(
+    fn is_event_within_bound_filter_conditions(
+        &self,
+        event: &Event,
+        lower_bound_filter_condition: &Option<LowerBoundFilterCondition>, 
+        upper_bound_filter_condition: &Option<UpperBoundFilterCondition>,
+    ) -> bool {
+        let within_lower_bound_filter_condition =
+            match lower_bound_filter_condition {
+                Some(LowerBoundFilterCondition::GreaterThan(FilterProperty::DtStart(timestamp))) => {
+                    event.schedule_properties.get_dtstart_timestamp().is_some_and(|dtstart_timestamp| &dtstart_timestamp > timestamp)
+                }
+
+                Some(LowerBoundFilterCondition::GreaterEqualThan(FilterProperty::DtStart(timestamp))) => {
+                    event.schedule_properties.get_dtstart_timestamp().is_some_and(|dtstart_timestamp| &dtstart_timestamp >= timestamp)
+                }
+
+                Some(LowerBoundFilterCondition::GreaterThan(FilterProperty::DtEnd(timestamp))) => {
+                    event.schedule_properties.get_dtend_timestamp().is_some_and(|dtend_timestamp| &dtend_timestamp > timestamp)
+                }
+
+                Some(LowerBoundFilterCondition::GreaterEqualThan(FilterProperty::DtEnd(timestamp))) => {
+                    event.schedule_properties.get_dtend_timestamp().is_some_and(|dtend_timestamp| &dtend_timestamp >= timestamp)
+                }
+
+                _ => true
+            };
+
+        let within_upper_bound_filter_condition =
+            match upper_bound_filter_condition {
+                Some(UpperBoundFilterCondition::LessThan(FilterProperty::DtStart(timestamp))) => {
+                    event.schedule_properties.get_dtstart_timestamp().is_some_and(|dtstart_timestamp| &dtstart_timestamp < timestamp)
+                }
+
+                Some(UpperBoundFilterCondition::LessEqualThan(FilterProperty::DtStart(timestamp))) => {
+                    event.schedule_properties.get_dtstart_timestamp().is_some_and(|dtstart_timestamp| &dtstart_timestamp <= timestamp)
+                }
+
+                Some(UpperBoundFilterCondition::LessThan(FilterProperty::DtEnd(timestamp))) => {
+                    event.schedule_properties.get_dtend_timestamp().is_some_and(|dtend_timestamp| &dtend_timestamp < timestamp)
+                }
+
+                Some(UpperBoundFilterCondition::LessEqualThan(FilterProperty::DtEnd(timestamp))) => {
+                    event.schedule_properties.get_dtend_timestamp().is_some_and(|dtend_timestamp| &dtend_timestamp <= timestamp)
+                }
+
+                _ => true
+            };
+
+        within_lower_bound_filter_condition && within_upper_bound_filter_condition
+    }
+
+    fn populate_sorted_vec_for_dtstart_ordering<'event, 'cal: 'event>(
         &self,
         calendar: &'cal Calendar,
-        merged_iterator: &'iter mut MergedIterator<EventInstance, EventInstanceIterator<'cal>>,
         where_conditional_result: &Option<InvertedCalendarIndexTerm>,
-    ) -> Result<(), String> {
+    ) -> Result<Vec<&'event Box<Event>>, String> {
         let lower_bound_filter_condition = self.get_lower_bound_filter_condition();
         let upper_bound_filter_condition = self.get_upper_bound_filter_condition();
+
+        let mut sorted_events: Vec<&'event Box<Event>> = Vec::new();
 
         match where_conditional_result {
             Some(inverted_calendar_index_term) => {
@@ -155,53 +204,55 @@ impl EventInstanceQuery {
                         continue;
                     };
 
-                    self.add_event_to_merged_iterator(
-                        event,
-                        merged_iterator,
-                        &lower_bound_filter_condition,
-                        &upper_bound_filter_condition,
-                        &Some(indexed_conclusion.clone()),
-                    )?;
+                    // We only care about matching base properties defined on the Event, not any
+                    // occurrence specific overrides - we are querying the events not the event
+                    // instances extrapolated from those events and associated occurrence specific
+                    // overrides.
+                    //
+                    // Exclude means that it is not present on the base Event, so we skip it.
+                    if matches!(indexed_conclusion, IndexedConclusion::Exclude(_)) {
+                        continue;
+                    }
+
+                    if self.is_event_within_bound_filter_conditions(event, &lower_bound_filter_condition, &upper_bound_filter_condition) {
+                        sorted_events.push(event);
+                    }
                 }
             }
 
             None => {
                 for event in calendar.events.values() {
-                    self.add_event_to_merged_iterator(
-                        event,
-                        merged_iterator,
-                        &lower_bound_filter_condition,
-                        &upper_bound_filter_condition,
-                        &None,
-                    )?;
+                    if self.is_event_within_bound_filter_conditions(event, &lower_bound_filter_condition, &upper_bound_filter_condition) {
+                        sorted_events.push(event);
+                    }
                 }
             }
         }
 
-        Ok(())
+        sorted_events.sort_by(|event, other_event| {
+            let timestamp       = event.schedule_properties.get_dtstart_timestamp();
+            let other_timestamp = other_event.schedule_properties.get_dtstart_timestamp();
+
+            timestamp.cmp(&other_timestamp)
+        });
+
+        Ok(sorted_events)
     }
 
     fn execute_for_dtstart_ordering(
         &self,
         calendar: &Calendar,
-        query_results: &mut QueryResults<EventInstance>,
+        query_results: &mut QueryResults<Event>,
         where_conditional_result: &Option<InvertedCalendarIndexTerm>,
     ) -> Result<(), String> {
-        let mut merged_iterator: MergedIterator<EventInstance, EventInstanceIterator> =
-            MergedIterator::new();
+        let sorted_events = self.populate_sorted_vec_for_dtstart_ordering(calendar, where_conditional_result)?;
 
-        self.populate_merged_iterator_for_dtstart_ordering(
-            calendar,
-            &mut merged_iterator,
-            where_conditional_result,
-        )?;
-
-        for (_, event_instance) in merged_iterator {
+        for event in sorted_events {
             if query_results.len() >= self.limit {
                 break;
             }
 
-            query_results.push(event_instance);
+            query_results.push(*event.to_owned());
         }
 
         Ok(())
@@ -210,21 +261,14 @@ impl EventInstanceQuery {
     fn execute_for_dtstart_geo_dist_ordering(
         &self,
         calendar: &Calendar,
-        query_results: &mut QueryResults<EventInstance>,
+        query_results: &mut QueryResults<Event>,
         where_conditional_result: &Option<InvertedCalendarIndexTerm>,
     ) -> Result<(), String> {
-        let mut merged_iterator: MergedIterator<EventInstance, EventInstanceIterator> =
-            MergedIterator::new();
-
-        self.populate_merged_iterator_for_dtstart_ordering(
-            calendar,
-            &mut merged_iterator,
-            where_conditional_result,
-        )?;
+        let sorted_events = self.populate_sorted_vec_for_dtstart_ordering(calendar, where_conditional_result)?;
 
         // This is functionally similar to the DtStart ordering, except we need to include all the
-        // EventInstances sharing the same dtstart_timestamp before truncating so that they can be
-        // ordered by geographical distance.
+        // Event sharing the same dtstart_timestamp before truncating so that they can be ordered
+        // by geographical distance.
         //
         // We do this to prevent a group of EventInstances sharing the same dtstart_timestamp from
         // being cut off half way through when the later EventInstances are closer geographically
@@ -234,19 +278,19 @@ impl EventInstanceQuery {
         // itself.
         let mut previous_dtstart_timestamp = None;
 
-        for (_, event_instance) in merged_iterator {
+        for event in sorted_events {
             let is_unique_dtstart_timestamp =
                 previous_dtstart_timestamp.is_some_and(|dtstart_timestamp| {
-                    dtstart_timestamp != event_instance.dtstart.get_utc_timestamp()
+                    dtstart_timestamp != event.schedule_properties.get_dtstart_timestamp()
                 });
 
             if is_unique_dtstart_timestamp && query_results.len() >= self.limit {
                 break;
             }
 
-            previous_dtstart_timestamp = Some(event_instance.dtstart.get_utc_timestamp());
+            previous_dtstart_timestamp = Some(event.schedule_properties.get_dtstart_timestamp());
 
-            query_results.push(event_instance);
+            query_results.push(*event.to_owned());
         }
 
         query_results.truncate(self.limit);
@@ -258,20 +302,17 @@ impl EventInstanceQuery {
         &self,
         geo_point: &GeoPoint,
         calendar: &Calendar,
-        query_results: &mut QueryResults<EventInstance>,
+        query_results: &mut QueryResults<Event>,
         where_conditional_result: &Option<InvertedCalendarIndexTerm>,
     ) -> Result<(), String> {
         let lower_bound_filter_condition = self.get_lower_bound_filter_condition();
         let upper_bound_filter_condition = self.get_upper_bound_filter_condition();
 
-        for (point, _distance) in calendar
+        'outer: for (point, _distance) in calendar
             .indexed_geo
             .coords
             .nearest_neighbor_iter_with_distance_2(&geo_point.to_point())
         {
-            let mut merged_iterator: MergedIterator<EventInstance, EventInstanceIterator> =
-                MergedIterator::new();
-
             let current_inverted_index_calendar_term = match where_conditional_result {
                 Some(inverted_calendar_index_term) => {
                     InvertedCalendarIndexTerm::merge_and(&point.data, inverted_calendar_index_term)
@@ -281,66 +322,40 @@ impl EventInstanceQuery {
             };
 
             for (event_uid, indexed_conclusion) in &current_inverted_index_calendar_term.events {
+                // We only care about matching base properties defined on the Event, not any
+                // occurrence specific overrides - we are querying the events not the event
+                // instances extrapolated from those events and associated occurrence specific
+                // overrides.
+                //
+                // Exclude means that it is not present on the base Event, so we skip it.
+                if matches!(indexed_conclusion, IndexedConclusion::Exclude(_)) {
+                    continue;
+                }
+
                 let Some(event) = calendar.events.get(event_uid) else {
                     // TODO: handle missing indexed event...
-
                     continue;
                 };
 
-                self.add_event_to_merged_iterator(
-                    event,
-                    &mut merged_iterator,
-                    &lower_bound_filter_condition,
-                    &upper_bound_filter_condition,
-                    &Some(indexed_conclusion.clone()),
-                )?;
-            }
+                if self.is_event_within_bound_filter_conditions(event, &lower_bound_filter_condition, &upper_bound_filter_condition) {
+                    if query_results.len() >= self.limit {
+                        break 'outer;
+                    }
 
-            for (_, event_instance) in merged_iterator {
-                if query_results.len() >= self.limit {
-                    break;
+                    // TODO: Consider maybe reusing the distance available from iterator instead of
+                    //       wastefully re-calculating it.
+                    query_results.push(*event.to_owned());
                 }
-
-                // TODO: Consider maybe reusing the distance available from iterator instead of
-                //       wastefully re-calculating it.
-                query_results.push(event_instance);
             }
         }
 
         Ok(())
     }
-
-    fn add_event_to_merged_iterator<'iter, 'evt: 'iter>(
-        &self,
-        event: &'evt Event,
-        merged_iterator: &'iter mut MergedIterator<EventInstance, EventInstanceIterator<'evt>>,
-        lower_bound_filter_condition: &Option<LowerBoundFilterCondition>,
-        upper_bound_filter_condition: &Option<UpperBoundFilterCondition>,
-        filtering_indexed_conclusion: &Option<IndexedConclusion>,
-    ) -> Result<(), String> {
-        let limit = if self.distinct_uids { Some(1) } else { None };
-
-        let event_uid: String = event.uid.uid.to_string();
-
-        let event_instance_iterator = EventInstanceIterator::new(
-            event,
-            limit,
-            lower_bound_filter_condition.clone(),
-            upper_bound_filter_condition.clone(),
-            filtering_indexed_conclusion.clone(),
-        )?;
-
-        if let Err(error) = merged_iterator.add_iter(event_uid, event_instance_iterator) {
-            Err(error)
-        } else {
-            Ok(())
-        }
-    }
 }
 
-impl Default for EventInstanceQuery {
+impl Default for EventQuery {
     fn default() -> Self {
-        EventInstanceQuery {
+        EventQuery {
             where_conditional: None,
             ordering_condition: OrderingCondition::DtStart,
             lower_bound_range_condition: None,
@@ -371,14 +386,14 @@ mod test {
     #[test]
     fn test_from_str() {
         assert_eq!(
-            EventInstanceQuery::from_str("X-LIMIT:50 UNCONSUMED_ENDING"),
+            EventQuery::from_str("X-LIMIT:50 UNCONSUMED_ENDING"),
             Err(
                 String::from("Error - parse error Eof at \"UNCONSUMED_ENDING\"")
             )
         );
 
         assert_eq!(
-            EventInstanceQuery::from_str("INVALID"),
+            EventQuery::from_str("INVALID"),
             Err(
                 String::from("Error - expected '(' at \"INVALID\" -- Context: GROUP")
             )
@@ -398,8 +413,8 @@ mod test {
         .join(" ");
 
         assert_eq!(
-            EventInstanceQuery::from_str(query_string.as_str()),
-            Ok(EventInstanceQuery {
+            EventQuery::from_str(query_string.as_str()),
+            Ok(EventQuery {
                 where_conditional: Some(WhereConditional::Operator(
                     Box::new(WhereConditional::Group(
                         Box::new(WhereConditional::Operator(
