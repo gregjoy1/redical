@@ -137,26 +137,26 @@ impl WhereConditionalProperty {
                 )
             },
 
-            WhereConditionalProperty::Categories(category) => Ok(calendar
-                .indexed_categories
-                .terms
-                .get(category)
-                .unwrap_or(&InvertedCalendarIndexTerm::new())
-                .clone()),
-
             WhereConditionalProperty::LocationType(location_type) => Ok(calendar
                 .indexed_location_type
                 .terms
                 .get(location_type)
                 .unwrap_or(&InvertedCalendarIndexTerm::new())
-                .clone()),
+                .to_owned()),
+
+            WhereConditionalProperty::Categories(category) => Ok(calendar
+                .indexed_categories
+                .terms
+                .get(category)
+                .unwrap_or(&InvertedCalendarIndexTerm::new())
+                .to_owned()),
 
             WhereConditionalProperty::RelatedTo(reltype_uids) => Ok(calendar
                 .indexed_related_to
                 .terms
                 .get(reltype_uids)
                 .unwrap_or(&InvertedCalendarIndexTerm::new())
-                .clone()),
+                .to_owned()),
 
             WhereConditionalProperty::Geo(distance, long_lat) => Ok(calendar
                 .indexed_geo
@@ -167,7 +167,7 @@ impl WhereConditionalProperty {
                 .terms
                 .get(classification)
                 .unwrap_or(&InvertedCalendarIndexTerm::new())
-                .clone()),
+                .to_owned()),
         }
     }
 
@@ -176,85 +176,12 @@ impl WhereConditionalProperty {
         inverted_index_term_a: &InvertedCalendarIndexTerm,
         calendar: &Calendar,
     ) -> Result<InvertedCalendarIndexTerm, String> {
-        let empty_calendar_index_term = InvertedCalendarIndexTerm::new();
+        let inverted_index_term_b = self.execute(calendar)?;
 
-        match &self {
-            WhereConditionalProperty::UID(uid) => {
-                let inverted_index_term_b =
-                    &InvertedCalendarIndexTerm::new_with_event(
-                        uid.to_owned(),
-                        IndexedConclusion::Include(None),
-                    );
-
-                Ok(InvertedCalendarIndexTerm::merge_and(
-                    inverted_index_term_a,
-                    inverted_index_term_b,
-                ))
-            }
-
-            WhereConditionalProperty::LocationType(location_type) => {
-                let inverted_index_term_b = calendar
-                    .indexed_location_type
-                    .terms
-                    .get(location_type)
-                    .unwrap_or(&empty_calendar_index_term);
-
-                Ok(InvertedCalendarIndexTerm::merge_and(
-                    inverted_index_term_a,
-                    inverted_index_term_b,
-                ))
-            }
-
-            WhereConditionalProperty::Categories(category) => {
-                let inverted_index_term_b = calendar
-                    .indexed_categories
-                    .terms
-                    .get(category)
-                    .unwrap_or(&empty_calendar_index_term);
-
-                Ok(InvertedCalendarIndexTerm::merge_and(
-                    inverted_index_term_a,
-                    inverted_index_term_b,
-                ))
-            }
-
-            WhereConditionalProperty::RelatedTo(reltype_uids) => {
-                let inverted_index_term_b = calendar
-                    .indexed_related_to
-                    .terms
-                    .get(reltype_uids)
-                    .unwrap_or(&empty_calendar_index_term);
-
-                Ok(InvertedCalendarIndexTerm::merge_and(
-                    inverted_index_term_a,
-                    inverted_index_term_b,
-                ))
-            }
-
-            WhereConditionalProperty::Geo(distance, long_lat) => {
-                let inverted_index_term_b = calendar
-                    .indexed_geo
-                    .locate_within_distance(long_lat, distance);
-
-                Ok(InvertedCalendarIndexTerm::merge_and(
-                    inverted_index_term_a,
-                    &inverted_index_term_b,
-                ))
-            }
-
-            WhereConditionalProperty::Class(classification) => {
-                let inverted_index_term_b = calendar
-                    .indexed_class
-                    .terms
-                    .get(classification)
-                    .unwrap_or(&empty_calendar_index_term);
-
-                Ok(InvertedCalendarIndexTerm::merge_and(
-                    inverted_index_term_a,
-                    inverted_index_term_b,
-                ))
-            }
-        }
+        Ok(InvertedCalendarIndexTerm::merge_and(
+            inverted_index_term_a,
+            &inverted_index_term_b,
+        ))
     }
 
     pub fn merge_or(
@@ -262,85 +189,12 @@ impl WhereConditionalProperty {
         inverted_index_term_a: &InvertedCalendarIndexTerm,
         calendar: &Calendar,
     ) -> Result<InvertedCalendarIndexTerm, String> {
-        let empty_calendar_index_term = InvertedCalendarIndexTerm::new();
+        let inverted_index_term_b = self.execute(calendar)?;
 
-        match &self {
-            WhereConditionalProperty::UID(uid) => {
-                let inverted_index_term_b =
-                    &InvertedCalendarIndexTerm::new_with_event(
-                        uid.to_owned(),
-                        IndexedConclusion::Include(None),
-                    );
-
-                Ok(InvertedCalendarIndexTerm::merge_or(
-                    inverted_index_term_a,
-                    inverted_index_term_b,
-                ))
-            }
-
-            WhereConditionalProperty::LocationType(location_type) => {
-                let inverted_index_term_b = calendar
-                    .indexed_location_type
-                    .terms
-                    .get(location_type)
-                    .unwrap_or(&empty_calendar_index_term);
-
-                Ok(InvertedCalendarIndexTerm::merge_or(
-                    inverted_index_term_a,
-                    inverted_index_term_b,
-                ))
-            }
-
-            WhereConditionalProperty::Categories(category) => {
-                let inverted_index_term_b = calendar
-                    .indexed_categories
-                    .terms
-                    .get(category)
-                    .unwrap_or(&empty_calendar_index_term);
-
-                Ok(InvertedCalendarIndexTerm::merge_or(
-                    inverted_index_term_a,
-                    inverted_index_term_b,
-                ))
-            }
-
-            WhereConditionalProperty::RelatedTo(reltype_uids) => {
-                let inverted_index_term_b = calendar
-                    .indexed_related_to
-                    .terms
-                    .get(reltype_uids)
-                    .unwrap_or(&empty_calendar_index_term);
-
-                Ok(InvertedCalendarIndexTerm::merge_or(
-                    inverted_index_term_a,
-                    inverted_index_term_b,
-                ))
-            }
-
-            WhereConditionalProperty::Geo(distance, long_lat) => {
-                let inverted_index_term_b = calendar
-                    .indexed_geo
-                    .locate_within_distance(long_lat, distance);
-
-                Ok(InvertedCalendarIndexTerm::merge_or(
-                    inverted_index_term_a,
-                    &inverted_index_term_b,
-                ))
-            }
-
-            WhereConditionalProperty::Class(classification) => {
-                let inverted_index_term_b = calendar
-                    .indexed_class
-                    .terms
-                    .get(classification)
-                    .unwrap_or(&empty_calendar_index_term);
-
-                Ok(InvertedCalendarIndexTerm::merge_or(
-                    inverted_index_term_a,
-                    inverted_index_term_b,
-                ))
-            }
-        }
+        Ok(InvertedCalendarIndexTerm::merge_or(
+            inverted_index_term_a,
+            &inverted_index_term_b,
+        ))
     }
 }
 

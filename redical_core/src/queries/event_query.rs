@@ -185,6 +185,7 @@ impl EventQuery {
         within_lower_bound_filter_condition && within_upper_bound_filter_condition
     }
 
+    #[allow(clippy::borrowed_box)]
     fn populate_sorted_vec_for_dtstart_ordering<'event, 'cal: 'event>(
         &self,
         calendar: &'cal Calendar,
