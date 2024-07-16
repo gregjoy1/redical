@@ -3,19 +3,81 @@ use std::str::FromStr;
 use chrono_tz::Tz;
 
 use crate::{
-    Calendar, Event, GeoPoint, IndexedConclusion,
-    InvertedCalendarIndexTerm, LowerBoundFilterCondition, UpperBoundFilterCondition,
-    FilterProperty,
+    Calendar, Event, IndexedConclusion, InvertedCalendarIndexTerm,
+    LowerBoundFilterCondition, UpperBoundFilterCondition, KeyValuePair,
+    GeoDistance, GeoPoint, FilterProperty,
 };
 
 use crate::queries::indexed_property_filters::WhereConditional;
-use crate::queries::query::Query;
+use crate::queries::query::{Query, QueryIndexAccessor};
 use crate::queries::query_parser::parse_query_string;
 use crate::queries::results::QueryResults;
 use crate::queries::results_ordering::OrderingCondition;
 use crate::queries::results_range_bounds::{
     LowerBoundRangeCondition, UpperBoundRangeCondition,
 };
+
+pub struct EventQueryIndexAccessor<'cal> {
+    calendar: &'cal Calendar
+}
+
+impl<'cal> QueryIndexAccessor<'cal> for EventQueryIndexAccessor<'cal> {
+    fn new(calendar: &'cal Calendar) -> Self {
+        EventQueryIndexAccessor {
+            calendar,
+        }
+    }
+
+    // For UID, we just return an "include all" consensus for that event UID.
+    fn search_uid_index(&self, uid: &str) -> InvertedCalendarIndexTerm {
+        InvertedCalendarIndexTerm::new_with_event(
+            uid.to_owned(),
+            IndexedConclusion::Include(None),
+        )
+    }
+
+    fn search_location_type_index(&self, location_type: &str) -> InvertedCalendarIndexTerm {
+        self.calendar
+            .indexed_location_type
+            .terms
+            .get(location_type)
+            .unwrap_or(&InvertedCalendarIndexTerm::new())
+            .to_owned()
+    }
+
+    fn search_categories_index(&self, category: &str) -> InvertedCalendarIndexTerm {
+        self.calendar
+            .indexed_categories
+            .terms
+            .get(category)
+            .unwrap_or(&InvertedCalendarIndexTerm::new())
+            .to_owned()
+    }
+
+    fn search_related_to_index(&self, reltype_uids: &KeyValuePair) -> InvertedCalendarIndexTerm {
+        self.calendar
+            .indexed_related_to
+            .terms
+            .get(reltype_uids)
+            .unwrap_or(&InvertedCalendarIndexTerm::new())
+            .to_owned()
+    }
+
+    fn search_geo_index(&self, distance: &GeoDistance, long_lat: &GeoPoint) -> InvertedCalendarIndexTerm {
+        self.calendar
+            .indexed_geo
+            .locate_within_distance(long_lat, distance)
+    }
+
+    fn search_class_index(&self, class: &str) -> InvertedCalendarIndexTerm {
+        self.calendar
+            .indexed_class
+            .terms
+            .get(class)
+            .unwrap_or(&InvertedCalendarIndexTerm::new())
+            .to_owned()
+    }
+}
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct EventQuery {
@@ -41,9 +103,11 @@ impl FromStr for EventQuery {
 
 impl Query<Event> for EventQuery {
     fn execute(&mut self, calendar: &Calendar) -> Result<QueryResults<Event>, String> {
+        let query_index_accessor = EventQueryIndexAccessor::new(calendar);
+
         let where_conditional_result = if let Some(where_conditional) = &mut self.where_conditional
         {
-            Some(where_conditional.execute(calendar)?)
+            Some(where_conditional.execute(&query_index_accessor)?)
         } else {
             None
         };

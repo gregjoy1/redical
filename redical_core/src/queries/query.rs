@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use chrono_tz::Tz;
 
-use crate::Calendar;
+use crate::{Calendar, InvertedCalendarIndexTerm, KeyValuePair, GeoDistance, GeoPoint};
 use crate::queries::results::{QueryableEntity, QueryResults};
 
 use crate::queries::results_ordering::OrderingCondition;
@@ -13,6 +13,16 @@ use crate::queries::results_range_bounds::{
 use crate::queries::indexed_property_filters::{
     WhereConditional, WhereOperator,
 };
+
+pub trait QueryIndexAccessor<'cal> {
+    fn new(calendar: &'cal Calendar) -> Self;
+    fn search_uid_index(&self, uid: &str) -> InvertedCalendarIndexTerm;
+    fn search_location_type_index(&self, location_type: &str) -> InvertedCalendarIndexTerm;
+    fn search_categories_index(&self, category: &str) -> InvertedCalendarIndexTerm;
+    fn search_related_to_index(&self, reltype_uids: &KeyValuePair) -> InvertedCalendarIndexTerm;
+    fn search_geo_index(&self, distance: &GeoDistance, long_lat: &GeoPoint) -> InvertedCalendarIndexTerm;
+    fn search_class_index(&self, class: &str) -> InvertedCalendarIndexTerm;
+}
 
 pub trait Query<T: QueryableEntity>: FromStr + PartialEq + Clone + Default {
     fn execute(&mut self, calendar: &Calendar) -> Result<QueryResults<T>, String>;
