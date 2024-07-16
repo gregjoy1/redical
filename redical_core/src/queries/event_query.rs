@@ -21,6 +21,22 @@ pub struct EventQueryIndexAccessor<'cal> {
     calendar: &'cal Calendar
 }
 
+impl<'cal> EventQueryIndexAccessor<'cal> {
+    fn included_conclusions_or_nothing(inverted_calendar_index_term: Option<&InvertedCalendarIndexTerm>) -> InvertedCalendarIndexTerm {
+        inverted_calendar_index_term.map_or(InvertedCalendarIndexTerm::new(), |index_term| {
+            let mut new_index_term = InvertedCalendarIndexTerm::new();
+
+            for (event_uid, indexed_conclusion) in &index_term.events {
+                if matches!(indexed_conclusion, IndexedConclusion::Include(_)) {
+                    new_index_term.insert_included_event(event_uid.to_owned(), None);
+                }
+            }
+
+            new_index_term
+        })
+    }
+}
+
 impl<'cal> QueryIndexAccessor<'cal> for EventQueryIndexAccessor<'cal> {
     fn new(calendar: &'cal Calendar) -> Self {
         EventQueryIndexAccessor {
@@ -37,45 +53,35 @@ impl<'cal> QueryIndexAccessor<'cal> for EventQueryIndexAccessor<'cal> {
     }
 
     fn search_location_type_index(&self, location_type: &str) -> InvertedCalendarIndexTerm {
-        self.calendar
-            .indexed_location_type
-            .terms
-            .get(location_type)
-            .unwrap_or(&InvertedCalendarIndexTerm::new())
-            .to_owned()
+        Self::included_conclusions_or_nothing(
+            self.calendar.indexed_location_type.terms.get(location_type)
+        )
     }
 
     fn search_categories_index(&self, category: &str) -> InvertedCalendarIndexTerm {
-        self.calendar
-            .indexed_categories
-            .terms
-            .get(category)
-            .unwrap_or(&InvertedCalendarIndexTerm::new())
-            .to_owned()
+        Self::included_conclusions_or_nothing(
+            self.calendar.indexed_categories.terms.get(category)
+        )
     }
 
     fn search_related_to_index(&self, reltype_uids: &KeyValuePair) -> InvertedCalendarIndexTerm {
-        self.calendar
-            .indexed_related_to
-            .terms
-            .get(reltype_uids)
-            .unwrap_or(&InvertedCalendarIndexTerm::new())
-            .to_owned()
+        Self::included_conclusions_or_nothing(
+            self.calendar.indexed_related_to.terms.get(reltype_uids)
+        )
     }
 
     fn search_geo_index(&self, distance: &GeoDistance, long_lat: &GeoPoint) -> InvertedCalendarIndexTerm {
-        self.calendar
-            .indexed_geo
-            .locate_within_distance(long_lat, distance)
+        Self::included_conclusions_or_nothing(
+            Some(
+                &self.calendar.indexed_geo.locate_within_distance(long_lat, distance)
+            )
+        )
     }
 
     fn search_class_index(&self, class: &str) -> InvertedCalendarIndexTerm {
-        self.calendar
-            .indexed_class
-            .terms
-            .get(class)
-            .unwrap_or(&InvertedCalendarIndexTerm::new())
-            .to_owned()
+        Self::included_conclusions_or_nothing(
+            self.calendar.indexed_class.terms.get(class)
+        )
     }
 }
 
