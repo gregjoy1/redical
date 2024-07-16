@@ -1,11 +1,11 @@
-# RDCL.EVI_QUERY
+# RDCL.EVT_QUERY
 
 ### Syntax
 ```bash
-RDCL.EVI_QUERY key query-property [query-property ...]
+RDCL.EVT_QUERY key event-uid query-property [query-property ...]
 ```
 
-Query the extrapolated event instances of all events stored in the specified calendar.
+Query all the events stored in the specified calendar, only concerned with the properties on the events themselves, not the resulting extrapolated event instances comprised of any overrides.
 
 ## Required arguments
 
@@ -13,7 +13,7 @@ Query the extrapolated event instances of all events stored in the specified cal
 The key of the stored calendar (also representing it's UID).
 
 ### query-property
-Non-standard iCalendar ([RFC-5545](https://datatracker.ietf.org/doc/html/rfc5545)) property content lines specific to RediCal for querying calendar event instances.
+Non-standard iCalendar ([RFC-5545](https://datatracker.ietf.org/doc/html/rfc5545)) property content lines specific to RediCal for querying calendar events.
 
 #### `X-FROM` property
 This query property defines the lower occurrence `DTSTART`/`DTEND` bounds to query from.
@@ -31,12 +31,12 @@ X-FROM[;PROP=(DTSTART|DTEND)][;OP=(GT|GTE)][;TZID=<timezone-id>]:<date-time-stri
 
 ##### Examples:
 
-All event instances starting after `19960401T150000Z`:
+All events specified with a `DTSTART` property starting after `19960401T150000Z`:
 ```
 X-FROM:19960401T150000Z
 ```
 
-All event instances ending after (or at) `19960401T150000` in `Europe/London` timezone:
+All events specified with a `DTSTART` and either `DTEND` or `DURATION` properties resulting in them ending after (or at) `19960401T150000` in `Europe/London` timezone:
 ```
 X-FROM;PROP=DTEND;OP=GTE;TZID=Europe/London:19960401T150000
 ```
@@ -57,12 +57,12 @@ X-UNTIL[;PROP=(DTSTART|DTEND)][;OP=(LT|LTE)][;TZID=<timezone-id>]:<date-time-str
 
 ##### Examples:
 
-All event instances starting before `19960401T150000Z`:
+All events specified with a `DTSTART` property starting before `19960401T150000Z`:
 ```
 X-UNTIL:19960401T150000Z
 ```
 
-All event instances ending before (or at) `19960401T150000` in `Europe/London` timezone:
+All events specified with a `DTSTART` and either `DTEND` or `DURATION` properties resulting in them ending before (or at) `19960401T150000` in `Europe/London` timezone:
 ```
 X-UNTIL;PROP=DTEND;OP=GTE;TZID=Europe/London:19960401T150000
 ```
@@ -108,9 +108,9 @@ X-ORDER-BY:(DTSTART|DTSTART-GEO-DIST;<latitude>;<longitude>|GEO-DIST-DTSTART;<la
 
 ###### Values:
 
-`DTSTART` - Order event instances by `DTSTART` ascending.
-`DTSTART-GEO-DIST` - Order event instances by `DTSTART` ascending first, falling back to distance from provided latitude and longitude.
-`GEO-DIST-DTSTART` - Order event instances by distance to provided latitude and longitude ascending, falling back to `DTSTART`.
+`DTSTART` - Order events by `DTSTART` ascending.
+`DTSTART-GEO-DIST` - Order events by `DTSTART` ascending first, falling back to distance from provided latitude and longitude.
+`GEO-DIST-DTSTART` - Order events by distance to provided latitude and longitude ascending, falling back to `DTSTART`.
 
 ##### Examples:
 
@@ -127,15 +127,6 @@ X-ORDER-BY:DTSTART-GEO-DIST;48.85299;2.36885
 Order by distance from latitude: `48.85299` and longitude: `2.36885`, falling back to `DTSTART` (ascending):
 ```
 X-ORDER-BY:GEO-DIST-DTSTART;48.85299;2.36885
-```
-
-#### `X-DISTINCT` property
-This property groups all event instances by their associated event `UID`, returning the first of each result only.
-
-##### Usage:
-Currently only available option is `UID`:
-```
-X-DISTINCT:UID
 ```
 
 #### `X-TZID` property
@@ -174,7 +165,7 @@ X-CATEGORIES[;OP=(AND|OR)]:<categories>[,<categories>...]
 
 ##### Example:
 
-Query all event instances with both `APPOINTMENT`, **and** `EDUCATION` `CATEGORIES` values:
+Query all events with both `APPOINTMENT`, **and** `EDUCATION` `CATEGORIES` values:
 ```
 X-CATEGORIES:APPOINTMENT,EDUCATION
 ```
@@ -184,12 +175,12 @@ Equivilent to:
 X-CATEGORIES;OP=AND:APPOINTMENT,EDUCATION
 ```
 
-Query all event instances with either `APPOINTMENT` **or** `EDUCATION` `CATEGORIES` values:
+Query all events with either `APPOINTMENT` **or** `EDUCATION` `CATEGORIES` values:
 ```
 X-CATEGORIES;OP=OR:APPOINTMENT,EDUCATION
 ```
 
-Query all event instances with `MEETING` `CATEGORIES` values **and** either `APPOINTMENT` **or** `EDUCATION` `CATEGORIES` values:
+Query all events with `MEETING` `CATEGORIES` values **and** either `APPOINTMENT` **or** `EDUCATION` `CATEGORIES` values:
 ```
 X-CATEGORIES:MEETING X-CATEGORIES;OP=OR:APPOINTMENT,EDUCATION
 ```
@@ -204,12 +195,12 @@ X-UID:<uids>[,<uids>...]
 
 ##### Example:
 
-Query all event instances with `UID_ONE` `UID` value:
+Query all events with `UID_ONE` `UID` value:
 ```
 X-UID:UID_ONE
 ```
 
-Query all event instances with either `UID_ONE`, **or** `UID_TWO` `UID` values:
+Query all events with either `UID_ONE`, **or** `UID_TWO` `UID` values:
 ```
 X-UID:UID_ONE,UID_TWO
 ```
@@ -228,7 +219,7 @@ X-LOCATION-TYPE[;OP=(AND|OR)]:<types>[,<types>...]
 
 ##### Example:
 
-Query all event instances with both `ONLINE`, **and** `ZOOM` `LOCATION-TYPE` values:
+Query all events with both `ONLINE`, **and** `ZOOM` `LOCATION-TYPE` values:
 ```
 X-LOCATION-TYPE:ONLINE,ZOOM
 ```
@@ -238,12 +229,12 @@ Equivilent to:
 X-LOCATION-TYPE;OP=AND:ONLINE,ZOOM
 ```
 
-Query all event instances with either `ONLINE` **or** `OFFLINE` `LOCATION-TYPE` values:
+Query all events with either `ONLINE` **or** `OFFLINE` `LOCATION-TYPE` values:
 ```
 X-LOCATION-TYPE;OP=OR:ONLINE,OFFLINE
 ```
 
-Query all event instances with `ONLINE` `LOCATION-TYPE` values **and** either `ZOOM` **or** `HANGOUTS` `LOCATION-TYPE` values:
+Query all events with `ONLINE` `LOCATION-TYPE` values **and** either `ZOOM` **or** `HANGOUTS` `LOCATION-TYPE` values:
 ```
 X-LOCATION-TYPE:ONLINE X-LOCATION-TYPE;OP=OR:ZOOM,HANGOUTS
 ```
@@ -262,7 +253,7 @@ X-RELATED-TO[;OP=(AND|OR)]:<related-to-uid>[,<related-to-uid>...]
 
 ##### Example:
 
-Query all event instances with both `parent.uid.one`, **and** `parent.uid.two` `RELATED-TO` values:
+Query all events with both `parent.uid.one`, **and** `parent.uid.two` `RELATED-TO` values:
 ```
 X-RELATED-TO:parent.uid.one,parent.uid.two
 ```
@@ -272,12 +263,12 @@ Equivilent to:
 X-RELATED-TO;OP=AND:parent.uid.one,parent.uid.two
 ```
 
-Query all event instances with `RELATED-TO` properties containing the `X-RELTYPE` `RELTYPE` and either `x-reltype.uid.one` **or** `x-reltype.uid.two` values:
+Query all  events with `RELATED-TO` properties containing the `X-RELTYPE` `RELTYPE` and either `x-reltype.uid.one` **or** `x-reltype.uid.two` values:
 ```
 X-RELATED-TO;RELTYPE=X-RELTYPE;OP=OR:x-reltype.uid.one,x-reltype.uid.two
 ```
 
-Query all event instances with `RELATED-TO` properties containing the `PARENT` and `X-RELTYPE` `RELTYPE` parameters with `parent.uid` and either `x-reltype.uid.one` **or** `x-reltype.uid.two` values:
+Query all  events with `RELATED-TO` properties containing the `PARENT` and `X-RELTYPE` `RELTYPE` parameters with `parent.uid` and either `x-reltype.uid.one` **or** `x-reltype.uid.two` values:
 ```
 X-RELATED-TO:parent.uid X-RELATED-TO;RELTYPE=X-RELTYPE;OP=OR:x-reltype.uid.one,x-reltype.uid.two
 ```
@@ -296,7 +287,7 @@ X-CLASS[;OP=(AND|OR)]:<class>[,<class>...]
 
 ##### Example:
 
-Query all event instances with both `PUBLIC`, **and** `PRIVATE` `CLASS` values:
+Query all  events with both `PUBLIC`, **and** `PRIVATE` `CLASS` values:
 ```
 X-CLASS:PUBLIC,PRIVATE
 ```
@@ -306,13 +297,13 @@ Equivilent to:
 X-CLASS;OP=AND:PUBLIC,PRIVATE
 ```
 
-Query all event instances with either `PUBLIC` **or** `PRIVATE` `CLASS` values:
+Query all  events with either `PUBLIC` **or** `PRIVATE` `CLASS` values:
 ```
 X-CLASS;OP=OR:PUBLIC,PRIVATE
 ```
 
 #### `X-GEO` property
-This property filters the event instances returned to those with `GEO` properties defined to be within the distance specified from the point specified.
+This property filters the  events returned to those with `GEO` properties defined to be within the distance specified from the point specified.
 
 ##### Usage:
 ```
@@ -321,21 +312,21 @@ X-GEO[;DIST=<distance>(KM|MI)]:<latitude>;<longitude>
 
 ###### Params:
 
-`DIST` - The distance to restrict the event instances to - defaults to `10KM`
+`DIST` - The distance to restrict the  events to - defaults to `10KM`
 
 ##### Example:
 
-Restrict event instances to 10 kilometers from latitude: `48.85299` and longitude: `2.36885`:
+Restrict  events to 10 kilometers from latitude: `48.85299` and longitude: `2.36885`:
 ```
 X-GEO:48.85299;2.36885
 ```
 
-Restrict event instances to 15 kilometers from latitude: `48.85299` and longitude: `2.36885`:
+Restrict  events to 15 kilometers from latitude: `48.85299` and longitude: `2.36885`:
 ```
 X-GEO;DIST=1.5KM:48.85299;2.36885
 ```
 
-Restrict event instances to 30 miles from latitude: `48.85299` and longitude: `2.36885`:
+Restrict  events to 30 miles from latitude: `48.85299` and longitude: `2.36885`:
 ```
 X-GEO;DIST=30MI:48.85299;2.36885
 ```
@@ -356,34 +347,34 @@ This allows the following properties to be grouped into sub-queries which can be
 
 ##### Example:
 
-Restrict event instances to those with matching `CATEGORIES` `Categories text`:
+Restrict  events to those with matching `CATEGORIES` `Categories text`:
 ```
 () X-CATEGORIES:Categories text
 ```
 
-Restrict event instances to those with either `PUBLIC` or `PRIVATE` `CLASS` property defined **and** with matching `CATEGORIES` `Categories text`:
+Restrict  events to those with either `PUBLIC` or `PRIVATE` `CLASS` property defined **and** with matching `CATEGORIES` `Categories text`:
 ```
 (X-CLASS;OP=OR:PUBLIC,PRIVATE) X-CATEGORIES:Categories text
 ```
 
-Restrict event instances to those with matching `CATEGORIES` `Categories text` ***and** with either `PUBLIC` or `PRIVATE` `CLASS` property defined **or** with matching `CATEGORIES` `APPOINTMENT` and `EDUCATION` values:
+Restrict  events to those with matching `CATEGORIES` `Categories text` ***and** with either `PUBLIC` or `PRIVATE` `CLASS` property defined **or** with matching `CATEGORIES` `APPOINTMENT` and `EDUCATION` values:
 ```
 (X-CLASS:PUBLIC,PRIVATE OR X-CATEGORIES:APPOINTMENT,EDUCATION) X-CATEGORIES:Categories text
 ```
 
-Restrict event instances to those with `PUBLIC` `CLASS` property defined **and** with matching `APPOINTMENT` `CATEGORIES` **and** with `PRIVATE` `CLASS` **and** with matching `EDUCATION` and `Categories text` `CATEGORIES`:
+Restrict  events to those with `PUBLIC` `CLASS` property defined **and** with matching `APPOINTMENT` `CATEGORIES` **and** with `PRIVATE` `CLASS` **and** with matching `EDUCATION` and `Categories text` `CATEGORIES`:
 ```
 (X-CLASS:PUBLIC X-CATEGORIES:APPOINTMENT (X-CLASS:PRIVATE X-CATEGORIES:EDUCATION)) X-CATEGORIES:Categories text
 ```
 
-Restrict event instances to those with `PUBLIC` `CLASS` **or** `APPOINTMENT` `CATEGORIES` **and** with `PRIVATE` `CLASS` **and** with matching `EDUCATION` and `Categories text` `CATEGORIES`:
+Restrict  events to those with `PUBLIC` `CLASS` **or** `APPOINTMENT` `CATEGORIES` **and** with `PRIVATE` `CLASS` **and** with matching `EDUCATION` and `Categories text` `CATEGORIES`:
 ```
 (X-CLASS:PUBLIC OR X-CATEGORIES:APPOINTMENT AND (X-CLASS:PRIVATE OR X-CATEGORIES:EDUCATION)) X-CATEGORIES:Categories text
 ```
 
 ## Return value 
 
-`RDCL.EVI_QUERY` returns a multi dimensional [array](https://redis.io/docs/reference/protocol-spec/#arrays) of string replies for each event instance returned by the query.
+`RDCL.EVT_QUERY` returns a multi dimensional [array](https://redis.io/docs/reference/protocol-spec/#arrays) of string replies for each event instance returned by the query.
 
 This is comprised of two nested arrays:
 * The first highlights the utilised ordering attributes of the event instance
@@ -416,131 +407,124 @@ For more information about replies, see [Redis serialization protocol specificat
 
 Empty query -- returns everything
 ```bash
-redis> RDCL.EVI_QUERY CALENDAR_UID
-1) 1) 1) DTSTART:20201231T183000Z
-   2) 1) CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE
-      2) DTEND:20201231T190000Z
-      3) DTSTART:20201231T183000Z
-      4) DURATION:PT30M
-      5) GEO:51.454481838260214;-2.588329192623361
-      6) RECURRENCE-ID;VALUE=DATE-TIME:20201231T183000Z
-      7) RELATED-TO;RELTYPE=PARENT:PARENT_UUID
-      8) SUMMARY:Event in Bristol on Tuesdays and Thursdays at 6:30PM
-      9) UID:EVENT_IN_BRISTOL_TUE_THU
+redis> RDCL.EVT_QUERY CALENDAR_UID
+1) 1) 1) DTSTART:20201231T170000Z
+      2) X-GEO-DIST:35.633761KM
+   2)  1) CATEGORIES:CATEGORY TWO,CATEGORY_ONE
+       2) DTEND:20201231T173000Z
+       3) DTSTART:20201231T170000Z
+       4) EXDATE:20210111T170000Z
+       5) GEO:51.751365550307604;-1.2601196837753945
+       6) LAST-MODIFIED:20240605T192805Z
+       7) RELATED-TO;RELTYPE=PARENT:PARENT_UUID
+       8) RRULE:BYDAY=MO,WE;COUNT=3;FREQ=WEEKLY;INTERVAL=1
+       9) SUMMARY:Event in Oxford on Mondays and Wednesdays at 5:00PM
+      10) UID:EVENT_IN_OXFORD_MON_WED
 2) 1) 1) DTSTART:20201231T183000Z
+      2) X-GEO-DIST:85.055714KM
    2) 1) CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE
       2) DTEND:20201231T190000Z
       3) DTSTART:20201231T183000Z
-      4) DURATION:PT30M
-      5) GEO:51.89936851432488;-2.078357552295971
-      6) RECURRENCE-ID;VALUE=DATE-TIME:20201231T183000Z
-      7) RELATED-TO;RELTYPE=PARENT:PARENT_UUID
+      4) GEO:51.89936851432488;-2.078357552295971
+      5) LAST-MODIFIED:20240605T192805Z
+      6) RELATED-TO;RELTYPE=PARENT:PARENT_UUID
+      7) RRULE:BYDAY=TH,TU;COUNT=3;FREQ=WEEKLY;INTERVAL=1
       8) SUMMARY:Event in Cheltenham on Tuesdays and Thursdays at 6:30PM
       9) UID:EVENT_IN_CHELTENHAM_TUE_THU
-3) 1) 1) DTSTART:20210104T170000Z
-   2) 1) CATEGORIES:OVERRIDDEN_CATEGORY
-      2) DTEND:20210104T173000Z
-      3) DTSTART:20210104T170000Z
-      4) DURATION:PT30M
-      5) GEO:51.751365550307604;-1.2601196837753945
-      6) RECURRENCE-ID;VALUE=DATE-TIME:20210104T170000Z
-      7) RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_PARENT_UUID
-      8) SUMMARY:Overridden event in Oxford summary text
-      9) UID:EVENT_IN_OXFORD_MON_WED
+3) 1) 1) DTSTART:20201231T183000Z
+      2) X-GEO-DIST:104.621379KM
+   2) 1) CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE
+      2) DTEND:20201231T190000Z
+      3) DTSTART:20201231T183000Z
+      4) GEO:51.454481838260214;-2.588329192623361
+      5) LAST-MODIFIED:20240621T203512Z
+      6) RELATED-TO;RELTYPE=PARENT:PARENT_UUID
+      7) RRULE:BYDAY=TH,TU;COUNT=3;FREQ=WEEKLY;INTERVAL=1
+      8) SUMMARY:Event in Bristol on Tuesdays and Thursdays at 6:30PM
+      9) UID:EVENT_IN_BRISTOL_TUE_THU
 ...
 ```
 
 Empty query -- returns everything ordered by distance to Reading
 ```bash
-redis> RDCL.EVI_QUERY CALENDAR_UID X-ORDER-BY:GEO-DIST-DTSTART;51.4514278;-1.078448
-1) 1) 1) DTSTART:20210104T170000Z
+redis> RDCL.EVT_QUERY CALENDAR_UID X-ORDER-BY:GEO-DIST-DTSTART;51.4514278;-1.078448
+1) 1) 1) DTSTART:20201231T170000Z
       2) X-GEO-DIST:35.633761KM
-   2) 1) CATEGORIES:OVERRIDDEN_CATEGORY
-      2) DTEND:20210104T173000Z
-      3) DTSTART:20210104T170000Z
-      4) DURATION:PT30M
-      5) GEO:51.751365550307604;-1.2601196837753945
-      6) RECURRENCE-ID;VALUE=DATE-TIME:20210104T170000Z
-      7) RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_PARENT_UUID
-      8) SUMMARY:Overridden event in Oxford summary text
-      9) UID:EVENT_IN_OXFORD_MON_WED
-2) 1) 1) DTSTART:20210105T183000Z
-      2) X-GEO-DIST:35.633761KM
-   2)  1) CATEGORIES:CATEGORY_ONE
-       2) DTEND:20210105T210000Z
-       3) DTSTART:20210105T183000Z
-       4) DURATION:PT2H30M
+   2)  1) CATEGORIES:CATEGORY TWO,CATEGORY_ONE
+       2) DTEND:20201231T173000Z
+       3) DTSTART:20201231T170000Z
+       4) EXDATE:20210111T170000Z
        5) GEO:51.751365550307604;-1.2601196837753945
-       6) RECURRENCE-ID;VALUE=DATE-TIME:20210105T183000Z
+       6) LAST-MODIFIED:20240605T192805Z
        7) RELATED-TO;RELTYPE=PARENT:PARENT_UUID
-       8) RELATED-TO;RELTYPE=X-OCCURRENCE:OCCURRENCE_ABC123
-       9) SUMMARY:Extra long special event in Oxford at 6:30PM
-      10) UID:EVENT_IN_BRISTOL_TUE_THU
-3) 1) 1) DTSTART:20210106T170000Z
-      2) X-GEO-DIST:35.633761KM
-   2) 1) CATEGORIES:CATEGORY TWO,CATEGORY_ONE
-      2) DTEND:20210106T173000Z
-      3) DTSTART:20210106T170000Z
-      4) DURATION:PT30M
-      5) GEO:51.751365550307604;-1.2601196837753945
-      6) RECURRENCE-ID;VALUE=DATE-TIME:20210106T170000Z
-      7) RELATED-TO;RELTYPE=PARENT:PARENT_UUID
-      8) SUMMARY:Event in Oxford on Mondays and Wednesdays at 5:00PM
-      9) UID:EVENT_IN_OXFORD_MON_WED
+       8) RRULE:BYDAY=MO,WE;COUNT=3;FREQ=WEEKLY;INTERVAL=1
+       9) SUMMARY:Event in Oxford on Mondays and Wednesdays at 5:00PM
+      10) UID:EVENT_IN_OXFORD_MON_WED
+2) 1) 1) DTSTART:20201231T183000Z
+      2) X-GEO-DIST:85.055714KM
+   2) 1) CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE
+      2) DTEND:20201231T190000Z
+      3) DTSTART:20201231T183000Z
+      4) GEO:51.89936851432488;-2.078357552295971
+      5) LAST-MODIFIED:20240605T192805Z
+      6) RELATED-TO;RELTYPE=PARENT:PARENT_UUID
+      7) RRULE:BYDAY=TH,TU;COUNT=3;FREQ=WEEKLY;INTERVAL=1
+      8) SUMMARY:Event in Cheltenham on Tuesdays and Thursdays at 6:30PM
+      9) UID:EVENT_IN_CHELTENHAM_TUE_THU
+3) 1) 1) DTSTART:20201231T183000Z
+      2) X-GEO-DIST:104.621379KM
+   2) 1) CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE
+      2) DTEND:20201231T190000Z
+      3) DTSTART:20201231T183000Z
+      4) GEO:51.454481838260214;-2.588329192623361
+      5) LAST-MODIFIED:20240621T203512Z
+      6) RELATED-TO;RELTYPE=PARENT:PARENT_UUID
+      7) RRULE:BYDAY=TH,TU;COUNT=3;FREQ=WEEKLY;INTERVAL=1
+      8) SUMMARY:Event in Bristol on Tuesdays and Thursdays at 6:30PM
+      9) UID:EVENT_IN_BRISTOL_TUE_THU
 ...
 ```
 
 Empty query -- returns everything ordered by distance to Reading (grouped by UID) limited to 2 results
 ```bash
-redis> RDCL.EVI_QUERY CALENDAR_UID X-ORDER-BY:GEO-DIST-DTSTART;51.4514278;-1.078448 X-DISTINCT:UID X-LIMIT:2
-1) 1) 1) DTSTART:20210104T170000Z
+redis> RDCL.EVT_QUERY CALENDAR_UID X-ORDER-BY:GEO-DIST-DTSTART;51.4514278;-1.078448 X-LIMIT:2
+1) 1) 1) DTSTART:20201231T170000Z
       2) X-GEO-DIST:35.633761KM
-   2) 1) CATEGORIES:OVERRIDDEN_CATEGORY
-      2) DTEND:20210104T173000Z
-      3) DTSTART:20210104T170000Z
-      4) DURATION:PT30M
-      5) GEO:51.751365550307604;-1.2601196837753945
-      6) RECURRENCE-ID;VALUE=DATE-TIME:20210104T170000Z
-      7) RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_PARENT_UUID
-      8) SUMMARY:Overridden event in Oxford summary text
-      9) UID:EVENT_IN_OXFORD_MON_WED
-2) 1) 1) DTSTART:20210105T183000Z
-      2) X-GEO-DIST:35.633761KM
-   2)  1) CATEGORIES:CATEGORY_ONE
-       2) DTEND:20210105T210000Z
-       3) DTSTART:20210105T183000Z
-       4) DURATION:PT2H30M
+   2)  1) CATEGORIES:CATEGORY TWO,CATEGORY_ONE
+       2) DTEND:20201231T173000Z
+       3) DTSTART:20201231T170000Z
+       4) EXDATE:20210111T170000Z
        5) GEO:51.751365550307604;-1.2601196837753945
-       6) RECURRENCE-ID;VALUE=DATE-TIME:20210105T183000Z
+       6) LAST-MODIFIED:20240605T192805Z
        7) RELATED-TO;RELTYPE=PARENT:PARENT_UUID
-       8) RELATED-TO;RELTYPE=X-OCCURRENCE:OCCURRENCE_ABC123
-       9) SUMMARY:Extra long special event in Oxford at 6:30PM
-      10) UID:EVENT_IN_BRISTOL_TUE_THU
+       8) RRULE:BYDAY=MO,WE;COUNT=3;FREQ=WEEKLY;INTERVAL=1
+       9) SUMMARY:Event in Oxford on Mondays and Wednesdays at 5:00PM
+      10) UID:EVENT_IN_OXFORD_MON_WED
+2) 1) 1) DTSTART:20201231T183000Z
+      2) X-GEO-DIST:85.055714KM
+   2) 1) CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE
+      2) DTEND:20201231T190000Z
+      3) DTSTART:20201231T183000Z
+      4) GEO:51.89936851432488;-2.078357552295971
+      5) LAST-MODIFIED:20240605T192805Z
+      6) RELATED-TO;RELTYPE=PARENT:PARENT_UUID
+      7) RRULE:BYDAY=TH,TU;COUNT=3;FREQ=WEEKLY;INTERVAL=1
+      8) SUMMARY:Event in Cheltenham on Tuesdays and Thursdays at 6:30PM
+      9) UID:EVENT_IN_CHELTENHAM_TUE_THU
 ```
 
 Find all events with the `PARENT` relation to `PARENT_UID` that are within 60KM of Western-Super-Mare OR with the `OVERRIDDEN_CATEGORY` limited to 2 results:
 ```bash
-redis> RDCL.EVI_QUERY CALENDAR_UID (X-GEO;DIST=60KM:51.3432622;-3.1608606 OR X-CATEGORIES:OVERRIDDEN_CATEGORY) X-ORDER-BY:GEO-DIST-DTSTART;51.4514278;-1.078448 X-RELATED-TO;RELTYPE=PARENT:PARENT_UUID X-LIMIT:2
+redis> RDCL.EVT_QUERY CALENDAR_UID (X-GEO;DIST=60KM:51.3432622;-3.1608606 OR X-CATEGORIES:OVERRIDDEN_CATEGORY) X-ORDER-BY:GEO-DIST-DTSTART;51.4514278;-1.078448 X-RELATED-TO;RELTYPE=PARENT:PARENT_UUID X-LIMIT:2
 1) 1) 1) DTSTART:20201231T183000Z
       2) X-GEO-DIST:104.621379KM
    2) 1) CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE
       2) DTEND:20201231T190000Z
       3) DTSTART:20201231T183000Z
-      4) DURATION:PT30M
-      5) GEO:51.454481838260214;-2.588329192623361
-      6) RECURRENCE-ID;VALUE=DATE-TIME:20201231T183000Z
-      7) RELATED-TO;RELTYPE=PARENT:PARENT_UUID
-      8) SUMMARY:Event in Bristol on Tuesdays and Thursdays at 6:30PM
-      9) UID:EVENT_IN_BRISTOL_TUE_THU
-2) 1) 1) DTSTART:20210107T183000Z
-      2) X-GEO-DIST:104.621379KM
-   2) 1) CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE
-      2) DTEND:20210107T190000Z
-      3) DTSTART:20210107T183000Z
-      4) DURATION:PT30M
-      5) GEO:51.454481838260214;-2.588329192623361
-      6) RECURRENCE-ID;VALUE=DATE-TIME:20210107T183000Z
-      7) RELATED-TO;RELTYPE=PARENT:PARENT_UUID
+      4) GEO:51.454481838260214;-2.588329192623361
+      5) LAST-MODIFIED:20240621T203512Z
+      6) RELATED-TO;RELTYPE=PARENT:PARENT_UUID
+      7) RRULE:BYDAY=TH,TU;COUNT=3;FREQ=WEEKLY;INTERVAL=1
       8) SUMMARY:Event in Bristol on Tuesdays and Thursdays at 6:30PM
       9) UID:EVENT_IN_BRISTOL_TUE_THU
 ```
