@@ -144,13 +144,15 @@ fn where_properties_group_to_where_conditional(where_properties_group: &WherePro
                 external_operator,
             ),
 
+            GroupedWhereProperty::XClass(external_operator, x_class_property) => (
+                x_class_property_to_where_conditional(x_class_property),
+                external_operator,
+            ),
+
             GroupedWhereProperty::WherePropertiesGroup(external_operator, nested_where_properties_group) => (
                 where_properties_group_to_where_conditional(nested_where_properties_group),
                 external_operator,
             ),
-
-            // TODO: Return error instead of panicking...
-            _ => panic!("Expected where query property."),
         };
 
         // Massage Option<[ICalendar]WhereOperator> value type into [Query]WhereOperator -

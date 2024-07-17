@@ -194,6 +194,17 @@ where
     pub terms: HashMap<K, IndexedConclusion>,
 }
 
+impl<K> Default for InvertedEventIndex<K>
+where
+    K: std::hash::Hash + Clone + std::cmp::Eq,
+{
+    fn default() -> Self {
+        InvertedEventIndex {
+            terms: HashMap::new(),
+        }
+    }
+}
+
 impl<K> InvertedEventIndex<K>
 where
     K: std::hash::Hash + Clone + std::cmp::Eq,
@@ -221,6 +232,29 @@ where
         }
 
         indexed_categories
+    }
+
+    pub fn new_from_event_location_type(event: &Event) -> InvertedEventIndex<String> {
+        let mut indexed_location_type = InvertedEventIndex {
+            terms: HashMap::new(),
+        };
+
+        if let Some(location_type_property) = event.indexed_properties.location_type.as_ref() {
+            for location_type in &location_type_property.types {
+                indexed_location_type.insert(&location_type.to_string());
+            }
+        }
+
+        for (timestamp, event_override) in event.overrides.iter() {
+            if let Some(override_location_type_set) = &event_override
+                .indexed_properties
+                .extract_all_location_type_strings()
+            {
+                indexed_location_type.insert_override(timestamp.to_owned(), override_location_type_set);
+            }
+        }
+
+        indexed_location_type
     }
 
     pub fn new_from_event_related_to(event: &Event) -> InvertedEventIndex<KeyValuePair> {

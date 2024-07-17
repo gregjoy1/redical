@@ -427,6 +427,7 @@ pub struct Event {
 
     pub overrides: BTreeMap<i64, EventOccurrenceOverride>,
     pub indexed_categories: Option<InvertedEventIndex<String>>,
+    pub indexed_location_type: Option<InvertedEventIndex<String>>,
     pub indexed_related_to: Option<InvertedEventIndex<KeyValuePair>>,
     pub indexed_geo: Option<InvertedEventIndex<GeoPoint>>,
     pub indexed_class: Option<InvertedEventIndex<String>>,
@@ -445,6 +446,7 @@ impl Event {
 
             overrides: BTreeMap::new(),
             indexed_categories: None,
+            indexed_location_type: None,
             indexed_related_to: None,
             indexed_geo: None,
             indexed_class: None,
@@ -462,6 +464,7 @@ impl Event {
 
     pub fn rebuild_indexes(&mut self) -> Result<bool, String> {
         self.rebuild_indexed_categories()?;
+        self.rebuild_indexed_location_type()?;
         self.rebuild_indexed_related_to()?;
         self.rebuild_indexed_geo()?;
         self.rebuild_indexed_class()?;
@@ -529,6 +532,14 @@ impl Event {
         Ok(self)
     }
 
+    pub fn rebuild_indexed_location_type(&mut self) -> Result<&mut Self, String> {
+        self.indexed_location_type = Some(InvertedEventIndex::<String>::new_from_event_location_type(
+            self,
+        ));
+
+        Ok(self)
+    }
+
     pub fn rebuild_indexed_related_to(&mut self) -> Result<&mut Self, String> {
         self.indexed_related_to =
             Some(InvertedEventIndex::<KeyValuePair>::new_from_event_related_to(self));
@@ -576,6 +587,17 @@ impl Event {
             }
         } else {
             self.rebuild_indexed_categories()?;
+        }
+
+        if let Some(ref mut indexed_location_type) = self.indexed_location_type {
+            if let Some(overridden_location_type) = &event_occurrence_override
+                .indexed_properties
+                .extract_all_location_type_strings()
+            {
+                indexed_location_type.insert_override(timestamp, overridden_location_type);
+            }
+        } else {
+            self.rebuild_indexed_location_type()?;
         }
 
         if let Some(ref mut indexed_related_to) = self.indexed_related_to {
@@ -627,6 +649,14 @@ impl Event {
         } else {
             self.indexed_categories = Some(
                 InvertedEventIndex::<String>::new_from_event_categories(&*self),
+            );
+        }
+
+        if let Some(ref mut indexed_location_type) = self.indexed_location_type {
+            indexed_location_type.remove_override(timestamp);
+        } else {
+            self.indexed_location_type = Some(
+                InvertedEventIndex::<String>::new_from_event_location_type(&*self),
             );
         }
 
@@ -907,6 +937,7 @@ mod test {
                 ),
             ]),
             indexed_categories: None,
+            indexed_location_type: None,
             indexed_related_to: None,
             indexed_geo: None,
             indexed_class: None,
@@ -1064,6 +1095,7 @@ mod test {
 
                 overrides: BTreeMap::new(),
                 indexed_categories: None,
+                indexed_location_type: None,
                 indexed_related_to: None,
                 indexed_geo: None,
                 indexed_class: None,
@@ -1106,6 +1138,7 @@ mod test {
 
                 overrides: BTreeMap::new(),
                 indexed_categories: None,
+                indexed_location_type: None,
                 indexed_related_to: None,
                 indexed_geo: None,
                 indexed_class: None,
@@ -1147,6 +1180,7 @@ mod test {
 
                 overrides: BTreeMap::new(),
                 indexed_categories: None,
+                indexed_location_type: None,
                 indexed_geo: None,
                 indexed_related_to: None,
                 indexed_class: None,
@@ -1250,6 +1284,11 @@ mod test {
                                     ])
                     }
                 ),
+                indexed_location_type:  Some(
+                    InvertedEventIndex {
+                        terms: HashMap::from([])
+                    }
+                ),
                 indexed_related_to:  Some(
                     InvertedEventIndex {
                         terms: HashMap::from([])
@@ -1322,18 +1361,11 @@ mod test {
                 passive_properties: PassiveProperties::new(),
 
                 overrides: BTreeMap::new(),
-                indexed_categories: Some(InvertedEventIndex {
-                    terms: HashMap::new()
-                }),
-                indexed_related_to: Some(InvertedEventIndex {
-                    terms: HashMap::new()
-                }),
-                indexed_geo: Some(InvertedEventIndex {
-                    terms: HashMap::new()
-                }),
-                indexed_class: Some(InvertedEventIndex {
-                    terms: HashMap::new()
-                }),
+                indexed_categories: Some(InvertedEventIndex::default()),
+                indexed_location_type: Some(InvertedEventIndex::default()),
+                indexed_related_to: Some(InvertedEventIndex::default()),
+                indexed_geo: Some(InvertedEventIndex::default()),
+                indexed_class: Some(InvertedEventIndex::default()),
             }
         );
 
@@ -1401,6 +1433,7 @@ mod test {
 
                 overrides: BTreeMap::new(),
                 indexed_categories: None,
+                indexed_location_type: None,
                 indexed_related_to: None,
                 indexed_geo: None,
                 indexed_class: None,
@@ -1540,6 +1573,7 @@ mod test {
                 (500, build_event_occurrence_override_500()), // Override 500 has no base event categories, but does have CATEGORY_FOUR
             ]),
             indexed_categories: None,
+            indexed_location_type: None,
             indexed_related_to: None,
             indexed_geo: None,
             indexed_class: None,

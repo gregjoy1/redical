@@ -61,6 +61,14 @@ pub fn redical_event_override_del(ctx: &Context, args: Vec<RedisString>) -> Redi
             event.indexed_categories.as_ref(),
         );
 
+        let updated_event_location_type_diff = InvertedEventIndex::diff_indexed_terms(
+            existing_event
+                .as_ref()
+                .and_then(|existing_event| existing_event.indexed_location_type.clone())
+                .as_ref(),
+            event.indexed_location_type.as_ref(),
+        );
+
         let updated_event_related_to_diff = InvertedEventIndex::diff_indexed_terms(
             existing_event
                 .as_ref()
@@ -89,6 +97,10 @@ pub fn redical_event_override_del(ctx: &Context, args: Vec<RedisString>) -> Redi
 
         calendar_index_updater
             .update_indexed_categories(&updated_event_categories_diff)
+            .map_err(|error| RedisError::String(error.to_string()))?;
+
+        calendar_index_updater
+            .update_indexed_location_type(&updated_event_location_type_diff)
             .map_err(|error| RedisError::String(error.to_string()))?;
 
         calendar_index_updater
