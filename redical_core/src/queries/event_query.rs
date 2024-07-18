@@ -17,11 +17,23 @@ use crate::queries::results_range_bounds::{
     LowerBoundRangeCondition, UpperBoundRangeCondition,
 };
 
+/// This struct implements the `QueryIndexAccessor` trait and it's purpose is to specify the index
+/// term retrieval logic specific to the requirements of the event instance query.
+///
+/// The event query is not at all concerned with the overrides as it is purely querying the
+/// indexed base event properties, so the event specific implementation of this trait strips out
+/// any `IndexedConclusion::Exclude` (exclude all with exceptions) returned. For any
+/// `IndexedConclusion::Include` with exceptions defined, it will return a clone of it without any
+/// exceptions.
 pub struct EventQueryIndexAccessor<'cal> {
     calendar: &'cal Calendar
 }
 
 impl<'cal> EventQueryIndexAccessor<'cal> {
+    /// This removes any event UIDs with an `IndexedConclusion::Exclude` value, or if an event UID
+    /// has an associated `IndexedConclusion::Include` with exceptions, it will just return
+    /// `IndexedConclusion::Include` without any exceptions as we do not care about overrides when
+    /// querying for events.
     fn included_conclusions_or_nothing(inverted_calendar_index_term: Option<&InvertedCalendarIndexTerm>) -> InvertedCalendarIndexTerm {
         inverted_calendar_index_term.map_or(InvertedCalendarIndexTerm::new(), |index_term| {
             let mut new_index_term = InvertedCalendarIndexTerm::new();
@@ -85,6 +97,8 @@ impl<'cal> QueryIndexAccessor<'cal> for EventQueryIndexAccessor<'cal> {
     }
 }
 
+/// This struct implements all the query logic specific to querying events on a calendar (not the
+/// resulting event instances).
 #[derive(Debug, PartialEq, Clone)]
 pub struct EventQuery {
     pub where_conditional: Option<WhereConditional>,

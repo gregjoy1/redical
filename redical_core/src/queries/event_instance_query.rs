@@ -21,6 +21,12 @@ use redical_ical::properties::ICalendarDateTimeProperty;
 
 use crate::MergedIterator;
 
+/// This struct implements the `QueryIndexAccessor` trait and it's purpose is to specify the index
+/// term retrieval logic specific to the requirements of the event instance query.
+///
+/// The event instance query is concerned with events and it's overrides because the event instance
+/// extrapolation process combines them to ensure overridden indexed property values are reflected
+/// for specific occurrences.
 pub struct EventInstanceQueryIndexAccessor<'cal> {
     calendar: &'cal Calendar
 }
@@ -83,6 +89,9 @@ impl<'cal> QueryIndexAccessor<'cal> for EventInstanceQueryIndexAccessor<'cal> {
     }
 }
 
+/// This struct implements all the query logic specific to querying all the event instances on a
+/// calendar extrapolated from all the contained events (including event specific occurrence
+/// overrides).
 #[derive(Debug, PartialEq, Clone)]
 pub struct EventInstanceQuery {
     pub where_conditional: Option<WhereConditional>,
