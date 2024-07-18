@@ -117,7 +117,6 @@ pub fn redical_event_override_set(ctx: &Context, args: Vec<RedisString>) -> Redi
     let existing_event = calendar.insert_event(event.clone());
 
     if calendar.indexes_active {
-
         let updated_event_categories_diff = InvertedEventIndex::diff_indexed_terms(
             existing_event
                 .as_ref()

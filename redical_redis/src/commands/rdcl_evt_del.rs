@@ -27,11 +27,11 @@ pub fn redical_event_del(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
         )));
     };
 
-    if calendar.indexes_active {
-        let Some(existing_event) = calendar.events.get_mut(&event_uid) else {
-            return Ok(RedisValue::Bool(false));
-        };
+    let Some(existing_event) = calendar.events.get_mut(&event_uid) else {
+        return Ok(RedisValue::Bool(false));
+    };
 
+    if calendar.indexes_active {
         let updated_event_categories_diff = InvertedEventIndex::diff_indexed_terms(
             existing_event.indexed_categories.as_ref(),
             None,

@@ -33,12 +33,12 @@ fn prune_calendar_events_overrides(calendar: &mut Calendar, event_uid: String, f
 
     let event_uid = event.uid.uid.to_string();
 
-    if calendar.indexes_active {
-        // HashMap.insert returns the old value (if present) which we can use in diffing old -> new.
-        let existing_event =
-            calendar.events
-                    .insert(event_uid.to_owned(), event.to_owned());
+    // HashMap.insert returns the old value (if present) which we can use in diffing old -> new.
+    let existing_event =
+        calendar.events
+                .insert(event_uid.to_owned(), event.to_owned());
 
+    if calendar.indexes_active {
         let updated_event_categories_diff = InvertedEventIndex::diff_indexed_terms(
             existing_event
                 .as_ref()
