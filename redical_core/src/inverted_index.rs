@@ -16,16 +16,26 @@ impl InvertedCalendarIndexTerm {
     }
 
     pub fn new_with_event(event_uid: String, indexed_conclusion: IndexedConclusion) -> Self {
+        Self::new_with_events(
+            vec![
+                (event_uid, indexed_conclusion),
+            ]
+        )
+    }
+
+    pub fn new_with_events(event_uid_index_conclusion_pairs: Vec<(String, IndexedConclusion)>) -> Self {
         let mut inverted_calendar_index_term = Self::new();
 
-        match indexed_conclusion {
-            IndexedConclusion::Include(exceptions) => {
-                inverted_calendar_index_term.insert_included_event(event_uid, exceptions)
-            }
-            IndexedConclusion::Exclude(exceptions) => {
-                inverted_calendar_index_term.insert_excluded_event(event_uid, exceptions)
-            }
-        };
+        for (event_uid, indexed_conclusion) in event_uid_index_conclusion_pairs {
+            match indexed_conclusion {
+                IndexedConclusion::Include(exceptions) => {
+                    inverted_calendar_index_term.insert_included_event(event_uid, exceptions)
+                }
+                IndexedConclusion::Exclude(exceptions) => {
+                    inverted_calendar_index_term.insert_excluded_event(event_uid, exceptions)
+                }
+            };
+        }
 
         inverted_calendar_index_term
     }

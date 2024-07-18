@@ -452,7 +452,181 @@ mod test {
     };
 
     use crate::{GeoPoint, KeyValuePair};
-    use pretty_assertions_sorted::assert_eq;
+    use pretty_assertions_sorted::{assert_eq, assert_eq_sorted};
+
+    use std::collections::HashSet;
+
+    #[test]
+    fn test_event_query_index_accessor() {
+        let mut calendar = Calendar::new(String::from("CALENDAR_UID"));
+
+        let categories_index_entries = [
+            (String::from("FULLY_INCLUDED_EVENT_UID"),     String::from("CATEGORY"), &IndexedConclusion::Include(None)),
+            (String::from("FULLY_EXCLUDED_EVENT_UID"),     String::from("CATEGORY"), &IndexedConclusion::Exclude(None)),
+            (String::from("PARTIALLY_INCLUDED_EVENT_UID"), String::from("CATEGORY"), &IndexedConclusion::Include(Some(HashSet::from([100_i64, 200_i64, 300_i64])))),
+            (String::from("PARTIALLY_EXCLUDED_EVENT_UID"), String::from("CATEGORY"), &IndexedConclusion::Exclude(Some(HashSet::from([100_i64, 200_i64, 300_i64])))),
+        ];
+
+        let location_type_index_entries = [
+            (String::from("FULLY_INCLUDED_EVENT_UID"),     String::from("ONLINE"), &IndexedConclusion::Include(None)),
+            (String::from("FULLY_EXCLUDED_EVENT_UID"),     String::from("ONLINE"), &IndexedConclusion::Exclude(None)),
+            (String::from("PARTIALLY_INCLUDED_EVENT_UID"), String::from("ONLINE"), &IndexedConclusion::Include(Some(HashSet::from([100_i64, 200_i64, 300_i64])))),
+            (String::from("PARTIALLY_EXCLUDED_EVENT_UID"), String::from("ONLINE"), &IndexedConclusion::Exclude(Some(HashSet::from([100_i64, 200_i64, 300_i64])))),
+        ];
+
+        let related_to_index_entries = [
+            (String::from("FULLY_INCLUDED_EVENT_UID"),     KeyValuePair::new(String::from("PARENT"), String::from("UID")), &IndexedConclusion::Include(None)),
+            (String::from("FULLY_EXCLUDED_EVENT_UID"),     KeyValuePair::new(String::from("PARENT"), String::from("UID")), &IndexedConclusion::Exclude(None)),
+            (String::from("PARTIALLY_INCLUDED_EVENT_UID"), KeyValuePair::new(String::from("PARENT"), String::from("UID")), &IndexedConclusion::Include(Some(HashSet::from([100_i64, 200_i64, 300_i64])))),
+            (String::from("PARTIALLY_EXCLUDED_EVENT_UID"), KeyValuePair::new(String::from("PARENT"), String::from("UID")), &IndexedConclusion::Exclude(Some(HashSet::from([100_i64, 200_i64, 300_i64])))),
+        ];
+
+        let geo_index_entries = [
+            (String::from("FULLY_INCLUDED_EVENT_UID"),     GeoPoint::new(51.5074_f64, -0.1278_f64), &IndexedConclusion::Include(None)),
+            (String::from("FULLY_EXCLUDED_EVENT_UID"),     GeoPoint::new(51.5074_f64, -0.1278_f64), &IndexedConclusion::Exclude(None)),
+            (String::from("PARTIALLY_INCLUDED_EVENT_UID"), GeoPoint::new(51.5074_f64, -0.1278_f64), &IndexedConclusion::Include(Some(HashSet::from([100_i64, 200_i64, 300_i64])))),
+            (String::from("PARTIALLY_EXCLUDED_EVENT_UID"), GeoPoint::new(51.5074_f64, -0.1278_f64), &IndexedConclusion::Exclude(Some(HashSet::from([100_i64, 200_i64, 300_i64])))),
+        ];
+
+        let class_index_entries = [
+            (String::from("FULLY_INCLUDED_EVENT_UID"),     String::from("PUBLIC"), &IndexedConclusion::Include(None)),
+            (String::from("FULLY_EXCLUDED_EVENT_UID"),     String::from("PUBLIC"), &IndexedConclusion::Exclude(None)),
+            (String::from("PARTIALLY_INCLUDED_EVENT_UID"), String::from("PUBLIC"), &IndexedConclusion::Include(Some(HashSet::from([100_i64, 200_i64, 300_i64])))),
+            (String::from("PARTIALLY_EXCLUDED_EVENT_UID"), String::from("PUBLIC"), &IndexedConclusion::Exclude(Some(HashSet::from([100_i64, 200_i64, 300_i64])))),
+        ];
+
+        categories_index_entries
+            .into_iter()
+            .for_each(|(event_uid, category, indexed_conclusion)| {
+                let _ = calendar.indexed_categories.insert(event_uid, category, indexed_conclusion);
+            });
+
+        location_type_index_entries
+            .into_iter()
+            .for_each(|(event_uid, location_type, indexed_conclusion)| {
+                let _ = calendar.indexed_location_type.insert(event_uid, location_type, indexed_conclusion);
+            });
+
+        related_to_index_entries
+            .into_iter()
+            .for_each(|(event_uid, reltype_pair, indexed_conclusion)| {
+                let _ = calendar.indexed_related_to.insert(event_uid, reltype_pair, indexed_conclusion);
+            });
+
+        geo_index_entries
+            .into_iter()
+            .for_each(|(event_uid, geo_point, indexed_conclusion)| {
+                let _ = calendar.indexed_geo.insert(event_uid, &geo_point, indexed_conclusion);
+            });
+
+        class_index_entries
+            .into_iter()
+            .for_each(|(event_uid, class, indexed_conclusion)| {
+                let _ = calendar.indexed_class.insert(event_uid, class, indexed_conclusion);
+            });
+
+        let event_query_index_accessor = EventQueryIndexAccessor::new(&calendar);
+
+        assert_eq_sorted!(
+            event_query_index_accessor.search_uid_index("UID"),
+            InvertedCalendarIndexTerm::new_with_event(String::from("UID"), IndexedConclusion::Include(None)),
+        );
+
+        // Test existing calendar categories index entry.
+        assert_eq_sorted!(
+            event_query_index_accessor.search_categories_index("CATEGORY"),
+            InvertedCalendarIndexTerm::new_with_events(
+                vec![
+                    (String::from("FULLY_INCLUDED_EVENT_UID"),     IndexedConclusion::Include(None)),
+                    (String::from("PARTIALLY_INCLUDED_EVENT_UID"), IndexedConclusion::Include(None)),
+                ]
+            ),
+        );
+
+        // Test non-existent calendar categories index entry.
+        assert_eq_sorted!(
+            event_query_index_accessor.search_categories_index("NON-EXISTENT"),
+            InvertedCalendarIndexTerm::new(),
+        );
+
+        // Test existing calendar location type index entry.
+        assert_eq_sorted!(
+            event_query_index_accessor.search_location_type_index("ONLINE"),
+            InvertedCalendarIndexTerm::new_with_events(
+                vec![
+                    (String::from("FULLY_INCLUDED_EVENT_UID"),     IndexedConclusion::Include(None)),
+                    (String::from("PARTIALLY_INCLUDED_EVENT_UID"), IndexedConclusion::Include(None)),
+                ]
+            ),
+        );
+
+        // Test non-existent calendar location type index entry.
+        assert_eq_sorted!(
+            event_query_index_accessor.search_location_type_index("NON-EXISTENT"),
+            InvertedCalendarIndexTerm::new(),
+        );
+
+        // Test existing calendar related to index entry.
+        assert_eq_sorted!(
+            event_query_index_accessor.search_related_to_index(
+                &KeyValuePair::new(String::from("PARENT"), String::from("UID"))
+            ),
+            InvertedCalendarIndexTerm::new_with_events(
+                vec![
+                    (String::from("FULLY_INCLUDED_EVENT_UID"),     IndexedConclusion::Include(None)),
+                    (String::from("PARTIALLY_INCLUDED_EVENT_UID"), IndexedConclusion::Include(None)),
+                ]
+            ),
+        );
+
+        // Test non-existent calendar related to index entry.
+        assert_eq_sorted!(
+            event_query_index_accessor.search_related_to_index(
+                &KeyValuePair::new(String::from("PARENT"), String::from("NON-EXISTENT-UID"))
+            ),
+            InvertedCalendarIndexTerm::new(),
+        );
+
+        // Test existing calendar geo index entry.
+        assert_eq_sorted!(
+            event_query_index_accessor.search_geo_index(
+                &GeoDistance::new_from_miles_float(10.0_f64),
+                &GeoPoint::new(51.5074_f64, -0.1278_f64),
+            ),
+            InvertedCalendarIndexTerm::new_with_events(
+                vec![
+                    (String::from("FULLY_INCLUDED_EVENT_UID"),     IndexedConclusion::Include(None)),
+                    (String::from("PARTIALLY_INCLUDED_EVENT_UID"), IndexedConclusion::Include(None)),
+                ]
+            ),
+        );
+
+        // Test non-existent calendar geo index entry.
+        assert_eq_sorted!(
+            event_query_index_accessor.search_geo_index(
+                &GeoDistance::new_from_miles_float(10.0_f64),
+                &GeoPoint::new(51.8773_f64, -2.1686_f64),
+            ),
+            InvertedCalendarIndexTerm::new(),
+        );
+
+        // Test existing calendar class index entry.
+        assert_eq_sorted!(
+            event_query_index_accessor.search_class_index("PUBLIC"),
+            InvertedCalendarIndexTerm::new_with_events(
+                vec![
+                    (String::from("FULLY_INCLUDED_EVENT_UID"),     IndexedConclusion::Include(None)),
+                    (String::from("PARTIALLY_INCLUDED_EVENT_UID"), IndexedConclusion::Include(None)),
+                ]
+            ),
+        );
+
+        // Test non-existent calendar class index entry.
+        assert_eq_sorted!(
+            event_query_index_accessor.search_class_index("NON-EXISTENT"),
+            InvertedCalendarIndexTerm::new(),
+        );
+    }
 
     #[test]
     fn test_from_str() {
