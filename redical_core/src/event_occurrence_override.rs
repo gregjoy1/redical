@@ -22,7 +22,7 @@ use redical_ical::{
 
 use redical_ical::values::date_time::DateTime as ICalDateTime;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct EventOccurrenceOverride {
     pub last_modified: LastModifiedProperty,
 

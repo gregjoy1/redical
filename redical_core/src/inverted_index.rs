@@ -16,16 +16,26 @@ impl InvertedCalendarIndexTerm {
     }
 
     pub fn new_with_event(event_uid: String, indexed_conclusion: IndexedConclusion) -> Self {
+        Self::new_with_events(
+            vec![
+                (event_uid, indexed_conclusion),
+            ]
+        )
+    }
+
+    pub fn new_with_events(event_uid_index_conclusion_pairs: Vec<(String, IndexedConclusion)>) -> Self {
         let mut inverted_calendar_index_term = Self::new();
 
-        match indexed_conclusion {
-            IndexedConclusion::Include(exceptions) => {
-                inverted_calendar_index_term.insert_included_event(event_uid, exceptions)
-            }
-            IndexedConclusion::Exclude(exceptions) => {
-                inverted_calendar_index_term.insert_excluded_event(event_uid, exceptions)
-            }
-        };
+        for (event_uid, indexed_conclusion) in event_uid_index_conclusion_pairs {
+            match indexed_conclusion {
+                IndexedConclusion::Include(exceptions) => {
+                    inverted_calendar_index_term.insert_included_event(event_uid, exceptions)
+                }
+                IndexedConclusion::Exclude(exceptions) => {
+                    inverted_calendar_index_term.insert_excluded_event(event_uid, exceptions)
+                }
+            };
+        }
 
         inverted_calendar_index_term
     }
@@ -186,12 +196,23 @@ impl InvertedCalendarIndexTerm {
 
 // TODO: Make more generic as this is used into the geo index
 // Single layer inverted index (for one event) - indexed term - include/exclude
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct InvertedEventIndex<K>
 where
     K: std::hash::Hash + Clone + std::cmp::Eq,
 {
     pub terms: HashMap<K, IndexedConclusion>,
+}
+
+impl<K> Default for InvertedEventIndex<K>
+where
+    K: std::hash::Hash + Clone + std::cmp::Eq,
+{
+    fn default() -> Self {
+        InvertedEventIndex {
+            terms: HashMap::new(),
+        }
+    }
 }
 
 impl<K> InvertedEventIndex<K>
@@ -221,6 +242,29 @@ where
         }
 
         indexed_categories
+    }
+
+    pub fn new_from_event_location_type(event: &Event) -> InvertedEventIndex<String> {
+        let mut indexed_location_type = InvertedEventIndex {
+            terms: HashMap::new(),
+        };
+
+        if let Some(location_type_property) = event.indexed_properties.location_type.as_ref() {
+            for location_type in &location_type_property.types {
+                indexed_location_type.insert(&location_type.to_string());
+            }
+        }
+
+        for (timestamp, event_override) in event.overrides.iter() {
+            if let Some(override_location_type_set) = &event_override
+                .indexed_properties
+                .extract_all_location_type_strings()
+            {
+                indexed_location_type.insert_override(timestamp.to_owned(), override_location_type_set);
+            }
+        }
+
+        indexed_location_type
     }
 
     pub fn new_from_event_related_to(event: &Event) -> InvertedEventIndex<KeyValuePair> {

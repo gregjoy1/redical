@@ -31,6 +31,9 @@ use redical_ical::{
     },
 };
 
+use crate::queries::results::QueryableEntity;
+use crate::queries::results_ordering::{QueryResultOrdering, OrderingCondition};
+
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct EventInstance {
     pub uid: UIDProperty,
@@ -228,6 +231,16 @@ impl EventInstance {
     //       - https://icalendar.org/iCalendar-RFC-5545/3-8-4-4-recurrence-id.html
     fn build_recurrence_id_from_dtstart(&self) -> RecurrenceIDProperty {
         RecurrenceIDProperty::new_from_utc_timestamp(&self.dtstart.get_utc_timestamp())
+    }
+}
+
+impl QueryableEntity for EventInstance {
+    fn get_uid(&self) -> String {
+        self.uid.uid.to_string()
+    }
+
+    fn build_result_ordering(&self, ordering_condition: &OrderingCondition) -> QueryResultOrdering {
+        ordering_condition.build_result_ordering_for_event_instance(self)
     }
 }
 

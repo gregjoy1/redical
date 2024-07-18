@@ -355,6 +355,7 @@ mod test {
 
             overrides: BTreeMap::new(),
             indexed_categories: None,
+            indexed_location_type: None,
             indexed_related_to: None,
             indexed_geo: None,
             indexed_class: None,
@@ -462,6 +463,7 @@ mod test {
 
             overrides: BTreeMap::new(),
             indexed_categories: None,
+            indexed_location_type: None,
             indexed_related_to: None,
             indexed_geo: None,
             indexed_class: None,

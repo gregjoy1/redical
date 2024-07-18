@@ -4,6 +4,7 @@ use std::str::FromStr;
 
 use redical_ical::{ICalendarComponent, RenderingContext};
 use crate::core::queries::query::Query;
+use crate::core::queries::event_instance_query::EventInstanceQuery;
 use crate::utils::{run_with_timeout, TimeoutError};
 use crate::CONFIGURATION_ICAL_PARSER_TIMEOUT_MS;
 use redical_core::Calendar;
@@ -19,9 +20,9 @@ fn icalendar_component_to_redis_value_array<I: ICalendarComponent>(component: &I
     )
 }
 
-pub fn redical_calendar_query(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
+pub fn redical_event_instance_query(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     if args.len() < 2 {
-        ctx.log_debug("rdcl.cal_query: event_set WrongArity: {{args.len()}}");
+        ctx.log_debug("rdcl.evi_query: event_set WrongArity: {{args.len()}}");
 
         return Err(RedisError::WrongArity);
     }
@@ -34,17 +35,17 @@ pub fn redical_calendar_query(ctx: &Context, args: Vec<RedisString>) -> RedisRes
 
     let Some(calendar) = calendar_key.get_value::<Calendar>(&CALENDAR_DATA_TYPE)?.cloned() else {
         return Err(RedisError::String(format!(
-            "rdcl.cal_query: No Calendar found on key: {calendar_uid}"
+            "rdcl.evi_query: No Calendar found on key: {calendar_uid}"
         )));
     };
 
     if !calendar.indexes_active {
         return Err(RedisError::String(format!(
-            "rdcl.cal_query: Queries disabled on Calendar: {calendar_uid} because it's indexes have been disabled."
+            "rdcl.evi_query: Queries disabled on Calendar: {calendar_uid} because it's indexes have been disabled."
         )));
     }
 
-    ctx.log_debug(format!("rdcl.cal_query: calendar_uid: {calendar_uid}").as_str());
+    ctx.log_debug(format!("rdcl.evi_query: calendar_uid: {calendar_uid}").as_str());
 
     let query_string: String = args
         .map(|arg| arg.try_as_str().unwrap_or(""))
@@ -66,7 +67,7 @@ pub fn redical_calendar_query(ctx: &Context, args: Vec<RedisString>) -> RedisRes
         // against malicious payloads intended to cause hangs.
         let mut parsed_query =
             match run_with_timeout(
-                move || Query::from_str(query_string.as_str()).map_err(RedisError::String),
+                move || EventInstanceQuery::from_str(query_string.as_str()).map_err(RedisError::String),
                 std::time::Duration::from_millis(ical_parser_timeout_ms),
             ) {
                 Ok(parser_result) => {
@@ -84,11 +85,11 @@ pub fn redical_calendar_query(ctx: &Context, args: Vec<RedisString>) -> RedisRes
                 Err(TimeoutError) => {
                     thread_ctx.lock().log_warning(
                         format!(
-                            "rdcl.cal_query: query iCal parser exceeded timeout -- calendar_uid: {calendar_uid}",
+                            "rdcl.evi_query: query iCal parser exceeded timeout -- calendar_uid: {calendar_uid}",
                         ).as_str()
                     );
 
-                    thread_ctx.reply(Err(RedisError::String(String::from("rdcl.cal_query: query iCal parser exceeded timeout"))));
+                    thread_ctx.reply(Err(RedisError::String(String::from("rdcl.evi_query: query iCal parser exceeded timeout"))));
 
                     return;
                 },
@@ -96,7 +97,7 @@ pub fn redical_calendar_query(ctx: &Context, args: Vec<RedisString>) -> RedisRes
 
         thread_ctx.lock().log_debug(
             format!(
-                "rdcl.cal_query: calendar_uid: {calendar_uid} parsed query: {:#?}",
+                "rdcl.evi_query: calendar_uid: {calendar_uid} parsed query: {:#?}",
                 parsed_query
             ).as_str(),
         );
@@ -123,7 +124,7 @@ pub fn redical_calendar_query(ctx: &Context, args: Vec<RedisString>) -> RedisRes
 
                 RedisValue::Array(vec![
                     icalendar_component_to_redis_value_array(&query_result.result_ordering, &rendering_context),
-                    icalendar_component_to_redis_value_array(&query_result.event_instance, &rendering_context),
+                    icalendar_component_to_redis_value_array(&query_result.result, &rendering_context),
                 ])
             })
             .collect();

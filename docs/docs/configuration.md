@@ -7,7 +7,7 @@ The following documentation describes all available RediCal specific configurati
 This configuration determines the timeout budget (in milliseconds) allocated to iCal parsing in the following commands:
 * [RDCL.EVT_SET](../commands/rdcl.evt_set.md)
 * [RDCL.EVO_SET](../commands/rdcl.evo_set.md)
-* [RDCL.CAL_QUERY](../commands/rdcl.cal_query.md)
+* [RDCL.EVI_QUERY](../commands/rdcl.evi_query.md)
 
 This is necessary in the control and prevention of computationally expensive iCal payloads (malicious or unintentional) that result in the process hanging for an excessive length of time contributing to overall disrupting.
 

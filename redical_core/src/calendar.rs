@@ -212,6 +212,38 @@ impl<'a> CalendarIndexUpdater<'a> {
         Ok(true)
     }
 
+    pub fn update_indexed_location_type(
+        &mut self,
+        updated_event_location_type_diff: &UpdatedHashMapMembers<String, IndexedConclusion>,
+    ) -> Result<bool, String> {
+        let indexed_location_type = &mut self.calendar.indexed_location_type;
+
+        for (removed_location_type, _) in updated_event_location_type_diff.removed.iter() {
+            indexed_location_type.remove(self.event_uid.clone(), removed_location_type.clone())?;
+        }
+
+        for (updated_location_type, updated_indexed_conclusion) in
+            updated_event_location_type_diff.updated.iter()
+        {
+            indexed_location_type.insert(
+                self.event_uid.clone(),
+                updated_location_type.clone(),
+                updated_indexed_conclusion,
+            )?;
+        }
+
+        for (added_location_type, added_indexed_conclusion) in updated_event_location_type_diff.added.iter()
+        {
+            indexed_location_type.insert(
+                self.event_uid.clone(),
+                added_location_type.clone(),
+                added_indexed_conclusion,
+            )?;
+        }
+
+        Ok(true)
+    }
+
     pub fn update_indexed_related_to(
         &mut self,
         updated_event_related_to_diff: &UpdatedHashMapMembers<KeyValuePair, IndexedConclusion>,

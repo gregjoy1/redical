@@ -1,25 +1,34 @@
 use std::cmp::Ordering;
 use std::collections::{BTreeSet, HashSet};
 
-use crate::EventInstance;
+use redical_ical::ICalendarComponent;
 
 use super::results_ordering::{OrderingCondition, QueryResultOrdering};
 
+pub trait QueryableEntity: ICalendarComponent + Eq {
+    fn build_result_ordering(&self, ordering_condition: &OrderingCondition) -> QueryResultOrdering;
+
+    fn get_uid(&self) -> String;
+}
+
 #[derive(Debug)]
-pub struct QueryResults {
+pub struct QueryResults<T: QueryableEntity> {
     pub ordering_condition: OrderingCondition,
-    pub results: BTreeSet<QueryResult>,
+    pub results: BTreeSet<QueryResult<T>>,
     pub distinct_uid_lookup: Option<HashSet<String>>,
     pub count: usize,
     pub offset: usize,
 }
 
-impl QueryResults {
+impl<T> QueryResults<T>
+where
+    T: QueryableEntity,
+{
     pub fn new(
         ordering_condition: OrderingCondition,
         offset: usize,
         distinct_uids: bool,
-    ) -> QueryResults {
+    ) -> QueryResults<T> {
         let distinct_uid_lookup = if distinct_uids {
             Some(HashSet::new())
         } else {
@@ -49,17 +58,15 @@ impl QueryResults {
         self.len() == 0
     }
 
-    pub fn push(&mut self, event_instance: EventInstance) {
-        let event_instance_uid = event_instance.uid.uid.clone();
+    pub fn push(&mut self, entity: T) {
+        let uid = entity.get_uid();
 
-        if self.is_event_instance_included(&event_instance) {
-            let result_ordering = self
-                .ordering_condition
-                .build_result_ordering_for_event_instance(&event_instance);
+        if self.is_queryable_entity_included(&entity) {
+            let result_ordering = entity.build_result_ordering(&self.ordering_condition);
 
             let result = QueryResult {
                 result_ordering,
-                event_instance,
+                result: entity,
             };
 
             self.results.insert(result);
@@ -69,13 +76,13 @@ impl QueryResults {
         // EventInstance to the lookup set so that any future EventInstances sharing the same
         // UID are excluded.
         if let Some(distinct_uid_lookup) = &mut self.distinct_uid_lookup {
-            distinct_uid_lookup.insert(event_instance_uid.to_string());
+            distinct_uid_lookup.insert(uid.to_string());
         }
 
         self.count += 1;
     }
 
-    fn is_event_instance_included(&self, event_instance: &EventInstance) -> bool {
+    fn is_queryable_entity_included(&self, entity: &T) -> bool {
         // This ensures that only EventInstances within the offset window are included. Those
         // before the window are counted by excluded.
         if self.count <= self.offset {
@@ -88,7 +95,7 @@ impl QueryResults {
             .distinct_uid_lookup
             .as_ref()
             .is_some_and(|distinct_uid_lookup| {
-                distinct_uid_lookup.contains(&event_instance.uid.uid.to_string())
+                distinct_uid_lookup.contains(&entity.get_uid())
             })
         {
             return false;
@@ -99,23 +106,29 @@ impl QueryResults {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct QueryResult {
+pub struct QueryResult<T: ICalendarComponent> {
     pub result_ordering: QueryResultOrdering,
-    pub event_instance: EventInstance,
+    pub result: T,
 }
 
-impl PartialOrd for QueryResult {
+impl<T> PartialOrd for QueryResult<T>
+where
+    T: QueryableEntity,
+{
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl Ord for QueryResult {
+impl<T> Ord for QueryResult<T>
+where
+    T: QueryableEntity,
+{
     fn cmp(&self, other: &Self) -> Ordering {
         let ordering = self.result_ordering.cmp(&other.result_ordering);
 
         if ordering.is_eq() {
-            self.event_instance.uid.cmp(&other.event_instance.uid)
+            self.result.get_uid().cmp(&other.result.get_uid())
         } else {
             ordering
         }
@@ -124,13 +137,13 @@ impl Ord for QueryResult {
 
 pub trait QueryResultItem: Ord + Eq + PartialEq {}
 
-impl QueryResultItem for QueryResult {}
+impl<T> QueryResultItem for QueryResult<T> where T: QueryableEntity {}
 
 #[cfg(test)]
 mod test {
     use super::*;
 
-    use crate::{GeoDistance, GeoPoint, IndexedProperties, PassiveProperties};
+    use crate::{EventInstance, GeoDistance, GeoPoint, IndexedProperties, PassiveProperties};
 
     use pretty_assertions_sorted::assert_eq;
 
@@ -219,7 +232,7 @@ mod test {
 
     #[test]
     fn test_query_results_offset() {
-        let mut query_results: QueryResults =
+        let mut query_results: QueryResults<EventInstance> =
             QueryResults::new(OrderingCondition::DtStart, 0, false);
 
         assert!(query_results.results.is_empty());
@@ -234,28 +247,28 @@ mod test {
                 .results
                 .clone()
                 .into_iter()
-                .collect::<Vec<QueryResult>>(),
+                .collect::<Vec<QueryResult<EventInstance>>>(),
             vec![
                 QueryResult {
                     result_ordering: QueryResultOrdering::DtStart(100),
-                    event_instance: build_event_instance_one(),
+                    result: build_event_instance_one(),
                 },
                 QueryResult {
                     result_ordering: QueryResultOrdering::DtStart(200),
-                    event_instance: build_event_instance_two(),
+                    result: build_event_instance_two(),
                 },
                 QueryResult {
                     result_ordering: QueryResultOrdering::DtStart(300),
-                    event_instance: build_event_instance_three(),
+                    result: build_event_instance_three(),
                 },
                 QueryResult {
                     result_ordering: QueryResultOrdering::DtStart(400),
-                    event_instance: build_event_instance_four(),
+                    result: build_event_instance_four(),
                 },
             ],
         );
 
-        let mut query_results: QueryResults =
+        let mut query_results: QueryResults<EventInstance> =
             QueryResults::new(OrderingCondition::DtStart, 2, false);
 
         assert!(query_results.results.is_empty());
@@ -270,20 +283,20 @@ mod test {
                 .results
                 .clone()
                 .into_iter()
-                .collect::<Vec<QueryResult>>(),
+                .collect::<Vec<QueryResult<EventInstance>>>(),
             vec![
                 QueryResult {
                     result_ordering: QueryResultOrdering::DtStart(300),
-                    event_instance: build_event_instance_three(),
+                    result: build_event_instance_three(),
                 },
                 QueryResult {
                     result_ordering: QueryResultOrdering::DtStart(400),
-                    event_instance: build_event_instance_four(),
+                    result: build_event_instance_four(),
                 },
             ],
         );
 
-        let mut query_results: QueryResults =
+        let mut query_results: QueryResults<EventInstance> =
             QueryResults::new(OrderingCondition::DtStart, 4, false);
 
         assert!(query_results.results.is_empty());
@@ -298,14 +311,14 @@ mod test {
                 .results
                 .clone()
                 .into_iter()
-                .collect::<Vec<QueryResult>>(),
+                .collect::<Vec<QueryResult<EventInstance>>>(),
             vec![],
         );
     }
 
     #[test]
     fn test_query_results_truncate() {
-        let mut query_results: QueryResults =
+        let mut query_results: QueryResults<EventInstance> =
             QueryResults::new(OrderingCondition::DtStart, 0, false);
 
         assert!(query_results.results.is_empty());
@@ -318,19 +331,19 @@ mod test {
         let all_expected_query_results = vec![
             QueryResult {
                 result_ordering: QueryResultOrdering::DtStart(100),
-                event_instance: build_event_instance_one(),
+                result: build_event_instance_one(),
             },
             QueryResult {
                 result_ordering: QueryResultOrdering::DtStart(200),
-                event_instance: build_event_instance_two(),
+                result: build_event_instance_two(),
             },
             QueryResult {
                 result_ordering: QueryResultOrdering::DtStart(300),
-                event_instance: build_event_instance_three(),
+                result: build_event_instance_three(),
             },
             QueryResult {
                 result_ordering: QueryResultOrdering::DtStart(400),
-                event_instance: build_event_instance_four(),
+                result: build_event_instance_four(),
             },
         ];
 
@@ -339,7 +352,7 @@ mod test {
                 .results
                 .clone()
                 .into_iter()
-                .collect::<Vec<QueryResult>>(),
+                .collect::<Vec<QueryResult<EventInstance>>>(),
             all_expected_query_results,
         );
 
@@ -350,7 +363,7 @@ mod test {
                 .results
                 .clone()
                 .into_iter()
-                .collect::<Vec<QueryResult>>(),
+                .collect::<Vec<QueryResult<EventInstance>>>(),
             all_expected_query_results,
         );
 
@@ -361,7 +374,7 @@ mod test {
                 .results
                 .clone()
                 .into_iter()
-                .collect::<Vec<QueryResult>>(),
+                .collect::<Vec<QueryResult<EventInstance>>>(),
             all_expected_query_results,
         );
 
@@ -372,7 +385,7 @@ mod test {
                 .results
                 .clone()
                 .into_iter()
-                .collect::<Vec<QueryResult>>(),
+                .collect::<Vec<QueryResult<EventInstance>>>(),
             all_expected_query_results[0..=2],
         );
 
@@ -383,7 +396,7 @@ mod test {
                 .results
                 .clone()
                 .into_iter()
-                .collect::<Vec<QueryResult>>(),
+                .collect::<Vec<QueryResult<EventInstance>>>(),
             all_expected_query_results[0..=0],
         );
 
@@ -394,14 +407,14 @@ mod test {
                 .results
                 .clone()
                 .into_iter()
-                .collect::<Vec<QueryResult>>(),
+                .collect::<Vec<QueryResult<EventInstance>>>(),
             vec![],
         );
     }
 
     #[test]
     fn test_query_results_dtstart_ordering() {
-        let mut query_results: QueryResults =
+        let mut query_results: QueryResults<EventInstance> =
             QueryResults::new(OrderingCondition::DtStart, 0, false);
 
         assert!(query_results.results.is_empty());
@@ -413,11 +426,11 @@ mod test {
                 .results
                 .clone()
                 .into_iter()
-                .collect::<Vec<QueryResult>>(),
+                .collect::<Vec<QueryResult<EventInstance>>>(),
             vec![QueryResult {
                 result_ordering: QueryResultOrdering::DtStart(400),
-                event_instance: build_event_instance_four(),
-            },]
+                result: build_event_instance_four(),
+            }]
         );
 
         query_results.push(build_event_instance_one());
@@ -427,15 +440,15 @@ mod test {
                 .results
                 .clone()
                 .into_iter()
-                .collect::<Vec<QueryResult>>(),
+                .collect::<Vec<QueryResult<EventInstance>>>(),
             vec![
                 QueryResult {
                     result_ordering: QueryResultOrdering::DtStart(100),
-                    event_instance: build_event_instance_one(),
+                    result: build_event_instance_one(),
                 },
                 QueryResult {
                     result_ordering: QueryResultOrdering::DtStart(400),
-                    event_instance: build_event_instance_four(),
+                    result: build_event_instance_four(),
                 },
             ]
         );
@@ -448,23 +461,23 @@ mod test {
                 .results
                 .clone()
                 .into_iter()
-                .collect::<Vec<QueryResult>>(),
+                .collect::<Vec<QueryResult<EventInstance>>>(),
             vec![
                 QueryResult {
                     result_ordering: QueryResultOrdering::DtStart(100),
-                    event_instance: build_event_instance_one(),
+                    result: build_event_instance_one(),
                 },
                 QueryResult {
                     result_ordering: QueryResultOrdering::DtStart(200),
-                    event_instance: build_event_instance_two(),
+                    result: build_event_instance_two(),
                 },
                 QueryResult {
                     result_ordering: QueryResultOrdering::DtStart(300),
-                    event_instance: build_event_instance_three(),
+                    result: build_event_instance_three(),
                 },
                 QueryResult {
                     result_ordering: QueryResultOrdering::DtStart(400),
-                    event_instance: build_event_instance_four(),
+                    result: build_event_instance_four(),
                 },
             ]
         );
@@ -472,7 +485,7 @@ mod test {
 
     #[test]
     fn test_query_results_dtstart_geo_dist_ordering() {
-        let mut query_results: QueryResults = QueryResults::new(
+        let mut query_results: QueryResults<EventInstance> = QueryResults::new(
             OrderingCondition::DtStartGeoDist(
                 GeoPoint::new(51.5055296_f64, -0.0758252_f64), // London
             ),
@@ -489,13 +502,13 @@ mod test {
                 .results
                 .clone()
                 .into_iter()
-                .collect::<Vec<QueryResult>>(),
+                .collect::<Vec<QueryResult<EventInstance>>>(),
             vec![QueryResult {
                 result_ordering: QueryResultOrdering::DtStartGeoDist(
                     400,
                     Some(GeoDistance::Kilometers((64, 595658)))
                 ),
-                event_instance: build_event_instance_four(),
+                result: build_event_instance_four(),
             },]
         );
 
@@ -506,18 +519,18 @@ mod test {
                 .results
                 .clone()
                 .into_iter()
-                .collect::<Vec<QueryResult>>(),
+                .collect::<Vec<QueryResult<EventInstance>>>(),
             vec![
                 QueryResult {
                     result_ordering: QueryResultOrdering::DtStartGeoDist(100, None),
-                    event_instance: build_event_instance_one(),
+                    result: build_event_instance_one(),
                 },
                 QueryResult {
                     result_ordering: QueryResultOrdering::DtStartGeoDist(
                         400,
                         Some(GeoDistance::Kilometers((64, 595658)))
                     ),
-                    event_instance: build_event_instance_four(),
+                    result: build_event_instance_four(),
                 },
             ]
         );
@@ -530,32 +543,32 @@ mod test {
                 .results
                 .clone()
                 .into_iter()
-                .collect::<Vec<QueryResult>>(),
+                .collect::<Vec<QueryResult<EventInstance>>>(),
             vec![
                 QueryResult {
                     result_ordering: QueryResultOrdering::DtStartGeoDist(100, None),
-                    event_instance: build_event_instance_one(),
+                    result: build_event_instance_one(),
                 },
                 QueryResult {
                     result_ordering: QueryResultOrdering::DtStartGeoDist(
                         200,
                         Some(GeoDistance::Kilometers((144, 636981)))
                     ),
-                    event_instance: build_event_instance_two(),
+                    result: build_event_instance_two(),
                 },
                 QueryResult {
                     result_ordering: QueryResultOrdering::DtStartGeoDist(
                         300,
                         Some(GeoDistance::Kilometers((85, 341678)))
                     ),
-                    event_instance: build_event_instance_three(),
+                    result: build_event_instance_three(),
                 },
                 QueryResult {
                     result_ordering: QueryResultOrdering::DtStartGeoDist(
                         400,
                         Some(GeoDistance::Kilometers((64, 595658)))
                     ),
-                    event_instance: build_event_instance_four(),
+                    result: build_event_instance_four(),
                 },
             ]
         );
@@ -563,7 +576,7 @@ mod test {
 
     #[test]
     fn test_query_results_geo_dist_dtstart_ordering() {
-        let mut query_results: QueryResults = QueryResults::new(
+        let mut query_results: QueryResults<EventInstance> = QueryResults::new(
             OrderingCondition::GeoDistDtStart(
                 GeoPoint::new(51.5055296_f64, -0.0758252_f64), // London
             ),
@@ -580,14 +593,14 @@ mod test {
                 .results
                 .clone()
                 .into_iter()
-                .collect::<Vec<QueryResult>>(),
+                .collect::<Vec<QueryResult<EventInstance>>>(),
             vec![QueryResult {
                 result_ordering: QueryResultOrdering::GeoDistDtStart(
                     Some(GeoDistance::Kilometers((64, 595658))),
                     400
                 ),
-                event_instance: build_event_instance_four(),
-            },]
+                result: build_event_instance_four(),
+            }]
         );
 
         query_results.push(build_event_instance_one());
@@ -597,18 +610,18 @@ mod test {
                 .results
                 .clone()
                 .into_iter()
-                .collect::<Vec<QueryResult>>(),
+                .collect::<Vec<QueryResult<EventInstance>>>(),
             vec![
                 QueryResult {
                     result_ordering: QueryResultOrdering::GeoDistDtStart(
                         Some(GeoDistance::Kilometers((64, 595658))),
                         400
                     ),
-                    event_instance: build_event_instance_four(),
+                    result: build_event_instance_four(),
                 },
                 QueryResult {
                     result_ordering: QueryResultOrdering::GeoDistDtStart(None, 100),
-                    event_instance: build_event_instance_one(),
+                    result: build_event_instance_one(),
                 },
             ]
         );
@@ -621,32 +634,32 @@ mod test {
                 .results
                 .clone()
                 .into_iter()
-                .collect::<Vec<QueryResult>>(),
+                .collect::<Vec<QueryResult<EventInstance>>>(),
             vec![
                 QueryResult {
                     result_ordering: QueryResultOrdering::GeoDistDtStart(
                         Some(GeoDistance::Kilometers((64, 595658))),
                         400
                     ),
-                    event_instance: build_event_instance_four(),
+                    result: build_event_instance_four(),
                 },
                 QueryResult {
                     result_ordering: QueryResultOrdering::GeoDistDtStart(
                         Some(GeoDistance::Kilometers((85, 341678))),
                         300
                     ),
-                    event_instance: build_event_instance_three(),
+                    result: build_event_instance_three(),
                 },
                 QueryResult {
                     result_ordering: QueryResultOrdering::GeoDistDtStart(
                         Some(GeoDistance::Kilometers((144, 636981))),
                         200
                     ),
-                    event_instance: build_event_instance_two(),
+                    result: build_event_instance_two(),
                 },
                 QueryResult {
                     result_ordering: QueryResultOrdering::GeoDistDtStart(None, 100),
-                    event_instance: build_event_instance_one(),
+                    result: build_event_instance_one(),
                 },
             ]
         );

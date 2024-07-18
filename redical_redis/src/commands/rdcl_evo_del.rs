@@ -45,20 +45,31 @@ pub fn redical_event_override_del(ctx: &Context, args: Vec<RedisString>) -> Redi
     };
 
     // Record whether the override removed actually existed for that timestamp or not.
-    let was_override_removed = event.remove_occurrence_override(override_timestamp, calendar.indexes_active.to_owned()).map_err(RedisError::String)?.is_some();
+    let was_override_removed =
+        event.remove_occurrence_override(override_timestamp, calendar.indexes_active.to_owned())
+             .map_err(RedisError::String)?
+             .is_some();
+
+    // HashMap.insert returns the old value (if present) which we can use in diffing old -> new.
+    let existing_event = calendar
+        .events
+        .insert(event_uid.to_owned(), event.to_owned());
 
     if calendar.indexes_active {
-        // HashMap.insert returns the old value (if present) which we can use in diffing old -> new.
-        let existing_event = calendar
-            .events
-            .insert(event_uid.to_owned(), event.to_owned());
-
         let updated_event_categories_diff = InvertedEventIndex::diff_indexed_terms(
             existing_event
                 .as_ref()
                 .and_then(|existing_event| existing_event.indexed_categories.clone())
                 .as_ref(),
             event.indexed_categories.as_ref(),
+        );
+
+        let updated_event_location_type_diff = InvertedEventIndex::diff_indexed_terms(
+            existing_event
+                .as_ref()
+                .and_then(|existing_event| existing_event.indexed_location_type.clone())
+                .as_ref(),
+            event.indexed_location_type.as_ref(),
         );
 
         let updated_event_related_to_diff = InvertedEventIndex::diff_indexed_terms(
@@ -89,6 +100,10 @@ pub fn redical_event_override_del(ctx: &Context, args: Vec<RedisString>) -> Redi
 
         calendar_index_updater
             .update_indexed_categories(&updated_event_categories_diff)
+            .map_err(|error| RedisError::String(error.to_string()))?;
+
+        calendar_index_updater
+            .update_indexed_location_type(&updated_event_location_type_diff)
             .map_err(|error| RedisError::String(error.to_string()))?;
 
         calendar_index_updater

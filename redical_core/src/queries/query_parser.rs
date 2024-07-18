@@ -5,6 +5,7 @@ use crate::queries::indexed_property_filters::{
 };
 
 use crate::queries::query::Query;
+use crate::queries::results::QueryableEntity;
 
 use crate::{GeoDistance, KeyValuePair};
 
@@ -22,10 +23,10 @@ use redical_ical::properties::query::{
     GroupedWhereProperty,
 };
 
-pub fn parse_query_string(input: &str) -> Result<Query, String> {
+pub fn parse_query_string<T: QueryableEntity, Q: Query<T>>(input: &str) -> Result<Q, String> {
     // Just return the default Query (return everything) if passed empty string ("").
     if input.is_empty() {
-        return Ok(Query::default());
+        return Ok(Q::default());
     }
 
     let query_properties = QueryProperties::from_str(input)?;
@@ -34,181 +35,76 @@ pub fn parse_query_string(input: &str) -> Result<Query, String> {
         query_properties
             .0
             .iter()
-            .fold(Query::default(), |mut query, query_property| {
+            .fold(Q::default(), |mut query, query_property| {
                 match query_property {
                     QueryProperty::XOffset(x_offset_property) => {
-                        query.offset = x_offset_property.into();
+                        query.set_offset(x_offset_property.into());
                     }
 
                     QueryProperty::XLimit(x_limit_property) => {
-                        query.limit = x_limit_property.into();
+                        query.set_limit(x_limit_property.into());
                     }
 
                     QueryProperty::XDistinct(XDistinctProperty::UID) => {
-                        query.distinct_uids = true;
+                        query.set_distinct_uids(true);
                     }
 
                     QueryProperty::XFrom(x_from_property) => {
-                        query.lower_bound_range_condition = Some(x_from_property.into());
+                        query.set_lower_bound_range_condition(Some(x_from_property.into()));
                     }
 
                     QueryProperty::XUntil(x_until_property) => {
-                        query.upper_bound_range_condition = Some(x_until_property.into());
+                        query.set_upper_bound_range_condition(Some(x_until_property.into()));
                     }
 
                     QueryProperty::XTzid(x_tzid_property) => {
-                        query.in_timezone = x_tzid_property.into();
+                        query.set_in_timezone(x_tzid_property.into());
                     }
 
                     QueryProperty::XOrderBy(x_order_by_property) => {
-                        query.ordering_condition = x_order_by_property.into();
+                        query.set_ordering_condition(x_order_by_property.into());
                     }
 
                     QueryProperty::XUID(x_uid_property) => {
-                        let Some(mut new_where_conditional) =
+                        query.insert_new_where_conditional(
                             x_uid_query_property_to_where_conditional(x_uid_property)
-                        else {
-                            return query;
-                        };
-
-                        new_where_conditional =
-                            if let Some(current_where_conditional) = query.where_conditional {
-                                WhereConditional::Operator(
-                                    Box::new(current_where_conditional),
-                                    Box::new(new_where_conditional),
-                                    WhereOperator::And,
-                                )
-                            } else {
-                                new_where_conditional
-                            };
-
-                        query.where_conditional = Some(new_where_conditional);
+                        );
                     }
 
                     QueryProperty::XLocationType(x_location_type_property) => {
-                        let Some(mut new_where_conditional) =
+                        query.insert_new_where_conditional(
                             x_location_type_query_property_to_where_conditional(x_location_type_property)
-                        else {
-                            return query;
-                        };
-
-                        new_where_conditional =
-                            if let Some(current_where_conditional) = query.where_conditional {
-                                WhereConditional::Operator(
-                                    Box::new(current_where_conditional),
-                                    Box::new(new_where_conditional),
-                                    WhereOperator::And,
-                                )
-                            } else {
-                                new_where_conditional
-                            };
-
-                        query.where_conditional = Some(new_where_conditional);
+                        );
                     }
 
                     QueryProperty::XCategories(x_categories_property) => {
-                        let Some(mut new_where_conditional) =
+                        query.insert_new_where_conditional(
                             x_categories_query_property_to_where_conditional(x_categories_property)
-                        else {
-                            return query;
-                        };
-
-                        new_where_conditional =
-                            if let Some(current_where_conditional) = query.where_conditional {
-                                WhereConditional::Operator(
-                                    Box::new(current_where_conditional),
-                                    Box::new(new_where_conditional),
-                                    WhereOperator::And,
-                                )
-                            } else {
-                                new_where_conditional
-                            };
-
-                        query.where_conditional = Some(new_where_conditional);
+                        );
                     }
 
                     QueryProperty::XRelatedTo(x_related_to_property) => {
-                        let Some(mut new_where_conditional) =
+                        query.insert_new_where_conditional(
                             x_related_to_query_property_to_where_conditional(x_related_to_property)
-                        else {
-                            return query;
-                        };
-
-                        new_where_conditional =
-                            if let Some(current_where_conditional) = query.where_conditional {
-                                WhereConditional::Operator(
-                                    Box::new(current_where_conditional),
-                                    Box::new(new_where_conditional),
-                                    WhereOperator::And,
-                                )
-                            } else {
-                                new_where_conditional
-                            };
-
-                        query.where_conditional = Some(new_where_conditional);
+                        );
                     }
 
                     QueryProperty::XGeo(x_geo_property) => {
-                        let Some(mut new_where_conditional) =
+                        query.insert_new_where_conditional(
                             x_geo_query_property_to_where_conditional(x_geo_property)
-                        else {
-                            return query;
-                        };
-
-                        new_where_conditional =
-                            if let Some(current_where_conditional) = query.where_conditional {
-                                WhereConditional::Operator(
-                                    Box::new(current_where_conditional),
-                                    Box::new(new_where_conditional),
-                                    WhereOperator::And,
-                                )
-                            } else {
-                                new_where_conditional
-                            };
-
-                        query.where_conditional = Some(new_where_conditional);
+                        );
                     }
 
                     QueryProperty::XClass(x_class_property) => {
-                        let Some(mut new_where_conditional) =
+                        query.insert_new_where_conditional(
                             x_class_property_to_where_conditional(x_class_property)
-                        else {
-                            return query;
-                        };
-
-                        new_where_conditional =
-                            if let Some(current_where_conditional) = query.where_conditional {
-                                WhereConditional::Operator(
-                                    Box::new(current_where_conditional),
-                                    Box::new(new_where_conditional),
-                                    WhereOperator::And,
-                                )
-                            } else {
-                                new_where_conditional
-                            };
-
-                        query.where_conditional = Some(new_where_conditional);
+                        );
                     }
 
                     QueryProperty::WherePropertiesGroup(where_properties_group) => {
-                        let Some(mut new_where_conditional) =
+                        query.insert_new_where_conditional(
                             where_properties_group_to_where_conditional(where_properties_group)
-                        else {
-                            return query;
-                        };
-
-                        new_where_conditional =
-                            if let Some(current_where_conditional) = query.where_conditional {
-                                WhereConditional::Operator(
-                                    Box::new(current_where_conditional),
-                                    Box::new(new_where_conditional),
-                                    WhereOperator::And,
-                                )
-                            } else {
-                                new_where_conditional
-                            };
-
-                        query.where_conditional = Some(new_where_conditional);
+                        );
                     }
                 }
 
@@ -248,13 +144,15 @@ fn where_properties_group_to_where_conditional(where_properties_group: &WherePro
                 external_operator,
             ),
 
+            GroupedWhereProperty::XClass(external_operator, x_class_property) => (
+                x_class_property_to_where_conditional(x_class_property),
+                external_operator,
+            ),
+
             GroupedWhereProperty::WherePropertiesGroup(external_operator, nested_where_properties_group) => (
                 where_properties_group_to_where_conditional(nested_where_properties_group),
                 external_operator,
             ),
-
-            // TODO: Return error instead of panicking...
-            _ => panic!("Expected where query property."),
         };
 
         // Massage Option<[ICalendar]WhereOperator> value type into [Query]WhereOperator -
@@ -460,6 +358,7 @@ fn x_class_property_to_where_conditional(x_class_property: &XClassProperty) -> O
 
 #[cfg(test)]
 mod test {
+    use crate::queries::event_instance_query::EventInstanceQuery;
 
     use super::*;
     use pretty_assertions_sorted::assert_eq;
@@ -473,7 +372,6 @@ mod test {
         WhereConditional, WhereConditionalProperty, WhereOperator,
     };
 
-    use crate::queries::query::Query;
     use crate::queries::results_ordering::OrderingCondition;
     use crate::queries::results_range_bounds::{
         LowerBoundRangeCondition, RangeConditionProperty, UpperBoundRangeCondition,
@@ -605,7 +503,7 @@ mod test {
 
     #[test]
     fn test_parse_query_string() {
-        assert_eq!(parse_query_string(""), Ok(Query::default()));
+        assert_eq!(parse_query_string(""), Ok(EventInstanceQuery::default()));
 
         let query_string = [
             "X-FROM;PROP=DTSTART;OP=GT;TZID=Europe/London:19971002T090000",
@@ -623,7 +521,7 @@ mod test {
         assert_eq!(
             parse_query_string(query_string.as_str()),
             Ok(
-                Query {
+                EventInstanceQuery {
                     where_conditional: Some(WhereConditional::Operator(
                         Box::new(WhereConditional::Operator(
                             Box::new(WhereConditional::Operator(
@@ -717,7 +615,7 @@ mod test {
         assert_eq!(
             parse_query_string(query_string.as_str()),
             Ok(
-                Query {
+                EventInstanceQuery {
                     where_conditional: Some(WhereConditional::Group(
                         Box::new(WhereConditional::Operator(
                             Box::new(WhereConditional::Group(

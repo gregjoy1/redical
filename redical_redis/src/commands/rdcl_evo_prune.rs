@@ -33,18 +33,26 @@ fn prune_calendar_events_overrides(calendar: &mut Calendar, event_uid: String, f
 
     let event_uid = event.uid.uid.to_string();
 
-    if calendar.indexes_active {
-        // HashMap.insert returns the old value (if present) which we can use in diffing old -> new.
-        let existing_event =
-            calendar.events
-                    .insert(event_uid.to_owned(), event.to_owned());
+    // HashMap.insert returns the old value (if present) which we can use in diffing old -> new.
+    let existing_event =
+        calendar.events
+                .insert(event_uid.to_owned(), event.to_owned());
 
+    if calendar.indexes_active {
         let updated_event_categories_diff = InvertedEventIndex::diff_indexed_terms(
             existing_event
                 .as_ref()
                 .and_then(|existing_event| existing_event.indexed_categories.clone())
                 .as_ref(),
             event.indexed_categories.as_ref(),
+        );
+
+        let updated_event_location_type_diff = InvertedEventIndex::diff_indexed_terms(
+            existing_event
+                .as_ref()
+                .and_then(|existing_event| existing_event.indexed_location_type.clone())
+                .as_ref(),
+            event.indexed_location_type.as_ref(),
         );
 
         let updated_event_related_to_diff = InvertedEventIndex::diff_indexed_terms(
@@ -75,6 +83,10 @@ fn prune_calendar_events_overrides(calendar: &mut Calendar, event_uid: String, f
 
         calendar_index_updater
             .update_indexed_categories(&updated_event_categories_diff)
+            .map_err(|error| RedisError::String(error.to_string()))?;
+
+        calendar_index_updater
+            .update_indexed_location_type(&updated_event_location_type_diff)
             .map_err(|error| RedisError::String(error.to_string()))?;
 
         calendar_index_updater
