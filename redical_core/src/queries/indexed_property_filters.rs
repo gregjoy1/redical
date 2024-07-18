@@ -129,50 +129,6 @@ impl WhereConditionalProperty {
 
     pub fn execute<'cal>(&self, query_index_accessor: &impl QueryIndexAccessor<'cal>) -> Result<InvertedCalendarIndexTerm, String> {
         match &self {
-            /*
-            // For UID, we just return an "include all" consensus for that event UID.
-            WhereConditionalProperty::UID(uid) => {
-                Ok(
-                    InvertedCalendarIndexTerm::new_with_event(
-                        uid.to_owned(),
-                        IndexedConclusion::Include(None),
-                    )
-                )
-            },
-
-            WhereConditionalProperty::LocationType(location_type) => Ok(calendar
-                .indexed_location_type
-                .terms
-                .get(location_type)
-                .unwrap_or(&InvertedCalendarIndexTerm::new())
-                .to_owned()),
-
-            WhereConditionalProperty::Categories(category) => Ok(calendar
-                .indexed_categories
-                .terms
-                .get(category)
-                .unwrap_or(&InvertedCalendarIndexTerm::new())
-                .to_owned()),
-
-            WhereConditionalProperty::RelatedTo(reltype_uids) => Ok(calendar
-                .indexed_related_to
-                .terms
-                .get(reltype_uids)
-                .unwrap_or(&InvertedCalendarIndexTerm::new())
-                .to_owned()),
-
-            WhereConditionalProperty::Geo(distance, long_lat) => Ok(calendar
-                .indexed_geo
-                .locate_within_distance(long_lat, distance)),
-
-            WhereConditionalProperty::Class(classification) => Ok(calendar
-                .indexed_class
-                .terms
-                .get(classification)
-                .unwrap_or(&InvertedCalendarIndexTerm::new())
-                .to_owned()),
-            */
-
             // For UID, we just return an "include all" consensus for that event UID.
             WhereConditionalProperty::UID(uid) => {
                 Ok(query_index_accessor.search_uid_index(uid))
