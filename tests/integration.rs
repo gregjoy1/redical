@@ -2243,8 +2243,11 @@ mod integration {
                     .arg("20210102T170000Z")
                     .arg(
                         &[
+                            "SUMMARY:Event in Oxford on Mondays and Wednesdays at 5:00PM (OVERRIDDEN)",
+                            "DESCRIPTION:Overridden event description - this should be not be present in the base event.",
                             "LAST-MODIFIED:20210501T090000Z",
                             "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY",
+                            "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_PARENT_UID",
                             "X-SPACES-BOOKED:12",
                         ].join(" ").to_string()
                     )
