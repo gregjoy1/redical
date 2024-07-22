@@ -553,7 +553,7 @@ mod test {
     #[test]
     fn test_merged_iterator() {
         #[derive(Debug)]
-        struct IteratorValue(i64, i32, String);
+        struct IteratorValue(i64, i32);
 
         impl Ord for IteratorValue {
             // Sort first by first value, then falling back to second value.
@@ -585,109 +585,41 @@ mod test {
         let mut merged_iterator = MergedIterator::new();
 
         let iterator_values_one = vec![
-            IteratorValue(100, 0, String::from("one-100-0")),
-            IteratorValue(200, 0, String::from("one-200-0")),
-            IteratorValue(200, 10, String::from("one-200-10")),
-            IteratorValue(400, 10, String::from("one-400-10")),
+            IteratorValue(100, 0),
+            IteratorValue(200, 0),
+            IteratorValue(200, 10),
+            IteratorValue(400, 10),
         ];
 
         let iterator_values_two = vec![
-            IteratorValue(10, 0, String::from("two-10-0")),
-            IteratorValue(20, 0, String::from("two-20-0")),
-            IteratorValue(20, 10, String::from("two-20-10")),
-            IteratorValue(40, 10, String::from("two-40-10")),
+            IteratorValue(10, 0),
+            IteratorValue(20, 0),
+            IteratorValue(20, 10),
+            IteratorValue(40, 10),
         ];
 
         let iterator_values_three = vec![
-            IteratorValue(100, 0, String::from("three-100-0")),
-            IteratorValue(800, 0, String::from("three-800-0")),
+            IteratorValue(100, 0),
+            IteratorValue(800, 0),
         ];
 
         let iterator_values_four = vec![];
 
-        assert!(merged_iterator
-            .add_iter(String::from("ONE"), iterator_values_one.into_iter())
-            .is_ok());
-        assert!(merged_iterator
-            .add_iter(String::from("TWO"), iterator_values_two.into_iter())
-            .is_ok());
-        assert!(merged_iterator
-            .add_iter(String::from("THREE"), iterator_values_three.into_iter())
-            .is_ok());
-        assert!(merged_iterator
-            .add_iter(String::from("FOUR"), iterator_values_four.into_iter())
-            .is_ok());
+        assert!(merged_iterator.add_iter(String::from("ONE"),   iterator_values_one.into_iter()).is_ok());
+        assert!(merged_iterator.add_iter(String::from("TWO"),   iterator_values_two.into_iter()).is_ok());
+        assert!(merged_iterator.add_iter(String::from("THREE"), iterator_values_three.into_iter()).is_ok());
+        assert!(merged_iterator.add_iter(String::from("FOUR"),  iterator_values_four.into_iter()).is_ok());
 
-        assert_eq!(
-            merged_iterator.next(),
-            Some((
-                String::from("TWO"),
-                IteratorValue(10, 0, String::from("two-10-0"))
-            ))
-        );
-        assert_eq!(
-            merged_iterator.next(),
-            Some((
-                String::from("TWO"),
-                IteratorValue(20, 0, String::from("two-20-0"))
-            ))
-        );
-        assert_eq!(
-            merged_iterator.next(),
-            Some((
-                String::from("TWO"),
-                IteratorValue(20, 10, String::from("two-20-10"))
-            ))
-        );
-        assert_eq!(
-            merged_iterator.next(),
-            Some((
-                String::from("TWO"),
-                IteratorValue(40, 10, String::from("two-40-10"))
-            ))
-        );
-        assert_eq!(
-            merged_iterator.next(),
-            Some((
-                String::from("ONE"),
-                IteratorValue(100, 0, String::from("one-100-0"))
-            ))
-        );
-        assert_eq!(
-            merged_iterator.next(),
-            Some((
-                String::from("THREE"),
-                IteratorValue(100, 0, String::from("three-100-0"))
-            ))
-        );
-        assert_eq!(
-            merged_iterator.next(),
-            Some((
-                String::from("ONE"),
-                IteratorValue(200, 0, String::from("one-200-0"))
-            ))
-        );
-        assert_eq!(
-            merged_iterator.next(),
-            Some((
-                String::from("ONE"),
-                IteratorValue(200, 10, String::from("one-200-10"))
-            ))
-        );
-        assert_eq!(
-            merged_iterator.next(),
-            Some((
-                String::from("ONE"),
-                IteratorValue(400, 10, String::from("one-400-10"))
-            ))
-        );
-        assert_eq!(
-            merged_iterator.next(),
-            Some((
-                String::from("THREE"),
-                IteratorValue(800, 0, String::from("three-800-0"))
-            ))
-        );
+        assert_eq!(merged_iterator.next(), Some((String::from("TWO"),   IteratorValue(10, 0))));
+        assert_eq!(merged_iterator.next(), Some((String::from("TWO"),   IteratorValue(20, 0))));
+        assert_eq!(merged_iterator.next(), Some((String::from("TWO"),   IteratorValue(20, 10))));
+        assert_eq!(merged_iterator.next(), Some((String::from("TWO"),   IteratorValue(40, 10))));
+        assert_eq!(merged_iterator.next(), Some((String::from("ONE"),   IteratorValue(100, 0))));
+        assert_eq!(merged_iterator.next(), Some((String::from("THREE"), IteratorValue(100, 0))));
+        assert_eq!(merged_iterator.next(), Some((String::from("ONE"),   IteratorValue(200, 0))));
+        assert_eq!(merged_iterator.next(), Some((String::from("ONE"),   IteratorValue(200, 10))));
+        assert_eq!(merged_iterator.next(), Some((String::from("ONE"),   IteratorValue(400, 10))));
+        assert_eq!(merged_iterator.next(), Some((String::from("THREE"), IteratorValue(800, 0))));
 
         assert_eq!(merged_iterator.next(), None);
     }

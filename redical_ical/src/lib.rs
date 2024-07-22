@@ -450,6 +450,7 @@ mod tests {
         }
     }
 
+    #[allow(unused_imports)]
     pub use assert_finishes_within_duration;
 
     #[macro_export]
