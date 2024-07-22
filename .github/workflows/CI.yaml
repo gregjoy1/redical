@@ -51,6 +51,18 @@ jobs:
     name: Integration Test Suite
     runs-on: ubuntu-latest
     steps:
+      - name: Setup Redis Server for running E2E integration tests on.
+        run: |
+          # Report when there's an error and where.
+          set -e
+          function log_error {
+            echo "Command error on line: $(caller): ${BASH_COMMAND}"
+          }
+          trap log_error ERR
+
+          sudo add-apt-repository ppa:redislabs/redis
+          sudo apt-get install -y redis-tools redis-server
+
       - uses: actions/checkout@v2
       - uses: dtolnay/rust-toolchain@stable
         with:
