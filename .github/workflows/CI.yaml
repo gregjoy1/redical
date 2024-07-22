@@ -10,9 +10,7 @@ jobs:
       - uses: actions/checkout@v2
       - uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: stable
-          override: true
+          toolchain: nightly
       - uses: actions-rs/cargo@v1
         with:
           command: check
@@ -24,10 +22,8 @@ jobs:
       - uses: actions/checkout@v2
       - uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: stable
-          override: true
-      - run: rustup component add clippy
+          toolchain: nightly
+          components: clippy
       - uses: actions-rs/cargo@v1
         with:
           command: clippy
@@ -40,9 +36,7 @@ jobs:
       - uses: actions/checkout@v2
       - uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: stable
-          override: true
+          toolchain: nightly
       - uses: actions-rs/cargo@v1
         with:
           command: test
@@ -54,12 +48,11 @@ jobs:
       - uses: actions/checkout@v2
       - uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: stable
-          override: true
+          toolchain: nightly
       - uses: actions-rs/cargo@v1
         with:
           command: build
-      - uses: actions-rs/cargo@v1
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          command: "test --all integration"
+          command: test
+          args:  "--all integration"
