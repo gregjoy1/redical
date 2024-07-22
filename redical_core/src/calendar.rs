@@ -50,7 +50,7 @@ impl Calendar {
             CalendarProperty::UID(uid_property) => {
                 if self.uid.uid != uid_property.uid {
                     return Err(
-                        format!("Inserted calendar UID: {} does not match existing UID: {}", uid_property.uid.to_string(), self.uid.uid.to_string())
+                        format!("Inserted calendar UID: {} does not match existing UID: {}", uid_property.uid, self.uid.uid)
                     );
                 }
             },

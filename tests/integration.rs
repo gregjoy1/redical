@@ -2056,8 +2056,7 @@ mod integration {
         // Start another redis instance on a different port which will restore the test_dump.rdb
         // file and allow us to test save and load.
         let port: u16 = 6481; // Running redis port + 1
-        let _guards = vec![utils::start_redis_server_with_module("redical", port)
-            .with_context(|| "failed to start rdb dump test redis server")?];
+        let _guards = utils::start_redis_server_with_module("redical", port).with_context(|| "failed to start rdb dump test redis server")?;
 
         let mut new_connection =
             utils::get_redis_connection(port).with_context(|| "failed to connect to rdb dump test redis server")?;
