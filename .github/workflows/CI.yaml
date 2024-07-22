@@ -62,4 +62,4 @@ jobs:
           command: build
       - uses: actions-rs/cargo@v1
         with:
-          command: "--all integration -- --nocapture"
+          command: "--all integration"
