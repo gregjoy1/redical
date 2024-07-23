@@ -1,5 +1,7 @@
 # RediCal
 
+[![Continuous integration](https://github.com/gregjoy1/redical/actions/workflows/CI.yml/badge.svg)](https://github.com/gregjoy1/redical/actions/workflows/CI.yml)
+
 > [!WARNING]
 > This project is experimental and is currently a work in progress and is **not** production ready.
 
@@ -11,8 +13,6 @@ It is based on the [iCalendar](https://icalendar.org/) standard for how events (
 
 > [!NOTE]
 > This project strives to progress closer to the [iCalendar](https://icalendar.org/) over time.
-
-[![Continuous integration](https://github.com/gregjoy1/redical/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/gregjoy1/redical/actions/workflows/CI.yml)
 
 ## Build
 
