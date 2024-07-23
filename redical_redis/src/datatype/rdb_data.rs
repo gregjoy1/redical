@@ -21,8 +21,8 @@ impl From<ParseRDBEntityError> for String {
     }
 }
 
-impl ToString for ParseRDBEntityError {
-    fn to_string(&self) -> String {
+impl std::fmt::Display for ParseRDBEntityError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut error_string = String::from("Error at ");
 
         let mut pointer = Some(self);
@@ -47,7 +47,7 @@ impl ToString for ParseRDBEntityError {
             }
         }
 
-        error_string
+        write!(f, "{}", error_string)
     }
 }
 

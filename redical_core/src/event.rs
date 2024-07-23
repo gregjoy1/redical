@@ -489,7 +489,7 @@ impl Event {
             EventProperty::UID(property) => {
                 if self.uid != property {
                     return Err(
-                        format!("Inserted event UID: {} does not match existing UID: {}", property.uid.to_string(), self.uid.uid.to_string())
+                        format!("Inserted event UID: {} does not match existing UID: {}", property.uid, self.uid.uid)
                     );
                 }
             },

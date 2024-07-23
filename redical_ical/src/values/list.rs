@@ -119,12 +119,12 @@ where
     }
 }
 
-impl<T> ToString for List<T>
+impl<T> std::fmt::Display for List<T>
 where
     T: std::fmt::Debug + Clone + ICalendarEntity + Eq + PartialEq + std::hash::Hash,
 {
-    fn to_string(&self) -> String {
-        self.render_ical()
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.render_ical())
     }
 }
 

@@ -245,9 +245,9 @@ impl std::str::FromStr for PassiveProperty {
     }
 }
 
-impl ToString for PassiveProperty {
-    fn to_string(&self) -> String {
-        self.render_ical()
+impl std::fmt::Display for PassiveProperty {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.render_ical())
     }
 }
 

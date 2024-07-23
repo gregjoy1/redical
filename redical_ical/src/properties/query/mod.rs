@@ -146,9 +146,9 @@ impl std::str::FromStr for QueryProperty {
     }
 }
 
-impl ToString for QueryProperty {
-    fn to_string(&self) -> String {
-        self.render_ical()
+impl std::fmt::Display for QueryProperty {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.render_ical())
     }
 }
 

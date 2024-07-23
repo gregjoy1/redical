@@ -86,8 +86,8 @@ pub fn redical_event_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
             ctx.log_debug(
                 format!(
                     "rdcl.evt_set: key: {calendar_uid} event uid: {event_uid} - skipped due to existing superseding LAST-MODIFIED - existing: {} new: {}",
-                    existing_event.last_modified.to_string(),
-                    event.last_modified.to_string(),
+                    existing_event.last_modified,
+                    event.last_modified,
                 ).as_str()
             );
 

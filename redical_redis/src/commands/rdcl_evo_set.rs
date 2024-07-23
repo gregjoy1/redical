@@ -102,8 +102,8 @@ pub fn redical_event_override_set(ctx: &Context, args: Vec<RedisString>) -> Redi
             ctx.log_debug(
                 format!(
                     "rdcl.evo_set: key: {calendar_uid} event uid: {event_uid} - DTSTART: {override_date_string} - skipped due to existing superseding LAST-MODIFIED - existing: {} new: {}",
-                    existing_event_occurrence_override.last_modified.to_string(),
-                    event_occurrence_override.last_modified.to_string(),
+                    existing_event_occurrence_override.last_modified,
+                    event_occurrence_override.last_modified,
                 ).as_str()
             );
 

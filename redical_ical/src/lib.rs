@@ -421,9 +421,9 @@ macro_rules! impl_icalendar_entity_traits {
             }
         }
 
-        impl ToString for $entity {
-            fn to_string(&self) -> String {
-                self.render_ical()
+        impl std::fmt::Display for $entity {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(f, "{}", self.render_ical())
             }
         }
     }
@@ -450,6 +450,7 @@ mod tests {
         }
     }
 
+    #[allow(unused_imports)]
     pub use assert_finishes_within_duration;
 
     #[macro_export]

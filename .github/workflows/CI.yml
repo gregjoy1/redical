@@ -1,0 +1,70 @@
+name: Continuous integration
+
+on: [push, pull_request]
+
+jobs:
+  check:
+    name: Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+      - uses: actions-rs/cargo@v1
+        with:
+          command: check
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          components: clippy
+      - uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: "-- -D warnings"
+
+  unit_test:
+    name: Unit Test Suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
+
+  integration_test:
+    name: Integration Test Suite
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Redis Server for running E2E integration tests on.
+        run: |
+          # Report when there's an error and where.
+          set -e
+          function log_error {
+            echo "Command error on line: $(caller): ${BASH_COMMAND}"
+          }
+          trap log_error ERR
+
+          sudo add-apt-repository ppa:redislabs/redis
+          sudo apt-get install -y redis-tools redis-server
+
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+      - uses: actions-rs/cargo@v1
+        with:
+          command: build
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args:  "--all integration"

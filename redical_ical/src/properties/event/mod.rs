@@ -163,9 +163,9 @@ impl std::str::FromStr for EventProperty {
     }
 }
 
-impl ToString for EventProperty {
-    fn to_string(&self) -> String {
-        self.render_ical()
+impl std::fmt::Display for EventProperty {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.render_ical())
     }
 }
 
