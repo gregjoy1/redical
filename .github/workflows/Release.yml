@@ -1,10 +1,11 @@
 name: Build Release
 
-on:
-  # This workflow is run each time a tag is pushed.
-  push:
-    tags:
-      - "[0-9]+.[0-9]+.[0-9]+"
+on: [push, pull_request]
+# on:
+#   # This workflow is run each time a tag is pushed.
+#   push:
+#     tags:
+#       - "[0-9]+.[0-9]+.[0-9]+"
 
 permissions:
   contents: write
@@ -20,14 +21,17 @@ jobs:
           - build: linux-gnu
             os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
+            use-cross: false
 
-          - build: linux-musl
-            os: ubuntu-latest
-            target: x86_64-unknown-linux-musl
+          # - build: linux-musl
+          #   os: ubuntu-latest
+          #   target: x86_64-unknown-linux-musl
+          #   use-cross: false
 
-          - build: macos
-            os: macos-latest
-            target: x86_64-apple-darwin
+          # - build: macos
+          #   os: macos-latest
+          #   target: x86_64-apple-darwin
+          #   use-cross: false
 
     steps:
       - name: Checkout
@@ -35,7 +39,8 @@ jobs:
 
       - name: Get the release version from the tag or workflow dispatch
         shell: bash
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+        # run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+        run: echo "VERSION=$(date +%s --utc)" >> $GITHUB_ENV
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -45,7 +50,7 @@ jobs:
       - name: Build
         uses: actions-rs/cargo@v1
         with:
-          use-cross: true
+          use-cross: ${{ matrix.use-cross }}
           command: build
           args: --verbose --release --target ${{ matrix.target }}
 
@@ -66,8 +71,8 @@ jobs:
           tar -czf "$dirname.tar.gz" "$dirname"
           echo "ASSET=$dirname.tar.gz" >> $GITHUB_ENV
 
-      - name: Release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: |
-            ${{ env.ASSET }}
+      # - name: Release
+      #   uses: softprops/action-gh-release@v1
+      #   with:
+      #     files: |
+      #       ${{ env.ASSET }}
