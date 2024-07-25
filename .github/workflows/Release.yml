@@ -30,23 +30,23 @@ jobs:
             use-cross: true
             rustflags: ""
 
-          - build: x86-64-linux-musl
-            os: ubuntu-latest
-            target: x86_64-unknown-linux-musl
-            use-cross: false
-            rustflags: "-C target-feature=-crt-static"
+          # - build: x86-64-linux-musl
+          #   os: ubuntu-latest
+          #   target: x86_64-unknown-linux-musl
+          #   use-cross: false
+          #   rustflags: "-C target-feature=-crt-static"
 
-          - build: x86-64-macos
-            os: macos-latest
-            target: x86_64-apple-darwin
-            use-cross: false
-            rustflags: ""
+          # - build: x86-64-macos
+          #   os: macos-latest
+          #   target: x86_64-apple-darwin
+          #   use-cross: false
+          #   rustflags: ""
 
-          - build: arm64-macos
-            os: macos-latest
-            target: aarch64-apple-darwin
-            use-cross: false
-            rustflags: ""
+          # - build: arm64-macos
+          #   os: macos-latest
+          #   target: aarch64-apple-darwin
+          #   use-cross: false
+          #   rustflags: ""
 
     steps:
       - name: Checkout
@@ -62,10 +62,11 @@ jobs:
         # run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
         run: echo "VERSION=$(date +%s --utc)" >> $GITHUB_ENV
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
-          targets: ${{ matrix.target }}
+          target: ${{ matrix.target }}
+          override: true
 
       - name: Build
         uses: actions-rs/cargo@v1
