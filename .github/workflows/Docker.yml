@@ -1,12 +1,11 @@
 ---
 
-name: Build Docker image and push to Dockerhub.
+name: Build Docker image for latest main release and push to Dockerhub.
 
 on:
   push:
     branches:
       - 'main'
-      - 'feature/docker-hub-release-action'
 
 env:
   DOCKER_ORG: gregjoy
