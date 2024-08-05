@@ -49,7 +49,7 @@ fn initialize(ctx: &Context, _args: &[RedisString]) -> Status {
     ctx.log_notice(
         &format!(
             "version: {} build commit: {} built: {}",
-            GIT_TAG.unwrap_or("unknown"),
+            env!("CARGO_PKG_VERSION"),
             GIT_SHA.unwrap_or("unknown"),
             BUILD_DATE_STRING.unwrap_or("unknown"),
         )
