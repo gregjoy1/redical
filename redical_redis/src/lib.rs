@@ -12,6 +12,11 @@ use crate::datatype::CALENDAR_DATA_TYPE;
 pub const MODULE_NAME: &str = "RediCal";
 pub const MODULE_VERSION: u32 = 1;
 
+pub const GIT_SHA: Option<&str> = std::option_env!("GIT_SHA");
+pub const GIT_BRANCH: Option<&str> = std::option_env!("GIT_BRANCH");
+pub const GIT_TAG: Option<&str> = std::option_env!("GIT_TAG");
+pub const BUILD_DATE_STRING: Option<&str> = std::option_env!("BUILD_DATE_STRING");
+
 // Wrap the allocator used to that it can be replaced for testing.
 //
 // This is because redis_module::alloc::RedisAlloc is not available in the test environment, so we
@@ -38,6 +43,19 @@ unsafe impl std::alloc::GlobalAlloc for RedicalAlloc {
     unsafe fn dealloc(&self, ptr: *mut u8, layout: std::alloc::Layout) {
         std::alloc::System.dealloc(ptr, layout);
     }
+}
+
+fn initialize(ctx: &Context, _args: &[RedisString]) -> Status {
+    ctx.log_notice(
+        &format!(
+            "version: {} build commit: {} built: {}",
+            GIT_TAG.unwrap_or("unknown"),
+            GIT_SHA.unwrap_or("unknown"),
+            BUILD_DATE_STRING.unwrap_or("unknown"),
+        )
+    );
+
+    Status::Ok
 }
 
 fn notify_rdcl_cal_del_keyspace_event(ctx: &Context, calendar_uid: &RedisString) {
@@ -76,6 +94,7 @@ redis_module! {
     data_types: [
         CALENDAR_DATA_TYPE
     ],
+    init: initialize,
     commands:   [
         ["rdcl.evt_set",         commands::redical_event_set,            "write pubsub deny-oom", 1, 1, 1],
         ["rdcl.evt_get",         commands::redical_event_get,            "readonly",              1, 1, 1],
