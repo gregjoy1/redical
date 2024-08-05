@@ -60,15 +60,11 @@ pub extern "C" fn rdb_load(rdb: *mut raw::RedisModuleIO, _encver: c_int) -> *mut
         },
     };
 
-    println!("Calendar data type - rdb_load - UID: {:#?}", calendar.uid.uid);
-
     Box::into_raw(Box::new(calendar)).cast::<libc::c_void>()
 }
 
 pub unsafe extern "C" fn rdb_save(rdb: *mut raw::RedisModuleIO, value: *mut c_void) {
     let calendar = unsafe { &*(value as *mut Calendar) };
-
-    println!("Calendar data type - rdb_save - UID: {:#?}", calendar.uid.uid);
 
     let rdb_calendar = match RDBCalendar::try_from(calendar) {
         Ok(rdb_calendar) => rdb_calendar,
@@ -95,13 +91,11 @@ unsafe extern "C" fn aof_rewrite(
 }
 
 unsafe extern "C" fn mem_usage(_value: *const c_void) -> usize {
-    // todo!();
     0
 }
 
 unsafe extern "C" fn free(value: *mut c_void) {
     if value.is_null() {
-        println!("Calendar data type - free - is null");
         // on Redis 6.0 we might get a NULL value here, so we need to handle it.
         return;
     }

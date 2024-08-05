@@ -173,8 +173,6 @@ impl TryFrom<&RDBEvent> for Event {
         }
 
         event.validate().map_err(|error| {
-            dbg!(&rdb_event);
-
             ParseRDBEntityError::OnSelf(rdb_event_uid.to_string(), error)
         })?;
 
