@@ -324,9 +324,7 @@ fn x_geo_query_property_to_where_conditional(x_geo_property: &XGeoProperty) -> O
             },
         };
 
-    let Some((latitude, longitude)) = x_geo_property.get_lat_long_pair() else {
-        return None;
-    };
+    let (latitude, longitude) = x_geo_property.get_lat_long_pair()?;
 
     Some(WhereConditional::Property(
         WhereConditionalProperty::Geo(x_geo_distance, GeoPoint::from((latitude, longitude))),

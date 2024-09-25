@@ -399,11 +399,9 @@ where
         // Check for currently indexed terms NOT present in the override, and add them as an exception to
         // IndexedConclusion::Include (include all except timestamp).
         for excluded_term in indexed_terms_set.difference(override_terms_set) {
-            self.terms.get_mut(excluded_term).map(|indexed_term| {
+            if let Some(indexed_term) = self.terms.get_mut(excluded_term) {
                 indexed_term.insert_exception(timestamp);
-
-                indexed_term
-            });
+            }
         }
 
         // Check for overridden terms NOT already currently indexed, and add them as an
