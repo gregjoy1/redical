@@ -4,10 +4,13 @@ use crate::queries::indexed_property_filters::{
     WhereConditional, WhereConditionalProperty, WhereOperator,
 };
 
+use crate::geo_index::GeoPoint;
 use crate::queries::query::Query;
 use crate::queries::results::QueryableEntity;
 
 use crate::{GeoDistance, KeyValuePair};
+
+use redical_ical::properties::ICalendarGeoProperty;
 
 use redical_ical::properties::query::{
     QueryProperty,
@@ -321,8 +324,12 @@ fn x_geo_query_property_to_where_conditional(x_geo_property: &XGeoProperty) -> O
             },
         };
 
+    let Some((latitude, longitude)) = x_geo_property.get_lat_long_pair() else {
+        return None;
+    };
+
     Some(WhereConditional::Property(
-        WhereConditionalProperty::Geo(x_geo_distance, x_geo_property.into()),
+        WhereConditionalProperty::Geo(x_geo_distance, GeoPoint::from((latitude, longitude))),
     ))
 }
 
@@ -365,7 +372,6 @@ mod test {
 
     use std::str::FromStr;
 
-    use crate::GeoPoint;
     use crate::testing::macros::build_property_from_ical;
 
     use crate::queries::indexed_property_filters::{

@@ -7,7 +7,6 @@ use rstar::primitives::GeomWithData;
 use std::hash::{Hash, Hasher};
 
 use crate::{IndexedConclusion, InvertedCalendarIndexTerm};
-use redical_ical::properties::ICalendarGeoProperty;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum GeoDistance {
@@ -151,16 +150,22 @@ pub struct GeoPoint {
     pub long: f64,
 }
 
-impl<P> From<&P> for GeoPoint
-where
-    P: ICalendarGeoProperty,
-{
-    #[inline]
-    fn from(property: &P) -> Self {
-        GeoPoint::new(
-            property.get_latitude(),
-            property.get_longitude(),
-        )
+impl TryFrom<Option<(f64, f64)>> for GeoPoint {
+    type Error = String;
+
+    fn try_from(coords: Option<(f64, f64)>) -> Result<Self, Self::Error> {
+        if let Some((latitude, longitude)) = coords {
+            Ok(
+                GeoPoint::new(
+                    latitude,
+                    longitude,
+                )
+            )
+        } else {
+            Err(
+                String::from("Cannot build blank GeoPoint")
+            )
+        }
     }
 }
 

@@ -5,6 +5,8 @@ use crate::geo_index::GeoPoint;
 
 use crate::utils::{KeyValuePair, UpdatedHashMapMembers, UpdatedSetMembers};
 
+use redical_ical::properties::ICalendarGeoProperty;
+
 #[derive(Default, Debug, PartialEq, Eq, Clone)]
 pub struct InvertedCalendarIndexTerm {
     pub events: HashMap<String, IndexedConclusion>,
@@ -297,7 +299,9 @@ where
         };
 
         if let Some(geo_property) = event.indexed_properties.geo.as_ref() {
-            indexed_geo.insert(&GeoPoint::from(geo_property));
+            if let Ok(geo_point) = GeoPoint::try_from(geo_property.get_lat_long_pair()) {
+                indexed_geo.insert(&geo_point);
+            }
         }
 
         for (timestamp, event_override) in event.overrides.iter() {

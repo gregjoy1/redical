@@ -9,6 +9,7 @@ use redical_ical::{
     RenderingContext,
     content_line::ContentLine,
     properties::{
+        ICalendarGeoProperty,
         ICalendarProperty,
         ICalendarDateTimeProperty,
         EventProperty,
@@ -315,7 +316,11 @@ impl IndexedProperties {
     pub fn extract_geo_point(&self) -> Option<GeoPoint> {
         self.geo
             .as_ref()
-            .map(GeoPoint::from)
+            .and_then(
+                |geo_property| {
+                    GeoPoint::try_from(geo_property.get_lat_long_pair()).ok()
+                }
+            )
     }
 
     pub fn extract_class(&self) -> Option<String> {

@@ -12,6 +12,7 @@ use redical_ical::{
     content_line::ContentLine,
     properties::{
         ICalendarProperty,
+        ICalendarGeoProperty,
         DTStartProperty,
         query::x_order_by::XOrderByProperty,
     },
@@ -72,11 +73,15 @@ impl OrderingCondition {
                         .indexed_properties
                         .geo
                         .clone()
-                        .map(|event_instance_geo| {
-                            let event_instance_geo_point = GeoPoint::from(&event_instance_geo);
+                        .and_then(|event_instance_geo| {
+                            let Ok(event_instance_geo_point) = GeoPoint::try_from(event_instance_geo.get_lat_long_pair()) else {
+                                return None;
+                            };
 
-                            GeoDistance::new_from_meters_float(
-                                event_instance_geo_point.haversine_distance(ordering_geo_point),
+                            Some(
+                                GeoDistance::new_from_meters_float(
+                                    event_instance_geo_point.haversine_distance(ordering_geo_point),
+                                )
                             )
                         });
 
@@ -91,11 +96,15 @@ impl OrderingCondition {
                         .indexed_properties
                         .geo
                         .as_ref()
-                        .map(|event_instance_geo| {
-                            let event_instance_geo_point = GeoPoint::from(event_instance_geo);
+                        .and_then(|event_instance_geo| {
+                            let Ok(event_instance_geo_point) = GeoPoint::try_from(event_instance_geo.get_lat_long_pair()) else {
+                                return None;
+                            };
 
-                            GeoDistance::new_from_meters_float(
-                                event_instance_geo_point.haversine_distance(ordering_geo_point),
+                            Some(
+                                GeoDistance::new_from_meters_float(
+                                    event_instance_geo_point.haversine_distance(ordering_geo_point),
+                                )
                             )
                         });
 
@@ -121,11 +130,15 @@ impl OrderingCondition {
                         .indexed_properties
                         .geo
                         .clone()
-                        .map(|event_geo| {
-                            let event_geo_point = GeoPoint::from(&event_geo);
+                        .and_then(|event_geo| {
+                            let Ok(event_geo_point) = GeoPoint::try_from(event_geo.get_lat_long_pair()) else {
+                                return None;
+                            };
 
-                            GeoDistance::new_from_meters_float(
-                                event_geo_point.haversine_distance(ordering_geo_point),
+                            Some(
+                                GeoDistance::new_from_meters_float(
+                                    event_geo_point.haversine_distance(ordering_geo_point),
+                                )
                             )
                         });
 
@@ -140,11 +153,15 @@ impl OrderingCondition {
                         .indexed_properties
                         .geo
                         .as_ref()
-                        .map(|event_geo| {
-                            let event_geo_point = GeoPoint::from(event_geo);
+                        .and_then(|event_geo| {
+                            let Ok(event_geo_point) = GeoPoint::try_from(event_geo.get_lat_long_pair()) else {
+                                return None;
+                            };
 
-                            GeoDistance::new_from_meters_float(
-                                event_geo_point.haversine_distance(ordering_geo_point),
+                            Some(
+                                GeoDistance::new_from_meters_float(
+                                    event_geo_point.haversine_distance(ordering_geo_point),
+                                )
                             )
                         });
 

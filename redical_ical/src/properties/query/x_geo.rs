@@ -144,12 +144,16 @@ impl ICalendarProperty for XGeoProperty {
 }
 
 impl ICalendarGeoProperty for XGeoProperty {
-    fn get_latitude(&self) -> f64 {
-        self.latitude.to_owned().into()
+    fn is_blank(&self) -> bool {
+        false
     }
 
-    fn get_longitude(&self) -> f64 {
-        self.longitude.to_owned().into()
+    fn get_latitude(&self) -> Option<f64> {
+        Some(self.latitude.to_owned().into())
+    }
+
+    fn get_longitude(&self) -> Option<f64> {
+        Some(self.longitude.to_owned().into())
     }
 }
 
