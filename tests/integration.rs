@@ -317,6 +317,7 @@ mod integration {
                     "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY",
                     "LOCATION-TYPE:OVERRIDDEN_LOCATION_TYPE",
                     "X-SPACES-BOOKED:12",
+                    "GEO:;",
                 ],
             );
 
@@ -355,6 +356,7 @@ mod integration {
                         "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY",
                         "LOCATION-TYPE:OVERRIDDEN_LOCATION_TYPE",
                         "X-SPACES-BOOKED:12",
+                        "GEO:;",
                     ],
                 ],
             );
@@ -391,6 +393,7 @@ mod integration {
                         "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY",
                         "LOCATION-TYPE:OVERRIDDEN_LOCATION_TYPE",
                         "X-SPACES-BOOKED:12",
+                        "GEO:;",
                     ],
                 ],
             );
@@ -862,6 +865,7 @@ mod integration {
                 "LAST-MODIFIED:20210501T090000Z",
                 "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY",
                 "X-SPACES-BOOKED:12",
+                "GEO:;",
             ],
         );
 
@@ -876,10 +880,10 @@ mod integration {
                     "RECURRENCE-ID;VALUE=DATE-TIME:20210104T170000Z",
                     "UID:EVENT_IN_OXFORD_MON_WED",
                     "DURATION:PT30M",
-                    "SUMMARY:Overridden event in Oxford summary text",  // <= Overridden
+                    "SUMMARY:Overridden event in Oxford summary text", // <= Overridden
                     "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_PARENT_UID", // <= Overridden
-                    "CATEGORIES:OVERRIDDEN_CATEGORY",                   // <= Overridden
-                    "LOCATION-TYPE:OVERRIDDEN_LOCATION_TYPE",           // <= Overridden
+                    "CATEGORIES:OVERRIDDEN_CATEGORY",                  // <= Overridden
+                    "LOCATION-TYPE:OVERRIDDEN_LOCATION_TYPE",          // <= Overridden
                     "GEO:51.751365550307604;-1.2601196837753945",
                 ],
                 [
@@ -904,7 +908,7 @@ mod integration {
                     "RELATED-TO;RELTYPE=PARENT:PARENT_UID",
                     "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY", // <= Overridden
                     "LOCATION-TYPE:X-KEY=VALUE:LOCATION_TYPE",
-                    "GEO:51.751365550307604;-1.2601196837753945",
+                    // "GEO:;",                                    // <= Overridden (removed from EventInstance because blank)
                     "X-SPACES-BOOKED:12",                          // <= Overridden
                 ],
             ],
@@ -923,10 +927,10 @@ mod integration {
                     "RECURRENCE-ID;VALUE=DATE-TIME:20210104T170000Z",
                     "UID:EVENT_IN_OXFORD_MON_WED",
                     "DURATION:PT30M",
-                    "SUMMARY:Overridden event in Oxford summary text",  // <= Overridden
+                    "SUMMARY:Overridden event in Oxford summary text", // <= Overridden
                     "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_PARENT_UID", // <= Overridden
-                    "CATEGORIES:OVERRIDDEN_CATEGORY",                   // <= Overridden
-                    "LOCATION-TYPE:OVERRIDDEN_LOCATION_TYPE",           // <= Overridden
+                    "CATEGORIES:OVERRIDDEN_CATEGORY",                  // <= Overridden
+                    "LOCATION-TYPE:OVERRIDDEN_LOCATION_TYPE",          // <= Overridden
                     "GEO:51.751365550307604;-1.2601196837753945",
                 ],
             ],
@@ -1063,9 +1067,10 @@ mod integration {
             "20210105T183000Z",
             [
                 "LAST-MODIFIED:20210501T090000Z",
-                "SUMMARY:Overridden Event in Bristol on Tuesdays and Thursdays at 6:30PM",
+                "SUMMARY:Overridden Event in Bristol on Tuesdays and Thursdays at 6:30PM (running online)",
                 "RELATED-TO;RELTYPE=PARENT:PARENT_UID_OVERRIDE",
                 "CATEGORIES:CATEGORY_OVERRIDE",
+                "GEO:;",
             ],
         );
 
@@ -1155,10 +1160,10 @@ mod integration {
                         "DTEND:20210105T190000Z",
                         "DTSTART:20210105T183000Z",
                         "DURATION:PT30M",
-                        "GEO:51.454481838260214;-2.588329192623361",
+                        // "GEO:;", <= Overridden (removed from EventInstance because blank)
                         "RECURRENCE-ID;VALUE=DATE-TIME:20210105T183000Z",
                         "RELATED-TO;RELTYPE=PARENT:PARENT_UID_OVERRIDE",
-                        "SUMMARY:Overridden Event in Bristol on Tuesdays and Thursdays at 6:30PM",
+                        "SUMMARY:Overridden Event in Bristol on Tuesdays and Thursdays at 6:30PM (running online)",
                         "UID:OVERRIDDEN_EVENT_IN_BRISTOL_TUE_THU",
                     ],
                 ],
@@ -1354,24 +1359,24 @@ mod integration {
             connection,
             "TEST_CALENDAR_UID",
             [
+                "X-GEO;DIST=100MI:51.454481838260214;-2.588329192623361",
                 "X-FROM;PROP=DTSTART;OP=GT;TZID=Europe/London:20210105T180000Z",
-                "X-UNTIL;PROP=DTSTART;OP=LTE;TZID=UTC:20210630T180000Z",
+                "X-UNTIL;PROP=DTSTART;OP=LTE;TZID=UTC:20210715T180000Z",
                 "(",
-                    "X-UID:EVENT_IN_CHELTENHAM_TUE_THU,OVERRIDDEN_EVENT_IN_BRISTOL_TUE_THU",
+                    "X-UID:EVENT_IN_CHELTENHAM_TUE_THU,OVERRIDDEN_EVENT_IN_BRISTOL_TUE_THU,EVENT_IN_READING_TUE_THU,EVENT_IN_LONDON_TUE_THU",
                     "OR",
                     "(X-UID:ONLINE_EVENT_MON_WED AND X-UID:EVENT_IN_OXFORD_MON_WED)", // Impossible condition - returns nothing because an event cannot have multiple UIDs.
                 ")",
-                "X-LIMIT:50",
+                "X-LIMIT:4",
                 "X-OFFSET:0",
-                "X-DISTINCT:UID",
                 "X-TZID:Europe/Vilnius",
-                "X-ORDER-BY:DTSTART-GEO-DIST;51.55577390;-1.77971760",
+                "X-ORDER-BY:DTSTART-GEO-DIST;51.454481838260214;-2.588329192623361",
             ],
             [
                 [
                     [
                         "DTSTART;TZID=Europe/Vilnius:20210105T203000",
-                        "X-GEO-DIST:43.390803KM",
+                        "X-GEO-DIST:60.692838KM",
                     ],
                     [
                         "CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE",
@@ -1387,22 +1392,56 @@ mod integration {
                 ],
                 [
                     [
-                        "DTSTART;TZID=Europe/Vilnius:20210105T203000",
-                        "X-GEO-DIST:57.088038KM",
+                        "DTSTART;TZID=Europe/Vilnius:20210107T200000",
+                        "X-GEO-DIST:111.491952KM",
                     ],
                     [
-                        "CATEGORIES:CATEGORY_OVERRIDE",
-                        "DTEND;TZID=Europe/Vilnius:20210105T210000",
-                        "DTSTART;TZID=Europe/Vilnius:20210105T203000",
+                        "CATEGORIES:CATEGORY_ONE,CATEGORY_THREE",
+                        "DTEND;TZID=Europe/Vilnius:20210107T203000",
+                        "DTSTART;TZID=Europe/Vilnius:20210107T200000",
                         "DURATION:PT30M",
-                        "GEO:51.454481838260214;-2.588329192623361",
-                        "RECURRENCE-ID;VALUE=DATE-TIME;TZID=Europe/Vilnius:20210105T203000",
-                        "RELATED-TO;RELTYPE=PARENT:PARENT_UID_OVERRIDE",
-                        "SUMMARY:Overridden Event in Bristol on Tuesdays and Thursdays at 6:30PM",
+                        "GEO:51.45442303961853;-0.9792277140273513",
+                        "RECURRENCE-ID;VALUE=DATE-TIME;TZID=Europe/Vilnius:20210107T200000",
+                        "RELATED-TO;RELTYPE=PARENT:PARENT_UID",
+                        "SUMMARY:Event in Reading on Tuesdays and Thursdays at 6:00PM",
+                        "UID:EVENT_IN_READING_TUE_THU",
+                    ],
+                ],
+                [
+                    [
+                        "DTSTART;TZID=Europe/Vilnius:20210107T203000",
+                        "X-GEO-DIST:60.692838KM",
+                    ],
+                    [
+                        "CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE",
+                        "DTEND;TZID=Europe/Vilnius:20210107T210000",
+                        "DTSTART;TZID=Europe/Vilnius:20210107T203000",
+                        "DURATION:PT30M",
+                        "GEO:51.89936851432488;-2.078357552295971",
+                        "RECURRENCE-ID;VALUE=DATE-TIME;TZID=Europe/Vilnius:20210107T203000",
+                        "RELATED-TO;RELTYPE=PARENT:PARENT_UID",
+                        "SUMMARY:Event in Cheltenham on Tuesdays and Thursdays at 6:30PM",
+                        "UID:EVENT_IN_CHELTENHAM_TUE_THU",
+                    ],
+                ],
+                [
+                    [
+                        "DTSTART;TZID=Europe/Vilnius:20210107T203000",
+                        "X-GEO-DIST:60.692838KM",
+                    ],
+                    [
+                        "CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE",
+                        "DTEND;TZID=Europe/Vilnius:20210107T210000",
+                        "DTSTART;TZID=Europe/Vilnius:20210107T203000",
+                        "DURATION:PT30M",
+                        "GEO:51.89936851432488;-2.078357552295971",
+                        "RECURRENCE-ID;VALUE=DATE-TIME;TZID=Europe/Vilnius:20210107T203000",
+                        "RELATED-TO;RELTYPE=PARENT:PARENT_UID",
+                        "SUMMARY:Event in Bristol overridden to run in Cheltenham instead",
                         "UID:OVERRIDDEN_EVENT_IN_BRISTOL_TUE_THU",
                     ],
                 ],
-            ],
+            ]
         );
 
         assert_error_returned!(
@@ -2271,6 +2310,10 @@ mod integration {
                             "X-GEO;DIST=105.5KM:51.55577390;-1.77971760",
                             "X-CATEGORIES:CATEGORY_ONE",
                             "X-RELATED-TO;RELTYPE=PARENT:PARENT_UID",
+                            "(",
+                            "X-CATEGORIES:CATEGORY_TWO",
+                            "X-RELATED-TO;RELTYPE=CHILD:CHILD_UID",
+                            ")",
                         ].join(" ").to_string()
                     )
                     .query(connection)

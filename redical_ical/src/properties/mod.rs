@@ -56,8 +56,24 @@ where
 }
 
 pub trait ICalendarGeoProperty {
-    fn get_latitude(&self) -> f64;
-    fn get_longitude(&self) -> f64;
+    fn get_latitude(&self) -> Option<f64>;
+    fn get_longitude(&self) -> Option<f64>;
+
+    fn get_lat_long_pair(&self) -> Option<(f64, f64)> {
+        if let (Some(latitude), Some(longitude)) = (self.get_latitude(), self.get_longitude()) {
+            Some((latitude, longitude))
+        } else {
+            None
+        }
+    }
+
+    fn is_present(&self) -> bool {
+        !self.is_blank()
+    }
+
+    fn is_blank(&self) -> bool {
+        self.get_latitude().is_none() || self.get_longitude().is_none()
+    }
 }
 
 pub trait ICalendarDateTimeProperty {

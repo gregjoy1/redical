@@ -5,6 +5,8 @@ use crate::geo_index::GeoPoint;
 
 use crate::utils::{KeyValuePair, UpdatedHashMapMembers, UpdatedSetMembers};
 
+use redical_ical::properties::ICalendarGeoProperty;
+
 #[derive(Default, Debug, PartialEq, Eq, Clone)]
 pub struct InvertedCalendarIndexTerm {
     pub events: HashMap<String, IndexedConclusion>,
@@ -297,13 +299,25 @@ where
         };
 
         if let Some(geo_property) = event.indexed_properties.geo.as_ref() {
-            indexed_geo.insert(&GeoPoint::from(geo_property));
+            if let Ok(geo_point) = GeoPoint::try_from(geo_property.get_lat_long_pair()) {
+                indexed_geo.insert(&geo_point);
+            }
         }
 
         for (timestamp, event_override) in event.overrides.iter() {
-            if let Some(overridden_geo) = &event_override.indexed_properties.extract_geo_point() {
-                indexed_geo
-                    .insert_override(timestamp.to_owned(), &HashSet::from([overridden_geo.clone()]));
+            if event_override.indexed_properties.geo.is_none() {
+                continue;
+            };
+
+            let timestamp = timestamp.to_owned();
+
+            // Allow events with GEO defined to be overridden to make GEO blank (specific events online only).
+            if let Some(overridden_geo_point) = &event_override.indexed_properties.extract_geo_point() {
+                // If a non-blank GEO property defined override is present, insert this.
+                indexed_geo.insert_override(timestamp, &HashSet::from([overridden_geo_point.to_owned()]));
+            } else {
+                // If a blank GEO property defined override is present, insert the blank.
+                indexed_geo.insert_override(timestamp, &HashSet::from([]));
             }
         }
 
@@ -385,11 +399,9 @@ where
         // Check for currently indexed terms NOT present in the override, and add them as an exception to
         // IndexedConclusion::Include (include all except timestamp).
         for excluded_term in indexed_terms_set.difference(override_terms_set) {
-            self.terms.get_mut(excluded_term).map(|indexed_term| {
+            if let Some(indexed_term) = self.terms.get_mut(excluded_term) {
                 indexed_term.insert_exception(timestamp);
-
-                indexed_term
-            });
+            }
         }
 
         // Check for overridden terms NOT already currently indexed, and add them as an

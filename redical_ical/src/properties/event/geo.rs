@@ -89,8 +89,8 @@ impl From<GeoPropertyParams> for ContentLineParams {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct GeoProperty {
     pub params: GeoPropertyParams,
-    pub latitude: Float,
-    pub longitude: Float,
+    pub latitude: Option<Float>,
+    pub longitude: Option<Float>,
 }
 
 impl ICalendarEntity for GeoProperty {
@@ -105,11 +105,17 @@ impl ICalendarEntity for GeoProperty {
                             opt(GeoPropertyParams::parse_ical),
                             preceded(
                                 colon,
-                                tuple((
-                                    Float::parse_ical,
-                                    semicolon,
-                                    Float::parse_ical,
-                                ))
+                                // Parse either populated `GEO:<LAT>;<LONG>` or blank `GEO:;`.
+                                alt((
+                                    map(
+                                        tuple((Float::parse_ical, semicolon, Float::parse_ical)),
+                                        |(latitude, semicolon, longitude)| (Some(latitude), semicolon, Some(longitude)),
+                                    ),
+                                    map(
+                                        semicolon,
+                                        |semicolon| (None, semicolon, None),
+                                    ),
+                                )),
                             ),
                         ),
                         |(params, (latitude, _semicolon, longitude))| {
@@ -145,12 +151,16 @@ impl ICalendarProperty for GeoProperty {
 }
 
 impl ICalendarGeoProperty for GeoProperty {
-    fn get_latitude(&self) -> f64 {
-        self.latitude.to_owned().into()
+    fn is_blank(&self) -> bool {
+        self.latitude.is_none() || self.longitude.is_none()
     }
 
-    fn get_longitude(&self) -> f64 {
-        self.longitude.to_owned().into()
+    fn get_latitude(&self) -> Option<f64> {
+        self.latitude.to_owned().map(f64::from)
+    }
+
+    fn get_longitude(&self) -> Option<f64> {
+        self.longitude.to_owned().map(f64::from)
     }
 }
 
@@ -166,20 +176,57 @@ impl_icalendar_entity_traits!(GeoProperty);
 mod tests {
     use super::*;
 
-    use crate::tests::assert_parser_output;
+    use crate::tests::{assert_parser_output, assert_parser_error};
 
     #[test]
     fn parse_ical() {
         assert_parser_output!(
             GeoProperty::parse_ical(
-                r#"GEO:37.386013;-122.082932"#.into()
+                "GEO:;".into()
             ),
             (
                 "",
                 GeoProperty {
                     params: GeoPropertyParams::default(),
-                    latitude: Float(37.386013_f64),
-                    longitude: Float(-122.082932_f64),
+                    latitude: None,
+                    longitude: None,
+                },
+            ),
+        );
+
+        assert_parser_output!(
+            GeoProperty::parse_ical(
+                "GEO:37.386013;-122.082932".into()
+            ),
+            (
+                "",
+                GeoProperty {
+                    params: GeoPropertyParams::default(),
+                    latitude: Some(Float(37.386013_f64)),
+                    longitude: Some(Float(-122.082932_f64)),
+                },
+            ),
+        );
+
+        assert_parser_error!(
+            GeoProperty::parse_ical("GEO:37.386013;".into()),
+            nom::Err::Failure(
+                span: "37.386013;",
+                message: "expected iCalendar RFC-5545 SEMICOLON char",
+                context: ["GEO"],
+            ),
+        );
+
+        assert_parser_output!(
+            GeoProperty::parse_ical(
+                "GEO:;-122.082932".into()
+            ),
+            (
+                "-122.082932",
+                GeoProperty {
+                    params: GeoPropertyParams::default(),
+                    latitude: None,
+                    longitude: None,
                 },
             ),
         );
@@ -195,8 +242,25 @@ mod tests {
                             (String::from("TEST"), String::from("VALUE")),
                         ]),
                     },
-                    latitude: Float(37.386013_f64),
-                    longitude: Float(-122.082932_f64),
+                    latitude: Some(Float(37.386013_f64)),
+                    longitude: Some(Float(-122.082932_f64)),
+                },
+            ),
+        );
+
+        assert_parser_output!(
+            GeoProperty::parse_ical("GEO;X-TEST=X_VALUE;TEST=VALUE:; DESCRIPTION:Description text".into()),
+            (
+                " DESCRIPTION:Description text",
+                GeoProperty {
+                    params: GeoPropertyParams {
+                        other: HashMap::from([
+                            (String::from("X-TEST"), String::from("X_VALUE")),
+                            (String::from("TEST"), String::from("VALUE")),
+                        ]),
+                    },
+                    latitude: None,
+                    longitude: None,
                 },
             ),
         );
@@ -209,8 +273,8 @@ mod tests {
         assert_eq!(
             GeoProperty {
                 params: GeoPropertyParams::default(),
-                latitude: Float(37.386013_f64),
-                longitude: Float(-122.082932_f64),
+                latitude: Some(Float(37.386013_f64)),
+                longitude: Some(Float(-122.082932_f64)),
             }.render_ical(),
             String::from("GEO:37.386013;-122.082932"),
         );
@@ -223,8 +287,8 @@ mod tests {
                         (String::from("TEST"), String::from("VALUE")),
                     ]),
                 },
-                latitude: Float(37.386013_f64),
-                longitude: Float(-122.082932_f64),
+                latitude: Some(Float(37.386013_f64)),
+                longitude: Some(Float(-122.082932_f64)),
             }.render_ical(),
             String::from("GEO;TEST=VALUE;X-TEST=X_VALUE:37.386013;-122.082932"),
         );

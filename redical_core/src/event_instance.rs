@@ -17,6 +17,7 @@ use redical_ical::{
     properties::{
         ICalendarProperty,
         ICalendarDateTimeProperty,
+        ICalendarGeoProperty,
         CategoriesProperty,
         LocationTypeProperty,
         ClassProperty,
@@ -108,8 +109,12 @@ impl EventInstance {
         event_occurrence_override: Option<&EventOccurrenceOverride>,
     ) -> Option<GeoProperty> {
         if let Some(event_occurrence_override) = event_occurrence_override {
-            if event_occurrence_override.indexed_properties.geo.is_some() {
-                return event_occurrence_override.indexed_properties.geo.to_owned();
+            if let Some(overridden_geo_property) = event_occurrence_override.indexed_properties.geo.as_ref() {
+                if overridden_geo_property.is_present() {
+                    return Some(overridden_geo_property.to_owned());
+                } else {
+                    return None;
+                }
             }
         }
 
