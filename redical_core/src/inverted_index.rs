@@ -305,9 +305,19 @@ where
         }
 
         for (timestamp, event_override) in event.overrides.iter() {
-            if let Some(overridden_geo) = &event_override.indexed_properties.extract_geo_point() {
-                indexed_geo
-                    .insert_override(timestamp.to_owned(), &HashSet::from([overridden_geo.clone()]));
+            if event_override.indexed_properties.geo.is_none() {
+                continue;
+            };
+
+            let timestamp = timestamp.to_owned();
+
+            // Allow events with GEO defined to be overridden to make GEO blank (specific events online only).
+            if let Some(overridden_geo_point) = &event_override.indexed_properties.extract_geo_point() {
+                // If a non-blank GEO property defined override is present, insert this.
+                indexed_geo.insert_override(timestamp, &HashSet::from([overridden_geo_point.to_owned()]));
+            } else {
+                // If a blank GEO property defined override is present, insert the blank.
+                indexed_geo.insert_override(timestamp, &HashSet::from([]));
             }
         }
 
