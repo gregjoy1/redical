@@ -908,7 +908,7 @@ mod integration {
                     "RELATED-TO;RELTYPE=PARENT:PARENT_UID",
                     "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY", // <= Overridden
                     "LOCATION-TYPE:X-KEY=VALUE:LOCATION_TYPE",
-                    "GEO:;",                                       // <= Overridden
+                    // "GEO:;",                                    // <= Overridden (removed from EventInstance because blank)
                     "X-SPACES-BOOKED:12",                          // <= Overridden
                 ],
             ],
@@ -1160,7 +1160,7 @@ mod integration {
                         "DTEND:20210105T190000Z",
                         "DTSTART:20210105T183000Z",
                         "DURATION:PT30M",
-                        "GEO:;",
+                        // "GEO:;", <= Overridden (removed from EventInstance because blank)
                         "RECURRENCE-ID;VALUE=DATE-TIME:20210105T183000Z",
                         "RELATED-TO;RELTYPE=PARENT:PARENT_UID_OVERRIDE",
                         "SUMMARY:Overridden Event in Bristol on Tuesdays and Thursdays at 6:30PM (running online)",
