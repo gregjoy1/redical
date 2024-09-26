@@ -602,6 +602,9 @@ mod test {
                 "CATEGORIES:BASE_CATEGORY_ONE,BASE_CATEGORY_TWO",
                 "RELATED-TO;RELTYPE=PARENT:BASE_ParentdUID",
                 "RELATED-TO;RELTYPE=CHILD:BASE_ChildUID",
+                "X-ENTITY:ENTITY_UID",
+                "X-TICKET;X-COST=100:Ticket Name One",
+                "X-TICKET;X-COST=200:Ticket Name Two",
             ],
             vec![
                 (
@@ -617,6 +620,7 @@ mod test {
                     vec![
                         "RELATED-TO;RELTYPE=CHILD:BASE_ChildUID",
                         "RELATED-TO;RELTYPE=CHILD:OVERRIDDEN_ChildUID",
+                        "X-ENTITY:OVERRIDDEN_ENTITY_UID",
                     ],
                 ),
                 (
@@ -626,6 +630,14 @@ mod test {
                         "CATEGORIES:OVERRIDDEN_CATEGORY_ONE,OVERRIDDEN_CATEGORY_TWO",
                         "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUID",
                         "RELATED-TO;RELTYPE=CHILD:OVERRIDDEN_ChildUID",
+                        "X-TICKET;X-COST=300:Ticket Name Three",
+                    ],
+                ),
+                (
+                    "20210202T183000Z",
+                    vec![
+                        "X-TICKET;X-COST=300:Ticket Name Three",
+                        "X-TICKET;X-COST=400:Ticket Name Four",
                     ],
                 ),
             ],
@@ -643,6 +655,9 @@ mod test {
                     String::from("RECURRENCE-ID;VALUE=DATE-TIME:20210105T183000Z"),
                     String::from("RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUID"),
                     String::from("UID:event_UID"),
+                    String::from("X-ENTITY:ENTITY_UID"),
+                    String::from("X-TICKET;X-COST=100:Ticket Name One"),
+                    String::from("X-TICKET;X-COST=200:Ticket Name Two"),
                 ],
             ),
             (
@@ -657,6 +672,9 @@ mod test {
                     String::from("RELATED-TO;RELTYPE=CHILD:BASE_ChildUID"),
                     String::from("RELATED-TO;RELTYPE=CHILD:OVERRIDDEN_ChildUID"),
                     String::from("UID:event_UID"),
+                    String::from("X-ENTITY:OVERRIDDEN_ENTITY_UID"),
+                    String::from("X-TICKET;X-COST=100:Ticket Name One"),
+                    String::from("X-TICKET;X-COST=200:Ticket Name Two"),
                 ],
             ),
             (
@@ -671,6 +689,9 @@ mod test {
                     String::from("RELATED-TO;RELTYPE=CHILD:BASE_ChildUID"),
                     String::from("RELATED-TO;RELTYPE=PARENT:BASE_ParentdUID"),
                     String::from("UID:event_UID"),
+                    String::from("X-ENTITY:ENTITY_UID"),
+                    String::from("X-TICKET;X-COST=100:Ticket Name One"),
+                    String::from("X-TICKET;X-COST=200:Ticket Name Two"),
                 ],
             ),
             (
@@ -685,6 +706,8 @@ mod test {
                     String::from("RELATED-TO;RELTYPE=CHILD:OVERRIDDEN_ChildUID"),
                     String::from("RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUID"),
                     String::from("UID:event_UID"),
+                    String::from("X-ENTITY:ENTITY_UID"),
+                    String::from("X-TICKET;X-COST=300:Ticket Name Three"),
                 ],
             ),
             (
@@ -699,6 +722,9 @@ mod test {
                     String::from("RELATED-TO;RELTYPE=CHILD:BASE_ChildUID"),
                     String::from("RELATED-TO;RELTYPE=PARENT:BASE_ParentdUID"),
                     String::from("UID:event_UID"),
+                    String::from("X-ENTITY:ENTITY_UID"),
+                    String::from("X-TICKET;X-COST=300:Ticket Name Three"),
+                    String::from("X-TICKET;X-COST=400:Ticket Name Four"),
                 ],
             ),
         ]);
