@@ -379,6 +379,8 @@ impl PassiveProperties {
         }
     }
 
+    /// Extract all passive properties serialized into a key/value pair and return them in a
+    /// HashSet.
     pub fn extract_properties_serialized_ical_key_value_pairs(&self) -> HashSet<KeyValuePair> {
         let mut key_value_pairs = HashSet::new();
 
@@ -387,6 +389,20 @@ impl PassiveProperties {
         }
 
         key_value_pairs
+    }
+
+    /// Extract all passive properties into a HashMap grouped by the property name.
+    pub fn extract_properties_grouped_by_name(&self) -> HashMap<String, Vec<PassiveProperty>> {
+        let mut passive_properties: HashMap<String, Vec<PassiveProperty>> = HashMap::new();
+
+        for passive_property in &self.properties {
+            passive_properties
+                .entry(passive_property.get_property_name())
+                .and_modify(|grouped_properties| grouped_properties.push(passive_property.to_owned()))
+                .or_insert(vec![passive_property.to_owned()]);
+        }
+
+        passive_properties
     }
 
     pub fn insert(&mut self, property: EventProperty) -> Result<&Self, String> {
@@ -1623,6 +1639,59 @@ mod test {
         assert_eq!(
             event.prune_event_overrides(125, 120),
             Err(String::from("Lower bound value: 125 cannot be greater than upper bound value: 120")),
+        );
+    }
+
+    #[test]
+    fn test_passive_properties_extract_properties_grouped_by_name() {
+        let passive_properties = PassiveProperties { 
+            properties: BTreeSet::from([
+                build_property_from_ical!(PassiveProperty, "DESCRIPTION:Description text."),
+                build_property_from_ical!(PassiveProperty, "SUMMARY:Summary text."),
+                build_property_from_ical!(PassiveProperty, "IMAGE:Image one."),
+                build_property_from_ical!(PassiveProperty, "IMAGE:Image two."),
+                build_property_from_ical!(PassiveProperty, "X-SINGLE-PROP:X single prop text."),
+                build_property_from_ical!(PassiveProperty, "X-MULTI-PROP:X multi prop one text."),
+                build_property_from_ical!(PassiveProperty, "X-MULTI-PROP:X multi prop two text."),
+            ])
+        };
+
+        assert_eq!(
+            passive_properties.extract_properties_grouped_by_name(),
+            HashMap::from([
+                (
+                    String::from("DESCRIPTION"),
+                    vec![
+                        build_property_from_ical!(PassiveProperty, "DESCRIPTION:Description text."),
+                    ],
+                ),
+                (
+                    String::from("SUMMARY"),
+                    vec![
+                        build_property_from_ical!(PassiveProperty, "SUMMARY:Summary text."),
+                    ],
+                ),
+                (
+                    String::from("IMAGE"),
+                    vec![
+                        build_property_from_ical!(PassiveProperty, "IMAGE:Image one."),
+                        build_property_from_ical!(PassiveProperty, "IMAGE:Image two."),
+                    ],
+                ),
+                (
+                    String::from("X-SINGLE-PROP"),
+                    vec![
+                        build_property_from_ical!(PassiveProperty, "X-SINGLE-PROP:X single prop text."),
+                    ],
+                ),
+                (
+                    String::from("X-MULTI-PROP"),
+                    vec![
+                        build_property_from_ical!(PassiveProperty, "X-MULTI-PROP:X multi prop one text."),
+                        build_property_from_ical!(PassiveProperty, "X-MULTI-PROP:X multi prop two text."),
+                    ],
+                ),
+            ]),
         );
     }
 }

@@ -1,6 +1,6 @@
 use std::cmp::Ordering;
 
-use std::collections::{BTreeSet, HashSet};
+use std::collections::{BTreeSet, HashSet, HashMap};
 
 use crate::{Event, EventOccurrenceOverride, IndexedConclusion};
 
@@ -181,36 +181,24 @@ impl EventInstance {
         event.indexed_properties.related_to.to_owned()
     }
 
-    // This gets all the product of all the passive properties overridden by property name.
-    // As these are stored in an ordered set of KeyValuePairs we get the overridden passive
-    // properties and then iterate over the base event passive properties, checking for the
-    // presence of the base event passive property name key, and inserting it if it is not found.
+    // This gets all resulting passive properties for the event instance where any overrides are
+    // merged ontop of the passive properties defined within the base event.
+    //
+    // We do this grouped via the property name so that overrides are applied on a property name
+    // level only which allows the patching of groups of specific overridden property names.
     fn get_passive_properties(
         event: &Event,
         event_occurrence_override: Option<&EventOccurrenceOverride>,
     ) -> BTreeSet<PassiveProperty> {
-        let mut passive_properties = BTreeSet::new();
+        let mut grouped_passive_properties: HashMap<String, Vec<PassiveProperty>> = event.passive_properties.extract_properties_grouped_by_name();
 
         if let Some(event_occurrence_override) = event_occurrence_override {
-            for passive_property in &event_occurrence_override.passive_properties.properties {
-                passive_properties.insert(passive_property.to_owned());
+            for (property_name, grouped_properties) in event_occurrence_override.passive_properties.extract_properties_grouped_by_name() {
+                grouped_passive_properties.insert(property_name, grouped_properties);
             }
         }
 
-        // This searches for the presence of the base event passsive property name key in all the overrides:
-        // If found:
-        //  Skip
-        //
-        // If not found:
-        //  Add the base event property
-        for base_passive_property in &event.passive_properties.properties {
-            if !passive_properties.iter().any(|passive_property| passive_property.property_name_eq(base_passive_property))
-            {
-                passive_properties.insert(base_passive_property.to_owned());
-            }
-        }
-
-        passive_properties
+        BTreeSet::from_iter(grouped_passive_properties.values().flatten().cloned())
     }
 
     fn get_class(
@@ -602,6 +590,9 @@ mod test {
                 "CATEGORIES:BASE_CATEGORY_ONE,BASE_CATEGORY_TWO",
                 "RELATED-TO;RELTYPE=PARENT:BASE_ParentdUID",
                 "RELATED-TO;RELTYPE=CHILD:BASE_ChildUID",
+                "X-ENTITY:ENTITY_UID",
+                "X-TICKET;X-COST=100:Ticket Name One",
+                "X-TICKET;X-COST=200:Ticket Name Two",
             ],
             vec![
                 (
@@ -617,6 +608,7 @@ mod test {
                     vec![
                         "RELATED-TO;RELTYPE=CHILD:BASE_ChildUID",
                         "RELATED-TO;RELTYPE=CHILD:OVERRIDDEN_ChildUID",
+                        "X-ENTITY:OVERRIDDEN_ENTITY_UID",
                     ],
                 ),
                 (
@@ -626,6 +618,14 @@ mod test {
                         "CATEGORIES:OVERRIDDEN_CATEGORY_ONE,OVERRIDDEN_CATEGORY_TWO",
                         "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUID",
                         "RELATED-TO;RELTYPE=CHILD:OVERRIDDEN_ChildUID",
+                        "X-TICKET;X-COST=300:Ticket Name Three",
+                    ],
+                ),
+                (
+                    "20210202T183000Z",
+                    vec![
+                        "X-TICKET;X-COST=300:Ticket Name Three",
+                        "X-TICKET;X-COST=400:Ticket Name Four",
                     ],
                 ),
             ],
@@ -643,6 +643,9 @@ mod test {
                     String::from("RECURRENCE-ID;VALUE=DATE-TIME:20210105T183000Z"),
                     String::from("RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUID"),
                     String::from("UID:event_UID"),
+                    String::from("X-ENTITY:ENTITY_UID"),
+                    String::from("X-TICKET;X-COST=100:Ticket Name One"),
+                    String::from("X-TICKET;X-COST=200:Ticket Name Two"),
                 ],
             ),
             (
@@ -657,6 +660,9 @@ mod test {
                     String::from("RELATED-TO;RELTYPE=CHILD:BASE_ChildUID"),
                     String::from("RELATED-TO;RELTYPE=CHILD:OVERRIDDEN_ChildUID"),
                     String::from("UID:event_UID"),
+                    String::from("X-ENTITY:OVERRIDDEN_ENTITY_UID"),
+                    String::from("X-TICKET;X-COST=100:Ticket Name One"),
+                    String::from("X-TICKET;X-COST=200:Ticket Name Two"),
                 ],
             ),
             (
@@ -671,6 +677,9 @@ mod test {
                     String::from("RELATED-TO;RELTYPE=CHILD:BASE_ChildUID"),
                     String::from("RELATED-TO;RELTYPE=PARENT:BASE_ParentdUID"),
                     String::from("UID:event_UID"),
+                    String::from("X-ENTITY:ENTITY_UID"),
+                    String::from("X-TICKET;X-COST=100:Ticket Name One"),
+                    String::from("X-TICKET;X-COST=200:Ticket Name Two"),
                 ],
             ),
             (
@@ -685,6 +694,8 @@ mod test {
                     String::from("RELATED-TO;RELTYPE=CHILD:OVERRIDDEN_ChildUID"),
                     String::from("RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_ParentdUID"),
                     String::from("UID:event_UID"),
+                    String::from("X-ENTITY:ENTITY_UID"),
+                    String::from("X-TICKET;X-COST=300:Ticket Name Three"),
                 ],
             ),
             (
@@ -699,6 +710,9 @@ mod test {
                     String::from("RELATED-TO;RELTYPE=CHILD:BASE_ChildUID"),
                     String::from("RELATED-TO;RELTYPE=PARENT:BASE_ParentdUID"),
                     String::from("UID:event_UID"),
+                    String::from("X-ENTITY:ENTITY_UID"),
+                    String::from("X-TICKET;X-COST=300:Ticket Name Three"),
+                    String::from("X-TICKET;X-COST=400:Ticket Name Four"),
                 ],
             ),
         ]);

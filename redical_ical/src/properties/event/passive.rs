@@ -64,10 +64,8 @@ pub enum PassiveProperty {
 }
 
 impl PassiveProperty {
-    // Compare property names only, ignore the content.
-    pub fn property_name_eq(&self, other: &Self) -> bool {
-        // Use std::mem::discriminant to compare enum variant without comparing the data.
-        std::mem::discriminant(self) == std::mem::discriminant(other)
+    pub fn get_property_name(&self) -> String {
+        self.to_content_line().0
     }
 }
 
