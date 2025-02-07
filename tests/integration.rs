@@ -1895,34 +1895,34 @@ mod integration {
             ],
         );
 
-        // FIXME: Assert location-type indexes are rebuilt:
-        // query_calendar_and_assert_matching_events!(
-        //     &mut new_connection,
-        //     "TEST_CALENDAR_UID",
-        //     [
-        //         "X-LOCATION-TYPE:HALL",
-        //     ],
-        //     [
-        //         [
-        //             [
-        //                 "DTSTART:20201231T183000Z",
-        //             ],
-        //             [
-        //                 "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO",
-        //                 "CLASS:PUBLIC",
-        //                 "DTEND:20201231T190000Z",
-        //                 "DTSTART:20201231T183000Z",
-        //                 "GEO:51.89936851432488;-2.078357552295971",
-        //                 "LAST-MODIFIED:20210501T090000Z",
-        //                 "LOCATION-TYPE:HALL",
-        //                 "RELATED-TO;RELTYPE=PARENT:PARENT_UID",
-        //                 "RRULE:BYDAY=TH,TU;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
-        //                 "SUMMARY:Event in Cheltenham on Tuesdays and Thursdays at 6:30PM",
-        //                 "UID:EVENT_IN_CHELTENHAM_TUE_THU",
-        //             ],
-        //         ],
-        //     ],
-        // );
+        // Assert location-type indexes are rebuilt:
+        query_calendar_and_assert_matching_events!(
+            &mut new_connection,
+            "TEST_CALENDAR_UID",
+            [
+                "X-LOCATION-TYPE:HALL",
+            ],
+            [
+                [
+                    [
+                        "DTSTART:20201231T183000Z",
+                    ],
+                    [
+                        "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO",
+                        "CLASS:PUBLIC",
+                        "DTEND:20201231T190000Z",
+                        "DTSTART:20201231T183000Z",
+                        "GEO:51.89936851432488;-2.078357552295971",
+                        "LAST-MODIFIED:20210501T090000Z",
+                        "LOCATION-TYPE:HALL",
+                        "RELATED-TO;RELTYPE=PARENT:PARENT_UID",
+                        "RRULE:BYDAY=TH,TU;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
+                        "SUMMARY:Event in Cheltenham on Tuesdays and Thursdays at 6:30PM",
+                        "UID:EVENT_IN_CHELTENHAM_TUE_THU",
+                    ],
+                ],
+            ],
+        );
 
         // Assert class indexes are rebuilt:
         query_calendar_and_assert_matching_events!(
