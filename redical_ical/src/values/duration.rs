@@ -129,7 +129,6 @@ pub fn dur_hour(input: ParserInput) -> ParserResult<i64> {
 /// Parse dur_minute chars.
 ///
 /// dur-minute = 1*DIGIT "M" [dur-second]
-
 pub fn dur_minute(input: ParserInput) -> ParserResult<i64> {
     map_res(
         terminated(

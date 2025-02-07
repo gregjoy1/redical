@@ -29,7 +29,7 @@ pub struct EventQueryIndexAccessor<'cal> {
     calendar: &'cal Calendar
 }
 
-impl<'cal> EventQueryIndexAccessor<'cal> {
+impl EventQueryIndexAccessor<'_> {
     /// This removes any event UIDs with an `IndexedConclusion::Exclude` value, or if an event UID
     /// has an associated `IndexedConclusion::Include` with exceptions, it will just return
     /// `IndexedConclusion::Include` without any exceptions as we do not care about overrides when

@@ -332,7 +332,7 @@ impl<'a> EventInstanceIterator<'a> {
     }
 }
 
-impl<'a> Iterator for EventInstanceIterator<'a> {
+impl Iterator for EventInstanceIterator<'_> {
     type Item = EventInstance;
 
     fn next(&mut self) -> Option<Self::Item> {
