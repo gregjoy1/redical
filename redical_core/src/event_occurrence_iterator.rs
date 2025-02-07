@@ -293,7 +293,7 @@ impl<'a> EventOccurrenceIterator<'a> {
     }
 }
 
-impl<'a> Iterator for EventOccurrenceIterator<'a> {
+impl Iterator for EventOccurrenceIterator<'_> {
     type Item = (i64, i64, Option<EventOccurrenceOverride>);
     fn next(&mut self) -> Option<Self::Item> {
         if self.is_ended {

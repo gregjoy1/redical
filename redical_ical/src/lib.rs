@@ -14,7 +14,7 @@ pub struct ParserError<'a> {
     context: Vec<String>,
 }
 
-impl <'a> std::fmt::Display for ParserError<'a> {
+impl std::fmt::Display for ParserError<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", convert_error(self.span.into_fragment(), self.to_owned()))
     }
@@ -176,7 +176,7 @@ pub trait UnicodeSegmentation {
     fn wrapped_grapheme_indices(&self, is_extended: bool) -> unicode_segmentation::GraphemeIndices;
 }
 
-impl<'a> UnicodeSegmentation for ParserInput<'a> {
+impl UnicodeSegmentation for ParserInput<'_> {
     #[inline]
     fn wrapped_grapheme_indices(&self, is_extended: bool) -> unicode_segmentation::GraphemeIndices {
         unicode_segmentation::UnicodeSegmentation::grapheme_indices(self.into_fragment(), is_extended)

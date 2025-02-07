@@ -119,6 +119,7 @@ impl Calendar {
 
         let indexed_categories = &mut self.indexed_categories;
         let indexed_related_to = &mut self.indexed_related_to;
+        let indexed_location_type = &mut self.indexed_location_type;
         let indexed_geo = &mut self.indexed_geo;
         let indexed_class = &mut self.indexed_class;
 
@@ -136,6 +137,12 @@ impl Calendar {
             if let Some(indexed_event_related_to) = &event.indexed_related_to {
                 for (indexed_term, indexed_conclusion) in &indexed_event_related_to.terms {
                     indexed_related_to.insert(event_uid.to_owned(), indexed_term.to_owned(), indexed_conclusion)?;
+                }
+            }
+
+            if let Some(indexed_event_location_type) = &event.indexed_location_type {
+                for (indexed_term, indexed_conclusion) in &indexed_event_location_type.terms {
+                    indexed_location_type.insert(event_uid.to_owned(), indexed_term.to_owned(), indexed_conclusion)?;
                 }
             }
 
