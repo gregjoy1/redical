@@ -1813,6 +1813,145 @@ mod integration {
             "X-UNTIL;PROP=DTSTART;OP=LTE;TZID=UTC:20210641T180000Z",
         );
 
+        // Reload to ensure indexes are rebuild correctly
+        assert_eq!(redis::cmd("SAVE").query(connection), Ok(String::from("OK")));
+
+        redis::cmd("FLUSHDB")
+            .query(connection)
+            .with_context(|| {
+                format!(
+                    "failed to cleanup with FLUSHDB after running integration test function: {}", stringify!($test_function),
+                )
+            })?;
+
+        assert_calendar_nil!(connection, "TEST_CALENDAR_UID");
+
+        // Start another redis instance on a different port which will restore the test_dump.rdb
+        // file and allow us to test save and load.
+        let port: u16 = 6481; // Running redis port + 1
+        let _guards = utils::start_redis_server_with_module("redical", port).with_context(|| "failed to start rdb dump test redis server")?;
+
+        let mut new_connection =
+            utils::get_redis_connection(port).with_context(|| "failed to connect to rdb dump test redis server")?;
+
+        assert_calendar_present!(&mut new_connection, "TEST_CALENDAR_UID");
+
+        // Assert category indexes are rebuilt:
+        query_calendar_and_assert_matching_events!(
+            &mut new_connection,
+            "TEST_CALENDAR_UID",
+            [
+                "X-CATEGORIES:CATEGORY_ONE"
+            ],
+            [
+                [
+                    // NOTE: the original timezones are stripped out here
+                    [
+                        "DTSTART:20201231T183000Z",
+                    ],
+                    [
+                        "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO",
+                        "CLASS:PUBLIC",
+                        "DTEND:20201231T190000Z",
+                        "DTSTART:20201231T183000Z",
+                        "GEO:51.89936851432488;-2.078357552295971",
+                        "LAST-MODIFIED:20210501T090000Z",
+                        "LOCATION-TYPE:HALL",
+                        "RELATED-TO;RELTYPE=PARENT:PARENT_UID",
+                        "RRULE:BYDAY=TH,TU;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
+                        "SUMMARY:Event in Cheltenham on Tuesdays and Thursdays at 6:30PM",
+                        "UID:EVENT_IN_CHELTENHAM_TUE_THU",
+                    ],
+                ],
+            ],
+        );
+
+        // Assert related-to indexes are rebuilt:
+        query_calendar_and_assert_matching_events!(
+            &mut new_connection,
+            "TEST_CALENDAR_UID",
+            [
+                "X-RELATED-TO;RELTYPE=PARENT:PARENT_UID",
+            ],
+            [
+                [
+                    [
+                        "DTSTART:20201231T183000Z",
+                    ],
+                    [
+                        "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO",
+                        "CLASS:PUBLIC",
+                        "DTEND:20201231T190000Z",
+                        "DTSTART:20201231T183000Z",
+                        "GEO:51.89936851432488;-2.078357552295971",
+                        "LAST-MODIFIED:20210501T090000Z",
+                        "LOCATION-TYPE:HALL",
+                        "RELATED-TO;RELTYPE=PARENT:PARENT_UID",
+                        "RRULE:BYDAY=TH,TU;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
+                        "SUMMARY:Event in Cheltenham on Tuesdays and Thursdays at 6:30PM",
+                        "UID:EVENT_IN_CHELTENHAM_TUE_THU",
+                    ],
+                ],
+            ],
+        );
+
+        // FIXME: Assert location-type indexes are rebuilt:
+        // query_calendar_and_assert_matching_events!(
+        //     &mut new_connection,
+        //     "TEST_CALENDAR_UID",
+        //     [
+        //         "X-LOCATION-TYPE:HALL",
+        //     ],
+        //     [
+        //         [
+        //             [
+        //                 "DTSTART:20201231T183000Z",
+        //             ],
+        //             [
+        //                 "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO",
+        //                 "CLASS:PUBLIC",
+        //                 "DTEND:20201231T190000Z",
+        //                 "DTSTART:20201231T183000Z",
+        //                 "GEO:51.89936851432488;-2.078357552295971",
+        //                 "LAST-MODIFIED:20210501T090000Z",
+        //                 "LOCATION-TYPE:HALL",
+        //                 "RELATED-TO;RELTYPE=PARENT:PARENT_UID",
+        //                 "RRULE:BYDAY=TH,TU;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
+        //                 "SUMMARY:Event in Cheltenham on Tuesdays and Thursdays at 6:30PM",
+        //                 "UID:EVENT_IN_CHELTENHAM_TUE_THU",
+        //             ],
+        //         ],
+        //     ],
+        // );
+
+        // Assert class indexes are rebuilt:
+        query_calendar_and_assert_matching_events!(
+            &mut new_connection,
+            "TEST_CALENDAR_UID",
+            [
+                "X-CLASS:PUBLIC",
+            ],
+            [
+                [
+                    [
+                        "DTSTART:20201231T183000Z",
+                    ],
+                    [
+                        "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO",
+                        "CLASS:PUBLIC",
+                        "DTEND:20201231T190000Z",
+                        "DTSTART:20201231T183000Z",
+                        "GEO:51.89936851432488;-2.078357552295971",
+                        "LAST-MODIFIED:20210501T090000Z",
+                        "LOCATION-TYPE:HALL",
+                        "RELATED-TO;RELTYPE=PARENT:PARENT_UID",
+                        "RRULE:BYDAY=TH,TU;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
+                        "SUMMARY:Event in Cheltenham on Tuesdays and Thursdays at 6:30PM",
+                        "UID:EVENT_IN_CHELTENHAM_TUE_THU",
+                    ],
+                ],
+            ],
+        );
         Ok(())
     }
 
