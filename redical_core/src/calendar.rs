@@ -1,4 +1,4 @@
-use std::collections::{BTreeSet, BTreeMap};
+use std::collections::{BTreeSet, BTreeMap, HashMap};
 
 use crate::inverted_index::{IndexedConclusion, InvertedCalendarIndex};
 
@@ -160,6 +160,25 @@ impl Calendar {
         }
 
         Ok(true)
+    }
+
+    // Iterates through associated events and finds those that have their last occurrence between
+    // the from and until timestamps.
+    pub fn prune_events(&mut self, from: i64, until: i64) -> Result<HashMap<String, Box<Event>>, String> {
+        let mut pruned_events = HashMap::new();
+
+        let event_uids_to_prune = self.events.iter()
+            .filter(|(_, event)| event.is_last_occurrence_between(from, until).unwrap_or(false))
+            .map(|(uid, _)| uid.clone())
+            .collect::<Vec<_>>();
+
+        for uid in event_uids_to_prune.iter() {
+            if let Some(pruned_event) = self.remove_event(uid) {
+                pruned_events.insert(uid.to_string(), pruned_event);
+            }
+        }
+
+        Ok(pruned_events)
     }
 }
 
@@ -344,5 +363,88 @@ impl<'a> CalendarIndexUpdater<'a> {
         }
 
         Ok(true)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use std::str::FromStr;
+    use redical_ical::values::date_time::DateTime;
+
+    fn build_and_associate_event(calendar: &mut Calendar, uid: &str, rrule_ical: &str) -> Event {
+        let mut event = Event::new(uid.to_string());
+        let rrule_set = rrule_ical.parse().unwrap();
+
+        event.schedule_properties.parsed_rrule_set = Some(rrule_set);
+
+        calendar.insert_event(event.clone());
+
+        event
+    }
+
+    #[test]
+    fn it_prunes_events_between_timestamps() {
+        let from  = DateTime::from_str("20250101T090000Z").unwrap().get_utc_timestamp(None);
+        let until = DateTime::from_str("20250102T090000Z").unwrap().get_utc_timestamp(None);
+
+        let mut calendar = Calendar::new("CALENDAR_UID".to_string());
+
+        // Recurring event that does not terminate
+        let event_one = build_and_associate_event(
+            &mut calendar,
+            "EVENT_ONE",
+            "DTSTART:20241231T163000Z\nRRULE:FREQ=DAILY",
+        );
+
+        // Recurring event that terminates after the prune range
+        let event_two = build_and_associate_event(
+            &mut calendar,
+            "EVENT_TWO",
+            "DTSTART:20241231T163000Z\nRRULE:FREQ=DAILY;COUNT=10",
+        );
+
+        // Recurring event that terminates inside prune range
+        let event_three = build_and_associate_event(
+            &mut calendar,
+            "EVENT_THREE",
+            "DTSTART:20241231T163000Z\nRRULE:FREQ=DAILY;COUNT=2",
+        );
+
+        // Single event that terminates before prune range
+        let event_four = build_and_associate_event(
+            &mut calendar,
+            "EVENT_FOUR",
+            "DTSTART:20241231T163000Z\nRDATE:20241231T163000Z",
+        );
+
+        // Single event that terminates inside prune range
+        let event_five = build_and_associate_event(
+            &mut calendar,
+            "EVENT_FIVE",
+            "DTSTART:20250101T123000Z\nRDATE:20250101T123000Z",
+        );
+
+        assert_eq!(calendar.events.len(), 5);
+
+        let pruned_events = calendar.prune_events(from, until).unwrap();
+        
+        assert_eq!(calendar.events.len(), 3);
+        assert_eq!(pruned_events.len(), 2);
+        
+        // Expected pruned events are removed
+        assert_eq!(
+            pruned_events,
+            HashMap::from([
+                ("EVENT_THREE".to_string(), Box::new(event_three)),
+                ("EVENT_FIVE".to_string(), Box::new(event_five)),
+            ]),
+        );
+
+        // Other events are still in the Calendar
+        assert_eq!(calendar.events.get("EVENT_ONE"), Some(&Box::new(event_one)));
+        assert_eq!(calendar.events.get("EVENT_TWO"), Some(&Box::new(event_two)));
+        assert_eq!(calendar.events.get("EVENT_FOUR"), Some(&Box::new(event_four)));
     }
 }
