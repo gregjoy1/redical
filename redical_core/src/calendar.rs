@@ -169,8 +169,8 @@ impl Calendar {
 
         let event_uids_to_prune = self.events.iter()
             .filter(|(_, event)| event.is_last_occurrence_between(from, until).unwrap_or(false))
-            .map(|(uid, _)| uid.clone())
-            .collect::<Vec<_>>();
+            .map(|(uid, _)| uid.to_string())
+            .collect::<Vec<String>>();
 
         for uid in event_uids_to_prune.iter() {
             if let Some(pruned_event) = self.remove_event(uid) {
