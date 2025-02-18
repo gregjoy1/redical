@@ -5,9 +5,9 @@
 RDCL.EVT_PRUNE key from-date-string until-date-string
 ```
 
-Delete all events within the specified date range contained within the specified calendar.
+Delete all events terminating (final occurrence/recurrence) within the specified date range contained within the specified calendar.
 
-A typical use case for this command is a daily polling process that cleans up historic events.
+A typical use case for this command is a daily polling process that cleans up historic events no longer occurring in the future.
 
 ## Required arguments
 
@@ -26,7 +26,7 @@ The date-string representing the lower bound (inclusive) range to prune until.
 
 ## Examples
 
-Delete all events for the whole of 2021:
+Delete all events terminating in the year 2021:
 ```bash
 redis> RDCL.EVT_PRUNE CALENDAR_UID 20210101T000000Z 20220101T000000Z
 (integer) 1
