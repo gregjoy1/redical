@@ -282,7 +282,7 @@ mod integration {
         })
     }
 
-    fn test_event_prune_validations(connection: &mut Connection) -> Result<()> {
+    fn test_event_prune(connection: &mut Connection) -> Result<()> {
         set_and_assert_calendar!(connection, "TEST_CALENDAR_UID");
 
         let from = "20250101T090000Z";
@@ -355,11 +355,11 @@ mod integration {
                 message_queue,
                 [
                     (
-                        format!("rdcl.evt_prune:TEST_CALENDAR_UID:{}-{}:EVENT_FIVE", from, until),
+                        format!("rdcl.evt_prune:EVENT_THREE:{}-{}", from, until),
                         "TEST_CALENDAR_UID"
                     ),
                     (
-                        format!("rdcl.evt_prune:TEST_CALENDAR_UID:{}-{}:EVENT_THREE", from, until),
+                        format!("rdcl.evt_prune:EVENT_FIVE:{}-{}", from, until),
                         "TEST_CALENDAR_UID"
                     ),
                 ]
@@ -2574,7 +2574,7 @@ mod integration {
         test_calendar_get_set_del,
         test_event_get_set_del_list,
         test_event_set_last_modified,
-        test_event_prune_validations,
+        test_event_prune,
         test_event_override_get_set_del_list,
         test_event_override_set_last_modified,
         test_event_override_prune,
