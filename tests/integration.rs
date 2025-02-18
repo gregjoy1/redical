@@ -282,6 +282,102 @@ mod integration {
         })
     }
 
+    fn test_event_prune(connection: &mut Connection) -> Result<()> {
+        set_and_assert_calendar!(connection, "TEST_CALENDAR_UID");
+
+        let from = "20250101T090000Z";
+        let until = "20250102T090000Z";
+
+        // Recurring event that does not terminate
+        set_and_assert_event!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "EVENT_ONE",
+            [
+                "LAST-MODIFIED:20241110T110000Z",
+                "DTSTART:20241231T163000Z",
+                "RRULE:FREQ=DAILY;INTERVAL=1"
+            ]
+        );
+
+        // Recurring event that terminates after the prune range
+        set_and_assert_event!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "EVENT_TWO",
+            [
+                "LAST-MODIFIED:20241110T110000Z",
+                "DTSTART:20241231T163000Z",
+                "RRULE:COUNT=10;FREQ=DAILY;INTERVAL=1",
+            ]
+        );
+
+        // Recurring event that terminates inside prune range
+        set_and_assert_event!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "EVENT_THREE",
+            [
+                "LAST-MODIFIED:20241110T110000Z",
+                "DTSTART:20241231T163000Z",
+                "RRULE:COUNT=2;FREQ=DAILY;INTERVAL=1",
+            ]
+        );
+
+        // Single event that terminates before prune range
+        set_and_assert_event!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "EVENT_FOUR",
+            [
+                "LAST-MODIFIED:20241110T110000Z",
+                "DTSTART:20241231T163000Z",
+                "RDATE:20241231T163000Z",
+            ]
+        );
+
+        // Single event that terminates inside prune range
+        set_and_assert_event!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "EVENT_FIVE",
+            [
+                "LAST-MODIFIED:20241110T110000Z",
+                "DTSTART:20250101T123000Z",
+                "RDATE:20250101T123000Z",
+            ]
+        );
+
+        listen_for_keyspace_events(6480, |message_queue: &mut Arc<Mutex<VecDeque<redis::Msg>>>| {
+            prune_events!(connection, "TEST_CALENDAR_UID", from, until);
+
+            assert_keyspace_events_published!(
+                message_queue,
+                [
+                    (
+                        format!("rdcl.evt_prune:EVENT_THREE:{}-{}", from, until),
+                        "TEST_CALENDAR_UID"
+                    ),
+                    (
+                        format!("rdcl.evt_prune:EVENT_FIVE:{}-{}", from, until),
+                        "TEST_CALENDAR_UID"
+                    ),
+                ]
+            );
+
+            // Matching events in the prune range have been removed
+            assert_event_nil!(connection, "TEST_CALENDAR_UID", "EVENT_THREE");
+            assert_event_nil!(connection, "TEST_CALENDAR_UID", "EVENT_FIVE");
+
+            // Non-matching events are not pruned
+            assert_event_present!(connection, "TEST_CALENDAR_UID", "EVENT_ONE");
+            assert_event_present!(connection, "TEST_CALENDAR_UID", "EVENT_TWO");
+            assert_event_present!(connection, "TEST_CALENDAR_UID", "EVENT_FOUR");
+
+            Ok(())
+        })
+    }
+
     fn test_event_override_get_set_del_list(connection: &mut Connection) -> Result<()> {
         listen_for_keyspace_events(6480, |message_queue: &mut Arc<Mutex<VecDeque<redis::Msg>>>| {
             set_and_assert_calendar!(connection, "TEST_CALENDAR_UID");
@@ -2478,6 +2574,7 @@ mod integration {
         test_calendar_get_set_del,
         test_event_get_set_del_list,
         test_event_set_last_modified,
+        test_event_prune,
         test_event_override_get_set_del_list,
         test_event_override_set_last_modified,
         test_event_override_prune,

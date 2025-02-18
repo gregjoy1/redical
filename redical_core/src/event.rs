@@ -34,6 +34,12 @@ use redical_ical::{
 
 use crate::event_occurrence_override::EventOccurrenceOverride;
 
+use crate::event_occurrence_iterator::{
+    EventOccurrenceIterator,
+    LowerBoundFilterCondition,
+    FilterProperty
+};
+
 use crate::inverted_index::InvertedEventIndex;
 
 use crate::queries::results::QueryableEntity;
@@ -730,6 +736,41 @@ impl Event {
 
         Ok(removed_event_occurrence_overrides)
     }
+
+    pub fn is_last_occurrence_between(&self, lower: i64, upper: i64,) -> Result<bool, String> {
+        if lower > upper {
+            let message = format!(
+                "Lower bound value: {lower} cannot be greater than upper bound value: {upper}"
+            );
+
+            return Err(message);
+        }
+
+        let mut result = false;
+
+        let iter_from_lower = EventOccurrenceIterator::new(
+            &self.schedule_properties,
+            &self.overrides,
+            None,
+            Some(LowerBoundFilterCondition::GreaterEqualThan(FilterProperty::DtEnd(lower))),
+            None,
+            None,
+        )?;
+
+        for occurrence in iter_from_lower {
+            let (_dtstart, dtend, _override) = occurrence;
+
+            if dtend > upper {
+                result = false;
+
+                break;
+            } else {
+                result = true;
+            }
+        }
+
+        Ok(result)
+    }
 }
 
 impl QueryableEntity for Event {
@@ -833,6 +874,8 @@ mod test {
     use crate::{IndexedProperties, PassiveProperties, ScheduleProperties};
 
     use pretty_assertions_sorted::assert_eq;
+
+    use chrono::DateTime;
 
     #[test]
     fn test_indexed_categories() {
@@ -1693,5 +1736,100 @@ mod test {
                 ),
             ]),
         );
+    }
+
+    #[test]
+    fn test_is_last_occurrence_between_validation() {
+        let event = build_event();
+
+        assert!(event.is_last_occurrence_between(1000, 2000).is_ok());
+        assert!(event.is_last_occurrence_between(2000, 100000).is_ok());
+
+        assert_eq!(
+            event.is_last_occurrence_between(125, 120),
+            Err(String::from("Lower bound value: 125 cannot be greater than upper bound value: 120")),
+        );
+    }
+
+    #[test]
+    fn test_is_last_occurrence_between_with_no_rrule() {
+        let lower = DateTime::parse_from_rfc2822("1 Jan 2025 09:00:00 +0000").unwrap().timestamp();
+        let upper = DateTime::parse_from_rfc2822("2 Jan 2025 09:00:00 +0000").unwrap().timestamp();
+
+        // When no RRULE is set, then a single RDATE is added to the RRULE_SET via
+        // ScheduleProperties::parse_rrule()
+        let mut event = Event::new(String::from("EVENT_UID"));
+
+        // When the RDATE is before `lower`
+        let rrule_set = "DTSTART:20241225T090000Z\nRDATE:20241225T090000Z".parse().unwrap();
+        event.schedule_properties.parsed_rrule_set = Some(rrule_set);
+        assert!(!event.is_last_occurrence_between(lower, upper).unwrap());
+
+        // When the RDATE is after `upper`
+        let rrule_set = "DTSTART:20250103T090000Z\nRDATE:20250103T090000Z".parse().unwrap();
+        event.schedule_properties.parsed_rrule_set = Some(rrule_set);
+        assert!(!event.is_last_occurrence_between(lower, upper).unwrap());
+
+        // When the RDATE is between `lower` and `upper`
+        let rrule_set = "DTSTART:20250101T093000Z\nRDATE:20250101T093000Z".parse().unwrap();
+        event.schedule_properties.parsed_rrule_set = Some(rrule_set);
+        assert!(event.is_last_occurrence_between(lower, upper).unwrap());
+    }
+
+    #[test]
+    fn test_is_last_occurrence_between_with_rrule() {
+        let lower = DateTime::parse_from_rfc2822("1 Jan 2025 09:00:00 +0000").unwrap().timestamp();
+        let upper = DateTime::parse_from_rfc2822("2 Jan 2025 09:00:00 +0000").unwrap().timestamp();
+
+        let mut event = Event::new(String::from("EVENT_UID"));
+
+        // And last extrapolated date can't be calculated
+        let rrule_set = "DTSTART:20241225T090000Z\nRRULE:FREQ=DAILY".parse().unwrap();
+        event.schedule_properties.parsed_rrule_set = Some(rrule_set);
+        assert!(!event.is_last_occurrence_between(lower, upper).unwrap());
+
+        // USING COUNT
+
+        // And last extrapolated date is before `lower`
+        let rrule_set = "DTSTART:20241225T090000Z\nRRULE:FREQ=DAILY;COUNT=7".parse().unwrap();
+        event.schedule_properties.parsed_rrule_set = Some(rrule_set);
+        assert!(!event.is_last_occurrence_between(lower, upper).unwrap());
+
+        // And last extrapolated date is after `upper`
+        let rrule_set = "DTSTART:20241225T090000Z\nRRULE:FREQ=DAILY;COUNT=50".parse().unwrap();
+        event.schedule_properties.parsed_rrule_set = Some(rrule_set);
+        assert!(!event.is_last_occurrence_between(lower, upper).unwrap());
+
+        // And last extrapolated date is between `lower` and `upper`
+        let rrule_set = "DTSTART:20241225T090000Z\nRRULE:FREQ=DAILY;COUNT=8".parse().unwrap();
+        event.schedule_properties.parsed_rrule_set = Some(rrule_set);
+        assert!(event.is_last_occurrence_between(lower, upper).unwrap());
+
+        // And last extrapolated date is between `lower` and `upper` but excluded
+        let rrule_set = "DTSTART:20241225T090000Z\nRRULE:FREQ=DAILY;COUNT=8\nEXDATE:20250101T090000Z".parse().unwrap();
+        event.schedule_properties.parsed_rrule_set = Some(rrule_set);
+        assert!(!event.is_last_occurrence_between(lower, upper).unwrap());
+
+        // USING UNTIL
+
+        // And last extrapolated date is before `lower`
+        let rrule_set = "DTSTART:20241225T090000Z\nRRULE:FREQ=DAILY;UNTIL=20241231T130000Z".parse().unwrap();
+        event.schedule_properties.parsed_rrule_set = Some(rrule_set);
+        assert!(!event.is_last_occurrence_between(lower, upper).unwrap());
+
+        // And last extrapolated date is after `upper`
+        let rrule_set = "DTSTART:20241225T090000Z\nRRULE:FREQ=DAILY;UNTIL=20250103T090000Z".parse().unwrap();
+        event.schedule_properties.parsed_rrule_set = Some(rrule_set);
+        assert!(!event.is_last_occurrence_between(lower, upper).unwrap());
+
+        // And last extrapolated date is between `lower` and `upper`
+        let rrule_set = "DTSTART:20241225T090000Z\nRRULE:FREQ=DAILY;UNTIL=20250101T140000Z".parse().unwrap();
+        event.schedule_properties.parsed_rrule_set = Some(rrule_set);
+        assert!(event.is_last_occurrence_between(lower, upper).unwrap());
+
+        // And last extrapolated date is between `lower` and `upper` but excluded
+        let rrule_set = "DTSTART:20241225T090000Z\nRRULE:FREQ=DAILY;UNTIL=20250101T140000Z\nEXDATE:20250101T090000Z".parse().unwrap();
+        event.schedule_properties.parsed_rrule_set = Some(rrule_set);
+        assert!(!event.is_last_occurrence_between(lower, upper).unwrap());
     }
 }
