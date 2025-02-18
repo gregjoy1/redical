@@ -10,7 +10,7 @@ mod utils;
 use crate::datatype::CALENDAR_DATA_TYPE;
 
 pub const MODULE_NAME: &str = "RediCal";
-pub const MODULE_VERSION: u32 = 1;
+pub const MODULE_VERSION: Option<&str> = std::option_env!("MODULE_VERSION");
 
 pub const GIT_SHA: Option<&str> = std::option_env!("GIT_SHA");
 pub const GIT_BRANCH: Option<&str> = std::option_env!("GIT_BRANCH");
@@ -49,7 +49,7 @@ fn initialize(ctx: &Context, _args: &[RedisString]) -> Status {
     ctx.log_notice(
         &format!(
             "version: {} build commit: {} built: {}",
-            env!("CARGO_PKG_VERSION"),
+            GIT_TAG.unwrap_or("unknown"),
             GIT_SHA.unwrap_or("unknown"),
             BUILD_DATE_STRING.unwrap_or("unknown"),
         )
@@ -89,7 +89,7 @@ lazy_static! {
 
 redis_module! {
     name:       MODULE_NAME,
-    version:    MODULE_VERSION,
+    version:    MODULE_VERSION.unwrap_or("1").parse::<u32>().unwrap(),
     allocator:  (RedicalAlloc, RedicalAlloc),
     data_types: [
         CALENDAR_DATA_TYPE
