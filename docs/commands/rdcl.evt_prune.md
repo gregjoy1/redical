@@ -22,7 +22,7 @@ The date-string representing the lower bound (inclusive) range to prune until.
 
 ## Return value
 
-`RDCL.EVT_PRUNE` returns an [integer](https://redis.io/docs/reference/protocol-spec/#integers) representing a boolean, `1` if successful and `0` if not.
+`RDCL.EVT_PRUNE` returns an [integer](https://redis.io/docs/reference/protocol-spec/#integers) representing the number of events pruned.
 
 ## Examples
 

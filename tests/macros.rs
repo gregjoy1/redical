@@ -143,14 +143,12 @@ macro_rules! rebuild_calendar_indexes {
 #[macro_export]
 macro_rules! prune_events {
     ($connection:expr, $calendar_uid:expr, $from_date_string:expr, $until_date_string:expr $(,)*) => {
-        let calendar_event_prune_result =
-            redis::cmd("rdcl.evt_prune")
+        redis::cmd("rdcl.evt_prune")
             .arg($calendar_uid)
             .arg($from_date_string)
             .arg($until_date_string)
-            .query($connection);
-
-        assert_eq!(calendar_event_prune_result, RedisResult::Ok(true));
+            .query($connection)
+            .unwrap()
     };
 }
 

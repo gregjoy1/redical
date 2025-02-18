@@ -349,7 +349,9 @@ mod integration {
         );
 
         listen_for_keyspace_events(6480, |message_queue: &mut Arc<Mutex<VecDeque<redis::Msg>>>| {
-            prune_events!(connection, "TEST_CALENDAR_UID", from, until);
+            let number_pruned: i64 = prune_events!(connection, "TEST_CALENDAR_UID", from, until);
+
+            assert_eq!(number_pruned, 2);
 
             assert_keyspace_events_published!(
                 message_queue,
