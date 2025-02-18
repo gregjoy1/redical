@@ -2484,6 +2484,8 @@ mod integration {
             .execute(connection);
 
         {
+            // Nonsense iCal added to this to add to the burden of the iCal parser.
+            // This ensures the parsing takes longer than 1ms even on speedy machines.
             let event_set_result: Result<Vec<String>, String> =
                 redis::cmd("rdcl.evt_set")
                     .arg("TEST_CALENDAR_UID")
@@ -2498,6 +2500,13 @@ mod integration {
                             "RELATED-TO;RELTYPE=PARENT:PARENT_UID",
                             "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
                             "GEO:51.751365550307604;-1.2601196837753945",
+                            "X-SPACES-BOOKED:12",
+                            "X-FOO:FOO",
+                            "X-BAR:BAR",
+                            "X-BAZ:BAZ",
+                            "X-BOO:BOO",
+                            "X-FAR:FAR",
+                            "X-FAZ:FAZ",
                         ].join(" ").to_string()
                     )
                     .query(connection)
