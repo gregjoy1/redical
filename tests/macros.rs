@@ -1086,6 +1086,14 @@ macro_rules! assert_keyspace_events_published {
             // the assertion.
             std::thread::sleep(std::time::Duration::from_millis(150));
 
+            let mut expected = vec![
+                $(
+                    ($event.to_string(), $keyname.to_string()),
+                )*
+            ];
+
+            expected.sort();
+
             let mut message_queue_lock = $message_queue.lock().unwrap();
 
             let mut published_keyspace_events = Vec::new();
@@ -1097,14 +1105,9 @@ macro_rules! assert_keyspace_events_published {
                 published_keyspace_events.push((message_event, message_keyname));
             }
 
-            assert_eq_sorted!(
-                published_keyspace_events,
-                vec![
-                    $(
-                        ($event.to_string(), $keyname.to_string()),
-                    )*
-                ],
-            );
+            published_keyspace_events.sort();
+
+            assert_eq!(published_keyspace_events, expected);
         }
     };
 }
