@@ -27,7 +27,7 @@ The UID of the desired event stored within the calendar to prune the occurrence 
 
 ## Return value 
 
-`RDCL.EVO_DEL` returns an [integer](https://redis.io/docs/reference/protocol-spec/#integers) representing a boolean, `1` if successful and `0` if not.
+`RDCL.EVO_DEL` returns an [integer](https://redis.io/docs/reference/protocol-spec/#integers) representing the number of pruned event occurrence overrides.
 
 For more information about replies, see [Redis serialization protocol specification](https://redis.io/docs/reference/protocol-spec). 
 

@@ -59,7 +59,7 @@ pub fn redical_event_prune(ctx: &Context, args: Vec<RedisString>) -> RedisResult
         )?;
     }
 
-    Ok(RedisValue::Bool(true))
+    Ok(RedisValue::Integer(pruned_events.len() as i64))
 }
 
 // TODO: make this a helper

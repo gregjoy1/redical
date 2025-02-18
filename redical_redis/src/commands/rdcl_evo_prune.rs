@@ -141,7 +141,7 @@ pub fn redical_event_override_prune(ctx: &Context, args: Vec<RedisString>) -> Re
         )));
     };
 
-    if args.len() == 3 {
+    let prune_count = if args.len() == 3 {
         let event_uid = args.next_arg()?.to_string();
 
         let (from_timestamp, until_timestamp) =
@@ -159,9 +159,25 @@ pub fn redical_event_override_prune(ctx: &Context, args: Vec<RedisString>) -> Re
         // are raised in the following prune process.
         ctx.replicate_verbatim();
 
-        for (override_timestamp, _event_occurrence_override) in prune_calendar_events_overrides(calendar, event_uid.to_owned(), from_timestamp, until_timestamp)? {
-            notify_keyspace_event(ctx, &calendar_uid, &event_uid, &DateTime::from(override_timestamp).render_formatted_date_time(None))?;
+        let pruned_overrides = prune_calendar_events_overrides(
+            calendar,
+            event_uid.to_owned(),
+            from_timestamp,
+            until_timestamp,
+        )?;
+
+        let prune_count = pruned_overrides.len();
+
+        for (override_timestamp, _event_occurrence_override) in pruned_overrides.into_iter() {
+            notify_keyspace_event(
+                ctx,
+                &calendar_uid,
+                &event_uid,
+                &DateTime::from(override_timestamp).render_formatted_date_time(None)
+            )?;
         }
+
+        prune_count
     } else {
         let (from_timestamp, until_timestamp) =
             timestamps_from_date_strings(
@@ -181,12 +197,30 @@ pub fn redical_event_override_prune(ctx: &Context, args: Vec<RedisString>) -> Re
         // are raised in the following prune process.
         ctx.replicate_verbatim();
 
+        let mut prune_count = 0;
+
         for event_uid in event_uids {
-            for (override_timestamp, _event_occurrence_override) in prune_calendar_events_overrides(calendar, event_uid.to_owned(), from_timestamp, until_timestamp)? {
-                notify_keyspace_event(ctx, &calendar_uid, &event_uid, &DateTime::from(override_timestamp).render_formatted_date_time(None))?;
+            let pruned_overrides = prune_calendar_events_overrides(
+                calendar,
+                event_uid.to_owned(),
+                from_timestamp,
+                until_timestamp,
+            )?;
+
+            prune_count += pruned_overrides.len();
+
+            for (override_timestamp, _event_occurrence_override) in pruned_overrides.into_iter() {
+                notify_keyspace_event(
+                    ctx,
+                    &calendar_uid,
+                    &event_uid,
+                    &DateTime::from(override_timestamp).render_formatted_date_time(None)
+                )?;
             }
         }
-    }
 
-    Ok(RedisValue::Bool(true))
+        prune_count
+    };
+
+    Ok(RedisValue::Integer(prune_count as i64))
 }
