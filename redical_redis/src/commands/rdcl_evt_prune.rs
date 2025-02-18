@@ -140,7 +140,7 @@ fn prune_and_reindex(calendar: &mut Calendar, from: i64, until: i64) -> Result<H
 }
 
 fn notify_keyspace_event(ctx: &Context, calendar_uid: &RedisString, from: &String, until: &String, event_uid: &String) -> Result<(), RedisError> {
-    let event_message = format!("rdcl.evt_prune:{calendar_uid}:{from}-{until}:{event_uid}");
+    let event_message = format!("rdcl.evt_prune:{event_uid}:{from}-{until}");
 
     if ctx.notify_keyspace_event(NotifyEvent::MODULE, event_message.as_str(), calendar_uid) == Status::Err {
         return Err(
