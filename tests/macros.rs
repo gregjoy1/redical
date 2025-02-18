@@ -155,26 +155,22 @@ macro_rules! prune_events {
 #[macro_export]
 macro_rules! prune_event_overrides {
     ($connection:expr, $calendar_uid:expr, $from_date_string:expr, $until_date_string:expr $(,)*) => {
-        let calendar_index_rebuild_result =
-            redis::cmd("rdcl.evo_prune")
+        redis::cmd("rdcl.evo_prune")
             .arg($calendar_uid)
             .arg($from_date_string)
             .arg($until_date_string)
-            .query($connection);
-
-        assert_eq!(calendar_index_rebuild_result, RedisResult::Ok(true));
+            .query($connection)
+            .unwrap()
     };
 
     ($connection:expr, $calendar_uid:expr, $event_uid:expr, $from_date_string:expr, $until_date_string:expr $(,)*) => {
-        let calendar_index_rebuild_result =
-            redis::cmd("rdcl.evo_prune")
+        redis::cmd("rdcl.evo_prune")
             .arg($calendar_uid)
             .arg($event_uid)
             .arg($from_date_string)
             .arg($until_date_string)
-            .query($connection);
-
-        assert_eq!(calendar_index_rebuild_result, RedisResult::Ok(true));
+            .query($connection)
+            .unwrap()
     };
 }
 

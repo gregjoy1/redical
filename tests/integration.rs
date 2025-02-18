@@ -750,7 +750,15 @@ mod integration {
         }
 
         // Test pruning a specific event on a calendar
-        prune_event_overrides!(connection, "TEST_CALENDAR_UID", "EVENT_ONE", "20200105T000000Z", "20200110T160000Z");
+        let pruned_override_count: i64 = prune_event_overrides!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "EVENT_ONE",
+            "20200105T000000Z",
+            "20200110T160000Z",
+        );
+
+        assert_eq!(pruned_override_count, 3);
 
         list_and_assert_matching_event_overrides!(
             connection,
@@ -765,7 +773,14 @@ mod integration {
         );
 
         // Test pruning some overrides on all events on a calendar
-        prune_event_overrides!(connection, "TEST_CALENDAR_UID", "20200101T000000Z", "20200108T160000Z");
+        let pruned_override_count: i64 = prune_event_overrides!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "20200101T000000Z",
+            "20200108T160000Z",
+        );
+
+        assert_eq!(pruned_override_count, 8);
 
         list_and_assert_matching_event_overrides!(
             connection,
@@ -788,7 +803,14 @@ mod integration {
 
         // Test pruning all remaining overrides on all events on a calendar (and all associated keyspace events).
         listen_for_keyspace_events(6480, |message_queue: &mut Arc<Mutex<VecDeque<redis::Msg>>>| {
-            prune_event_overrides!(connection, "TEST_CALENDAR_UID", "20200101T000000Z", "20210101T000000Z");
+            let pruned_override_count: i64 = prune_event_overrides!(
+                connection,
+                "TEST_CALENDAR_UID",
+                "20200101T000000Z",
+                "20210101T000000Z",
+            );
+
+            assert_eq!(pruned_override_count, 3);
 
             list_and_assert_matching_event_overrides!(connection, "TEST_CALENDAR_UID", "EVENT_ONE", []);
             list_and_assert_matching_event_overrides!(connection, "TEST_CALENDAR_UID", "EVENT_TWO", []);
