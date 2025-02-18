@@ -143,16 +143,15 @@ fn notify_keyspace_event(ctx: &Context, calendar_uid: &RedisString, from: &Strin
     let event_message = format!("rdcl.evt_prune:{event_uid}:{from}-{until}");
 
     if ctx.notify_keyspace_event(NotifyEvent::MODULE, event_message.as_str(), calendar_uid) == Status::Err {
-        return Err(
-            RedisError::String(
-                format!(
-                    "Notify keyspace event \"rdcl.evt_prune\" for calendar: \"{}\", range: {} - {}, event: \"{}\"", &calendar_uid,
-                    &from,
-                    &until,
-                    &event_uid,
-                )
-            )
+        let message = format!(
+            "Notify keyspace event \"rdcl.evt_prune\" for calendar: \"{}\", range: {} - {}, event: \"{}\"",
+            &calendar_uid,
+            &from,
+            &until,
+            &event_uid,
         );
+
+        return Err(RedisError::String(message));
     }
 
     Ok(())
