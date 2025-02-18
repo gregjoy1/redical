@@ -55,7 +55,7 @@ pub fn redical_event_prune(ctx: &Context, args: Vec<RedisString>) -> RedisResult
             &calendar_uid,
             &from,
             &until,
-            &event_uid,
+            event_uid,
         )?;
     }
 
@@ -87,7 +87,7 @@ fn prune_and_reindex(calendar: &mut Calendar, from: i64, until: i64) -> Result<H
 
     if calendar.indexes_active {
         for (event_uid, pruned_event) in pruned_events.iter() {
-            let mut calendar_index_updater = CalendarIndexUpdater::new(&event_uid, calendar);
+            let mut calendar_index_updater = CalendarIndexUpdater::new(event_uid, calendar);
 
             let updated_event_categories_diff = InvertedEventIndex::diff_indexed_terms(
                 pruned_event.indexed_categories.as_ref(),

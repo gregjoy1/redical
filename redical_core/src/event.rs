@@ -748,7 +748,7 @@ impl Event {
 
         let mut result = false;
 
-        let mut iter_from_lower = EventOccurrenceIterator::new(
+        let iter_from_lower = EventOccurrenceIterator::new(
             &self.schedule_properties,
             &self.overrides,
             None,
@@ -757,7 +757,7 @@ impl Event {
             None,
         )?;
 
-        while let Some(occurrence) = iter_from_lower.next() {
+        for occurrence in iter_from_lower {
             let (_dtstart, dtend, _override) = occurrence;
 
             if dtend > upper {
