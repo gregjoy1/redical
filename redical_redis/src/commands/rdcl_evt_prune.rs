@@ -47,6 +47,11 @@ pub fn redical_event_prune(ctx: &Context, args: Vec<RedisString>) -> RedisResult
         until.to_string(),
     )?;
 
+    // Use this command when replicating across other Redis instances.
+    // We call this here to ensure all replicas begin at and reach the same point if any errors
+    // are raised in the following prune process.
+    ctx.replicate_verbatim();
+
     let pruned_events = prune_and_reindex(calendar, from_timestamp, until_timestamp)?;
 
     for (event_uid, _) in pruned_events.iter() {
