@@ -49,6 +49,7 @@ use crate::geo_index::GeoPoint;
 
 use crate::utils::KeyValuePair;
 
+/// Represents the properties of a schedule, including recurrence rules, dates, and duration.
 #[derive(Default, Debug, Eq, PartialEq, Clone)]
 pub struct ScheduleProperties {
     pub rrule: Option<RRuleProperty>,
@@ -62,6 +63,7 @@ pub struct ScheduleProperties {
 }
 
 impl ScheduleProperties {
+    /// Creates a new instance of `ScheduleProperties` with default values.
     pub fn new() -> ScheduleProperties {
         ScheduleProperties {
             rrule: None,
@@ -75,18 +77,21 @@ impl ScheduleProperties {
         }
     }
 
+    /// Extracts the serialized iCalendar key-value pair for the recurrence rule (RRULE).
     pub fn extract_serialized_rrule_ical_key_value_pair(&self) -> Option<KeyValuePair> {
         self.rrule
             .as_ref()
             .map(|property| property.to_content_line().into())
     }
 
+    /// Extracts the serialized iCalendar key-value pair for the exception rule (EXRULE).
     pub fn extract_serialized_exrule_ical_key_value_pair(&self) -> Option<KeyValuePair> {
         self.exrule
             .as_ref()
             .map(|property| property.to_content_line().into())
     }
 
+    /// Extracts the serialized iCalendar key-value pairs for recurrence dates (RDATE).
     pub fn extract_serialized_rdates_ical_key_value_pairs(&self) -> Option<HashSet<KeyValuePair>> {
         self.rdates.as_ref().map(|properties| {
             let mut key_value_pairs = HashSet::new();
@@ -99,6 +104,7 @@ impl ScheduleProperties {
         })
     }
 
+    /// Extracts the serialized iCalendar key-value pairs for exception dates (EXDATE).
     pub fn extract_serialized_exdates_ical_key_value_pairs(&self) -> Option<HashSet<KeyValuePair>> {
         self.exdates.as_ref().map(|properties| {
             let mut key_value_pairs = HashSet::new();
@@ -111,24 +117,36 @@ impl ScheduleProperties {
         })
     }
 
+    /// Extracts the serialized iCalendar key-value pair for the duration.
     pub fn extract_serialized_duration_ical_key_value_pair(&self) -> Option<KeyValuePair> {
         self.duration
             .as_ref()
             .map(|property| property.to_content_line().into())
     }
 
+    /// Extracts the serialized iCalendar key-value pair for the start date-time (DTSTART).
     pub fn extract_serialized_dtstart_ical_key_value_pair(&self) -> Option<KeyValuePair> {
         self.dtstart
             .as_ref()
             .map(|property| property.to_content_line().into())
     }
 
+    /// Extracts the serialized iCalendar key-value pair for the end date-time (DTEND).
     pub fn extract_serialized_dtend_ical_key_value_pair(&self) -> Option<KeyValuePair> {
         self.dtend
             .as_ref()
             .map(|property| property.to_content_line().into())
     }
 
+    /// Inserts an event property into the event.
+    ///
+    /// # Arguments
+    ///
+    /// * `property` - The event property to insert.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<&Self, String>` - Returns a reference to self on success, or an error message on failure.
     pub fn insert(&mut self, property: EventProperty) -> Result<&Self, String> {
         match property {
             EventProperty::RRule(property) => { self.rrule = Some(property); },
@@ -162,6 +180,11 @@ impl ScheduleProperties {
         Ok(self)
     }
 
+    /// Parses the recurrence rule (RRULE) and returns an `RRuleSet`.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<RRuleSet, RRuleError>` - Returns the parsed `RRuleSet` on success, or an error on failure.
     pub fn parse_rrule(&self) -> Result<RRuleSet, RRuleError> {
         let mut ical_parts = vec![];
 
@@ -209,18 +232,33 @@ impl ScheduleProperties {
         ical_parts.join("\n").parse::<RRuleSet>()
     }
 
+    /// Gets the UTC timestamp for the start date-time (DTSTART).
+    ///
+    /// # Returns
+    ///
+    /// * `Option<i64>` - Returns the timestamp if available, or `None` if not.
     pub fn get_dtstart_timestamp(&self) -> Option<i64> {
         self.dtstart
             .as_ref()
             .map(|dtstart| dtstart.get_utc_timestamp())
     }
 
+    /// Gets the UTC timestamp for the end date-time (DTEND).
+    ///
+    /// # Returns
+    ///
+    /// * `Option<i64>` - Returns the timestamp if available, or `None` if not.
     pub fn get_dtend_timestamp(&self) -> Option<i64> {
         self.dtend
             .as_ref()
             .map(|dtend| dtend.get_utc_timestamp())
     }
 
+    /// Gets the duration in seconds.
+    ///
+    /// # Returns
+    ///
+    /// * `Option<i64>` - Returns the duration in seconds if available, or `None` if not.
     pub fn get_duration_in_seconds(&self) -> Option<i64> {
         if let Some(parsed_duration) = self.duration.as_ref() {
             return Some(parsed_duration.duration.get_duration_in_seconds());
@@ -235,6 +273,11 @@ impl ScheduleProperties {
         }
     }
 
+    /// Builds and stores the parsed recurrence rule set (RRuleSet).
+    ///
+    /// # Returns
+    ///
+    /// * `Result<(), rrule::RRuleError>` - Returns `Ok(())` on success, or an error on failure.
     pub fn build_parsed_rrule_set(&mut self) -> Result<(), rrule::RRuleError> {
         let parsed_rrule_set = self.parse_rrule()?;
 
@@ -244,6 +287,7 @@ impl ScheduleProperties {
     }
 }
 
+/// Represents the properties of an event that can be indexed, such as categories and location type.
 #[derive(Default, Debug, Eq, PartialEq, Clone)]
 pub struct IndexedProperties {
     pub geo: Option<GeoProperty>,
@@ -254,6 +298,7 @@ pub struct IndexedProperties {
 }
 
 impl IndexedProperties {
+    /// Creates a new instance of `IndexedProperties` with default values.
     pub fn new() -> IndexedProperties {
         IndexedProperties {
             geo: None,
@@ -264,6 +309,11 @@ impl IndexedProperties {
         }
     }
 
+    /// Extracts all location type strings from the indexed properties.
+    ///
+    /// # Returns
+    ///
+    /// * `Option<HashSet<String>>` - Returns a set of location type strings if available, or `None` if not.
     pub fn extract_all_location_type_strings(&self) -> Option<HashSet<String>> {
         self.location_type.as_ref().map(|location_type_property| {
             let mut location_types: HashSet<String> = HashSet::new();
@@ -276,6 +326,11 @@ impl IndexedProperties {
         })
     }
 
+    /// Extracts all category strings from the indexed properties.
+    ///
+    /// # Returns
+    ///
+    /// * `Option<HashSet<String>>` - Returns a set of category strings if available, or `None` if not.
     pub fn extract_all_category_strings(&self) -> Option<HashSet<String>> {
         self.categories.as_ref().map(|categories_properties| {
             let mut categories: HashSet<String> = HashSet::new();
@@ -290,6 +345,11 @@ impl IndexedProperties {
         })
     }
 
+    /// Extracts all related-to key-value pairs from the indexed properties.
+    ///
+    /// # Returns
+    ///
+    /// * `Option<HashSet<KeyValuePair>>` - Returns a set of related-to key-value pairs if available, or `None` if not.
     pub fn extract_all_related_to_key_value_pairs(&self) -> Option<HashSet<KeyValuePair>> {
         self.related_to.as_ref().map(|related_to_properties| {
             let mut related_to_key_value_pairs: HashSet<KeyValuePair> = HashSet::new();
@@ -302,6 +362,11 @@ impl IndexedProperties {
         })
     }
 
+    /// Extracts all related-to key-value pairs and groups them by relationship type.
+    ///
+    /// # Returns
+    ///
+    /// * `Option<HashMap<String, HashSet<String>>>` - Returns a map of relationship types to sets of UIDs if available, or `None` if not.
     pub fn extract_all_related_to_key_value_map(&self) -> Option<HashMap<String, HashSet<String>>> {
         self.related_to.as_ref().map(|related_to_properties| {
             let mut related_to_map = HashMap::new();
@@ -319,6 +384,11 @@ impl IndexedProperties {
         })
     }
 
+    /// Extracts the geo-location point from the indexed properties.
+    ///
+    /// # Returns
+    ///
+    /// * `Option<GeoPoint>` - Returns the geo-location point if available, or `None` if not.
     pub fn extract_geo_point(&self) -> Option<GeoPoint> {
         self.geo
             .as_ref()
@@ -329,6 +399,11 @@ impl IndexedProperties {
             )
     }
 
+    /// Extracts the class property from the indexed properties.
+    ///
+    /// # Returns
+    ///
+    /// * `Option<String>` - Returns the class as a string if available, or `None` if not.
     pub fn extract_class(&self) -> Option<String> {
         self.class
             .as_ref()
@@ -373,12 +448,14 @@ impl IndexedProperties {
     }
 }
 
+/// Represents the passive properties of an event, which are not actively used in scheduling or indexing.
 #[derive(Default, Debug, Eq, PartialEq, Clone)]
 pub struct PassiveProperties {
     pub properties: BTreeSet<PassiveProperty>,
 }
 
 impl PassiveProperties {
+    /// Creates a new instance of `PassiveProperties` with default values.
     pub fn new() -> PassiveProperties {
         PassiveProperties {
             properties: BTreeSet::new(),
@@ -387,6 +464,11 @@ impl PassiveProperties {
 
     /// Extract all passive properties serialized into a key/value pair and return them in a
     /// HashSet.
+    /// Extracts all passive properties serialized into iCalendar key-value pairs.
+    ///
+    /// # Returns
+    ///
+    /// * `HashSet<KeyValuePair>` - Returns a set of serialized key-value pairs.
     pub fn extract_properties_serialized_ical_key_value_pairs(&self) -> HashSet<KeyValuePair> {
         let mut key_value_pairs = HashSet::new();
 
@@ -398,6 +480,11 @@ impl PassiveProperties {
     }
 
     /// Extract all passive properties into a HashMap grouped by the property name.
+    /// Extracts all passive properties and groups them by property name.
+    ///
+    /// # Returns
+    ///
+    /// * `HashMap<String, Vec<PassiveProperty>>` - Returns a map of property names to lists of passive properties.
     pub fn extract_properties_grouped_by_name(&self) -> HashMap<String, Vec<PassiveProperty>> {
         let mut passive_properties: HashMap<String, Vec<PassiveProperty>> = HashMap::new();
 
@@ -442,6 +529,7 @@ impl PassiveProperties {
     }
 }
 
+/// Represents an event with unique identifier, schedule, indexed, and passive properties.
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Event {
     pub uid: UIDProperty,
@@ -461,6 +549,16 @@ pub struct Event {
 }
 
 impl Event {
+
+    /// Creates a new instance of `Event` with the specified UID.
+    ///
+    /// # Arguments
+    ///
+    /// * `uid` - The unique identifier for the event.
+    ///
+    /// # Returns
+    ///
+    /// * `Event` - Returns a new event instance.
     pub fn new(uid: String) -> Event {
         Event {
             uid: UIDProperty::from(uid),
@@ -480,6 +578,11 @@ impl Event {
         }
     }
 
+    /// Validates the event by building the parsed recurrence rule set.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<bool, String>` - Returns `true` on success, or an error message on failure.
     pub fn validate(&mut self) -> Result<bool, String> {
         self
             .schedule_properties
@@ -489,6 +592,11 @@ impl Event {
         Ok(true)
     }
 
+    /// Rebuilds all indexes for the event.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<bool, String>` - Returns `true` on success, or an error message on failure.
     pub fn rebuild_indexes(&mut self) -> Result<bool, String> {
         self.rebuild_indexed_categories()?;
         self.rebuild_indexed_location_type()?;
@@ -499,6 +607,16 @@ impl Event {
         Ok(true)
     }
 
+    /// Parses an iCalendar string to create an `Event`.
+    ///
+    /// # Arguments
+    ///
+    /// * `uid` - The unique identifier for the event.
+    /// * `input` - The iCalendar string to parse.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Event, String>` - Returns the parsed event on success, or an error message on failure.
     pub fn parse_ical(uid: &str, input: &str) -> Result<Event, String> {
         EventProperties::from_str(input).and_then(|EventProperties(parsed_properties)| {
             let mut new_event = Event::new(String::from(uid));
@@ -551,6 +669,11 @@ impl Event {
         Ok(self)
     }
 
+    /// Rebuilds the indexed categories for the event.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<&mut Self, String>` - Returns a mutable reference to self on success, or an error message on failure.
     pub fn rebuild_indexed_categories(&mut self) -> Result<&mut Self, String> {
         self.indexed_categories = Some(InvertedEventIndex::<String>::new_from_event_categories(
             self,
@@ -559,6 +682,11 @@ impl Event {
         Ok(self)
     }
 
+    /// Rebuilds the indexed location type for the event.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<&mut Self, String>` - Returns a mutable reference to self on success, or an error message on failure.
     pub fn rebuild_indexed_location_type(&mut self) -> Result<&mut Self, String> {
         self.indexed_location_type = Some(InvertedEventIndex::<String>::new_from_event_location_type(
             self,
@@ -567,6 +695,11 @@ impl Event {
         Ok(self)
     }
 
+    /// Rebuilds the indexed related-to properties for the event.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<&mut Self, String>` - Returns a mutable reference to self on success, or an error message on failure.
     pub fn rebuild_indexed_related_to(&mut self) -> Result<&mut Self, String> {
         self.indexed_related_to =
             Some(InvertedEventIndex::<KeyValuePair>::new_from_event_related_to(self));
