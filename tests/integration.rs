@@ -1937,7 +1937,7 @@ mod integration {
         assert_eq!(redis::cmd("SAVE").query(connection), Ok(String::from("OK")));
 
         redis::cmd("FLUSHDB")
-            .query(connection)
+            .query::<()>(connection)
             .with_context(|| {
                 format!(
                     "failed to cleanup with FLUSHDB after running integration test function: {}", stringify!($test_function),
@@ -2072,6 +2072,7 @@ mod integration {
                 ],
             ],
         );
+
         Ok(())
     }
 
@@ -2158,7 +2159,12 @@ mod integration {
             assert_keyspace_events_published!(message_queue, []);
 
             // Assert error reporting Calendar querying disabled
-            let disabled_query_result: Result<Vec<String>, String> = redis::cmd("rdcl.evi_query").arg("TEST_CALENDAR_UID").arg("X-RELATED-TO;RELTYPE=PARENT:PARENT_UID").query(connection).map_err(|error| error.to_string());
+            let disabled_query_result: Result<Vec<String>, String> =
+                redis::cmd("rdcl.evi_query")
+                    .arg("TEST_CALENDAR_UID")
+                    .arg("X-RELATED-TO;RELTYPE=PARENT:PARENT_UID")
+                    .query(connection)
+                    .map_err(|error| error.to_string());
 
             assert_eq!(
                 disabled_query_result,
@@ -2337,12 +2343,15 @@ mod integration {
             ],
         );
 
-        assert_eq!(redis::cmd("SAVE").query(connection), Ok(String::from("OK")));
+        assert_eq!(
+            redis::cmd("SAVE").query(connection),
+            Ok(String::from("OK")),
+        );
 
         // std::thread::sleep(std::time::Duration::from_secs(5));
 
         redis::cmd("FLUSHDB")
-            .query(connection)
+            .query::<()>(connection)
             .with_context(|| {
                 format!(
                     "failed to cleanup with FLUSHDB after running integration test function: {}", stringify!($test_function),
@@ -2515,7 +2524,7 @@ mod integration {
                     .arg("TEST_CALENDAR_UID")
                     .arg("EVENT_IN_OXFORD_MON_WED")
                     .arg(
-                        &[
+                        [
                             "SUMMARY:Event in Oxford on Mondays and Wednesdays at 5:00PM",
                             "RRULE:BYDAY=MO,WE;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
                             "DTSTART:20201231T170000Z",
@@ -2549,7 +2558,7 @@ mod integration {
                     .arg("EVENT_IN_OXFORD_MON_WED")
                     .arg("20210102T170000Z")
                     .arg(
-                        &[
+                        [
                             "SUMMARY:Event in Oxford on Mondays and Wednesdays at 5:00PM (OVERRIDDEN)",
                             "DESCRIPTION:Overridden event description - this should be not be present in the base event.",
                             "LAST-MODIFIED:20210501T090000Z",
@@ -2572,7 +2581,7 @@ mod integration {
                 redis::cmd("rdcl.evi_query")
                     .arg("TEST_CALENDAR_UID")
                     .arg(
-                        &[
+                        [
                             "X-FROM;PROP=DTSTART;OP=GT;TZID=Europe/London:20210105T180000Z",
                             "X-UNTIL;PROP=DTSTART;OP=LTE;TZID=UTC:20210630T180000Z",
                             "X-GEO;DIST=105.5KM:51.55577390;-1.77971760",
@@ -2619,5 +2628,4 @@ mod integration {
         test_key_expire_eviction_keyspace_events,
         test_redical_ical_parser_timeout_ms_config,
     );
-
 }
