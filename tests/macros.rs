@@ -1143,7 +1143,7 @@ macro_rules! run_all_integration_tests_sequentially {
                 $test_function(&mut connection)?;
 
                 redis::cmd("FLUSHDB")
-                    .query(&mut connection)
+                    .query::<()>(&mut connection)
                     .with_context(|| {
                         format!(
                             "failed to cleanup with FLUSHDB after running integration test function: {}", stringify!($test_function),
