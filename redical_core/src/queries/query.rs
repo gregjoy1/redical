@@ -28,12 +28,22 @@ use crate::queries::indexed_property_filters::{
 /// exceptions.
 pub trait QueryIndexAccessor<'cal> {
     fn new(calendar: &'cal Calendar) -> Self;
+
+    // Positive matching
     fn search_uid_index(&self, uid: &str) -> InvertedCalendarIndexTerm;
     fn search_location_type_index(&self, location_type: &str) -> InvertedCalendarIndexTerm;
     fn search_categories_index(&self, category: &str) -> InvertedCalendarIndexTerm;
     fn search_related_to_index(&self, reltype_uids: &KeyValuePair) -> InvertedCalendarIndexTerm;
     fn search_geo_index(&self, distance: &GeoDistance, long_lat: &GeoPoint) -> InvertedCalendarIndexTerm;
     fn search_class_index(&self, class: &str) -> InvertedCalendarIndexTerm;
+
+    // Negative (not) matching
+    fn inverse_search_uid_index(&self, uid: &str) -> InvertedCalendarIndexTerm;
+    fn inverse_search_location_type_index(&self, location_type: &str) -> InvertedCalendarIndexTerm;
+    fn inverse_search_categories_index(&self, category: &str) -> InvertedCalendarIndexTerm;
+    fn inverse_search_related_to_index(&self, reltype_uids: &KeyValuePair) -> InvertedCalendarIndexTerm;
+    fn inverse_search_geo_index(&self, distance: &GeoDistance, long_lat: &GeoPoint) -> InvertedCalendarIndexTerm;
+    fn inverse_search_class_index(&self, class: &str) -> InvertedCalendarIndexTerm;
 }
 
 /// The purpose of this trait is to allow it's implementers to specify the query logic specific to

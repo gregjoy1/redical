@@ -83,6 +83,30 @@ impl<'cal> QueryIndexAccessor<'cal> for EventInstanceQueryIndexAccessor<'cal> {
             .unwrap_or(&InvertedCalendarIndexTerm::new())
             .to_owned()
     }
+
+    fn inverse_search_uid_index(&self, _uid: &str) -> InvertedCalendarIndexTerm {
+        todo!();
+    }
+
+    fn inverse_search_location_type_index(&self, _location_type: &str) -> InvertedCalendarIndexTerm {
+        todo!();
+    }
+
+    fn inverse_search_categories_index(&self, _category: &str) -> InvertedCalendarIndexTerm {
+        todo!();
+    }
+
+    fn inverse_search_related_to_index(&self, _reltype_uids: &KeyValuePair) -> InvertedCalendarIndexTerm {
+        todo!();
+    }
+
+    fn inverse_search_geo_index(&self, _distance: &GeoDistance, _long_lat: &GeoPoint) -> InvertedCalendarIndexTerm {
+        todo!();
+    }
+
+    fn inverse_search_class_index(&self, _class: &str) -> InvertedCalendarIndexTerm {
+        todo!();
+    }
 }
 
 /// This struct implements all the query logic specific to querying all the event instances on a
