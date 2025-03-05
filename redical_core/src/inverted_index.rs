@@ -126,6 +126,14 @@ impl InvertedCalendarIndexTerm {
         }
     }
 
+    pub fn inverse(&self) -> Self {
+        let inverted_events = self.events.iter()
+            .map(|(uid, indexed_conclusion)| (uid.clone(), indexed_conclusion.negate()))
+            .collect();
+
+        Self::new_with_events(inverted_events)
+    }
+
     pub fn include_event_occurrence(&self, event_uid: String, occurrence: i64) -> bool {
         match self.events.get(&event_uid) {
             Some(indexed_conclusion) => indexed_conclusion.include_event_occurrence(occurrence),
@@ -1082,6 +1090,32 @@ mod test {
                     ),
                 ]),
             },
+        );
+    }
+
+    #[test]
+    fn test_inverted_index_term_inverse() {
+        let events = vec![
+            (String::from("Event one"), IndexedConclusion::Include(None)),
+            (String::from("Event two"), IndexedConclusion::Include(Some(HashSet::from([100])))),
+            (String::from("Event three"), IndexedConclusion::Exclude(None)),
+            (String::from("Event four"), IndexedConclusion::Exclude(Some(HashSet::from([100])))),
+        ];
+
+        let inverted_index_term = InvertedCalendarIndexTerm::new_with_events(events);
+
+        assert_eq!(
+            inverted_index_term.inverse(),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from(
+                    [
+                        (String::from("Event one"), IndexedConclusion::Exclude(None)),
+                        (String::from("Event two"), IndexedConclusion::Exclude(Some(HashSet::from([100])))),
+                        (String::from("Event three"), IndexedConclusion::Include(None)),
+                        (String::from("Event four"), IndexedConclusion::Include(Some(HashSet::from([100])))),
+                    ]
+                )
+            }
         );
     }
 
