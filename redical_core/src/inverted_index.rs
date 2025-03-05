@@ -487,28 +487,6 @@ where
 
         Ok(self)
     }
-
-    // pub fn insert_all_event(&mut self, event: Event) -> Result<&mut Self, String> {
-    //     if event.indexed_categories.is_none() {
-    //         return Ok(self);
-    //     }
-
-    //     let Some(indexed_categories) = event.indexed_categories;
-
-    //     for (category, indexed_conclusion) in indexed_categories.categories.iter() {
-    //         move || {
-    //             self.terms.entry(*category).and_modify(|inverted_index_term| {
-    //                 inverted_index_term.events.insert(event.uid, *indexed_conclusion);
-    //             }).or_insert(
-    //                          InvertedCalendarIndexTerm {
-    //                     events: HashMap::from([ (event.uid, *indexed_conclusion) ])
-    //                 }
-    //             );
-    //         };
-    //     }
-
-    //     Ok(self)
-    // }
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]
