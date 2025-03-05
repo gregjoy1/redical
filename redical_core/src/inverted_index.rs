@@ -744,6 +744,14 @@ impl IndexedConclusion {
         }
     }
 
+    // Flips the polarity of an IndexedConclusion whilst maintaining exceptions.
+    pub fn negate(&self) -> Self {
+        match self {
+            Self::Include(exceptions) => Self::Exclude(exceptions.clone()),
+            Self::Exclude(exceptions) => Self::Include(exceptions.clone()),
+        }
+    }
+
     pub fn min_max_exceptions(&self) -> Option<(i64, i64)> {
         let exceptions = match self {
             IndexedConclusion::Include(exceptions) => exceptions,
@@ -1208,6 +1216,29 @@ mod test {
                 &IndexedConclusion::Include(None)
             ),
             IndexedConclusion::Include(None)
+        );
+    }
+
+    #[test]
+    fn test_indexed_conclusion_negate() {
+        assert_eq!(
+            IndexedConclusion::Include(None).negate(),
+            IndexedConclusion::Exclude(None)
+        );
+
+        assert_eq!(
+            IndexedConclusion::Include(Some(HashSet::from([100, 200]))).negate(),
+            IndexedConclusion::Exclude(Some(HashSet::from([100, 200]))),
+        );
+
+        assert_eq!(
+            IndexedConclusion::Exclude(None).negate(),
+            IndexedConclusion::Include(None)
+        );
+
+        assert_eq!(
+            IndexedConclusion::Exclude(Some(HashSet::from([100, 200]))).negate(),
+            IndexedConclusion::Include(Some(HashSet::from([100, 200]))),
         );
     }
 
