@@ -495,6 +495,11 @@ where
 
         Ok(self)
     }
+
+    // Returns an Event set that match the given indexed term.
+    pub fn get_term(&self, term: &K) -> Option<&InvertedCalendarIndexTerm> {
+        self.terms.get(term)
+    }
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]
@@ -883,6 +888,84 @@ mod test {
     use super::*;
 
     use pretty_assertions_sorted::{assert_eq, assert_eq_sorted};
+
+    fn example_calendar_index() -> InvertedCalendarIndex<String> {
+        let online_events = InvertedCalendarIndexTerm {
+            events: HashMap::from([
+                (
+                    String::from("ONLINE_EVENT_ONE"),
+                    IndexedConclusion::Include(None)
+                ),
+                (
+                    String::from("ONLINE_EVENT_TWO"),
+                    IndexedConclusion::Include(None)
+                ),
+                (
+                    String::from("ONLINE_EVENT_THREE"),
+                    IndexedConclusion::Exclude(Some(HashSet::from([100])))
+                ),
+            ]),
+        };
+
+        let in_person_events = InvertedCalendarIndexTerm {
+            events: HashMap::from([
+                (
+                    String::from("IN-PERSON_EVENT_ONE"),
+                    IndexedConclusion::Include(None)
+                ),
+                (
+                    String::from("IN-PERSON_EVENT_TWO"),
+                    IndexedConclusion::Include(None)
+                ),
+                (
+                    String::from("IN-PERSON_EVENT_THREE"),
+                    IndexedConclusion::Exclude(Some(HashSet::from([100])))
+                ),
+            ]),
+        };
+
+        InvertedCalendarIndex {
+            terms: HashMap::from([
+                (String::from("ONLINE"), online_events),
+                (String::from("IN-PERSON"), in_person_events),
+            ]),
+        }
+    }
+
+    #[test]
+    fn test_inverted_calendar_index_get_term() {
+        let index = example_calendar_index();
+
+        // With a term that is indexed
+        let term = String::from("ONLINE");
+
+        assert_eq!(
+            index.get_term(&term),
+            Some(
+                &InvertedCalendarIndexTerm {
+                    events: HashMap::from([
+                        (
+                            String::from("ONLINE_EVENT_ONE"),
+                            IndexedConclusion::Include(None)
+                        ),
+                        (
+                            String::from("ONLINE_EVENT_TWO"),
+                            IndexedConclusion::Include(None)
+                        ),
+                        (
+                            String::from("ONLINE_EVENT_THREE"),
+                            IndexedConclusion::Exclude(Some(HashSet::from([100])))
+                        ),
+                    ])
+                }
+            )
+        );
+
+        // With a term that is not indexed
+        let term = String::from("FOOBAR");
+
+        assert_eq!(index.get_term(&term), None);
+    }
 
     #[test]
     fn test_inverted_index_term_merge_and() {
