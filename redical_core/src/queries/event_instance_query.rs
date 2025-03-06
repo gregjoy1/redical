@@ -49,8 +49,7 @@ impl<'cal> QueryIndexAccessor<'cal> for EventInstanceQueryIndexAccessor<'cal> {
     fn search_location_type_index(&self, location_type: &str) -> InvertedCalendarIndexTerm {
         self.calendar
             .indexed_location_type
-            .terms
-            .get(location_type)
+            .get_term(&location_type.to_string())
             .unwrap_or(&InvertedCalendarIndexTerm::new())
             .to_owned()
     }
@@ -58,8 +57,7 @@ impl<'cal> QueryIndexAccessor<'cal> for EventInstanceQueryIndexAccessor<'cal> {
     fn search_categories_index(&self, category: &str) -> InvertedCalendarIndexTerm {
         self.calendar
             .indexed_categories
-            .terms
-            .get(category)
+            .get_term(&category.to_string())
             .unwrap_or(&InvertedCalendarIndexTerm::new())
             .to_owned()
     }
@@ -67,8 +65,7 @@ impl<'cal> QueryIndexAccessor<'cal> for EventInstanceQueryIndexAccessor<'cal> {
     fn search_related_to_index(&self, reltype_uids: &KeyValuePair) -> InvertedCalendarIndexTerm {
         self.calendar
             .indexed_related_to
-            .terms
-            .get(reltype_uids)
+            .get_term(reltype_uids)
             .unwrap_or(&InvertedCalendarIndexTerm::new())
             .to_owned()
     }
@@ -82,8 +79,7 @@ impl<'cal> QueryIndexAccessor<'cal> for EventInstanceQueryIndexAccessor<'cal> {
     fn search_class_index(&self, class: &str) -> InvertedCalendarIndexTerm {
         self.calendar
             .indexed_class
-            .terms
-            .get(class)
+            .get_term(&class.to_string())
             .unwrap_or(&InvertedCalendarIndexTerm::new())
             .to_owned()
     }
