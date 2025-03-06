@@ -496,33 +496,31 @@ where
         Ok(self)
     }
 
-    // Returns an Event set that match the given indexed term.
+    /// Returns an Event set that match the given indexed term.
     pub fn get_term(&self, term: &K) -> Option<&InvertedCalendarIndexTerm> {
         self.terms.get(term)
     }
 
-    // Returns an Event set that does not match the given indexed term. This is acheived by first
-    // finding the event set for the given term, inverting the conclusions and then merging this
-    // with the other term event sets in an additive manner.
-    //
-    // This is required because a terms event set may not contain all events in the calendar if
-    // they are not indexed to the given term to exclude.
-    pub fn get_not_term(&self, term: &K) -> InvertedCalendarIndexTerm {
-        let mut inverse_term_index = match self.get_term(term) {
-            Some(term_index) => term_index.inverse(),
-            None => InvertedCalendarIndexTerm::new(),
-        };
+    pub fn get_not_term(&self, term: &K, calendar_event_uids: &Vec<String>) -> InvertedCalendarIndexTerm {
+        let mut calendar_index_term = InvertedCalendarIndexTerm::default();
 
-        for (other_term, index) in self.terms.iter() {
-            if other_term == term { continue }
-
-            inverse_term_index = InvertedCalendarIndexTerm::merge_or(
-                &inverse_term_index,
-                index,
-            );
+        for event_uid in calendar_event_uids.into_iter() {
+            calendar_index_term.insert_included_event(event_uid.to_owned(), None);
         }
 
-        inverse_term_index
+        if let Some(matching_term_index) = self.get_term(term) {
+            let inverse_matching_term_index = matching_term_index.inverse();
+
+            for (event_uid, indexed_conclusion) in inverse_matching_term_index.events {
+                if indexed_conclusion.is_empty_exclude() {
+                    calendar_index_term.events.remove(&event_uid);
+                } else {
+                    calendar_index_term.events.insert(event_uid, indexed_conclusion);
+                }
+            }
+        }
+
+        calendar_index_term
     }
 }
 
@@ -913,6 +911,16 @@ mod test {
 
     use pretty_assertions_sorted::{assert_eq, assert_eq_sorted};
 
+    fn example_calendar_event_uids() -> Vec<String> {
+        example_calendar_index()
+            .terms
+            .values()
+            .map(|event_set| event_set.events.keys())
+            .flatten()
+            .cloned()
+            .collect::<Vec<String>>()
+    }
+
     fn example_calendar_index() -> InvertedCalendarIndex<String> {
         let online_events = InvertedCalendarIndexTerm {
             events: HashMap::from([
@@ -994,12 +1002,13 @@ mod test {
     #[test]
     fn test_inverted_calendar_index_get_not_term() {
         let index = example_calendar_index();
+        let event_uids = example_calendar_event_uids();
 
         // With a term that is indexed.
         let term = String::from("ONLINE");
 
         assert_eq!(
-            index.get_not_term(&term),
+            index.get_not_term(&term, &event_uids),
             InvertedCalendarIndexTerm {
                 events: HashMap::from([
                     (
@@ -1027,7 +1036,7 @@ mod test {
         let term = String::from("FOOBAR");
 
         assert_eq!(
-            index.get_not_term(&term),
+            index.get_not_term(&term, &event_uids),
             InvertedCalendarIndexTerm {
                 events: HashMap::from([
                     (

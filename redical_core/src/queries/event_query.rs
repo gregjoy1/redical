@@ -112,9 +112,11 @@ impl<'cal> QueryIndexAccessor<'cal> for EventQueryIndexAccessor<'cal> {
     }
 
     fn inverse_search_location_type_index(&self, location_type: &str) -> InvertedCalendarIndexTerm {
+        let event_uids = self.calendar.events.keys().cloned().collect::<Vec<_>>();
+
         let inverse_matches = self.calendar
             .indexed_location_type
-            .get_not_term(&location_type.to_string());
+            .get_not_term(&location_type.to_string(), &event_uids);
 
         Self::included_conclusions_or_nothing(
             Some(&inverse_matches)
@@ -122,9 +124,11 @@ impl<'cal> QueryIndexAccessor<'cal> for EventQueryIndexAccessor<'cal> {
     }
 
     fn inverse_search_categories_index(&self, category: &str) -> InvertedCalendarIndexTerm {
+        let event_uids = self.calendar.events.keys().cloned().collect::<Vec<_>>();
+
         let inverse_matches = self.calendar
             .indexed_categories
-            .get_not_term(&category.to_string());
+            .get_not_term(&category.to_string(), &event_uids);
 
         Self::included_conclusions_or_nothing(
             Some(&inverse_matches)
@@ -132,9 +136,11 @@ impl<'cal> QueryIndexAccessor<'cal> for EventQueryIndexAccessor<'cal> {
     }
 
     fn inverse_search_related_to_index(&self, reltype_uids: &KeyValuePair) -> InvertedCalendarIndexTerm {
+        let event_uids = self.calendar.events.keys().cloned().collect::<Vec<_>>();
+
         let inverse_matches = self.calendar
             .indexed_related_to
-            .get_not_term(reltype_uids);
+            .get_not_term(reltype_uids, &event_uids);
 
         Self::included_conclusions_or_nothing(
             Some(&inverse_matches)
@@ -142,13 +148,17 @@ impl<'cal> QueryIndexAccessor<'cal> for EventQueryIndexAccessor<'cal> {
     }
 
     fn inverse_search_geo_index(&self, distance: &GeoDistance, long_lat: &GeoPoint) -> InvertedCalendarIndexTerm {
+        let event_uids = self.calendar.events.keys().cloned().collect::<Vec<_>>();
+
         todo!();
     }
 
     fn inverse_search_class_index(&self, class: &str) -> InvertedCalendarIndexTerm {
+        let event_uids = self.calendar.events.keys().cloned().collect::<Vec<_>>();
+
         let inverse_matches = self.calendar
             .indexed_class
-            .get_not_term(&class.to_string());
+            .get_not_term(&class.to_string(), &event_uids);
 
         Self::included_conclusions_or_nothing(
             Some(&inverse_matches)

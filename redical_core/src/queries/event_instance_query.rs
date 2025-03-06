@@ -100,31 +100,41 @@ impl<'cal> QueryIndexAccessor<'cal> for EventInstanceQueryIndexAccessor<'cal> {
     }
 
     fn inverse_search_location_type_index(&self, location_type: &str) -> InvertedCalendarIndexTerm {
+        let event_uids = self.calendar.events.keys().cloned().collect::<Vec<_>>();
+
         self.calendar
             .indexed_location_type
-            .get_not_term(&location_type.to_string())
+            .get_not_term(&location_type.to_string(), &event_uids)
     }
 
     fn inverse_search_categories_index(&self, category: &str) -> InvertedCalendarIndexTerm {
+        let event_uids = self.calendar.events.keys().cloned().collect::<Vec<_>>();
+
         self.calendar
             .indexed_categories
-            .get_not_term(&category.to_string())
+            .get_not_term(&category.to_string(), &event_uids)
     }
 
     fn inverse_search_related_to_index(&self, reltype_uids: &KeyValuePair) -> InvertedCalendarIndexTerm {
+        let event_uids = self.calendar.events.keys().cloned().collect::<Vec<_>>();
+
         self.calendar
             .indexed_related_to
-            .get_not_term(reltype_uids)
+            .get_not_term(reltype_uids, &event_uids)
     }
 
     fn inverse_search_geo_index(&self, distance: &GeoDistance, long_lat: &GeoPoint) -> InvertedCalendarIndexTerm {
+        // let event_uids = self.calendar.events.keys().cloned().collect::<Vec<_>>();
+
         todo!();
     }
 
     fn inverse_search_class_index(&self, class: &str) -> InvertedCalendarIndexTerm {
+        let event_uids = self.calendar.events.keys().cloned().collect::<Vec<_>>();
+
         self.calendar
             .indexed_class
-            .get_not_term(&class.to_string())
+            .get_not_term(&class.to_string(), &event_uids)
     }
 }
 
@@ -692,6 +702,8 @@ mod test {
                     category.to_string(),
                     conclusion
                 ).unwrap();
+
+                calendar.insert_event(Event::new(event_uid.to_owned()));
             }
         }
 
@@ -721,16 +733,20 @@ mod test {
         // Negative matching: term exists
         // - Matching term: all conclusions inverted, events where all included removed
         // - Non matching terms all maintained (except Exclude(None))
-        assert_eq!(
+        assert_eq_sorted!(
             accessor.inverse_search_categories_index("Sports"),
             InvertedCalendarIndexTerm {
                 events: HashMap::from([
                     (String::from("All A&C"), IndexedConclusion::Include(None)),
-                    (String::from("Mostly A&C"), IndexedConclusion::Include(Some([100].into()))),
-                    (String::from("Mostly not A&C"), IndexedConclusion::Exclude(Some([100].into()))),
+                    (String::from("Mostly A&C"), IndexedConclusion::Include(None)),
+                    (String::from("Not A&C"), IndexedConclusion::Include(None)),
+                    (String::from("Mostly not A&C"), IndexedConclusion::Include(None)),
                     (String::from("All yoga"), IndexedConclusion::Include(None)),
-                    (String::from("Mostly yoga"), IndexedConclusion::Include(Some([100].into()))),
-                    (String::from("Mostly not yoga"), IndexedConclusion::Exclude(Some([100].into()))),
+                    (String::from("Mostly yoga"), IndexedConclusion::Include(None)),
+                    (String::from("Not yoga"), IndexedConclusion::Include(None)),
+                    (String::from("Mostly not yoga"), IndexedConclusion::Include(None)),
+
+                    // (String::from("All sports"), IndexedConclusion::Exclude(None)), -- we filter out redundant Exclude(None)
                     (String::from("Mostly sports"), IndexedConclusion::Exclude(Some([100].into()))),
                     (String::from("Not sports"), IndexedConclusion::Include(None)),
                     (String::from("Mostly not sports"), IndexedConclusion::Include(Some([100].into()))),
