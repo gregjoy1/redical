@@ -513,7 +513,7 @@ where
     pub fn get_not_term(
         &self,
         term: &K,
-        calendar_event_uids: &Vec<String>
+        calendar_event_uids: &[String]
     ) -> InvertedCalendarIndexTerm {
         // Create an empty event set
         let mut negated_event_set = InvertedCalendarIndexTerm::new();

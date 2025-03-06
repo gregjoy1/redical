@@ -78,7 +78,7 @@ impl<'cal> QueryIndexAccessor<'cal> for EventQueryIndexAccessor<'cal> {
 
     fn search_related_to_index(&self, reltype_uids: &KeyValuePair) -> InvertedCalendarIndexTerm {
         Self::included_conclusions_or_nothing(
-            self.calendar.indexed_related_to.get_term(&reltype_uids)
+            self.calendar.indexed_related_to.get_term(reltype_uids)
         )
     }
 
