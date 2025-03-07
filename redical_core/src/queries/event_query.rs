@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::str::FromStr;
 
 use chrono_tz::Tz;
@@ -101,27 +102,73 @@ impl<'cal> QueryIndexAccessor<'cal> for EventQueryIndexAccessor<'cal> {
     }
 
     fn search_not_uid_index(&self, uid: &str) -> InvertedCalendarIndexTerm {
-        todo!();
+        let mut event_uids = self.event_uids.clone();
+
+        event_uids.retain(|event_uid| event_uid != uid);
+
+        InvertedCalendarIndexTerm {
+            events: HashMap::from_iter(
+                event_uids.into_iter().map(|event_uid| 
+                    (event_uid, IndexedConclusion::Include(None)),
+                )
+            ),
+        }
     }
 
     fn search_not_location_type_index(&self, location_type: &str) -> InvertedCalendarIndexTerm {
-        todo!();
+        let inverse_matches = self.calendar.indexed_location_type.get_not_term(
+            &location_type.to_string(),
+            &self.event_uids,
+        );
+
+        Self::included_conclusions_or_nothing(
+            Some(&inverse_matches)
+        )
     }
 
     fn search_not_categories_index(&self, category: &str) -> InvertedCalendarIndexTerm {
-        todo!();
+        let inverse_matches = self.calendar.indexed_categories.get_not_term(
+            &category.to_string(),
+            &self.event_uids,
+        );
+
+        Self::included_conclusions_or_nothing(
+            Some(&inverse_matches)
+        )
     }
 
     fn search_not_related_to_index(&self, reltype_uids: &KeyValuePair) -> InvertedCalendarIndexTerm {
-        todo!();
+        let inverse_matches = self.calendar.indexed_related_to.get_not_term(
+            reltype_uids,
+            &self.event_uids,
+        );
+
+        Self::included_conclusions_or_nothing(
+            Some(&inverse_matches)
+        )
     }
 
     fn search_not_geo_index(&self, distance: &GeoDistance, long_lat: &GeoPoint) -> InvertedCalendarIndexTerm {
-        todo!();
+        let inverse_matches = self.calendar.indexed_geo.locate_not_within_distance(
+            long_lat,
+            distance,
+            &self.event_uids,
+        );
+
+        Self::included_conclusions_or_nothing(
+            Some(&inverse_matches)
+        )
     }
 
     fn search_not_class_index(&self, class: &str) -> InvertedCalendarIndexTerm {
-        todo!();
+        let inverse_matches = self.calendar.indexed_class.get_not_term(
+            &class.to_string(),
+            &self.event_uids,
+        );
+
+        Self::included_conclusions_or_nothing(
+            Some(&inverse_matches)
+        )
     }
 }
 
@@ -496,7 +543,7 @@ mod test {
     use crate::{GeoPoint, KeyValuePair};
     use pretty_assertions_sorted::{assert_eq, assert_eq_sorted};
 
-    use std::collections::{HashSet, HashMap};
+    use std::collections::HashSet;
 
     #[test]
     fn test_uid_index_retrieval() {
@@ -530,6 +577,29 @@ mod test {
             InvertedCalendarIndexTerm {
                 events: HashMap::from([
                     (String::from("EVENT_FOUR"), IndexedConclusion::Include(None)),
+                ]),
+            }
+        );
+
+        // Negative matching: term exists
+        assert_eq!(
+            accessor.search_not_uid_index("EVENT_ONE"),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (String::from("EVENT_TWO"), IndexedConclusion::Include(None)),
+                    (String::from("EVENT_THREE"), IndexedConclusion::Include(None)),
+                ]),
+            }
+        );
+
+        // Negative matching: term does not exist
+        assert_eq!(
+            accessor.search_not_uid_index("EVENT_FOUR"),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (String::from("EVENT_ONE"), IndexedConclusion::Include(None)),
+                    (String::from("EVENT_TWO"), IndexedConclusion::Include(None)),
+                    (String::from("EVENT_THREE"), IndexedConclusion::Include(None)),
                 ]),
             }
         );
@@ -598,6 +668,34 @@ mod test {
                 events: HashMap::new(),
             }
         );
+
+        // Negative matching: term exists
+        assert_eq!(
+            accessor.search_not_location_type_index("ONLINE"),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (String::from("All in person"), IndexedConclusion::Include(None)),
+                    (String::from("Mostly in person"), IndexedConclusion::Include(None)),
+                    (String::from("Other event 1"), IndexedConclusion::Include(None)),
+                    (String::from("Other event 2"), IndexedConclusion::Include(None)),
+                ])
+            }
+        );
+
+        // Negative matching: term does not exist
+        assert_eq!(
+            accessor.search_not_categories_index("FOOBAR"),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (String::from("All online"), IndexedConclusion::Include(None)),
+                    (String::from("Mostly online"), IndexedConclusion::Include(None)),
+                    (String::from("All in person"), IndexedConclusion::Include(None)),
+                    (String::from("Mostly in person"), IndexedConclusion::Include(None)),
+                    (String::from("Other event 1"), IndexedConclusion::Include(None)),
+                    (String::from("Other event 2"), IndexedConclusion::Include(None)),
+                ]),
+            }
+        );
     }
 
     #[test]
@@ -661,6 +759,34 @@ mod test {
             accessor.search_categories_index("FOOBAR"),
             InvertedCalendarIndexTerm {
                 events: HashMap::new(),
+            }
+        );
+
+        // Negative matching: term exists
+        assert_eq!(
+            accessor.search_not_categories_index("Kids"),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (String::from("All adults"), IndexedConclusion::Include(None)),
+                    (String::from("Mostly adults"), IndexedConclusion::Include(None)),
+                    (String::from("Other event 1"), IndexedConclusion::Include(None)),
+                    (String::from("Other event 2"), IndexedConclusion::Include(None)),
+                ])
+            }
+        );
+
+        // Negative matching: term does not exist
+        assert_eq!(
+            accessor.search_not_categories_index("FOOBAR"),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (String::from("All adults"), IndexedConclusion::Include(None)),
+                    (String::from("Mostly adults"), IndexedConclusion::Include(None)),
+                    (String::from("All kids"), IndexedConclusion::Include(None)),
+                    (String::from("Mostly kids"), IndexedConclusion::Include(None)),
+                    (String::from("Other event 1"), IndexedConclusion::Include(None)),
+                    (String::from("Other event 2"), IndexedConclusion::Include(None)),
+                ]),
             }
         );
     }
@@ -744,6 +870,44 @@ mod test {
                 events: HashMap::new(),
             }
         );
+
+        // Negative matching: term exists
+        assert_eq!(
+            accessor.search_not_related_to_index(
+                &KeyValuePair::new(
+                    String::from("X-ACCOUNT"),
+                    String::from("account-1"),
+                )
+            ),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (String::from("All account-2"), IndexedConclusion::Include(None)),
+                    (String::from("Mostly account-2"), IndexedConclusion::Include(None)),
+                    (String::from("Other event 1"), IndexedConclusion::Include(None)),
+                    (String::from("Other event 2"), IndexedConclusion::Include(None)),
+                ])
+            }
+        );
+
+        // Negative matching: term does not exist
+        assert_eq!(
+            accessor.search_not_related_to_index(
+                &KeyValuePair::new(
+                    String::from("X-ACCOUNT"),
+                    String::from("FOOBAR"),
+                )
+            ),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (String::from("All account-1"), IndexedConclusion::Include(None)),
+                    (String::from("Mostly account-1"), IndexedConclusion::Include(None)),
+                    (String::from("All account-2"), IndexedConclusion::Include(None)),
+                    (String::from("Mostly account-2"), IndexedConclusion::Include(None)),
+                    (String::from("Other event 1"), IndexedConclusion::Include(None)),
+                    (String::from("Other event 2"), IndexedConclusion::Include(None)),
+                ]),
+            }
+        );
     }
 
     #[test]
@@ -815,6 +979,34 @@ mod test {
                 events: HashMap::new(),
             }
         );
+
+        // Negative matching: some events located outside search distance
+        assert_eq!(
+            accessor.search_not_geo_index(&search_distance, &OXFORD),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (String::from("All in London"), IndexedConclusion::Include(None)),
+                    (String::from("Mostly in London"), IndexedConclusion::Include(None)),
+                    (String::from("Other event 1"), IndexedConclusion::Include(None)),
+                    (String::from("Other event 2"), IndexedConclusion::Include(None)),
+                ])
+            }
+        );
+
+        // Negative matching: all events outside search distance
+        assert_eq!(
+            accessor.search_not_geo_index(&search_distance, &NEW_YORK_CITY),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (String::from("All in London"), IndexedConclusion::Include(None)),
+                    (String::from("Mostly in London"), IndexedConclusion::Include(None)),
+                    (String::from("All in Oxford"), IndexedConclusion::Include(None)),
+                    (String::from("Mostly in Oxford"), IndexedConclusion::Include(None)),
+                    (String::from("Other event 1"), IndexedConclusion::Include(None)),
+                    (String::from("Other event 2"), IndexedConclusion::Include(None)),
+                ]),
+            }
+        );
     }
 
     #[test]
@@ -878,6 +1070,34 @@ mod test {
             accessor.search_class_index("FOOBAR"),
             InvertedCalendarIndexTerm {
                 events: HashMap::new(),
+            }
+        );
+
+        // Negative matching: term exists
+        assert_eq!(
+            accessor.search_not_class_index("PUBLIC"),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (String::from("All private"), IndexedConclusion::Include(None)),
+                    (String::from("Mostly private"), IndexedConclusion::Include(None)),
+                    (String::from("Other event 1"), IndexedConclusion::Include(None)),
+                    (String::from("Other event 2"), IndexedConclusion::Include(None)),
+                ])
+            }
+        );
+
+        // Negative matching: term does not exist
+        assert_eq!(
+            accessor.search_not_class_index("FOOBAR"),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (String::from("All public"), IndexedConclusion::Include(None)),
+                    (String::from("Mostly public"), IndexedConclusion::Include(None)),
+                    (String::from("All private"), IndexedConclusion::Include(None)),
+                    (String::from("Mostly private"), IndexedConclusion::Include(None)),
+                    (String::from("Other event 1"), IndexedConclusion::Include(None)),
+                    (String::from("Other event 2"), IndexedConclusion::Include(None)),
+                ]),
             }
         );
     }
