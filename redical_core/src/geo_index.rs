@@ -340,6 +340,39 @@ impl GeoSpatialCalendarIndex {
         result_inverted_index_term
     }
 
+    /// As there may be other events in the calendar outside those indexed here, a vector of
+    /// all the event uids contained in the calendar must be passed so that they can be referenced
+    /// in the negated event set, as by design they will not match the given term.
+    ///
+    /// The negated virtual index is formed by building an index of full inclusions of all events
+    /// in the calendar and then merging in the inverse of the event set of the given term.
+    pub fn locate_not_within_distance(
+        &self,
+        long_lat: &GeoPoint,
+        distance: &GeoDistance,
+        calendar_event_uids: &[String],
+    ) -> InvertedCalendarIndexTerm {
+        let mut negated_event_set = InvertedCalendarIndexTerm::new();
+
+        for event_uid in calendar_event_uids.iter().cloned() {
+            negated_event_set.insert_included_event(event_uid, None);
+        }
+
+        let outside_distance_event_set = self
+            .locate_within_distance(long_lat, distance)
+            .inverse();
+
+        for (event_uid, indexed_conclusion) in outside_distance_event_set.events {
+            if indexed_conclusion.is_empty_exclude() {
+                negated_event_set.events.remove(&event_uid);
+            } else {
+                negated_event_set.events.insert(event_uid, indexed_conclusion);
+            }
+        }
+
+        negated_event_set
+    }
+
     pub fn insert(
         &mut self,
         event_uid: String,
@@ -767,6 +800,153 @@ mod test {
                     ),
                     (
                         String::from("london_event_uid"),
+                        IndexedConclusion::Include(None)
+                    ),
+                ])
+            }
+        );
+    }
+
+    #[test]
+    fn test_geo_spatial_calendar_index_locate_not_within_distance() {
+        let geo_spatial_calendar_index = example_geo_index();
+
+        // Contains some event uids not included in the target index to mimic events indexed
+        // elsewhere in the calendar (e.g. another index).
+        let calendar_event_uids = vec![
+            String::from("random_event_uid"),
+            String::from("random_and_churchdown_event_uid"),
+            String::from("random_plus_offset_event_uid"),
+            String::from("random_plus_offset_and_london_event_uid"),
+            String::from("churchdown_event_uid"),
+            String::from("random_and_churchdown_event_uid"),
+            String::from("oxford_event_one_uid"),
+            String::from("oxford_event_two_uid"),
+            String::from("london_event_uid"),
+            String::from("random_plus_offset_and_london_event_uid"),
+            String::from("new_york_city_event_uid"),
+            String::from("unknown_location_event_uid_1"),
+            String::from("unknown_location_event_uid_2"),
+        ];
+
+        assert_eq_sorted!(
+            geo_spatial_calendar_index.locate_not_within_distance(
+                &OXFORD,
+                &GeoDistance::new_from_kilometers_float(1.0_f64),
+                &calendar_event_uids,
+            ),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (
+                        String::from("churchdown_event_uid"),
+                        IndexedConclusion::Include(None),
+                    ),
+                    (
+                        String::from("london_event_uid"),
+                        IndexedConclusion::Include(None),
+                    ),
+                    (
+                        String::from("new_york_city_event_uid"),
+                        IndexedConclusion::Include(None),
+                    ),
+                    (
+                        String::from("random_event_uid"),
+                        IndexedConclusion::Include(None),
+                    ),
+                    (
+                        String::from("random_and_churchdown_event_uid"),
+                        IndexedConclusion::Include(None),
+                    ),
+                    (
+                        String::from("random_plus_offset_event_uid"),
+                        IndexedConclusion::Include(None),
+                    ),
+                    (
+                        String::from("random_plus_offset_and_london_event_uid"),
+                        IndexedConclusion::Include(None),
+                    ),
+                    (
+                        String::from("oxford_event_two_uid"),
+                        IndexedConclusion::Exclude(Some(HashSet::from([100, 200])))
+                    ),
+                    (
+                        String::from("unknown_location_event_uid_1"),
+                        IndexedConclusion::Include(None),
+                    ),
+                    (
+                        String::from("unknown_location_event_uid_2"),
+                        IndexedConclusion::Include(None),
+                    ),
+                ])
+            }
+        );
+
+        assert_eq_sorted!(
+            geo_spatial_calendar_index.locate_not_within_distance(
+                &OXFORD,
+                &GeoDistance::new_from_kilometers_float(87.0_f64),
+                &calendar_event_uids,
+            ),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (
+                        String::from("london_event_uid"),
+                        IndexedConclusion::Include(None),
+                    ),
+                    (
+                        String::from("new_york_city_event_uid"),
+                        IndexedConclusion::Include(None),
+                    ),
+                    (
+                        String::from("oxford_event_two_uid"),
+                        IndexedConclusion::Exclude(Some(HashSet::from([100, 200])))
+                    ),
+                    (
+                        String::from("random_and_churchdown_event_uid"),
+                        IndexedConclusion::Exclude(Some(HashSet::from([100])))
+                    ),
+                    (
+                        String::from("random_plus_offset_and_london_event_uid"),
+                        IndexedConclusion::Include(Some(HashSet::from([100])))
+                    ),
+                    (
+                        String::from("unknown_location_event_uid_1"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("unknown_location_event_uid_2"),
+                        IndexedConclusion::Include(None)
+                    ),
+                ])
+            }
+        );
+
+        assert_eq_sorted!(
+            geo_spatial_calendar_index.locate_not_within_distance(
+                &OXFORD,
+                &GeoDistance::new_from_kilometers_float(87.5_f64),
+                &calendar_event_uids,
+            ),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (
+                        String::from("new_york_city_event_uid"),
+                        IndexedConclusion::Include(None),
+                    ),
+                    (
+                        String::from("oxford_event_two_uid"),
+                        IndexedConclusion::Exclude(Some(HashSet::from([100, 200])))
+                    ),
+                    (
+                        String::from("random_and_churchdown_event_uid"),
+                        IndexedConclusion::Exclude(Some(HashSet::from([100])))
+                    ),
+                    (
+                        String::from("unknown_location_event_uid_1"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("unknown_location_event_uid_2"),
                         IndexedConclusion::Include(None)
                     ),
                 ])
