@@ -26,7 +26,8 @@ use crate::queries::results_range_bounds::{
 /// `IndexedConclusion::Include` with exceptions defined, it will return a clone of it without any
 /// exceptions.
 pub struct EventQueryIndexAccessor<'cal> {
-    calendar: &'cal Calendar
+    calendar: &'cal Calendar,
+    event_uids: Vec<String>,
 }
 
 impl EventQueryIndexAccessor<'_> {
@@ -51,8 +52,11 @@ impl EventQueryIndexAccessor<'_> {
 
 impl<'cal> QueryIndexAccessor<'cal> for EventQueryIndexAccessor<'cal> {
     fn new(calendar: &'cal Calendar) -> Self {
+        let event_uids = calendar.events.keys().cloned().collect();
+
         EventQueryIndexAccessor {
             calendar,
+            event_uids,
         }
     }
 
@@ -540,7 +544,17 @@ mod test {
             }
         }
 
-        let accessor = EventQueryIndexAccessor::new(&calendar);
+        // Contains extra event uids to simulate events referenced on other indexes.
+        let event_uids = vec![
+            String::from("All in person"),
+            String::from("All online"),
+            String::from("Mostly in person"),
+            String::from("Mostly online"),
+            String::from("Other event 1"),
+            String::from("Other event 2"),
+        ];
+
+        let accessor = EventQueryIndexAccessor { calendar: &calendar, event_uids };
 
         // Positive matching: term exists
         assert_eq!(
@@ -595,7 +609,17 @@ mod test {
             }
         }
 
-        let accessor = EventQueryIndexAccessor::new(&calendar);
+        // Contains extra event uids to simulate events referenced on other indexes.
+        let event_uids = vec![
+            String::from("All adults"),
+            String::from("All kids"),
+            String::from("Mostly adults"),
+            String::from("Mostly kids"),
+            String::from("Other event 1"),
+            String::from("Other event 2"),
+        ];
+
+        let accessor = EventQueryIndexAccessor { calendar: &calendar, event_uids };
 
         // Positive matching: term exists
         assert_eq!(
@@ -656,7 +680,17 @@ mod test {
             }
         }
 
-        let accessor = EventQueryIndexAccessor::new(&calendar);
+        // Contains extra event uids to simulate events referenced on other indexes.
+        let event_uids = vec![
+            String::from("All account-1"),
+            String::from("All account-2"),
+            String::from("Mostly account-1"),
+            String::from("Mostly account-2"),
+            String::from("Other event 1"),
+            String::from("Other event 2"),
+        ];
+
+        let accessor = EventQueryIndexAccessor { calendar: &calendar, event_uids };
 
         // Positive matching: term exists
         assert_eq!(
@@ -725,7 +759,17 @@ mod test {
             }
         }
 
-        let accessor = EventQueryIndexAccessor::new(&calendar);
+        // Contains extra event uids to simulate events referenced on other indexes.
+        let event_uids = vec![
+            String::from("All in London"),
+            String::from("All in Oxford"),
+            String::from("Mostly in London"),
+            String::from("Mostly in Oxford"),
+            String::from("Other event 1"),
+            String::from("Other event 2"),
+        ];
+
+        let accessor = EventQueryIndexAccessor { calendar: &calendar, event_uids };
 
         let search_distance = GeoDistance::new_from_miles_float(10.0_f64);
 
@@ -782,7 +826,17 @@ mod test {
             }
         }
 
-        let accessor = EventQueryIndexAccessor::new(&calendar);
+        // Contains extra event uids to simulate events referenced on other indexes.
+        let event_uids = vec![
+            String::from("All public"),
+            String::from("All private"),
+            String::from("Mostly public"),
+            String::from("Mostly private"),
+            String::from("Other event 1"),
+            String::from("Other event 2"),
+        ];
+
+        let accessor = EventQueryIndexAccessor { calendar: &calendar, event_uids };
 
         // Positive matching: term exists
         assert_eq!(
