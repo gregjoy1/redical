@@ -659,7 +659,7 @@ mod test {
         assert!(geo_spatial_calendar_index
             .insert(
                 String::from("random_plus_offset_and_london_event_uid"),
-                &RANDOM_PLUS_OFFSET,
+                &LONDON,
                 &IndexedConclusion::Include(Some(HashSet::from([100]))),
             )
             .is_ok());
@@ -716,7 +716,7 @@ mod test {
                     ),
                     (
                         String::from("random_plus_offset_and_london_event_uid"),
-                        IndexedConclusion::Include(Some(HashSet::from([100])))
+                        IndexedConclusion::Exclude(Some(HashSet::from([100])))
                     ),
                     (
                         String::from("random_plus_offset_event_uid"),
@@ -753,7 +753,7 @@ mod test {
                     ),
                     (
                         String::from("random_plus_offset_and_london_event_uid"),
-                        IndexedConclusion::Include(Some(HashSet::from([100])))
+                        IndexedConclusion::Include(None)
                     ),
                     (
                         String::from("random_plus_offset_event_uid"),
