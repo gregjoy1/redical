@@ -99,6 +99,30 @@ impl<'cal> QueryIndexAccessor<'cal> for EventQueryIndexAccessor<'cal> {
             self.calendar.indexed_class.get_term(&class.to_string())
         )
     }
+
+    fn search_not_uid_index(&self, uid: &str) -> InvertedCalendarIndexTerm {
+        todo!();
+    }
+
+    fn search_not_location_type_index(&self, location_type: &str) -> InvertedCalendarIndexTerm {
+        todo!();
+    }
+
+    fn search_not_categories_index(&self, category: &str) -> InvertedCalendarIndexTerm {
+        todo!();
+    }
+
+    fn search_not_related_to_index(&self, reltype_uids: &KeyValuePair) -> InvertedCalendarIndexTerm {
+        todo!();
+    }
+
+    fn search_not_geo_index(&self, distance: &GeoDistance, long_lat: &GeoPoint) -> InvertedCalendarIndexTerm {
+        todo!();
+    }
+
+    fn search_not_class_index(&self, class: &str) -> InvertedCalendarIndexTerm {
+        todo!();
+    }
 }
 
 /// This struct implements all the query logic specific to querying events on a calendar (not the
