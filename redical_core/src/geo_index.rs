@@ -402,6 +402,100 @@ mod test {
     const LONDON: GeoPoint = GeoPoint { lat: 51.5074_f64, long: -0.1278_f64 };
     const OXFORD: GeoPoint = GeoPoint { lat: 51.8773_f64, long: -1.2475878_f64 };
 
+    fn example_geo_index() -> GeoSpatialCalendarIndex {
+        let mut geo_spatial_calendar_index = GeoSpatialCalendarIndex::new();
+
+        assert!(geo_spatial_calendar_index
+            .insert(
+                String::from("random_event_uid"),
+                &RANDOM,
+                &IndexedConclusion::Include(None),
+            )
+            .is_ok());
+
+        assert!(geo_spatial_calendar_index
+            .insert(
+                String::from("random_and_churchdown_event_uid"),
+                &RANDOM,
+                &IndexedConclusion::Include(Some(HashSet::from([100, 200]))),
+            )
+            .is_ok());
+
+        assert!(geo_spatial_calendar_index
+            .insert(
+                String::from("random_plus_offset_event_uid"),
+                &RANDOM_PLUS_OFFSET,
+                &IndexedConclusion::Include(None),
+            )
+            .is_ok());
+
+        assert!(geo_spatial_calendar_index
+            .insert(
+                String::from("random_plus_offset_and_london_event_uid"),
+                &RANDOM_PLUS_OFFSET,
+                &IndexedConclusion::Exclude(Some(HashSet::from([100]))),
+            )
+            .is_ok());
+
+        assert!(geo_spatial_calendar_index
+            .insert(
+                String::from("churchdown_event_uid"),
+                &CHURCHDOWN,
+                &IndexedConclusion::Include(None),
+            )
+            .is_ok());
+
+        assert!(geo_spatial_calendar_index
+            .insert(
+                String::from("random_and_churchdown_event_uid"),
+                &CHURCHDOWN,
+                &IndexedConclusion::Exclude(Some(HashSet::from([200, 300]))),
+            )
+            .is_ok());
+
+        assert!(geo_spatial_calendar_index
+            .insert(
+                String::from("oxford_event_one_uid"),
+                &OXFORD,
+                &IndexedConclusion::Include(None),
+            )
+            .is_ok());
+
+        assert!(geo_spatial_calendar_index
+            .insert(
+                String::from("oxford_event_two_uid"),
+                &OXFORD,
+                &IndexedConclusion::Include(Some(HashSet::from([100, 200]))),
+            )
+            .is_ok());
+
+        assert!(geo_spatial_calendar_index
+            .insert(
+                String::from("london_event_uid"),
+                &LONDON,
+                &IndexedConclusion::Include(None),
+            )
+            .is_ok());
+
+        assert!(geo_spatial_calendar_index
+            .insert(
+                String::from("random_plus_offset_and_london_event_uid"),
+                &LONDON,
+                &IndexedConclusion::Include(Some(HashSet::from([100]))),
+            )
+            .is_ok());
+
+        assert!(geo_spatial_calendar_index
+            .insert(
+                String::from("new_york_city_event_uid"),
+                &NEW_YORK_CITY,
+                &IndexedConclusion::Include(None),
+            )
+            .is_ok());
+
+        geo_spatial_calendar_index
+    }
+
     #[test]
     fn test_geo_spatial_calendar_index() {
         let mut geo_spatial_calendar_index = GeoSpatialCalendarIndex::new();
@@ -582,95 +676,7 @@ mod test {
 
     #[test]
     fn test_geo_spatial_calendar_index_locate_within_distance() {
-        let mut geo_spatial_calendar_index = GeoSpatialCalendarIndex::new();
-
-        assert!(geo_spatial_calendar_index
-            .insert(
-                String::from("random_event_uid"),
-                &RANDOM,
-                &IndexedConclusion::Include(None),
-            )
-            .is_ok());
-
-        assert!(geo_spatial_calendar_index
-            .insert(
-                String::from("random_and_churchdown_event_uid"),
-                &RANDOM,
-                &IndexedConclusion::Include(Some(HashSet::from([100, 200]))),
-            )
-            .is_ok());
-
-        assert!(geo_spatial_calendar_index
-            .insert(
-                String::from("random_plus_offset_event_uid"),
-                &RANDOM_PLUS_OFFSET,
-                &IndexedConclusion::Include(None),
-            )
-            .is_ok());
-
-        assert!(geo_spatial_calendar_index
-            .insert(
-                String::from("random_plus_offset_and_london_event_uid"),
-                &RANDOM_PLUS_OFFSET,
-                &IndexedConclusion::Exclude(Some(HashSet::from([100]))),
-            )
-            .is_ok());
-
-        assert!(geo_spatial_calendar_index
-            .insert(
-                String::from("churchdown_event_uid"),
-                &CHURCHDOWN,
-                &IndexedConclusion::Include(None),
-            )
-            .is_ok());
-
-        assert!(geo_spatial_calendar_index
-            .insert(
-                String::from("random_and_churchdown_event_uid"),
-                &CHURCHDOWN,
-                &IndexedConclusion::Exclude(Some(HashSet::from([200, 300]))),
-            )
-            .is_ok());
-
-        assert!(geo_spatial_calendar_index
-            .insert(
-                String::from("oxford_event_one_uid"),
-                &OXFORD,
-                &IndexedConclusion::Include(None),
-            )
-            .is_ok());
-
-        assert!(geo_spatial_calendar_index
-            .insert(
-                String::from("oxford_event_two_uid"),
-                &OXFORD,
-                &IndexedConclusion::Include(Some(HashSet::from([100, 200]))),
-            )
-            .is_ok());
-
-        assert!(geo_spatial_calendar_index
-            .insert(
-                String::from("london_event_uid"),
-                &LONDON,
-                &IndexedConclusion::Include(None),
-            )
-            .is_ok());
-
-        assert!(geo_spatial_calendar_index
-            .insert(
-                String::from("random_plus_offset_and_london_event_uid"),
-                &LONDON,
-                &IndexedConclusion::Include(Some(HashSet::from([100]))),
-            )
-            .is_ok());
-
-        assert!(geo_spatial_calendar_index
-            .insert(
-                String::from("new_york_city_event_uid"),
-                &NEW_YORK_CITY,
-                &IndexedConclusion::Include(None),
-            )
-            .is_ok());
+        let geo_spatial_calendar_index = example_geo_index();
 
         assert_eq_sorted!(
             geo_spatial_calendar_index
