@@ -7,6 +7,7 @@ The following documentation describes all available RediCal specific commands an
 * [RDCL.EVT_GET](../commands/rdcl.evt_get.md)
 * [RDCL.EVT_DEL](../commands/rdcl.evt_del.md)
 * [RDCL.EVT_LIST](../commands/rdcl.evt_list.md)
+* [RDCL.EVT_KEYS](../commands/rdcl.evt_keys.md)
 * [RDCL.EVT_QUERY](../commands/rdcl.evt_query.md)
 * [RDCL.EVI_LIST](../commands/rdcl.evi_list.md)
 * [RDCL.EVI_QUERY](../commands/rdcl.evi_query.md)
