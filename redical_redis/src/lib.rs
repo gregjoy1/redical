@@ -100,6 +100,7 @@ redis_module! {
         ["rdcl.evt_get",         commands::redical_event_get,            "readonly",              1, 1, 1],
         ["rdcl.evt_del",         commands::redical_event_del,            "write pubsub deny-oom", 1, 1, 1],
         ["rdcl.evt_list",        commands::redical_event_list,           "readonly",              1, 1, 1],
+        ["rdcl.evt_keys",        commands::redical_event_keys,           "readonly",              1, 1, 1],
         ["rdcl.evt_query",       commands::redical_event_query,          "readonly",              1, 1, 1],
         ["rdcl.evt_prune",       commands::redical_event_prune,          "write pubsub deny-oom", 1, 1, 1],
         ["rdcl.evi_list",        commands::redical_event_instance_list,  "readonly",              1, 1, 1],

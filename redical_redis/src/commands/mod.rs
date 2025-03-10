@@ -16,6 +16,7 @@ mod rdcl_evt_get;
 mod rdcl_evt_set;
 mod rdcl_evt_del;
 mod rdcl_evt_list;
+mod rdcl_evt_keys;
 mod rdcl_evt_query;
 mod rdcl_evt_prune;
 
@@ -37,5 +38,6 @@ pub use rdcl_evt_get::redical_event_get;
 pub use rdcl_evt_set::redical_event_set;
 pub use rdcl_evt_del::redical_event_del;
 pub use rdcl_evt_list::redical_event_list;
+pub use rdcl_evt_keys::redical_event_keys;
 pub use rdcl_evt_query::redical_event_query;
 pub use rdcl_evt_prune::redical_event_prune;
