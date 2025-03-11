@@ -340,6 +340,39 @@ impl GeoSpatialCalendarIndex {
         result_inverted_index_term
     }
 
+    /// As there may be other events in the calendar outside those indexed here, a vector of
+    /// all the event uids contained in the calendar must be passed so that they can be referenced
+    /// in the negated event set, as by design they will not match the given term.
+    ///
+    /// The negated virtual index is formed by building an index of full inclusions of all events
+    /// in the calendar and then merging in the inverse of the event set of the given term.
+    pub fn locate_not_within_distance(
+        &self,
+        long_lat: &GeoPoint,
+        distance: &GeoDistance,
+        calendar_event_uids: &[String],
+    ) -> InvertedCalendarIndexTerm {
+        let mut negated_event_set = InvertedCalendarIndexTerm::new();
+
+        for event_uid in calendar_event_uids.iter().cloned() {
+            negated_event_set.insert_included_event(event_uid, None);
+        }
+
+        let outside_distance_event_set = self
+            .locate_within_distance(long_lat, distance)
+            .inverse();
+
+        for (event_uid, indexed_conclusion) in outside_distance_event_set.events {
+            if indexed_conclusion.is_empty_exclude() {
+                negated_event_set.events.remove(&event_uid);
+            } else {
+                negated_event_set.events.insert(event_uid, indexed_conclusion);
+            }
+        }
+
+        negated_event_set
+    }
+
     pub fn insert(
         &mut self,
         event_uid: String,
@@ -395,12 +428,110 @@ mod test {
 
     use pretty_assertions_sorted::{assert_eq, assert_eq_sorted};
 
+    const RANDOM: GeoPoint = GeoPoint { lat: 51.7854972_f64, long: -1.4701705_f64 };
+    const RANDOM_PLUS_OFFSET: GeoPoint = GeoPoint { lat: 51.785341_f64, long: -1.470240_f64 };
+    const NEW_YORK_CITY: GeoPoint = GeoPoint { lat: 40.7128_f64, long: -74.006_f64 };
+    const CHURCHDOWN: GeoPoint = GeoPoint { lat: 51.8773_f64, long: -2.1686_f64 };
+    const LONDON: GeoPoint = GeoPoint { lat: 51.5074_f64, long: -0.1278_f64 };
+    const OXFORD: GeoPoint = GeoPoint { lat: 51.8773_f64, long: -1.2475878_f64 };
+
+    fn example_geo_index() -> GeoSpatialCalendarIndex {
+        let mut geo_spatial_calendar_index = GeoSpatialCalendarIndex::new();
+
+        assert!(geo_spatial_calendar_index
+            .insert(
+                String::from("random_event_uid"),
+                &RANDOM,
+                &IndexedConclusion::Include(None),
+            )
+            .is_ok());
+
+        assert!(geo_spatial_calendar_index
+            .insert(
+                String::from("random_and_churchdown_event_uid"),
+                &RANDOM,
+                &IndexedConclusion::Include(Some(HashSet::from([100, 200]))),
+            )
+            .is_ok());
+
+        assert!(geo_spatial_calendar_index
+            .insert(
+                String::from("random_plus_offset_event_uid"),
+                &RANDOM_PLUS_OFFSET,
+                &IndexedConclusion::Include(None),
+            )
+            .is_ok());
+
+        assert!(geo_spatial_calendar_index
+            .insert(
+                String::from("random_plus_offset_and_london_event_uid"),
+                &RANDOM_PLUS_OFFSET,
+                &IndexedConclusion::Exclude(Some(HashSet::from([100]))),
+            )
+            .is_ok());
+
+        assert!(geo_spatial_calendar_index
+            .insert(
+                String::from("churchdown_event_uid"),
+                &CHURCHDOWN,
+                &IndexedConclusion::Include(None),
+            )
+            .is_ok());
+
+        assert!(geo_spatial_calendar_index
+            .insert(
+                String::from("random_and_churchdown_event_uid"),
+                &CHURCHDOWN,
+                &IndexedConclusion::Exclude(Some(HashSet::from([200, 300]))),
+            )
+            .is_ok());
+
+        assert!(geo_spatial_calendar_index
+            .insert(
+                String::from("oxford_event_one_uid"),
+                &OXFORD,
+                &IndexedConclusion::Include(None),
+            )
+            .is_ok());
+
+        assert!(geo_spatial_calendar_index
+            .insert(
+                String::from("oxford_event_two_uid"),
+                &OXFORD,
+                &IndexedConclusion::Include(Some(HashSet::from([100, 200]))),
+            )
+            .is_ok());
+
+        assert!(geo_spatial_calendar_index
+            .insert(
+                String::from("london_event_uid"),
+                &LONDON,
+                &IndexedConclusion::Include(None),
+            )
+            .is_ok());
+
+        assert!(geo_spatial_calendar_index
+            .insert(
+                String::from("random_plus_offset_and_london_event_uid"),
+                &LONDON,
+                &IndexedConclusion::Include(Some(HashSet::from([100]))),
+            )
+            .is_ok());
+
+        assert!(geo_spatial_calendar_index
+            .insert(
+                String::from("new_york_city_event_uid"),
+                &NEW_YORK_CITY,
+                &IndexedConclusion::Include(None),
+            )
+            .is_ok());
+
+        geo_spatial_calendar_index
+    }
+
     #[test]
     fn test_geo_spatial_calendar_index() {
         let mut geo_spatial_calendar_index = GeoSpatialCalendarIndex::new();
-
-        let london = GeoPoint::new(51.5074_f64, -0.1278_f64);
-        let oxford = GeoPoint::new(51.8773_f64, -1.2475878_f64);
 
         assert_eq!(
             geo_spatial_calendar_index,
@@ -412,7 +543,7 @@ mod test {
         assert!(geo_spatial_calendar_index
             .insert(
                 String::from("london_event_uid_one"),
-                &london,
+                &LONDON,
                 &IndexedConclusion::Include(None)
             )
             .is_ok(),);
@@ -421,7 +552,7 @@ mod test {
             geo_spatial_calendar_index,
             GeoSpatialCalendarIndex {
                 coords: RTree::bulk_load(vec![GeomWithData::new(
-                    london.clone(),
+                    LONDON.clone(),
                     InvertedCalendarIndexTerm {
                         events: HashMap::from([(
                             String::from("london_event_uid_one"),
@@ -435,7 +566,7 @@ mod test {
         assert!(geo_spatial_calendar_index
             .insert(
                 String::from("london_event_uid_two"),
-                &london,
+                &LONDON,
                 &IndexedConclusion::Exclude(Some(HashSet::from([100])))
             )
             .is_ok(),);
@@ -444,7 +575,7 @@ mod test {
             geo_spatial_calendar_index,
             GeoSpatialCalendarIndex {
                 coords: RTree::bulk_load(vec![GeomWithData::new(
-                    london.clone(),
+                    LONDON.clone(),
                     InvertedCalendarIndexTerm {
                         events: HashMap::from([
                             (
@@ -464,7 +595,7 @@ mod test {
         assert!(geo_spatial_calendar_index
             .insert(
                 String::from("oxford_event_uid"),
-                &oxford,
+                &OXFORD,
                 &IndexedConclusion::Include(Some(HashSet::from([100])))
             )
             .is_ok(),);
@@ -474,7 +605,7 @@ mod test {
             GeoSpatialCalendarIndex {
                 coords: RTree::bulk_load(vec![
                     GeomWithData::new(
-                        london.clone(),
+                        LONDON.clone(),
                         InvertedCalendarIndexTerm {
                             events: HashMap::from([
                                 (
@@ -489,7 +620,7 @@ mod test {
                         }
                     ),
                     GeomWithData::new(
-                        oxford.clone(),
+                        OXFORD.clone(),
                         InvertedCalendarIndexTerm {
                             events: HashMap::from([(
                                 String::from("oxford_event_uid"),
@@ -502,14 +633,14 @@ mod test {
         );
 
         assert!(geo_spatial_calendar_index
-            .remove(String::from("oxford_event_uid"), &oxford)
+            .remove(String::from("oxford_event_uid"), &OXFORD)
             .is_ok());
 
         assert_eq!(
             geo_spatial_calendar_index,
             GeoSpatialCalendarIndex {
                 coords: RTree::bulk_load(vec![GeomWithData::new(
-                    london.clone(),
+                    LONDON.clone(),
                     InvertedCalendarIndexTerm {
                         events: HashMap::from([
                             (
@@ -527,14 +658,14 @@ mod test {
         );
 
         assert!(geo_spatial_calendar_index
-            .remove(String::from("london_event_uid_one"), &london)
+            .remove(String::from("london_event_uid_one"), &LONDON)
             .is_ok());
 
         assert_eq!(
             geo_spatial_calendar_index,
             GeoSpatialCalendarIndex {
                 coords: RTree::bulk_load(vec![GeomWithData::new(
-                    london.clone(),
+                    LONDON.clone(),
                     InvertedCalendarIndexTerm {
                         events: HashMap::from([(
                             String::from("london_event_uid_two"),
@@ -546,14 +677,14 @@ mod test {
         );
 
         assert!(geo_spatial_calendar_index
-            .remove(String::from("london_event_uid_one"), &london)
+            .remove(String::from("london_event_uid_one"), &LONDON)
             .is_ok());
 
         assert_eq!(
             geo_spatial_calendar_index,
             GeoSpatialCalendarIndex {
                 coords: RTree::bulk_load(vec![GeomWithData::new(
-                    london.clone(),
+                    LONDON.clone(),
                     InvertedCalendarIndexTerm {
                         events: HashMap::from([(
                             String::from("london_event_uid_two"),
@@ -565,7 +696,7 @@ mod test {
         );
 
         assert!(geo_spatial_calendar_index
-            .remove(String::from("london_event_uid_two"), &london)
+            .remove(String::from("london_event_uid_two"), &LONDON)
             .is_ok());
 
         assert_eq!(
@@ -578,106 +709,11 @@ mod test {
 
     #[test]
     fn test_geo_spatial_calendar_index_locate_within_distance() {
-        let mut geo_spatial_calendar_index = GeoSpatialCalendarIndex::new();
-
-        let random = GeoPoint::new(51.7854972_f64, -1.4701705_f64);
-        let random_plus_offset = GeoPoint::new(51.785341_f64, -1.470240_f64);
-        let new_york_city = GeoPoint::new(40.7128_f64, -74.006_f64);
-        let churchdown = GeoPoint::new(51.8773_f64, -2.1686_f64);
-        let london = GeoPoint::new(51.5074_f64, -0.1278_f64);
-        let oxford = GeoPoint::new(51.8773_f64, -1.2475878_f64);
-
-        assert!(geo_spatial_calendar_index
-            .insert(
-                String::from("random_event_uid"),
-                &random,
-                &IndexedConclusion::Include(None),
-            )
-            .is_ok());
-
-        assert!(geo_spatial_calendar_index
-            .insert(
-                String::from("random_and_churchdown_event_uid"),
-                &random,
-                &IndexedConclusion::Include(Some(HashSet::from([100, 200]))),
-            )
-            .is_ok());
-
-        assert!(geo_spatial_calendar_index
-            .insert(
-                String::from("random_plus_offset_event_uid"),
-                &random_plus_offset,
-                &IndexedConclusion::Include(None),
-            )
-            .is_ok());
-
-        assert!(geo_spatial_calendar_index
-            .insert(
-                String::from("random_plus_offset_and_london_event_uid"),
-                &random_plus_offset,
-                &IndexedConclusion::Exclude(Some(HashSet::from([100]))),
-            )
-            .is_ok());
-
-        assert!(geo_spatial_calendar_index
-            .insert(
-                String::from("churchdown_event_uid"),
-                &churchdown,
-                &IndexedConclusion::Include(None),
-            )
-            .is_ok());
-
-        assert!(geo_spatial_calendar_index
-            .insert(
-                String::from("random_and_churchdown_event_uid"),
-                &churchdown,
-                &IndexedConclusion::Exclude(Some(HashSet::from([200, 300]))),
-            )
-            .is_ok());
-
-        assert!(geo_spatial_calendar_index
-            .insert(
-                String::from("oxford_event_one_uid"),
-                &oxford,
-                &IndexedConclusion::Include(None),
-            )
-            .is_ok());
-
-        assert!(geo_spatial_calendar_index
-            .insert(
-                String::from("oxford_event_two_uid"),
-                &oxford,
-                &IndexedConclusion::Include(Some(HashSet::from([100, 200]))),
-            )
-            .is_ok());
-
-        assert!(geo_spatial_calendar_index
-            .insert(
-                String::from("london_event_uid"),
-                &london,
-                &IndexedConclusion::Include(None),
-            )
-            .is_ok());
-
-        assert!(geo_spatial_calendar_index
-            .insert(
-                String::from("random_plus_offset_and_london_event_uid"),
-                &random_plus_offset,
-                &IndexedConclusion::Include(Some(HashSet::from([100]))),
-            )
-            .is_ok());
-
-        assert!(geo_spatial_calendar_index
-            .insert(
-                String::from("new_york_city_event_uid"),
-                &new_york_city,
-                &IndexedConclusion::Include(None),
-            )
-            .is_ok());
+        let geo_spatial_calendar_index = example_geo_index();
 
         assert_eq_sorted!(
             geo_spatial_calendar_index
-                .locate_within_distance(&oxford, &GeoDistance::new_from_kilometers_float(1.0_f64)),
+                .locate_within_distance(&OXFORD, &GeoDistance::new_from_kilometers_float(1.0_f64)),
             InvertedCalendarIndexTerm {
                 events: HashMap::from([
                     (
@@ -694,7 +730,7 @@ mod test {
 
         assert_eq_sorted!(
             geo_spatial_calendar_index
-                .locate_within_distance(&oxford, &GeoDistance::new_from_kilometers_float(87.0_f64)),
+                .locate_within_distance(&OXFORD, &GeoDistance::new_from_kilometers_float(87.0_f64)),
             InvertedCalendarIndexTerm {
                 events: HashMap::from([
                     (
@@ -719,7 +755,7 @@ mod test {
                     ),
                     (
                         String::from("random_plus_offset_and_london_event_uid"),
-                        IndexedConclusion::Include(Some(HashSet::from([100])))
+                        IndexedConclusion::Exclude(Some(HashSet::from([100])))
                     ),
                     (
                         String::from("random_plus_offset_event_uid"),
@@ -731,7 +767,7 @@ mod test {
 
         assert_eq_sorted!(
             geo_spatial_calendar_index
-                .locate_within_distance(&oxford, &GeoDistance::new_from_kilometers_float(87.5_f64)),
+                .locate_within_distance(&OXFORD, &GeoDistance::new_from_kilometers_float(87.5_f64)),
             InvertedCalendarIndexTerm {
                 events: HashMap::from([
                     (
@@ -756,7 +792,7 @@ mod test {
                     ),
                     (
                         String::from("random_plus_offset_and_london_event_uid"),
-                        IndexedConclusion::Include(Some(HashSet::from([100])))
+                        IndexedConclusion::Include(None)
                     ),
                     (
                         String::from("random_plus_offset_event_uid"),
@@ -772,58 +808,198 @@ mod test {
     }
 
     #[test]
+    fn test_geo_spatial_calendar_index_locate_not_within_distance() {
+        let geo_spatial_calendar_index = example_geo_index();
+
+        // Contains some event uids not included in the target index to mimic events indexed
+        // elsewhere in the calendar (e.g. another index).
+        let calendar_event_uids = vec![
+            String::from("random_event_uid"),
+            String::from("random_and_churchdown_event_uid"),
+            String::from("random_plus_offset_event_uid"),
+            String::from("random_plus_offset_and_london_event_uid"),
+            String::from("churchdown_event_uid"),
+            String::from("random_and_churchdown_event_uid"),
+            String::from("oxford_event_one_uid"),
+            String::from("oxford_event_two_uid"),
+            String::from("london_event_uid"),
+            String::from("random_plus_offset_and_london_event_uid"),
+            String::from("new_york_city_event_uid"),
+            String::from("unknown_location_event_uid_1"),
+            String::from("unknown_location_event_uid_2"),
+        ];
+
+        assert_eq_sorted!(
+            geo_spatial_calendar_index.locate_not_within_distance(
+                &OXFORD,
+                &GeoDistance::new_from_kilometers_float(1.0_f64),
+                &calendar_event_uids,
+            ),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (
+                        String::from("churchdown_event_uid"),
+                        IndexedConclusion::Include(None),
+                    ),
+                    (
+                        String::from("london_event_uid"),
+                        IndexedConclusion::Include(None),
+                    ),
+                    (
+                        String::from("new_york_city_event_uid"),
+                        IndexedConclusion::Include(None),
+                    ),
+                    (
+                        String::from("random_event_uid"),
+                        IndexedConclusion::Include(None),
+                    ),
+                    (
+                        String::from("random_and_churchdown_event_uid"),
+                        IndexedConclusion::Include(None),
+                    ),
+                    (
+                        String::from("random_plus_offset_event_uid"),
+                        IndexedConclusion::Include(None),
+                    ),
+                    (
+                        String::from("random_plus_offset_and_london_event_uid"),
+                        IndexedConclusion::Include(None),
+                    ),
+                    (
+                        String::from("oxford_event_two_uid"),
+                        IndexedConclusion::Exclude(Some(HashSet::from([100, 200])))
+                    ),
+                    (
+                        String::from("unknown_location_event_uid_1"),
+                        IndexedConclusion::Include(None),
+                    ),
+                    (
+                        String::from("unknown_location_event_uid_2"),
+                        IndexedConclusion::Include(None),
+                    ),
+                ])
+            }
+        );
+
+        assert_eq_sorted!(
+            geo_spatial_calendar_index.locate_not_within_distance(
+                &OXFORD,
+                &GeoDistance::new_from_kilometers_float(87.0_f64),
+                &calendar_event_uids,
+            ),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (
+                        String::from("london_event_uid"),
+                        IndexedConclusion::Include(None),
+                    ),
+                    (
+                        String::from("new_york_city_event_uid"),
+                        IndexedConclusion::Include(None),
+                    ),
+                    (
+                        String::from("oxford_event_two_uid"),
+                        IndexedConclusion::Exclude(Some(HashSet::from([100, 200])))
+                    ),
+                    (
+                        String::from("random_and_churchdown_event_uid"),
+                        IndexedConclusion::Exclude(Some(HashSet::from([100])))
+                    ),
+                    (
+                        String::from("random_plus_offset_and_london_event_uid"),
+                        IndexedConclusion::Include(Some(HashSet::from([100])))
+                    ),
+                    (
+                        String::from("unknown_location_event_uid_1"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("unknown_location_event_uid_2"),
+                        IndexedConclusion::Include(None)
+                    ),
+                ])
+            }
+        );
+
+        assert_eq_sorted!(
+            geo_spatial_calendar_index.locate_not_within_distance(
+                &OXFORD,
+                &GeoDistance::new_from_kilometers_float(87.5_f64),
+                &calendar_event_uids,
+            ),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (
+                        String::from("new_york_city_event_uid"),
+                        IndexedConclusion::Include(None),
+                    ),
+                    (
+                        String::from("oxford_event_two_uid"),
+                        IndexedConclusion::Exclude(Some(HashSet::from([100, 200])))
+                    ),
+                    (
+                        String::from("random_and_churchdown_event_uid"),
+                        IndexedConclusion::Exclude(Some(HashSet::from([100])))
+                    ),
+                    (
+                        String::from("unknown_location_event_uid_1"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("unknown_location_event_uid_2"),
+                        IndexedConclusion::Include(None)
+                    ),
+                ])
+            }
+        );
+    }
+
+    #[test]
     #[allow(clippy::excessive_precision)]
     fn test_geo_distance_rtree() {
         let mut tree = RTree::new();
 
-        let random = GeoPoint::new(51.7854972_f64, -1.4701705_f64);
-        let random_plus_offset = GeoPoint::new(51.785341_f64, -1.470240_f64);
-        let new_york_city = GeoPoint::new(40.7128_f64, -74.006_f64);
-        let churchdown = GeoPoint::new(51.8773_f64, -2.1686_f64);
-        let london = GeoPoint::new(51.5074_f64, -0.1278_f64);
-        let oxford = GeoPoint::new(51.8773_f64, -1.2475878_f64);
+        tree.insert(RANDOM.clone());
+        tree.insert(RANDOM_PLUS_OFFSET.clone());
+        tree.insert(NEW_YORK_CITY.clone());
+        tree.insert(CHURCHDOWN.clone());
+        tree.insert(LONDON.clone());
 
-        tree.insert(random.clone());
-        tree.insert(random_plus_offset.clone());
-        tree.insert(new_york_city.clone());
-        tree.insert(churchdown.clone());
-        tree.insert(london.clone());
-
-        let mut results = tree.nearest_neighbor_iter_with_distance_2(&oxford.to_point().clone());
+        let mut results = tree.nearest_neighbor_iter_with_distance_2(&OXFORD.to_point().clone());
 
         let (point, distance) = results.next().unwrap();
 
         // Cast all f64 distances to f32 so tests pass under both MacOS and Linux.
-        assert_eq!((point, distance as f32), (&random, 18388.597009683246_f32));
+        assert_eq!((point, distance as f32), (&RANDOM, 18388.597009683246_f32));
 
         let (point, distance) = results.next().unwrap();
 
         assert_eq!(
             (point, distance),
-            (&random_plus_offset, 18402.23696221235_f64)
+            (&RANDOM_PLUS_OFFSET, 18402.23696221235_f64)
         );
 
         let (point, distance) = results.next().unwrap();
 
         // Cast all f64 distances to f32 so tests pass under both MacOS and Linux.
-        assert_eq!((point, distance as f32), (&churchdown, 63223.39709694925_f32));
+        assert_eq!((point, distance as f32), (&CHURCHDOWN, 63223.39709694925_f32));
 
         let (point, distance) = results.next().unwrap();
 
-        assert_eq!((point, distance), (&london, 87458.64969073102_f64));
+        assert_eq!((point, distance), (&LONDON, 87458.64969073102_f64));
 
         let (point, distance) = results.next().unwrap();
 
         // Cast all f64 distances to f32 so tests pass under both MacOS and Linux.
-        assert_eq!((point, distance as f32), (&new_york_city, 5484158.985172745_f32));
+        assert_eq!((point, distance as f32), (&NEW_YORK_CITY, 5484158.985172745_f32));
 
         assert_eq!(results.next(), None);
 
         let results: Vec<&GeoPoint> = tree
-            .locate_within_distance(oxford.to_point(), 65000.0_f64)
+            .locate_within_distance(OXFORD.to_point(), 65000.0_f64)
             .collect();
 
-        assert_eq_sorted!(results, vec![&churchdown, &random_plus_offset, &random]);
+        assert_eq_sorted!(results, vec![&CHURCHDOWN, &RANDOM_PLUS_OFFSET, &RANDOM]);
     }
 
     #[test]
