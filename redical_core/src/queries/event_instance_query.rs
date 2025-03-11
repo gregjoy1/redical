@@ -28,13 +28,17 @@ use crate::MergedIterator;
 /// extrapolation process combines them to ensure overridden indexed property values are reflected
 /// for specific occurrences.
 pub struct EventInstanceQueryIndexAccessor<'cal> {
-    calendar: &'cal Calendar
+    calendar: &'cal Calendar,
+    event_uids: Vec<String>,
 }
 
 impl<'cal> QueryIndexAccessor<'cal> for EventInstanceQueryIndexAccessor<'cal> {
     fn new(calendar: &'cal Calendar) -> Self {
+        let event_uids = calendar.events.keys().cloned().collect();
+
         EventInstanceQueryIndexAccessor {
             calendar,
+            event_uids,
         }
     }
 
@@ -82,6 +86,56 @@ impl<'cal> QueryIndexAccessor<'cal> for EventInstanceQueryIndexAccessor<'cal> {
             .get_term(&class.to_string())
             .unwrap_or(&InvertedCalendarIndexTerm::new())
             .to_owned()
+    }
+
+    fn search_not_uid_index(&self, uid: &str) -> InvertedCalendarIndexTerm {
+        let mut inverse_matches = InvertedCalendarIndexTerm::new();
+
+        let included_event_uids_iter = self.event_uids
+            .iter()
+            .filter(|event_uid| *event_uid != uid);
+
+        for event_uid in included_event_uids_iter {
+            inverse_matches.insert_included_event(event_uid.to_owned(), None);
+        }
+
+        inverse_matches
+    }
+
+    fn search_not_location_type_index(&self, location_type: &str) -> InvertedCalendarIndexTerm {
+        self.calendar.indexed_location_type.get_not_term(
+            &location_type.to_string(),
+            &self.event_uids,
+        )
+    }
+
+    fn search_not_categories_index(&self, category: &str) -> InvertedCalendarIndexTerm {
+        self.calendar.indexed_categories.get_not_term(
+            &category.to_string(),
+            &self.event_uids,
+        )
+    }
+
+    fn search_not_related_to_index(&self, reltype_uids: &KeyValuePair) -> InvertedCalendarIndexTerm {
+        self.calendar.indexed_related_to.get_not_term(
+            reltype_uids,
+            &self.event_uids,
+        )
+    }
+
+    fn search_not_geo_index(&self, distance: &GeoDistance, long_lat: &GeoPoint) -> InvertedCalendarIndexTerm {
+        self.calendar.indexed_geo.locate_not_within_distance(
+            long_lat,
+            distance,
+            &self.event_uids,
+        )
+    }
+
+    fn search_not_class_index(&self, class: &str) -> InvertedCalendarIndexTerm {
+        self.calendar.indexed_class.get_not_term(
+            &class.to_string(),
+            &self.event_uids,
+        )
     }
 }
 
@@ -438,7 +492,574 @@ mod test {
     use crate::{GeoPoint, KeyValuePair};
     use pretty_assertions_sorted::{assert_eq, assert_eq_sorted};
 
-    use std::collections::HashSet;
+    use std::collections::{HashSet, HashMap};
+
+    #[test]
+    fn test_uid_index_retrieval() {
+        let mut calendar = Calendar::new(String::from("CALENDAR_UID"));
+
+        let event_one = Event::parse_ical("EVENT_ONE", "").unwrap();
+        let event_two = Event::parse_ical("EVENT_TWO", "").unwrap();
+        let event_three = Event::parse_ical("EVENT_THREE", "").unwrap();
+
+        calendar.insert_event(event_one);
+        calendar.insert_event(event_two);
+        calendar.insert_event(event_three);
+        calendar.rebuild_indexes().unwrap();
+
+        let accessor = EventInstanceQueryIndexAccessor::new(&calendar);
+
+        // Positive matching: term exists
+        assert_eq!(
+            accessor.search_uid_index("EVENT_ONE"),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (String::from("EVENT_ONE"), IndexedConclusion::Include(None)),
+                ]),
+            }
+        );
+
+        // TODO: Shouldn't this return an empty event set?
+        // Positive matching: term does not exist
+        assert_eq!(
+            accessor.search_uid_index("EVENT_FOUR"),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (String::from("EVENT_FOUR"), IndexedConclusion::Include(None)),
+                ]),
+            }
+        );
+
+        // Negative matching: term exists
+        assert_eq!(
+            accessor.search_not_uid_index("EVENT_ONE"),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (String::from("EVENT_TWO"), IndexedConclusion::Include(None)),
+                    (String::from("EVENT_THREE"), IndexedConclusion::Include(None)),
+                ]),
+            }
+        );
+
+        // Negative matching: term does not exist
+        assert_eq!(
+            accessor.search_not_uid_index("EVENT_FOUR"),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (String::from("EVENT_ONE"), IndexedConclusion::Include(None)),
+                    (String::from("EVENT_TWO"), IndexedConclusion::Include(None)),
+                    (String::from("EVENT_THREE"), IndexedConclusion::Include(None)),
+                ]),
+            }
+        );
+    }
+
+    #[test]
+    fn test_location_type_index_retrieval() {
+        let mut calendar = Calendar::new(String::from("CALENDAR_UID"));
+
+        let indexed_location_types = [
+            (
+                String::from("ONLINE"),
+                [
+                    (String::from("All online"), IndexedConclusion::Include(None)),
+                    (String::from("Mostly online"), IndexedConclusion::Include(Some([100].into()))),
+                    (String::from("Mostly in person"), IndexedConclusion::Exclude(Some([100].into()))),
+                ]
+            ),
+            (
+                String::from("IN-PERSON"),
+                [
+                    (String::from("All in person"), IndexedConclusion::Include(None)),
+                    (String::from("Mostly in person"), IndexedConclusion::Include(Some([100].into()))),
+                    (String::from("Mostly online"), IndexedConclusion::Exclude(Some([100].into()))),
+                ]
+            )
+        ];
+
+        for (location_type, events) in indexed_location_types.iter() {
+            for (event_uid, conclusion) in events.iter() {
+                calendar.indexed_location_type.insert(
+                    event_uid.to_string(),
+                    location_type.to_string(),
+                    conclusion
+                ).unwrap();
+            }
+        }
+
+        // Contains extra event uids to simulate events referenced on other indexes.
+        let event_uids = vec![
+            String::from("All in person"),
+            String::from("All online"),
+            String::from("Mostly in person"),
+            String::from("Mostly online"),
+            String::from("Other event 1"),
+            String::from("Other event 2"),
+        ];
+
+        let accessor = EventInstanceQueryIndexAccessor { calendar: &calendar, event_uids };
+
+        // Positive matching: term exists
+        assert_eq!(
+            accessor.search_location_type_index("ONLINE"),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (String::from("All online"), IndexedConclusion::Include(None)),
+                    (String::from("Mostly online"), IndexedConclusion::Include(Some([100].into()))),
+                    (String::from("Mostly in person"), IndexedConclusion::Exclude(Some([100].into()))),
+                ]),
+            }
+        );
+
+        // Positive matching: term does not exist
+        assert_eq!(
+            accessor.search_location_type_index("FOOBAR"),
+            InvertedCalendarIndexTerm {
+                events: HashMap::new(),
+            }
+        );
+
+        // Negative matching: term exists
+        assert_eq!(
+            accessor.search_not_location_type_index("ONLINE"),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (String::from("Mostly online"), IndexedConclusion::Exclude(Some([100].into()))),
+                    (String::from("All in person"), IndexedConclusion::Include(None)),
+                    (String::from("Mostly in person"), IndexedConclusion::Include(Some([100].into()))),
+                    (String::from("Other event 1"), IndexedConclusion::Include(None)),
+                    (String::from("Other event 2"), IndexedConclusion::Include(None)),
+                ])
+            }
+        );
+
+        // Negative matching: term does not exist
+        assert_eq!(
+            accessor.search_not_categories_index("FOOBAR"),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (String::from("All online"), IndexedConclusion::Include(None)),
+                    (String::from("Mostly online"), IndexedConclusion::Include(None)),
+                    (String::from("All in person"), IndexedConclusion::Include(None)),
+                    (String::from("Mostly in person"), IndexedConclusion::Include(None)),
+                    (String::from("Other event 1"), IndexedConclusion::Include(None)),
+                    (String::from("Other event 2"), IndexedConclusion::Include(None)),
+                ]),
+            }
+        );
+    }
+
+    #[test]
+    fn test_categories_index_retrieval() {
+        let mut calendar = Calendar::new(String::from("CALENDAR_UID"));
+
+        let indexed_categories = [
+            (
+                String::from("Adults"),
+                [
+                    (String::from("All adults"), IndexedConclusion::Include(None)),
+                    (String::from("Mostly adults"), IndexedConclusion::Include(Some([100].into()))),
+                    (String::from("Mostly kids"), IndexedConclusion::Exclude(Some([100].into()))),
+                ]
+            ),
+            (
+                String::from("Kids"),
+                [
+                    (String::from("All kids"), IndexedConclusion::Include(None)),
+                    (String::from("Mostly kids"), IndexedConclusion::Include(Some([100].into()))),
+                    (String::from("Mostly adults"), IndexedConclusion::Exclude(Some([100].into()))),
+                ]
+            ),
+        ];
+
+        for (category, events) in indexed_categories.iter() {
+            for (event_uid, conclusion) in events.iter() {
+                calendar.indexed_categories.insert(
+                    event_uid.to_string(),
+                    category.to_string(),
+                    conclusion
+                ).unwrap();
+            }
+        }
+
+        // Contains extra event uids to simulate events referenced on other indexes.
+        let event_uids = vec![
+            String::from("All adults"),
+            String::from("All kids"),
+            String::from("Mostly adults"),
+            String::from("Mostly kids"),
+            String::from("Other event 1"),
+            String::from("Other event 2"),
+        ];
+
+        let accessor = EventInstanceQueryIndexAccessor { calendar: &calendar, event_uids };
+
+        // Positive matching: term exists
+        assert_eq!(
+            accessor.search_categories_index("Kids"),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (String::from("All kids"), IndexedConclusion::Include(None)),
+                    (String::from("Mostly kids"), IndexedConclusion::Include(Some([100].into()))),
+                    (String::from("Mostly adults"), IndexedConclusion::Exclude(Some([100].into()))),
+                ]),
+            }
+        );
+
+        // Positive matching: term does not exist
+        assert_eq!(
+            accessor.search_categories_index("FOOBAR"),
+            InvertedCalendarIndexTerm {
+                events: HashMap::new(),
+            }
+        );
+
+        // Negative matching: term exists
+        assert_eq!(
+            accessor.search_not_categories_index("Kids"),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (String::from("Mostly kids"), IndexedConclusion::Exclude(Some([100].into()))),
+                    (String::from("All adults"), IndexedConclusion::Include(None)),
+                    (String::from("Mostly adults"), IndexedConclusion::Include(Some([100].into()))),
+                    (String::from("Other event 1"), IndexedConclusion::Include(None)),
+                    (String::from("Other event 2"), IndexedConclusion::Include(None)),
+                ])
+            }
+        );
+
+        // Negative matching: term does not exist
+        assert_eq!(
+            accessor.search_not_categories_index("FOOBAR"),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (String::from("All adults"), IndexedConclusion::Include(None)),
+                    (String::from("Mostly adults"), IndexedConclusion::Include(None)),
+                    (String::from("All kids"), IndexedConclusion::Include(None)),
+                    (String::from("Mostly kids"), IndexedConclusion::Include(None)),
+                    (String::from("Other event 1"), IndexedConclusion::Include(None)),
+                    (String::from("Other event 2"), IndexedConclusion::Include(None)),
+                ]),
+            }
+        );
+    }
+
+    #[test]
+    fn test_related_to_index_retrieval() {
+        let mut calendar = Calendar::new(String::from("CALENDAR_UID"));
+
+        let indexed_related_to = [
+            (
+                KeyValuePair::new(
+                    String::from("X-ACCOUNT"),
+                    String::from("account-1"),
+                ),
+                [
+                    (String::from("All account-1"), IndexedConclusion::Include(None)),
+                    (String::from("Mostly account-1"), IndexedConclusion::Include(Some([100].into()))),
+                    (String::from("Mostly account-2"), IndexedConclusion::Exclude(Some([100].into()))),
+                ]
+            ),
+            (
+                KeyValuePair::new(
+                    String::from("X-ACCOUNT"),
+                    String::from("account-2"),
+                ),
+                [
+                    (String::from("All account-2"), IndexedConclusion::Include(None)),
+                    (String::from("Mostly account-2"), IndexedConclusion::Include(Some([100].into()))),
+                    (String::from("Mostly account-1"), IndexedConclusion::Exclude(Some([100].into()))),
+                ]
+            ),
+        ];
+
+        for (related_to, events) in indexed_related_to.iter() {
+            for (event_uid, conclusion) in events.iter() {
+                calendar.indexed_related_to.insert(
+                    event_uid.to_string(),
+                    related_to.clone(),
+                    conclusion
+                ).unwrap();
+            }
+        }
+
+        // Contains extra event uids to simulate events referenced on other indexes.
+        let event_uids = vec![
+            String::from("All account-1"),
+            String::from("All account-2"),
+            String::from("Mostly account-1"),
+            String::from("Mostly account-2"),
+            String::from("Other event 1"),
+            String::from("Other event 2"),
+        ];
+
+        let accessor = EventInstanceQueryIndexAccessor { calendar: &calendar, event_uids };
+
+        // Positive matching: term exists
+        assert_eq!(
+            accessor.search_related_to_index(
+                &KeyValuePair::new(
+                    String::from("X-ACCOUNT"),
+                    String::from("account-1"),
+                )
+            ),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (String::from("All account-1"), IndexedConclusion::Include(None)),
+                    (String::from("Mostly account-1"), IndexedConclusion::Include(Some([100].into()))),
+                    (String::from("Mostly account-2"), IndexedConclusion::Exclude(Some([100].into()))),
+                ]),
+            }
+        );
+
+        // Positive matching: term does not exist
+        assert_eq!(
+            accessor.search_related_to_index(
+                &KeyValuePair::new(
+                    String::from("X-ACCOUNT"),
+                    String::from("account-4"),
+                )
+            ),
+            InvertedCalendarIndexTerm {
+                events: HashMap::new(),
+            }
+        );
+
+        // Negative matching: term exists
+        assert_eq!(
+            accessor.search_not_related_to_index(
+                &KeyValuePair::new(
+                    String::from("X-ACCOUNT"),
+                    String::from("account-1"),
+                )
+            ),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (String::from("Mostly account-1"), IndexedConclusion::Exclude(Some([100].into()))),
+                    (String::from("All account-2"), IndexedConclusion::Include(None)),
+                    (String::from("Mostly account-2"), IndexedConclusion::Include(Some([100].into()))),
+                    (String::from("Other event 1"), IndexedConclusion::Include(None)),
+                    (String::from("Other event 2"), IndexedConclusion::Include(None)),
+                ])
+            }
+        );
+
+        // Negative matching: term does not exist
+        assert_eq!(
+            accessor.search_not_related_to_index(
+                &KeyValuePair::new(
+                    String::from("X-ACCOUNT"),
+                    String::from("FOOBAR"),
+                )
+            ),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (String::from("All account-1"), IndexedConclusion::Include(None)),
+                    (String::from("Mostly account-1"), IndexedConclusion::Include(None)),
+                    (String::from("All account-2"), IndexedConclusion::Include(None)),
+                    (String::from("Mostly account-2"), IndexedConclusion::Include(None)),
+                    (String::from("Other event 1"), IndexedConclusion::Include(None)),
+                    (String::from("Other event 2"), IndexedConclusion::Include(None)),
+                ]),
+            }
+        );
+    }
+
+    #[test]
+    fn test_geo_index_retrieval() {
+        let mut calendar = Calendar::new(String::from("CALENDAR_UID"));
+
+        const LONDON: GeoPoint = GeoPoint { lat: 51.5074_f64, long: -0.1278_f64 };
+        const OXFORD: GeoPoint = GeoPoint { lat: 51.8773_f64, long: -1.2475878_f64 };
+        const NEW_YORK_CITY: GeoPoint = GeoPoint { lat: 40.7128_f64, long: -74.006_f64 };
+
+        let indexed_geo = [
+            (
+                LONDON,
+                [
+                    (String::from("All in London"), IndexedConclusion::Include(None)),
+                    (String::from("Mostly in London"), IndexedConclusion::Include(Some([100].into()))),
+                    (String::from("Mostly in Oxford"), IndexedConclusion::Exclude(Some([100].into()))),
+                ]
+            ),
+            (
+                OXFORD,
+                [
+                    (String::from("All in Oxford"), IndexedConclusion::Include(None)),
+                    (String::from("Mostly in Oxford"), IndexedConclusion::Include(Some([100].into()))),
+                    (String::from("Mostly in London"), IndexedConclusion::Exclude(Some([100].into()))),
+                ]
+            ),
+        ];
+
+        for (geo_point, events) in indexed_geo.iter() {
+            for (event_uid, conclusion) in events.iter() {
+                calendar.indexed_geo.insert(
+                    event_uid.to_string(),
+                    geo_point,
+                    conclusion
+                ).unwrap();
+            }
+        }
+
+        // Contains extra event uids to simulate events referenced on other indexes.
+        let event_uids = vec![
+            String::from("All in London"),
+            String::from("All in Oxford"),
+            String::from("Mostly in London"),
+            String::from("Mostly in Oxford"),
+            String::from("Other event 1"),
+            String::from("Other event 2"),
+        ];
+
+        let accessor = EventInstanceQueryIndexAccessor { calendar: &calendar, event_uids };
+
+        let search_distance = GeoDistance::new_from_miles_float(10.0_f64);
+
+        // Positive matching: events located within search distance
+        assert_eq!(
+            accessor.search_geo_index(&search_distance, &OXFORD),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (String::from("All in Oxford"), IndexedConclusion::Include(None)),
+                    (String::from("Mostly in Oxford"), IndexedConclusion::Include(Some([100].into()))),
+                    (String::from("Mostly in London"), IndexedConclusion::Exclude(Some([100].into()))),
+                ]),
+            }
+        );
+
+        // Positive matching: no events located within search distance
+        assert_eq!(
+            accessor.search_geo_index(&search_distance, &NEW_YORK_CITY),
+            InvertedCalendarIndexTerm {
+                events: HashMap::new(),
+            }
+        );
+
+        // Negative matching: some events located outside search distance
+        assert_eq!(
+            accessor.search_not_geo_index(&search_distance, &OXFORD),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (String::from("Mostly in Oxford"), IndexedConclusion::Exclude(Some([100].into()))),
+                    (String::from("All in London"), IndexedConclusion::Include(None)),
+                    (String::from("Mostly in London"), IndexedConclusion::Include(Some([100].into()))),
+                    (String::from("Other event 1"), IndexedConclusion::Include(None)),
+                    (String::from("Other event 2"), IndexedConclusion::Include(None)),
+                ])
+            }
+        );
+
+        // Negative matching: all events outside search distance
+        assert_eq!(
+            accessor.search_not_geo_index(&search_distance, &NEW_YORK_CITY),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (String::from("All in London"), IndexedConclusion::Include(None)),
+                    (String::from("Mostly in London"), IndexedConclusion::Include(None)),
+                    (String::from("All in Oxford"), IndexedConclusion::Include(None)),
+                    (String::from("Mostly in Oxford"), IndexedConclusion::Include(None)),
+                    (String::from("Other event 1"), IndexedConclusion::Include(None)),
+                    (String::from("Other event 2"), IndexedConclusion::Include(None)),
+                ]),
+            }
+        );
+    }
+
+    #[test]
+    fn test_class_index_retrieval() {
+        let mut calendar = Calendar::new(String::from("CALENDAR_UID"));
+
+        let indexed_class = [
+            (
+                String::from("PUBLIC"),
+                [
+                    (String::from("All public"), IndexedConclusion::Include(None)),
+                    (String::from("Mostly public"), IndexedConclusion::Include(Some([100].into()))),
+                    (String::from("Mostly private"), IndexedConclusion::Exclude(Some([100].into()))),
+                ]
+            ),
+            (
+                String::from("PRIVATE"),
+                [
+                    (String::from("All private"), IndexedConclusion::Include(None)),
+                    (String::from("Mostly private"), IndexedConclusion::Include(Some([100].into()))),
+                    (String::from("Mostly public"), IndexedConclusion::Exclude(Some([100].into()))),
+                ]
+            ),
+        ];
+
+        for (class, events) in indexed_class.iter() {
+            for (event_uid, conclusion) in events.iter() {
+                calendar.indexed_class.insert(
+                    event_uid.to_string(),
+                    class.to_string(),
+                    conclusion
+                ).unwrap();
+            }
+        }
+
+        // Contains extra event uids to simulate events referenced on other indexes.
+        let event_uids = vec![
+            String::from("All public"),
+            String::from("All private"),
+            String::from("Mostly public"),
+            String::from("Mostly private"),
+            String::from("Other event 1"),
+            String::from("Other event 2"),
+        ];
+
+        let accessor = EventInstanceQueryIndexAccessor { calendar: &calendar, event_uids };
+
+        // Positive matching: term exists
+        assert_eq!(
+            accessor.search_class_index("PRIVATE"),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (String::from("All private"), IndexedConclusion::Include(None)),
+                    (String::from("Mostly private"), IndexedConclusion::Include(Some([100].into()))),
+                    (String::from("Mostly public"), IndexedConclusion::Exclude(Some([100].into()))),
+                ]),
+            }
+        );
+
+        // Positive matching: term does not exist
+        assert_eq!(
+            accessor.search_class_index("FOOBAR"),
+            InvertedCalendarIndexTerm {
+                events: HashMap::new(),
+            }
+        );
+
+        // Negative matching: term exists
+        assert_eq!(
+            accessor.search_not_class_index("PUBLIC"),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (String::from("Mostly public"), IndexedConclusion::Exclude(Some([100].into()))),
+                    (String::from("All private"), IndexedConclusion::Include(None)),
+                    (String::from("Mostly private"), IndexedConclusion::Include(Some([100].into()))),
+                    (String::from("Other event 1"), IndexedConclusion::Include(None)),
+                    (String::from("Other event 2"), IndexedConclusion::Include(None)),
+                ])
+            }
+        );
+
+        // Negative matching: term does not exist
+        assert_eq!(
+            accessor.search_not_class_index("FOOBAR"),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (String::from("All public"), IndexedConclusion::Include(None)),
+                    (String::from("Mostly public"), IndexedConclusion::Include(None)),
+                    (String::from("All private"), IndexedConclusion::Include(None)),
+                    (String::from("Mostly private"), IndexedConclusion::Include(None)),
+                    (String::from("Other event 1"), IndexedConclusion::Include(None)),
+                    (String::from("Other event 2"), IndexedConclusion::Include(None)),
+                ]),
+            }
+        );
+    }
 
     #[test]
     fn test_event_instance_query_index_accessor() {
