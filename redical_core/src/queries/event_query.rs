@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::str::FromStr;
 
 use chrono_tz::Tz;
@@ -543,7 +542,7 @@ mod test {
     use crate::{GeoPoint, KeyValuePair};
     use pretty_assertions_sorted::{assert_eq, assert_eq_sorted};
 
-    use std::collections::HashSet;
+    use std::collections::{HashSet, HashMap};
 
     #[test]
     fn test_uid_index_retrieval() {
