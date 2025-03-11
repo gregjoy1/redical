@@ -102,17 +102,17 @@ impl<'cal> QueryIndexAccessor<'cal> for EventQueryIndexAccessor<'cal> {
     }
 
     fn search_not_uid_index(&self, uid: &str) -> InvertedCalendarIndexTerm {
-        let mut event_uids = self.event_uids.clone();
+        let mut inverse_matches = InvertedCalendarIndexTerm::new();
 
-        event_uids.retain(|event_uid| event_uid != uid);
+        let included_event_uids_iter = self.event_uids
+            .iter()
+            .filter(|event_uid| *event_uid != uid);
 
-        InvertedCalendarIndexTerm {
-            events: HashMap::from_iter(
-                event_uids.into_iter().map(|event_uid| 
-                    (event_uid, IndexedConclusion::Include(None)),
-                )
-            ),
+        for event_uid in included_event_uids_iter {
+            inverse_matches.insert_included_event(event_uid.to_owned(), None);
         }
+
+        inverse_matches
     }
 
     fn search_not_location_type_index(&self, location_type: &str) -> InvertedCalendarIndexTerm {

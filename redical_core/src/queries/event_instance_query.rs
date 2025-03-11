@@ -90,12 +90,13 @@ impl<'cal> QueryIndexAccessor<'cal> for EventInstanceQueryIndexAccessor<'cal> {
 
     fn search_not_uid_index(&self, uid: &str) -> InvertedCalendarIndexTerm {
         let mut inverse_matches = InvertedCalendarIndexTerm::new();
-        let mut event_uids = self.event_uids.clone();
 
-        event_uids.retain(|event_uid| event_uid != uid);
+        let included_event_uids_iter = self.event_uids
+            .iter()
+            .filter(|event_uid| *event_uid != uid);
 
-        for event_uid in event_uids.into_iter() {
-            inverse_matches.insert_included_event(event_uid, None);
+        for event_uid in included_event_uids_iter {
+            inverse_matches.insert_included_event(event_uid.to_owned(), None);
         }
 
         inverse_matches
