@@ -386,7 +386,7 @@ mod tests {
                 "",
                 RecurrenceIDProperty {
                     params: RecurrenceIDPropertyParams {
-                        value_type: None,
+                        value_type: Some(ValueType::DateTime),
                         tzid: Some(Tzid(Tz::Pacific__Auckland)),
                         other: HashMap::new(),
                     },
@@ -406,7 +406,7 @@ mod tests {
                 "",
                 RecurrenceIDProperty {
                     params: RecurrenceIDPropertyParams {
-                        value_type: None,
+                        value_type: Some(ValueType::DateTime),
                         tzid: Some(Tzid(Tz::Pacific__Auckland)),
                         other: HashMap::new(),
                     },
