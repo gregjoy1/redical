@@ -58,16 +58,23 @@ pub enum WhereConditional {
 }
 
 impl WhereConditional {
-    pub fn execute<'cal>(&self, query_index_accessor: &impl QueryIndexAccessor<'cal>) -> Result<InvertedCalendarIndexTerm, String> {
+    pub fn execute<'cal>(
+        &self,
+        query_index_accessor: &impl QueryIndexAccessor<'cal>
+    ) -> Result<InvertedCalendarIndexTerm, String> {
         match self {
             WhereConditional::Property(where_conditional_property) => {
-                let inverted_calendar_index_term = where_conditional_property.execute(query_index_accessor)?;
+                let inverted_calendar_index_term = where_conditional_property.execute(
+                    query_index_accessor
+                )?;
 
                 Ok(inverted_calendar_index_term)
             }
 
             WhereConditional::NegatedProperty(where_conditional_property) => {
-                let inverted_calendar_index_term = where_conditional_property.execute_not(query_index_accessor)?;
+                let inverted_calendar_index_term = where_conditional_property.execute_not(
+                    query_index_accessor
+                )?;
 
                 Ok(inverted_calendar_index_term)
             }
@@ -77,14 +84,19 @@ impl WhereConditional {
                 where_conditional_b,
                 where_operator,
             ) => {
-                let inverted_calendar_index_term =
-                    where_operator.execute(where_conditional_a, where_conditional_b, query_index_accessor)?;
+                let inverted_calendar_index_term = where_operator.execute(
+                    where_conditional_a,
+                    where_conditional_b,
+                    query_index_accessor
+                )?;
 
                 Ok(inverted_calendar_index_term)
             }
 
             WhereConditional::Group(where_conditional) => {
-                let inverted_calendar_index_term = where_conditional.execute(query_index_accessor)?;
+                let inverted_calendar_index_term = where_conditional.execute(
+                    query_index_accessor
+                )?;
 
                 Ok(inverted_calendar_index_term)
             }
@@ -134,7 +146,10 @@ impl WhereConditionalProperty {
         }
     }
 
-    pub fn execute<'cal>(&self, query_index_accessor: &impl QueryIndexAccessor<'cal>) -> Result<InvertedCalendarIndexTerm, String> {
+    pub fn execute<'cal>(
+        &self,
+        query_index_accessor: &impl QueryIndexAccessor<'cal>
+    ) -> Result<InvertedCalendarIndexTerm, String> {
         match &self {
             // For UID, we just return an "include all" consensus for that event UID.
             WhereConditionalProperty::UID(uid) => {
@@ -163,7 +178,10 @@ impl WhereConditionalProperty {
         }
     }
 
-    pub fn execute_not<'cal>(&self, query_index_accessor: &impl QueryIndexAccessor<'cal>) -> Result<InvertedCalendarIndexTerm, String> {
+    pub fn execute_not<'cal>(
+        &self,
+        query_index_accessor: &impl QueryIndexAccessor<'cal>
+    ) -> Result<InvertedCalendarIndexTerm, String> {
         match &self {
             WhereConditionalProperty::UID(uid) => {
                 Ok(query_index_accessor.search_not_uid_index(uid))
