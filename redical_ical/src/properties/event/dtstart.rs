@@ -335,7 +335,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_ical_wth_impossible_tz_date_time() {
+    fn parse_ical_wth_tz_dst_gap_date_time() {
         // Assert impossible date/time fails validation.
         assert_parser_error!(
             DTStartProperty::parse_ical("DTSTART;TZID=Pacific/Auckland:20240929T020000".into()),
