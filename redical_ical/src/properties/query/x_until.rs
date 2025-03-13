@@ -1,6 +1,6 @@
 use nom::error::context;
 use nom::sequence::{pair, preceded};
-use nom::combinator::{map, cut, opt};
+use nom::combinator::{map_res, cut, opt};
 
 use crate::values::date_time::{DateTime, ValueType};
 use crate::values::tzid::Tzid;
@@ -13,7 +13,7 @@ use crate::properties::{ICalendarProperty, ICalendarPropertyParams, ICalendarDat
 
 use crate::content_line::{ContentLineParams, ContentLine};
 
-use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
+use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, ParserError, impl_icalendar_entity_traits};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct XUntilPropertyParams {
@@ -146,16 +146,27 @@ impl ICalendarEntity for XUntilProperty {
             preceded(
                 tag("X-UNTIL"),
                 cut(
-                    map(
+                    map_res(
                         pair(
                             opt(XUntilPropertyParams::parse_ical),
                             preceded(colon, DateTime::parse_ical),
                         ),
                         |(params, date_time)| {
-                            XUntilProperty {
-                                params: params.unwrap_or(XUntilPropertyParams::default()),
-                                date_time,
+                            let x_until_property =
+                                XUntilProperty {
+                                    params: params.unwrap_or(XUntilPropertyParams::default()),
+                                    date_time,
+                                };
+
+                            if let Err(error) = ICalendarEntity::validate(&x_until_property) {
+                                return Err(
+                                    ParserError::new(error, input)
+                                );
                             }
+
+                            Ok(
+                                x_until_property
+                            )
                         }
                     )
                 )
@@ -172,6 +183,8 @@ impl ICalendarEntity for XUntilProperty {
 
         if let Some(tzid) = self.params.tzid.as_ref() {
             tzid.validate()?;
+
+            tzid.validate_with_datetime_value(&self.date_time)?;
         };
 
         Ok(())
@@ -219,7 +232,7 @@ mod tests {
     use chrono::{NaiveDate, NaiveTime, NaiveDateTime};
     use chrono_tz::Tz;
 
-    use crate::tests::assert_parser_output;
+    use crate::tests::{assert_parser_output, assert_parser_error};
 
     #[test]
     fn parse_ical() {
@@ -277,6 +290,60 @@ mod tests {
         );
 
         assert!(XUntilProperty::parse_ical(":".into()).is_err());
+    }
+
+    #[test]
+    fn parse_ical_wth_impossible_tz_date_time() {
+        // Assert impossible date/time fails validation.
+        assert_parser_error!(
+            XUntilProperty::parse_ical("X-UNTIL;TZID=Pacific/Auckland:20240929T020000".into()),
+            nom::Err::Failure(
+                span: ";TZID=Pacific/Auckland:20240929T020000",
+                message: "Error - invalid date time with timezone (possibly daylight savings threshold) at \"X-UNTIL;TZID=Pacific/Auckland:20240929T020000\"",
+                context: ["X-UNTIL"],
+            ),
+        );
+
+        // Assert possible date/time does not fail validation.
+        assert_parser_output!(
+            XUntilProperty::parse_ical("X-UNTIL;TZID=Pacific/Auckland:20240929T010000".into()),
+            (
+                "",
+                XUntilProperty {
+                    params: XUntilPropertyParams {
+                        prop: WhereRangeProperty::DTStart,
+                        op: WhereUntilRangeOperator::LessThan,
+                        tzid: Some(Tzid(Tz::Pacific__Auckland)),
+                    },
+                    date_time: DateTime::LocalDateTime(
+                        NaiveDateTime::new(
+                            NaiveDate::from_ymd_opt(2024_i32, 9_u32, 29_u32).unwrap(),
+                            NaiveTime::from_hms_opt(1_u32, 0_u32, 0_u32).unwrap(),
+                        )
+                    ),
+                },
+            ),
+        );
+
+        assert_parser_output!(
+            XUntilProperty::parse_ical("X-UNTIL;TZID=Pacific/Auckland:20240929T030000".into()),
+            (
+                "",
+                XUntilProperty {
+                    params: XUntilPropertyParams {
+                        prop: WhereRangeProperty::DTStart,
+                        op: WhereUntilRangeOperator::LessThan,
+                        tzid: Some(Tzid(Tz::Pacific__Auckland)),
+                    },
+                    date_time: DateTime::LocalDateTime(
+                        NaiveDateTime::new(
+                            NaiveDate::from_ymd_opt(2024_i32, 9_u32, 29_u32).unwrap(),
+                            NaiveTime::from_hms_opt(3_u32, 0_u32, 0_u32).unwrap(),
+                        )
+                    ),
+                },
+            ),
+        );
     }
 
     #[test]
