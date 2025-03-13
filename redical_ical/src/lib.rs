@@ -471,7 +471,7 @@ mod tests {
 
     #[macro_export]
     macro_rules! assert_parser_error {
-        ($subject:expr, nom::Err::Error(span: $span:expr, message: $message:expr, context: [$($context:expr $(,)*)+ $(,)*] $(,)*) $(,)*) => {
+        ($subject:expr, nom::Err::Error(span: $span:expr, message: $message:expr, context: [$($context:expr $(,)*)* $(,)*] $(,)*) $(,)*) => {
             let result = $subject;
 
             let Err(nom::Err::Error(parser_error)) = result else {
@@ -483,15 +483,15 @@ mod tests {
 
             pretty_assertions_sorted::assert_eq!(
                 parser_error.context,
-                vec![
+                Vec::<String>::from([
                     $(
                         $context.to_string(),
-                    )+
-                ],
+                    )*
+                ]),
             );
         };
 
-        ($subject:expr, nom::Err::Failure(span: $span:expr, message: $message:expr, context: [$($context:expr $(,)*)+ $(,)*] $(,)*) $(,)*) => {
+        ($subject:expr, nom::Err::Failure(span: $span:expr, message: $message:expr, context: [$($context:expr $(,)*)* $(,)*] $(,)*) $(,)*) => {
             let result = $subject;
 
             let Err(nom::Err::Failure(parser_error)) = result else {
@@ -503,11 +503,11 @@ mod tests {
 
             pretty_assertions_sorted::assert_eq!(
                 parser_error.context,
-                vec![
+                Vec::<String>::from([
                     $(
                         $context.to_string(),
-                    )+
-                ],
+                    )*
+                ]),
             );
         };
     }
