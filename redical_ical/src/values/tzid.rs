@@ -1,3 +1,5 @@
+use chrono::prelude::TimeZone;
+use chrono::LocalResult;
 use chrono_tz::Tz;
 
 use nom::error::context;
@@ -6,6 +8,8 @@ use nom::combinator::{opt, map_res, recognize};
 use nom::bytes::complete::take_while1;
 
 use crate::grammar::{is_safe_char, is_wsp_char, solidus};
+
+use crate::values::date_time::DateTime;
 
 use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits, map_err_message};
 
@@ -42,6 +46,30 @@ impl ICalendarEntity for Tzid {
 
     fn render_ical_with_context(&self, _context: Option<&RenderingContext>) -> String {
         self.0.to_string()
+    }
+}
+
+impl Tzid {
+    /// Validates the given `DateTime` value against the timezone represented by `Tzid`.
+    ///
+    /// This function checks if the provided `DateTime` can be represented in the timezone
+    /// without ambiguity, such as during daylight saving time transitions.
+    ///
+    /// # Arguments
+    ///
+    /// * `date_time` - A reference to a `DateTime` object to be validated.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` if the `DateTime` is valid within the timezone.
+    /// * `Err(String)` with an error message if the `DateTime` is invalid, possibly due to
+    ///   being on a daylight savings threshold.
+    pub fn validate_with_datetime_value(&self, date_time: &DateTime) -> Result<(), String> {
+        match self.0.offset_from_local_datetime(&date_time.into()) {
+            LocalResult::Single(_) => Ok(()),
+
+            _ => Err(String::from("invalid date time with timezone (possibly daylight savings threshold)")),
+        }
     }
 }
 

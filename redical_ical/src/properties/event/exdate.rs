@@ -4,7 +4,7 @@ use nom::error::context;
 use nom::branch::alt;
 use nom::sequence::{pair, preceded};
 use nom::multi::separated_list1;
-use nom::combinator::{recognize, map, cut, opt};
+use nom::combinator::{recognize, map, map_res, cut, opt};
 
 use crate::values::date_time::{DateTime, ValueType};
 use crate::values::tzid::Tzid;
@@ -16,7 +16,7 @@ use crate::properties::{ICalendarProperty, ICalendarPropertyParams, ICalendarDat
 
 use crate::content_line::{ContentLineParams, ContentLine};
 
-use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
+use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserError, ParserResult, impl_icalendar_entity_traits};
 
 use std::collections::HashMap;
 
@@ -189,7 +189,7 @@ impl ICalendarEntity for ExDateProperty {
             preceded(
                 tag("EXDATE"),
                 cut(
-                    map(
+                    map_res(
                         pair(
                             opt(ExDatePropertyParams::parse_ical),
                             preceded(
@@ -201,10 +201,19 @@ impl ICalendarEntity for ExDateProperty {
                             ),
                         ),
                         |(params, date_times)| {
-                            ExDateProperty {
-                                params: params.unwrap_or(ExDatePropertyParams::default()),
-                                date_times,
+                            let ex_date_property =
+                                ExDateProperty {
+                                    params: params.unwrap_or(ExDatePropertyParams::default()),
+                                    date_times,
+                                };
+
+                            if let Err(error) = ICalendarEntity::validate(&ex_date_property) {
+                                return Err(
+                                    ParserError::new(error, input)
+                                );
                             }
+
+                            Ok(ex_date_property)
                         }
                     )
                 )
@@ -223,6 +232,10 @@ impl ICalendarEntity for ExDateProperty {
 
         if let Some(tzid) = self.params.tzid.as_ref() {
             tzid.validate()?;
+
+            for date_time in self.date_times.iter() {
+                tzid.validate_with_datetime_value(date_time)?;
+            }
         };
 
         if let Some(value_type) = self.params.value_type.as_ref() {
@@ -284,7 +297,7 @@ mod tests {
     use chrono::{NaiveDate, NaiveTime, NaiveDateTime};
     use chrono_tz::Tz;
 
-    use crate::tests::assert_parser_output;
+    use crate::tests::{assert_parser_output, assert_parser_error};
 
     #[test]
     fn parse_ical() {
@@ -381,6 +394,64 @@ mod tests {
         );
 
         assert!(ExDateProperty::parse_ical(":".into()).is_err());
+    }
+
+    #[test]
+    fn parse_ical_wth_impossible_tz_date_time() {
+        // Assert impossible date/time fails validation.
+        assert_parser_error!(
+            ExDateProperty::parse_ical("EXDATE;TZID=Pacific/Auckland:20240929T020000".into()),
+            nom::Err::Failure(
+                span: ";TZID=Pacific/Auckland:20240929T020000",
+                message: "Error - invalid date time with timezone (possibly daylight savings threshold) at \"EXDATE;TZID=Pacific/Auckland:20240929T020000\"",
+                context: ["EXDATE"],
+            ),
+        );
+
+        // Assert possible date/time does not fail validation.
+        assert_parser_output!(
+            ExDateProperty::parse_ical("EXDATE;TZID=Pacific/Auckland:20240929T010000".into()),
+            (
+                "",
+                ExDateProperty {
+                    params: ExDatePropertyParams {
+                        value_type: None,
+                        tzid: Some(Tzid(Tz::Pacific__Auckland)),
+                        other: HashMap::new(),
+                    },
+                    date_times: vec![
+                        DateTime::LocalDateTime(
+                            NaiveDateTime::new(
+                                NaiveDate::from_ymd_opt(2024_i32, 9_u32, 29_u32).unwrap(),
+                                NaiveTime::from_hms_opt(1_u32, 0_u32, 0_u32).unwrap(),
+                            )
+                        ),
+                    ].into(),
+                },
+            ),
+        );
+
+        assert_parser_output!(
+            ExDateProperty::parse_ical("EXDATE;TZID=Pacific/Auckland:20240929T030000".into()),
+            (
+                "",
+                ExDateProperty {
+                    params: ExDatePropertyParams {
+                        value_type: None,
+                        tzid: Some(Tzid(Tz::Pacific__Auckland)),
+                        other: HashMap::new(),
+                    },
+                    date_times: vec![
+                        DateTime::LocalDateTime(
+                            NaiveDateTime::new(
+                                NaiveDate::from_ymd_opt(2024_i32, 9_u32, 29_u32).unwrap(),
+                                NaiveTime::from_hms_opt(3_u32, 0_u32, 0_u32).unwrap(),
+                            )
+                        ),
+                    ].into(),
+                },
+            ),
+        );
     }
 
     #[test]
@@ -513,6 +584,25 @@ mod tests {
                 ].into(),
             }.render_ical_with_context(Some(&RenderingContext { tz: Some(Tz::UTC), distance_unit: None })),
             String::from("EXDATE:19960401T140000Z,19960403T170000Z"),
+        );
+
+        assert_eq!(
+            ExDateProperty {
+                params: ExDatePropertyParams {
+                    value_type: None,
+                    tzid: Some(Tzid(Tz::Pacific__Auckland)),
+                    other: HashMap::new(),
+                },
+                date_times: vec![
+                    DateTime::LocalDateTime(
+                        NaiveDateTime::new(
+                            NaiveDate::from_ymd_opt(2024_i32, 9_u32, 29_u32).unwrap(),
+                            NaiveTime::from_hms_opt(3_u32, 0_u32, 0_u32).unwrap(),
+                        )
+                    ),
+                ].into(),
+            }.render_ical_with_context(Some(&RenderingContext { tz: Some(Tz::Pacific__Auckland), distance_unit: None })),
+            String::from("EXDATE;TZID=Pacific/Auckland:20240929T030000"),
         );
 
         // UTC (implied) -> America/Phoenix (UTC -07:00 MST)
