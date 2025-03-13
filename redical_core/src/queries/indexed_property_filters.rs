@@ -48,6 +48,7 @@ impl WhereOperator {
 #[derive(Debug, PartialEq, Clone)]
 pub enum WhereConditional {
     Property(WhereConditionalProperty),
+    NegatedProperty(WhereConditionalProperty),
     Operator(
         Box<WhereConditional>,
         Box<WhereConditional>,
@@ -61,6 +62,12 @@ impl WhereConditional {
         match self {
             WhereConditional::Property(where_conditional_property) => {
                 let inverted_calendar_index_term = where_conditional_property.execute(query_index_accessor)?;
+
+                Ok(inverted_calendar_index_term)
+            }
+
+            WhereConditional::NegatedProperty(where_conditional_property) => {
+                let inverted_calendar_index_term = where_conditional_property.execute_not(query_index_accessor)?;
 
                 Ok(inverted_calendar_index_term)
             }
@@ -152,6 +159,34 @@ impl WhereConditionalProperty {
 
             WhereConditionalProperty::Class(classification) => {
                 Ok(query_index_accessor.search_class_index(classification))
+            },
+        }
+    }
+
+    pub fn execute_not<'cal>(&self, query_index_accessor: &impl QueryIndexAccessor<'cal>) -> Result<InvertedCalendarIndexTerm, String> {
+        match &self {
+            WhereConditionalProperty::UID(uid) => {
+                Ok(query_index_accessor.search_not_uid_index(uid))
+            },
+
+            WhereConditionalProperty::LocationType(location_type) => {
+                Ok(query_index_accessor.search_not_location_type_index(location_type))
+            },
+
+            WhereConditionalProperty::Categories(category) => {
+                Ok(query_index_accessor.search_not_categories_index(category))
+            },
+
+            WhereConditionalProperty::RelatedTo(reltype_uids) => {
+                Ok(query_index_accessor.search_not_related_to_index(reltype_uids))
+            },
+
+            WhereConditionalProperty::Geo(distance, long_lat) => {
+                Ok(query_index_accessor.search_not_geo_index(distance, long_lat))
+            },
+
+            WhereConditionalProperty::Class(classification) => {
+                Ok(query_index_accessor.search_not_class_index(classification))
             },
         }
     }
@@ -1324,6 +1359,914 @@ mod test {
             ),
             InvertedCalendarIndexTerm {
                 events: [].into(),
+            }
+        );
+    }
+
+    #[test]
+    fn test_negated_event_uid_querying_with_indexed_term() {
+        let calendar = calendar_with_events();
+
+        assert_event_query_results!(
+            &calendar,
+            WhereConditional::NegatedProperty(
+                WhereConditionalProperty::UID(
+                    String::from("EVENT_ONE")
+                )
+            ),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (
+                        String::from("EVENT_TWO"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("EVENT_THREE"),
+                        IndexedConclusion::Include(None)
+                    ),
+                ]),
+            }
+        );
+    }
+
+    #[test]
+    fn test_negated_event_uid_querying_with_unindexed_term() {
+        let calendar = calendar_with_events();
+
+        assert_event_query_results!(
+            &calendar,
+            WhereConditional::NegatedProperty(
+                WhereConditionalProperty::UID(
+                    String::from("EVENT_FOUR")
+                )
+            ),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (
+                        String::from("EVENT_ONE"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("EVENT_TWO"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("EVENT_THREE"),
+                        IndexedConclusion::Include(None)
+                    ),
+                ]),
+            }
+        );
+    }
+
+    #[test]
+    fn test_negated_event_location_type_querying_with_indexed_term() {
+        let calendar = calendar_with_indexed_location_types();
+
+        assert_event_query_results!(
+            &calendar,
+            WhereConditional::NegatedProperty(
+                WhereConditionalProperty::LocationType(
+                    String::from("IN-PERSON")
+                )
+            ),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (
+                        String::from("All online"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Mostly online"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Unindexed event 1"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Unindexed event 2"),
+                        IndexedConclusion::Include(None)
+                    ),
+                ]),
+            }
+        );
+    }
+
+    #[test]
+    fn test_negated_event_location_type_querying_with_unindexed_term() {
+        let calendar = calendar_with_indexed_location_types();
+
+        assert_event_query_results!(
+            &calendar,
+            WhereConditional::NegatedProperty(
+                WhereConditionalProperty::LocationType(
+                    String::from("ON-HORSEBACK")
+                )
+            ),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (
+                        String::from("All online"), 
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Mostly online"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("All in person"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Mostly in person"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Unindexed event 1"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Unindexed event 2"),
+                        IndexedConclusion::Include(None)
+                    ),
+                ])
+            }
+        );
+    }
+
+    #[test]
+    fn test_negated_event_categories_querying_with_indexed_term() {
+        let calendar = calendar_with_indexed_categories();
+
+        assert_event_query_results!(
+            &calendar,
+            WhereConditional::NegatedProperty(
+                WhereConditionalProperty::Categories(
+                    String::from("Kids")
+                )
+            ),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (
+                        String::from("All adults"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Mostly adults"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Unindexed event 1"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Unindexed event 2"),
+                        IndexedConclusion::Include(None)
+                    ),
+                ]),
+            }
+        );
+    }
+
+    #[test]
+    fn test_negated_event_categories_querying_with_unindexed_term() {
+        let calendar = calendar_with_indexed_categories();
+
+        assert_event_query_results!(
+            &calendar,
+            WhereConditional::NegatedProperty(
+                WhereConditionalProperty::Categories(
+                    String::from("Teenagers")
+                )
+            ),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (
+                        String::from("All adults"), 
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Mostly adults"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("All kids"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Mostly kids"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Unindexed event 1"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Unindexed event 2"),
+                        IndexedConclusion::Include(None)
+                    ),
+                ])
+            }
+        );
+    }
+
+    #[test]
+    fn test_negated_event_related_to_querying_with_indexed_term() {
+        let calendar = calendar_with_indexed_relations();
+
+        assert_event_query_results!(
+            &calendar,
+            WhereConditional::NegatedProperty(
+                WhereConditionalProperty::RelatedTo(
+                    KeyValuePair::new(
+                        String::from("X-ACCOUNT"),
+                        String::from("account-1"),
+                    )
+                )
+            ),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (
+                        String::from("All account-2"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Mostly account-2"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Unindexed event 1"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Unindexed event 2"),
+                        IndexedConclusion::Include(None)
+                    ),
+                ]),
+            }
+        );
+    }
+
+    #[test]
+    fn test_negated_event_related_to_querying_with_unindexed_term() {
+        let calendar = calendar_with_indexed_relations();
+
+        assert_event_query_results!(
+            &calendar,
+            WhereConditional::NegatedProperty(
+                WhereConditionalProperty::RelatedTo(
+                    KeyValuePair::new(
+                        String::from("X-ACCOUNT"),
+                        String::from("account-4"),
+                    )
+                )
+            ),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (
+                        String::from("All account-1"), 
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Mostly account-1"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("All account-2"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Mostly account-2"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Unindexed event 1"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Unindexed event 2"),
+                        IndexedConclusion::Include(None)
+                    ),
+                ])
+            }
+        );
+    }
+
+    #[test]
+    fn test_negated_event_geo_querying_with_events_in_radius() {
+        let calendar = calendar_with_indexed_geo_points();
+
+        assert_event_query_results!(
+            &calendar,
+            WhereConditional::NegatedProperty(
+                WhereConditionalProperty::Geo(
+                    GeoDistance::new_from_miles_float(10.0_f64),
+                    OXFORD,
+                )
+            ),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (
+                        String::from("All in London"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Mostly in London"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Unindexed event 1"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Unindexed event 2"),
+                        IndexedConclusion::Include(None)
+                    ),
+                ]),
+            }
+        );
+    }
+
+    #[test]
+    fn test_negated_event_geo_querying_without_events_in_radius() {
+        let calendar = calendar_with_indexed_geo_points();
+
+        assert_event_query_results!(
+            &calendar,
+            WhereConditional::NegatedProperty(
+                WhereConditionalProperty::Geo(
+                    GeoDistance::new_from_miles_float(10.0_f64),
+                    NEW_YORK_CITY,
+                )
+            ),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (
+                        String::from("All in Oxford"), 
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Mostly in Oxford"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("All in London"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Mostly in London"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Unindexed event 1"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Unindexed event 2"),
+                        IndexedConclusion::Include(None)
+                    ),
+                ])
+            }
+        );
+    }
+
+    #[test]
+    fn test_negated_event_class_querying_with_indexed_term() {
+        let calendar = calendar_with_indexed_classes();
+
+        assert_event_query_results!(
+            &calendar,
+            WhereConditional::NegatedProperty(
+                WhereConditionalProperty::Class(
+                    String::from("PRIVATE")
+                )
+            ),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (
+                        String::from("All public"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Mostly public"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Unindexed event 1"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Unindexed event 2"),
+                        IndexedConclusion::Include(None)
+                    ),
+                ]),
+            }
+        );
+    }
+
+    #[test]
+    fn test_negated_event_class_querying_with_unindexed_term() {
+        let calendar = calendar_with_indexed_classes();
+
+        assert_event_query_results!(
+            &calendar,
+            WhereConditional::NegatedProperty(
+                WhereConditionalProperty::Class(
+                    String::from("UNKNOWN")
+                )
+            ),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (
+                        String::from("All private"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Mostly private"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("All public"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Mostly public"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Unindexed event 1"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Unindexed event 2"),
+                        IndexedConclusion::Include(None)
+                    ),
+                ]),
+            }
+        );
+    }
+
+    #[test]
+    fn test_negated_event_instance_uid_querying_with_indexed_term() {
+        let calendar = calendar_with_events();
+
+        assert_event_instance_query_results!(
+            &calendar,
+            WhereConditional::NegatedProperty(
+                WhereConditionalProperty::UID(
+                    String::from("EVENT_ONE")
+                )
+            ),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (
+                        String::from("EVENT_TWO"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("EVENT_THREE"),
+                        IndexedConclusion::Include(None)
+                    ),
+                ]),
+            }
+        );
+    }
+
+    #[test]
+    fn test_negated_event_instance_uid_querying_with_unindexed_term() {
+        let calendar = calendar_with_events();
+
+        assert_event_instance_query_results!(
+            &calendar,
+            WhereConditional::NegatedProperty(
+                WhereConditionalProperty::UID(
+                    String::from("EVENT_FOUR")
+                )
+            ),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (
+                        String::from("EVENT_ONE"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("EVENT_TWO"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("EVENT_THREE"),
+                        IndexedConclusion::Include(None)
+                    ),
+                ]),
+            }
+        );
+    }
+
+    #[test]
+    fn test_negated_event_instance_location_type_querying_with_indexed_term() {
+        let calendar = calendar_with_indexed_location_types();
+
+        assert_event_instance_query_results!(
+            &calendar,
+            WhereConditional::NegatedProperty(
+                WhereConditionalProperty::LocationType(
+                    String::from("IN-PERSON")
+                )
+            ),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (
+                        String::from("All online"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Mostly online"),
+                        IndexedConclusion::Include(Some([100].into()))
+                    ),
+                    (
+                        String::from("Mostly in person"),
+                        IndexedConclusion::Exclude(Some([100].into()))
+                    ),
+                    (
+                        String::from("Unindexed event 1"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Unindexed event 2"),
+                        IndexedConclusion::Include(None)
+                    ),
+                ]),
+            }
+        );
+    }
+
+    #[test]
+    fn test_negated_event_instance_location_type_querying_with_unindexed_term() {
+        let calendar = calendar_with_indexed_location_types();
+
+        assert_event_instance_query_results!(
+            &calendar,
+            WhereConditional::NegatedProperty(
+                WhereConditionalProperty::LocationType(
+                    String::from("ON-HORSEBACK")
+                )
+            ),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (
+                        String::from("All online"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Mostly online"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("All in person"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Mostly in person"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Unindexed event 1"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Unindexed event 2"),
+                        IndexedConclusion::Include(None)
+                    ),
+                ]),
+            }
+        );
+    }
+
+    #[test]
+    fn test_negated_event_instance_categories_querying_with_indexed_term() {
+        let calendar = calendar_with_indexed_categories();
+
+        assert_event_instance_query_results!(
+            &calendar,
+            WhereConditional::NegatedProperty(
+                WhereConditionalProperty::Categories(
+                    String::from("Kids")
+                )
+            ),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (
+                        String::from("All adults"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Mostly adults"),
+                        IndexedConclusion::Include(Some([100].into()))
+                    ),
+                    (
+                        String::from("Mostly kids"),
+                        IndexedConclusion::Exclude(Some([100].into()))
+                    ),
+                    (
+                        String::from("Unindexed event 1"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Unindexed event 2"),
+                        IndexedConclusion::Include(None)
+                    ),
+                ]),
+            }
+        );
+    }
+
+    #[test]
+    fn test_negated_event_instance_categories_querying_with_unindexed_term() {
+        let calendar = calendar_with_indexed_categories();
+
+        assert_event_instance_query_results!(
+            &calendar,
+            WhereConditional::NegatedProperty(
+                WhereConditionalProperty::Categories(
+                    String::from("Teenagers")
+                )
+            ),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (
+                        String::from("All adults"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Mostly adults"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("All kids"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Mostly kids"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Unindexed event 1"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Unindexed event 2"),
+                        IndexedConclusion::Include(None)
+                    ),
+                ]),
+            }
+        );
+    }
+
+    #[test]
+    fn test_negated_event_instance_related_to_querying_with_indexed_term() {
+        let calendar = calendar_with_indexed_relations();
+
+        assert_event_instance_query_results!(
+            &calendar,
+            WhereConditional::NegatedProperty(
+                WhereConditionalProperty::RelatedTo(
+                    KeyValuePair::new(
+                        String::from("X-ACCOUNT"),
+                        String::from("account-1"),
+                    )
+                )
+            ),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (
+                        String::from("All account-2"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Mostly account-2"),
+                        IndexedConclusion::Include(Some([100].into()))
+                    ),
+                    (
+                        String::from("Mostly account-1"),
+                        IndexedConclusion::Exclude(Some([100].into()))
+                    ),
+                    (
+                        String::from("Unindexed event 1"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Unindexed event 2"),
+                        IndexedConclusion::Include(None)
+                    ),
+                ]),
+            }
+        );
+    }
+
+    #[test]
+    fn test_negated_event_instance_related_to_querying_with_unindexed_term() {
+        let calendar = calendar_with_indexed_relations();
+
+        assert_event_instance_query_results!(
+            &calendar,
+            WhereConditional::NegatedProperty(
+                WhereConditionalProperty::RelatedTo(
+                    KeyValuePair::new(
+                        String::from("X-ACCOUNT"),
+                        String::from("account-4"),
+                    )
+                )
+            ),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (
+                        String::from("All account-1"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Mostly account-1"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("All account-2"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Mostly account-2"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Unindexed event 1"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Unindexed event 2"),
+                        IndexedConclusion::Include(None)
+                    ),
+                ]),
+            }
+        );
+    }
+
+    #[test]
+    fn test_negated_event_instance_geo_querying_with_events_in_radius() {
+        let calendar = calendar_with_indexed_geo_points();
+
+        assert_event_instance_query_results!(
+            &calendar,
+            WhereConditional::NegatedProperty(
+                WhereConditionalProperty::Geo(
+                    GeoDistance::new_from_miles_float(10.0_f64),
+                    OXFORD,
+                )
+            ),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (
+                        String::from("All in London"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Mostly in London"),
+                        IndexedConclusion::Include(Some([100].into()))
+                    ),
+                    (
+                        String::from("Mostly in Oxford"),
+                        IndexedConclusion::Exclude(Some([100].into()))
+                    ),
+                    (
+                        String::from("Unindexed event 1"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Unindexed event 2"),
+                        IndexedConclusion::Include(None)
+                    ),
+                ]),
+            }
+        );
+    }
+
+    #[test]
+    fn test_negated_event_instance_geo_querying_without_events_in_radius() {
+        let calendar = calendar_with_indexed_geo_points();
+
+        assert_event_instance_query_results!(
+            &calendar,
+            WhereConditional::NegatedProperty(
+                WhereConditionalProperty::Geo(
+                    GeoDistance::new_from_miles_float(10.0_f64),
+                    NEW_YORK_CITY,
+                )
+            ),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (
+                        String::from("All in London"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Mostly in London"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("All in Oxford"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Mostly in Oxford"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Unindexed event 1"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Unindexed event 2"),
+                        IndexedConclusion::Include(None)
+                    ),
+                ]),
+            }
+        );
+    }
+
+    #[test]
+    fn test_negated_event_instance_class_querying_with_indexed_term() {
+        let calendar = calendar_with_indexed_classes();
+
+        assert_event_instance_query_results!(
+            &calendar,
+            WhereConditional::NegatedProperty(
+                WhereConditionalProperty::Class(
+                    String::from("PRIVATE")
+                )
+            ),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (
+                        String::from("All public"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Mostly public"),
+                        IndexedConclusion::Include(Some([100].into()))
+                    ),
+                    (
+                        String::from("Mostly private"),
+                        IndexedConclusion::Exclude(Some([100].into()))
+                    ),
+                    (
+                        String::from("Unindexed event 1"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Unindexed event 2"),
+                        IndexedConclusion::Include(None)
+                    ),
+                ]),
+            }
+        );
+    }
+
+    #[test]
+    fn test_negated_event_instance_class_querying_with_unindexed_term() {
+        let calendar = calendar_with_indexed_classes();
+
+        assert_event_instance_query_results!(
+            &calendar,
+            WhereConditional::NegatedProperty(
+                WhereConditionalProperty::Class(
+                    String::from("UNKNOWN")
+                )
+            ),
+            InvertedCalendarIndexTerm {
+                events: HashMap::from([
+                    (
+                        String::from("All public"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Mostly public"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("All private"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Mostly private"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Unindexed event 1"),
+                        IndexedConclusion::Include(None)
+                    ),
+                    (
+                        String::from("Unindexed event 2"),
+                        IndexedConclusion::Include(None)
+                    ),
+                ]),
             }
         );
     }
