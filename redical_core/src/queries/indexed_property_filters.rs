@@ -115,37 +115,6 @@ pub enum WhereConditionalProperty {
 }
 
 impl WhereConditionalProperty {
-    pub fn get_details(&self) -> String {
-        match &self {
-            WhereConditionalProperty::Categories(category) => {
-                format!("CATEGORIES:{category}")
-            }
-
-            WhereConditionalProperty::UID(uid) => {
-                format!("UID:{uid}")
-            }
-
-            WhereConditionalProperty::LocationType(location_type) => {
-                format!("LOCATION-TYPE:{location_type}")
-            }
-
-            WhereConditionalProperty::RelatedTo(reltype_uids) => {
-                format!(
-                    "RELATED-TO;RELTYPE={}:{}",
-                    reltype_uids.key, reltype_uids.value
-                )
-            }
-
-            WhereConditionalProperty::Geo(distance, long_lat) => {
-                format!("GEO;DIST={}:{}", distance, long_lat)
-            }
-
-            WhereConditionalProperty::Class(classification) => {
-                format!("CLASS:{}", classification)
-            }
-        }
-    }
-
     pub fn execute<'cal>(
         &self,
         query_index_accessor: &impl QueryIndexAccessor<'cal>
@@ -207,32 +176,6 @@ impl WhereConditionalProperty {
                 Ok(query_index_accessor.search_not_class_index(classification))
             },
         }
-    }
-
-    pub fn merge_and<'cal>(
-        &self,
-        inverted_index_term_a: &InvertedCalendarIndexTerm,
-        query_index_accessor: &impl QueryIndexAccessor<'cal>,
-    ) -> Result<InvertedCalendarIndexTerm, String> {
-        let inverted_index_term_b = self.execute(query_index_accessor)?;
-
-        Ok(InvertedCalendarIndexTerm::merge_and(
-            inverted_index_term_a,
-            &inverted_index_term_b,
-        ))
-    }
-
-    pub fn merge_or<'cal>(
-        &self,
-        inverted_index_term_a: &InvertedCalendarIndexTerm,
-        query_index_accessor: &impl QueryIndexAccessor<'cal>,
-    ) -> Result<InvertedCalendarIndexTerm, String> {
-        let inverted_index_term_b = self.execute(query_index_accessor)?;
-
-        Ok(InvertedCalendarIndexTerm::merge_or(
-            inverted_index_term_a,
-            &inverted_index_term_b,
-        ))
     }
 }
 
