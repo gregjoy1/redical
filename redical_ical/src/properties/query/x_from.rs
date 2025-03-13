@@ -299,7 +299,7 @@ mod tests {
             XFromProperty::parse_ical("X-FROM;TZID=Pacific/Auckland:20240929T020000".into()),
             nom::Err::Failure(
                 span: ";TZID=Pacific/Auckland:20240929T020000",
-                message: "Error - invalid date time with timezone (possibly daylight savings threshold) at \"X-FROM;TZID=Pacific/Auckland:20240929T020000\"",
+                message: "Error - detected timezone aware datetime within a DST transition gap (supply this as UTC or fully DST adjusted) at \"X-FROM;TZID=Pacific/Auckland:20240929T020000\"",
                 context: ["X-FROM"],
             ),
         );

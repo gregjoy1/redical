@@ -338,7 +338,7 @@ mod tests {
             DTEndProperty::parse_ical("DTEND;TZID=Pacific/Auckland:20240929T020000".into()),
             nom::Err::Failure(
                 span: ";TZID=Pacific/Auckland:20240929T020000",
-                message: "Error - invalid date time with timezone (possibly daylight savings threshold) at \"DTEND;TZID=Pacific/Auckland:20240929T020000\"",
+                message: "Error - detected timezone aware datetime within a DST transition gap (supply this as UTC or fully DST adjusted) at \"DTEND;TZID=Pacific/Auckland:20240929T020000\"",
                 context: ["DTEND"],
             ),
         );

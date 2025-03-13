@@ -65,10 +65,15 @@ impl Tzid {
     /// * `Err(String)` with an error message if the `DateTime` is invalid, possibly due to
     ///   being on a daylight savings threshold.
     pub fn validate_with_datetime_value(&self, date_time: &DateTime) -> Result<(), String> {
+        // TODO: Watch chrono_tz crate for the release of the code in the following PR:
+        //       -  https://github.com/chronotope/chrono-tz/pull/188
+        //
+        //       Once released, implement better TZ DST gap handling instead of regarding as
+        //       invalid.
         match self.0.offset_from_local_datetime(&date_time.into()) {
             LocalResult::Single(_) => Ok(()),
 
-            _ => Err(String::from("invalid date time with timezone (possibly daylight savings threshold)")),
+            _ => Err(String::from("detected timezone aware datetime within a DST transition gap (supply this as UTC or fully DST adjusted)")),
         }
     }
 }
