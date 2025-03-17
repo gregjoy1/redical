@@ -285,6 +285,24 @@ impl DateTime {
 
 }
 
+impl From<&DateTime> for NaiveDateTime {
+    fn from(date_time: &DateTime) -> Self {
+        match date_time {
+            DateTime::LocalDate(date) => {
+                NaiveDateTime::from(date.to_owned())
+            },
+
+            DateTime::LocalDateTime(date_time) => {
+                date_time.to_owned()
+            },
+
+            DateTime::UtcDateTime(date_time) => {
+                date_time.to_owned()
+            },
+        }
+    }
+}
+
 impl From<i64> for DateTime {
     fn from(timestamp: i64) -> Self {
         match Tz::UTC.timestamp_opt(timestamp, 0) {

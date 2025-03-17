@@ -1137,6 +1137,112 @@ mod integration {
         Ok(())
     }
 
+    fn test_event_timezone_handling(connection: &mut Connection) -> Result<()> {
+        set_and_assert_calendar!(connection, "TEST_CALENDAR_UID");
+
+        set_and_assert_event!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "TIMEZONE_EVENT",
+            [
+                "LAST-MODIFIED:20241001T100000Z",
+                "RRULE:COUNT=3;FREQ=MONTHLY;INTERVAL=4",
+                "DTSTART;TZID=Europe/London:20241001T100000",
+                "DTEND;TZID=Europe/London:20241001T110000",
+            ],
+        );
+
+        list_and_assert_matching_event_instances!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "TIMEZONE_EVENT",
+            [
+                [
+                    "DTEND:20241001T100000Z",
+                    "DTSTART:20241001T090000Z",
+                    "DURATION:PT1H",
+                    "RECURRENCE-ID;VALUE=DATE-TIME:20241001T090000Z",
+                    "UID:TIMEZONE_EVENT",
+                ],
+                [
+                    "DTEND:20250201T110000Z",
+                    "DTSTART:20250201T100000Z",
+                    "DURATION:PT1H",
+                    "RECURRENCE-ID;VALUE=DATE-TIME:20250201T100000Z",
+                    "UID:TIMEZONE_EVENT",
+                ],
+                [
+                    "DTEND:20250601T100000Z",
+                    "DTSTART:20250601T090000Z",
+                    "DURATION:PT1H",
+                    "RECURRENCE-ID;VALUE=DATE-TIME:20250601T090000Z",
+                    "UID:TIMEZONE_EVENT",
+                ],
+            ]
+        );
+
+        set_and_assert_event_override!(
+            connection,
+            "TEST_CALENDAR_UID",
+            "TIMEZONE_EVENT",
+            "20250201T100000Z",
+            [
+                "LAST-MODIFIED:20241001T100000Z",
+                "SUMMARY:Overridden event",
+            ],
+        );
+
+        // Assert default query when mixing a couple of existing event (with overide) extrapolations.
+        query_calendar_and_assert_matching_event_instances!(
+            connection,
+            "TEST_CALENDAR_UID",
+            [
+                "X-TZID:Europe/London",
+            ],
+            [
+                [
+                    [
+                        "DTSTART;TZID=Europe/London:20241001T100000",
+                    ],
+                    [
+                        "DTEND;TZID=Europe/London:20241001T110000",
+                        "DTSTART;TZID=Europe/London:20241001T100000",
+                        "DURATION:PT1H",
+                        "RECURRENCE-ID;VALUE=DATE-TIME;TZID=Europe/London:20241001T100000",
+                        "UID:TIMEZONE_EVENT",
+                    ],
+                ],
+                [
+                    [
+                        "DTSTART;TZID=Europe/London:20250201T100000",
+                    ],
+                    [
+                        "DTEND;TZID=Europe/London:20250201T110000",
+                        "DTSTART;TZID=Europe/London:20250201T100000",
+                        "DURATION:PT1H",
+                        "RECURRENCE-ID;VALUE=DATE-TIME;TZID=Europe/London:20250201T100000",
+                        "SUMMARY:Overridden event",
+                        "UID:TIMEZONE_EVENT",
+                    ],
+                ],
+                [
+                    [
+                        "DTSTART;TZID=Europe/London:20250601T100000",
+                    ],
+                    [
+                        "DTEND;TZID=Europe/London:20250601T110000",
+                        "DTSTART;TZID=Europe/London:20250601T100000",
+                        "DURATION:PT1H",
+                        "RECURRENCE-ID;VALUE=DATE-TIME;TZID=Europe/London:20250601T100000",
+                        "UID:TIMEZONE_EVENT",
+                    ],
+                ],
+            ],
+        );
+
+        Ok(())
+    }
+
     fn test_calendar_event_instance_query(connection: &mut Connection) -> Result<()> {
         set_and_assert_calendar!(connection, "TEST_CALENDAR_UID");
 
@@ -1937,7 +2043,7 @@ mod integration {
         assert_eq!(redis::cmd("SAVE").query(connection), Ok(String::from("OK")));
 
         redis::cmd("FLUSHDB")
-            .query(connection)
+            .query::<()>(connection)
             .with_context(|| {
                 format!(
                     "failed to cleanup with FLUSHDB after running integration test function: {}", stringify!($test_function),
@@ -2072,6 +2178,7 @@ mod integration {
                 ],
             ],
         );
+
         Ok(())
     }
 
@@ -2158,7 +2265,12 @@ mod integration {
             assert_keyspace_events_published!(message_queue, []);
 
             // Assert error reporting Calendar querying disabled
-            let disabled_query_result: Result<Vec<String>, String> = redis::cmd("rdcl.evi_query").arg("TEST_CALENDAR_UID").arg("X-RELATED-TO;RELTYPE=PARENT:PARENT_UID").query(connection).map_err(|error| error.to_string());
+            let disabled_query_result: Result<Vec<String>, String> =
+                redis::cmd("rdcl.evi_query")
+                    .arg("TEST_CALENDAR_UID")
+                    .arg("X-RELATED-TO;RELTYPE=PARENT:PARENT_UID")
+                    .query(connection)
+                    .map_err(|error| error.to_string());
 
             assert_eq!(
                 disabled_query_result,
@@ -2337,12 +2449,15 @@ mod integration {
             ],
         );
 
-        assert_eq!(redis::cmd("SAVE").query(connection), Ok(String::from("OK")));
+        assert_eq!(
+            redis::cmd("SAVE").query(connection),
+            Ok(String::from("OK")),
+        );
 
         // std::thread::sleep(std::time::Duration::from_secs(5));
 
         redis::cmd("FLUSHDB")
-            .query(connection)
+            .query::<()>(connection)
             .with_context(|| {
                 format!(
                     "failed to cleanup with FLUSHDB after running integration test function: {}", stringify!($test_function),
@@ -2515,7 +2630,7 @@ mod integration {
                     .arg("TEST_CALENDAR_UID")
                     .arg("EVENT_IN_OXFORD_MON_WED")
                     .arg(
-                        &[
+                        [
                             "SUMMARY:Event in Oxford on Mondays and Wednesdays at 5:00PM",
                             "RRULE:BYDAY=MO,WE;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
                             "DTSTART:20201231T170000Z",
@@ -2549,7 +2664,7 @@ mod integration {
                     .arg("EVENT_IN_OXFORD_MON_WED")
                     .arg("20210102T170000Z")
                     .arg(
-                        &[
+                        [
                             "SUMMARY:Event in Oxford on Mondays and Wednesdays at 5:00PM (OVERRIDDEN)",
                             "DESCRIPTION:Overridden event description - this should be not be present in the base event.",
                             "LAST-MODIFIED:20210501T090000Z",
@@ -2572,7 +2687,7 @@ mod integration {
                 redis::cmd("rdcl.evi_query")
                     .arg("TEST_CALENDAR_UID")
                     .arg(
-                        &[
+                        [
                             "X-FROM;PROP=DTSTART;OP=GT;TZID=Europe/London:20210105T180000Z",
                             "X-UNTIL;PROP=DTSTART;OP=LTE;TZID=UTC:20210630T180000Z",
                             "X-GEO;DIST=105.5KM:51.55577390;-1.77971760",
@@ -2612,6 +2727,7 @@ mod integration {
         test_event_override_set_last_modified,
         test_event_override_prune,
         test_event_instance_list,
+        test_event_timezone_handling,
         test_calendar_event_instance_query,
         test_calendar_event_query,
         test_calendar_index_disable_rebuild,
@@ -2619,5 +2735,4 @@ mod integration {
         test_key_expire_eviction_keyspace_events,
         test_redical_ical_parser_timeout_ms_config,
     );
-
 }

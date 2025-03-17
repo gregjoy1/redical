@@ -4,7 +4,7 @@ use nom::error::context;
 use nom::branch::alt;
 use nom::sequence::{pair, preceded};
 use nom::multi::separated_list1;
-use nom::combinator::{recognize, map, cut, opt};
+use nom::combinator::{recognize, map_res, cut, opt};
 
 use crate::values::date_time::{DateTime, ValueType};
 use crate::values::tzid::Tzid;
@@ -15,7 +15,7 @@ use crate::properties::{ICalendarProperty, ICalendarPropertyParams, ICalendarDat
 
 use crate::content_line::{ContentLineParams, ContentLine};
 
-use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
+use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, ParserError, impl_icalendar_entity_traits};
 
 use std::collections::HashMap;
 
@@ -183,16 +183,25 @@ impl ICalendarEntity for DTStartProperty {
             preceded(
                 tag("DTSTART"),
                 cut(
-                    map(
+                    map_res(
                         pair(
                             opt(DTStartPropertyParams::parse_ical),
                             preceded(colon, DateTime::parse_ical),
                         ),
                         |(params, date_time)| {
-                            DTStartProperty {
-                                params: params.unwrap_or(DTStartPropertyParams::default()),
-                                date_time,
+                            let dtstart_property =
+                                DTStartProperty {
+                                    params: params.unwrap_or(DTStartPropertyParams::default()),
+                                    date_time,
+                                };
+
+                            if let Err(error) = ICalendarEntity::validate(&dtstart_property) {
+                                return Err(
+                                    ParserError::new(error, input)
+                                );
                             }
+
+                            Ok(dtstart_property)
                         }
                     )
                 )
@@ -209,6 +218,8 @@ impl ICalendarEntity for DTStartProperty {
 
         if let Some(tzid) = self.params.tzid.as_ref() {
             tzid.validate()?;
+
+            tzid.validate_with_datetime_value(&self.date_time)?;
         };
 
         if let Some(value_type) = self.params.value_type.as_ref() {
@@ -260,7 +271,7 @@ mod tests {
     use chrono::{NaiveDate, NaiveTime, NaiveDateTime};
     use chrono_tz::Tz;
 
-    use crate::tests::assert_parser_output;
+    use crate::tests::{assert_parser_output, assert_parser_error};
 
     #[test]
     fn parse_ical() {
@@ -321,6 +332,60 @@ mod tests {
         );
 
         assert!(DTStartProperty::parse_ical(":".into()).is_err());
+    }
+
+    #[test]
+    fn parse_ical_wth_tz_dst_gap_date_time() {
+        // Assert impossible date/time fails validation.
+        assert_parser_error!(
+            DTStartProperty::parse_ical("DTSTART;TZID=Pacific/Auckland:20240929T020000".into()),
+            nom::Err::Failure(
+                span: ";TZID=Pacific/Auckland:20240929T020000",
+                message: "Error - detected timezone aware datetime within a DST transition gap (supply this as UTC or fully DST adjusted) at \"DTSTART;TZID=Pacific/Auckland:20240929T020000\"",
+                context: ["DTSTART"],
+            ),
+        );
+
+        // Assert possible date/time does not fail validation.
+        assert_parser_output!(
+            DTStartProperty::parse_ical("DTSTART;TZID=Pacific/Auckland:20240929T010000".into()),
+            (
+                "",
+                DTStartProperty {
+                    params: DTStartPropertyParams {
+                        value_type: None,
+                        tzid: Some(Tzid(Tz::Pacific__Auckland)),
+                        other: HashMap::new(),
+                    },
+                    date_time: DateTime::LocalDateTime(
+                        NaiveDateTime::new(
+                            NaiveDate::from_ymd_opt(2024_i32, 9_u32, 29_u32).unwrap(),
+                            NaiveTime::from_hms_opt(1_u32, 0_u32, 0_u32).unwrap(),
+                        )
+                    ),
+                },
+            ),
+        );
+
+        assert_parser_output!(
+            DTStartProperty::parse_ical("DTSTART;TZID=Pacific/Auckland:20240929T030000".into()),
+            (
+                "",
+                DTStartProperty {
+                    params: DTStartPropertyParams {
+                        value_type: None,
+                        tzid: Some(Tzid(Tz::Pacific__Auckland)),
+                        other: HashMap::new(),
+                    },
+                    date_time: DateTime::LocalDateTime(
+                        NaiveDateTime::new(
+                            NaiveDate::from_ymd_opt(2024_i32, 9_u32, 29_u32).unwrap(),
+                            NaiveTime::from_hms_opt(3_u32, 0_u32, 0_u32).unwrap(),
+                        )
+                    ),
+                },
+            ),
+        );
     }
 
     #[test]
