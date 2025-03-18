@@ -1,6 +1,6 @@
 use nom::error::context;
-use nom::sequence::preceded;
-use nom::combinator::{map, cut};
+use nom::sequence::{pair, preceded};
+use nom::combinator::{map, cut, opt};
 
 use crate::grammar::{tag, colon};
 
@@ -33,11 +33,14 @@ impl ICalendarEntity for XUIDProperty {
                 tag("X-UID"),
                 cut(
                     map(
-                        preceded(colon, List::parse_ical),
-                        |uids| {
+                        pair(
+                            opt(tag("-NOT")),
+                            preceded(colon, List::parse_ical),
+                        ),
+                        |(not, uids)| {
                             XUIDProperty {
                                 uids,
-                                negated: false,
+                                negated: not.is_some(),
                             }
                         }
                     )
@@ -55,8 +58,10 @@ impl ICalendarProperty for XUIDProperty {
     /// Build a `ContentLineParams` instance with consideration to the optionally provided
     /// `RenderingContext`.
     fn to_content_line_with_context(&self, _context: Option<&RenderingContext>) -> ContentLine {
+        let property = if self.negated { "X-UID-NOT" } else { "X-UID" };
+
         ContentLine::from((
-            "X-UID",
+            property,
             (
                 ContentLineParams::default(),
                 self.uids.to_string(),
@@ -104,12 +109,34 @@ mod tests {
         );
 
         assert_parser_output!(
+            XUIDProperty::parse_ical("X-UID-NOT:UID_ONE DESCRIPTION:Description text".into()),
+            (
+                " DESCRIPTION:Description text",
+                XUIDProperty {
+                    uids: List::from(vec![Text(String::from("UID_ONE"))]),
+                    negated: true,
+                },
+            ),
+        );
+
+        assert_parser_output!(
             XUIDProperty::parse_ical("X-UID:UID_ONE,UID_TWO DESCRIPTION:Description text".into()),
             (
                 " DESCRIPTION:Description text",
                 XUIDProperty {
                     uids: List::from(vec![Text(String::from("UID_ONE")), Text(String::from("UID_TWO"))]),
                     negated: false,
+                },
+            ),
+        );
+
+        assert_parser_output!(
+            XUIDProperty::parse_ical("X-UID-NOT:UID_ONE,UID_TWO DESCRIPTION:Description text".into()),
+            (
+                " DESCRIPTION:Description text",
+                XUIDProperty {
+                    uids: List::from(vec![Text(String::from("UID_ONE")), Text(String::from("UID_TWO"))]),
+                    negated: true,
                 },
             ),
         );
@@ -131,10 +158,26 @@ mod tests {
 
         assert_eq!(
             XUIDProperty {
+                uids: List::from(vec![Text(String::from("UID_ONE"))]),
+                negated: true,
+            }.render_ical(),
+            String::from("X-UID-NOT:UID_ONE"),
+        );
+
+        assert_eq!(
+            XUIDProperty {
                 uids: List::from(vec![Text(String::from("UID_ONE")), Text(String::from("UID_TWO"))]),
                 negated: false,
             }.render_ical(),
             String::from("X-UID:UID_ONE,UID_TWO"),
+        );
+
+        assert_eq!(
+            XUIDProperty {
+                uids: List::from(vec![Text(String::from("UID_ONE")), Text(String::from("UID_TWO"))]),
+                negated: true,
+            }.render_ical(),
+            String::from("X-UID-NOT:UID_ONE,UID_TWO"),
         );
     }
 }
