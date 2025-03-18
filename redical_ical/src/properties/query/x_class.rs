@@ -1,5 +1,5 @@
 use nom::error::context;
-use nom::sequence::{pair, preceded};
+use nom::sequence::{pair, preceded, tuple};
 use nom::combinator::{map, cut, opt};
 
 use crate::grammar::{tag, semicolon, colon};
@@ -68,6 +68,13 @@ impl Default for XClassPropertyParams {
 /// X-CLASS:PUBLIC,CONFIDENTIAL  => X-CLASS;OP=AND:PUBLIC,CONFIDENTIAL
 /// X-CLASS;OP=OR:PUBLIC,CONFIDENTIAL
 /// X-CLASS;OP=AND:PUBLIC,CONFIDENTIAL
+///
+/// Negated:
+///
+/// X-CLASS-NOT:PUBLIC
+/// X-CLASS-NOT:PUBLIC,CONFIDENTIAL  => X-CLASS;OP=AND:PUBLIC,CONFIDENTIAL
+/// X-CLASS-NOT;OP=OR:PUBLIC,CONFIDENTIAL
+/// X-CLASS-NOT;OP=AND:PUBLIC,CONFIDENTIAL
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct XClassProperty {
     pub params: XClassPropertyParams,
@@ -83,15 +90,18 @@ impl ICalendarEntity for XClassProperty {
                 tag("X-CLASS"),
                 cut(
                     map(
-                        pair(
-                            opt(XClassPropertyParams::parse_ical),
-                            preceded(colon, List::parse_ical),
+                        tuple(
+                            (
+                                opt(tag("-NOT")),
+                                opt(XClassPropertyParams::parse_ical),
+                                preceded(colon, List::parse_ical),
+                            )
                         ),
-                        |(params, classes)| {
+                        |(not, params, classes)| {
                             XClassProperty {
                                 params: params.unwrap_or(XClassPropertyParams::default()),
                                 classes,
-                                negated: false,
+                                negated: not.is_some(),
                             }
                         }
                     )
@@ -109,8 +119,10 @@ impl ICalendarProperty for XClassProperty {
     /// Build a `ContentLineParams` instance with consideration to the optionally provided
     /// `RenderingContext`.
     fn to_content_line_with_context(&self, _context: Option<&RenderingContext>) -> ContentLine {
+        let property = if self.negated { "X-CLASS-NOT" } else { "X-CLASS" };
+
         ContentLine::from((
-            "X-CLASS",
+            property,
             (
                 ContentLineParams::from(&self.params),
                 self.classes.to_string(),
@@ -157,6 +169,18 @@ mod tests {
         );
 
         assert_parser_output!(
+            XClassProperty::parse_ical("X-CLASS-NOT:PUBLIC,PRIVATE DESCRIPTION:Description text".into()),
+            (
+                " DESCRIPTION:Description text",
+                XClassProperty {
+                    params: XClassPropertyParams { op: WhereOperator::And },
+                    classes: List::from(vec![ClassValue::Public, ClassValue::Private]),
+                    negated: true,
+                },
+            ),
+        );
+
+        assert_parser_output!(
             XClassProperty::parse_ical("X-CLASS;OP=AND:PUBLIC,PRIVATE DESCRIPTION:Description text".into()),
             (
                 " DESCRIPTION:Description text",
@@ -169,6 +193,18 @@ mod tests {
         );
 
         assert_parser_output!(
+            XClassProperty::parse_ical("X-CLASS-NOT;OP=AND:PUBLIC,PRIVATE DESCRIPTION:Description text".into()),
+            (
+                " DESCRIPTION:Description text",
+                XClassProperty {
+                    params: XClassPropertyParams { op: WhereOperator::And },
+                    classes: List::from(vec![ClassValue::Public, ClassValue::Private]),
+                    negated: true,
+                },
+            ),
+        );
+
+        assert_parser_output!(
             XClassProperty::parse_ical("X-CLASS;OP=OR:PUBLIC,PRIVATE DESCRIPTION:Description text".into()),
             (
                 " DESCRIPTION:Description text",
@@ -176,6 +212,18 @@ mod tests {
                     params: XClassPropertyParams { op: WhereOperator::Or },
                     classes: List::from(vec![ClassValue::Public, ClassValue::Private]),
                     negated: false,
+                },
+            ),
+        );
+
+        assert_parser_output!(
+            XClassProperty::parse_ical("X-CLASS-NOT;OP=OR:PUBLIC,PRIVATE DESCRIPTION:Description text".into()),
+            (
+                " DESCRIPTION:Description text",
+                XClassProperty {
+                    params: XClassPropertyParams { op: WhereOperator::Or },
+                    classes: List::from(vec![ClassValue::Public, ClassValue::Private]),
+                    negated: true,
                 },
             ),
         );
@@ -197,11 +245,29 @@ mod tests {
 
         assert_eq!(
             XClassProperty {
+                params: XClassPropertyParams { op: WhereOperator::And },
+                classes: List::from(vec![ClassValue::Public, ClassValue::Private]),
+                negated: true,
+            }.render_ical(),
+            String::from("X-CLASS-NOT;OP=AND:PRIVATE,PUBLIC"),
+        );
+
+        assert_eq!(
+            XClassProperty {
                 params: XClassPropertyParams { op: WhereOperator::Or },
                 classes: List::from(vec![ClassValue::Public, ClassValue::Private]),
                 negated: false,
             }.render_ical(),
             String::from("X-CLASS;OP=OR:PRIVATE,PUBLIC"),
+        );
+
+        assert_eq!(
+            XClassProperty {
+                params: XClassPropertyParams { op: WhereOperator::Or },
+                classes: List::from(vec![ClassValue::Public, ClassValue::Private]),
+                negated: true,
+            }.render_ical(),
+            String::from("X-CLASS-NOT;OP=OR:PRIVATE,PUBLIC"),
         );
     }
 }
