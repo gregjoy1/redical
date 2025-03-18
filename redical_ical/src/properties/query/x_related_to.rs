@@ -79,6 +79,7 @@ impl Default for XRelatedToPropertyParams {
 pub struct XRelatedToProperty {
     pub params: XRelatedToPropertyParams,
     pub uids: List<Text>,
+    pub negated: bool,
 }
 
 impl ICalendarEntity for XRelatedToProperty {
@@ -97,6 +98,7 @@ impl ICalendarEntity for XRelatedToProperty {
                             XRelatedToProperty {
                                 params: params.unwrap_or(XRelatedToPropertyParams::default()),
                                 uids,
+                                negated: false,
                             }
                         }
                     )
@@ -170,6 +172,7 @@ mod tests {
                         op: WhereOperator::And,
                     },
                     uids: List::from(vec![Text(String::from("parent.uid.one")), Text(String::from("parent.uid.two"))]),
+                    negated: false,
                 },
             ),
         );
@@ -184,6 +187,7 @@ mod tests {
                         op: WhereOperator::Or,
                     },
                     uids: List::from(vec![Text(String::from("x-reltype.uid.one")), Text(String::from("x-reltype.uid.two"))]),
+                    negated: false,
                 },
             ),
         );
@@ -200,6 +204,7 @@ mod tests {
                     op: WhereOperator::And,
                 },
                 uids: List::from(vec![Text(String::from("parent.uid.one")), Text(String::from("parent.uid.two"))]),
+                negated: false,
             }.render_ical(),
             String::from("X-RELATED-TO;RELTYPE=PARENT;OP=AND:parent.uid.one,parent.uid.two"),
         );
@@ -211,6 +216,7 @@ mod tests {
                     op: WhereOperator::Or,
                 },
                 uids: List::from(vec![Text(String::from("x-reltype.uid.one")), Text(String::from("x-reltype.uid.two"))]),
+                negated: false,
             }.render_ical(),
             String::from("X-RELATED-TO;RELTYPE=X-RELTYPE;OP=OR:x-reltype.uid.one,x-reltype.uid.two"),
         );

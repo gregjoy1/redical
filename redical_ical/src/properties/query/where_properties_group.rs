@@ -277,6 +277,7 @@ mod tests {
                             XClassProperty {
                                 params: XClassPropertyParams::default(),
                                 classes: List::from(vec![ClassValue::Public, ClassValue::Private]),
+                                negated: false,
                             },
                         ),
                     ]
@@ -295,6 +296,7 @@ mod tests {
                             XClassProperty {
                                 params: XClassPropertyParams::default(),
                                 classes: List::from(vec![ClassValue::Public, ClassValue::Private]),
+                                negated: false,
                             },
                         ),
                         GroupedWhereProperty::XCategories(
@@ -302,6 +304,7 @@ mod tests {
                             XCategoriesProperty {
                                 params: XCategoriesPropertyParams::default(),
                                 categories: List::from(vec![Text(String::from("APPOINTMENT")), Text(String::from("EDUCATION"))]),
+                                negated: false,
                             },
                         ),
                     ]
@@ -320,6 +323,7 @@ mod tests {
                             XClassProperty {
                                 params: XClassPropertyParams::default(),
                                 classes: List::from(vec![ClassValue::Public]),
+                                negated: false,
                             },
                         ),
                         GroupedWhereProperty::XCategories(
@@ -327,6 +331,7 @@ mod tests {
                             XCategoriesProperty {
                                 params: XCategoriesPropertyParams::default(),
                                 categories: List::from(vec![Text(String::from("APPOINTMENT"))]),
+                                negated: false,
                             },
                         ),
                         GroupedWhereProperty::WherePropertiesGroup(
@@ -338,6 +343,7 @@ mod tests {
                                         XClassProperty {
                                             params: XClassPropertyParams::default(),
                                             classes: List::from(vec![ClassValue::Private]),
+                                            negated: false,
                                         },
                                     ),
                                     GroupedWhereProperty::XCategories(
@@ -345,6 +351,7 @@ mod tests {
                                         XCategoriesProperty {
                                             params: XCategoriesPropertyParams::default(),
                                             categories: List::from(vec![Text(String::from("EDUCATION"))]),
+                                            negated: false,
                                         },
                                     ),
                                 ]
@@ -366,6 +373,7 @@ mod tests {
                             XClassProperty {
                                 params: XClassPropertyParams::default(),
                                 classes: List::from(vec![ClassValue::Public]),
+                                negated: false,
                             },
                         ),
                         GroupedWhereProperty::XCategories(
@@ -373,6 +381,7 @@ mod tests {
                             XCategoriesProperty {
                                 params: XCategoriesPropertyParams::default(),
                                 categories: List::from(vec![Text(String::from("APPOINTMENT"))]),
+                                negated: false,
                             },
                         ),
                         GroupedWhereProperty::WherePropertiesGroup(
@@ -384,6 +393,7 @@ mod tests {
                                         XClassProperty {
                                             params: XClassPropertyParams::default(),
                                             classes: List::from(vec![ClassValue::Private]),
+                                            negated: false,
                                         },
                                     ),
                                     GroupedWhereProperty::XLocationType(
@@ -391,6 +401,7 @@ mod tests {
                                         XLocationTypeProperty {
                                             params: XLocationTypePropertyParams::default(),
                                             types: List::from(vec![Text(String::from("ONLINE")), Text(String::from("ZOOM"))]),
+                                            negated: false,
                                         },
                                     ),
                                 ]
@@ -420,6 +431,7 @@ mod tests {
                         XClassProperty {
                             params: XClassPropertyParams::default(),
                             classes: List::from(vec![ClassValue::Public, ClassValue::Private]),
+                            negated: false,
                         },
                     ),
                 ]
@@ -435,6 +447,7 @@ mod tests {
                         XClassProperty {
                             params: XClassPropertyParams::default(),
                             classes: List::from(vec![ClassValue::Public, ClassValue::Private]),
+                            negated: false,
                         },
                     ),
                     GroupedWhereProperty::XCategories(
@@ -442,6 +455,7 @@ mod tests {
                         XCategoriesProperty {
                             params: XCategoriesPropertyParams::default(),
                             categories: List::from(vec![Text(String::from("APPOINTMENT")), Text(String::from("EDUCATION"))]),
+                            negated: false,
                         },
                     ),
                 ]
@@ -457,6 +471,7 @@ mod tests {
                         XClassProperty {
                             params: XClassPropertyParams::default(),
                             classes: List::from(vec![ClassValue::Public]),
+                            negated: false,
                         },
                     ),
                     GroupedWhereProperty::XCategories(
@@ -464,6 +479,7 @@ mod tests {
                         XCategoriesProperty {
                             params: XCategoriesPropertyParams::default(),
                             categories: List::from(vec![Text(String::from("APPOINTMENT"))]),
+                            negated: false,
                         },
                     ),
                     GroupedWhereProperty::WherePropertiesGroup(
@@ -475,6 +491,7 @@ mod tests {
                                     XClassProperty {
                                         params: XClassPropertyParams::default(),
                                         classes: List::from(vec![ClassValue::Private]),
+                                        negated: false,
                                     },
                                 ),
                                 GroupedWhereProperty::XCategories(
@@ -482,6 +499,7 @@ mod tests {
                                     XCategoriesProperty {
                                         params: XCategoriesPropertyParams::default(),
                                         categories: List::from(vec![Text(String::from("EDUCATION"))]),
+                                        negated: false,
                                     },
                                 ),
                             ]
@@ -500,6 +518,7 @@ mod tests {
                         XClassProperty {
                             params: XClassPropertyParams::default(),
                             classes: List::from(vec![ClassValue::Public]),
+                            negated: false,
                         },
                     ),
                     GroupedWhereProperty::XCategories(
@@ -507,6 +526,7 @@ mod tests {
                         XCategoriesProperty {
                             params: XCategoriesPropertyParams::default(),
                             categories: List::from(vec![Text(String::from("APPOINTMENT"))]),
+                            negated: false,
                         },
                     ),
                     GroupedWhereProperty::WherePropertiesGroup(
@@ -518,12 +538,14 @@ mod tests {
                                     XClassProperty {
                                         params: XClassPropertyParams::default(),
                                         classes: List::from(vec![ClassValue::Private]),
+                                        negated: false,
                                     },
                                 ),
                                 GroupedWhereProperty::XUID(
                                     Some(WhereOperator::Or),
                                     XUIDProperty {
                                         uids: List::from(vec![Text(String::from("UID_ONE")), Text(String::from("UID_TWO"))]),
+                                        negated: false,
                                     },
                                 ),
                             ]

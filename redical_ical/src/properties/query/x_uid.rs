@@ -22,6 +22,7 @@ use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_i
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct XUIDProperty {
     pub uids: List<Text>,
+    pub negated: bool,
 }
 
 impl ICalendarEntity for XUIDProperty {
@@ -36,6 +37,7 @@ impl ICalendarEntity for XUIDProperty {
                         |uids| {
                             XUIDProperty {
                                 uids,
+                                negated: false,
                             }
                         }
                     )
@@ -96,6 +98,7 @@ mod tests {
                 " DESCRIPTION:Description text",
                 XUIDProperty {
                     uids: List::from(vec![Text(String::from("UID_ONE")), Text(String::from("UID_TWO"))]),
+                    negated: false,
                 },
             ),
         );
@@ -106,6 +109,7 @@ mod tests {
                 " DESCRIPTION:Description text",
                 XUIDProperty {
                     uids: List::from(vec![Text(String::from("UID_ONE")), Text(String::from("UID_TWO"))]),
+                    negated: false,
                 },
             ),
         );
@@ -116,6 +120,7 @@ mod tests {
                 " DESCRIPTION:Description text",
                 XUIDProperty {
                     uids: List::from(vec![Text(String::from("UID_ONE")), Text(String::from("UID_TWO"))]),
+                    negated: false,
                 },
             ),
         );
@@ -130,6 +135,7 @@ mod tests {
         assert_eq!(
             XUIDProperty {
                 uids: List::from(vec![Text(String::from("UID_ONE")), Text(String::from("UID_TWO"))]),
+                negated: false,
             }.render_ical(),
             String::from("X-UID:UID_ONE,UID_TWO"),
         );
@@ -137,6 +143,7 @@ mod tests {
         assert_eq!(
             XUIDProperty {
                 uids: List::from(vec![Text(String::from("UID_ONE")), Text(String::from("UID_TWO"))]),
+                negated: false,
             }.render_ical(),
             String::from("X-UID:UID_ONE,UID_TWO"),
         );

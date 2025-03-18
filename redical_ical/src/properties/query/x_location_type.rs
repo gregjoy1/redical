@@ -71,6 +71,7 @@ impl Default for XLocationTypePropertyParams {
 pub struct XLocationTypeProperty {
     pub params: XLocationTypePropertyParams,
     pub types: List<Text>,
+    pub negated: bool,
 }
 
 impl ICalendarEntity for XLocationTypeProperty {
@@ -89,6 +90,7 @@ impl ICalendarEntity for XLocationTypeProperty {
                             XLocationTypeProperty {
                                 params: params.unwrap_or(XLocationTypePropertyParams::default()),
                                 types,
+                                negated: false,
                             }
                         }
                     )
@@ -150,6 +152,7 @@ mod tests {
                 XLocationTypeProperty {
                     params: XLocationTypePropertyParams { op: WhereOperator::And },
                     types: List::from(vec![Text(String::from("RESTAURANT")), Text(String::from("HOTEL"))]),
+                    negated: false,
                 },
             ),
         );
@@ -161,6 +164,7 @@ mod tests {
                 XLocationTypeProperty {
                     params: XLocationTypePropertyParams { op: WhereOperator::And },
                     types: List::from(vec![Text(String::from("RESTAURANT")), Text(String::from("HOTEL"))]),
+                    negated: false,
                 },
             ),
         );
@@ -172,6 +176,7 @@ mod tests {
                 XLocationTypeProperty {
                     params: XLocationTypePropertyParams { op: WhereOperator::Or },
                     types: List::from(vec![Text(String::from("RESTAURANT")), Text(String::from("HOTEL"))]),
+                    negated: false,
                 },
             ),
         );
@@ -186,6 +191,7 @@ mod tests {
             XLocationTypeProperty {
                 params: XLocationTypePropertyParams { op: WhereOperator::And },
                 types: List::from(vec![Text(String::from("RESTAURANT")), Text(String::from("HOTEL"))]),
+                negated: false,
             }.render_ical(),
             String::from("X-LOCATION-TYPE;OP=AND:HOTEL,RESTAURANT"),
         );
@@ -194,6 +200,7 @@ mod tests {
             XLocationTypeProperty {
                 params: XLocationTypePropertyParams { op: WhereOperator::Or },
                 types: List::from(vec![Text(String::from("RESTAURANT")), Text(String::from("HOTEL"))]),
+                negated: false,
             }.render_ical(),
             String::from("X-LOCATION-TYPE;OP=OR:HOTEL,RESTAURANT"),
         );

@@ -71,6 +71,7 @@ impl Default for XCategoriesPropertyParams {
 pub struct XCategoriesProperty {
     pub params: XCategoriesPropertyParams,
     pub categories: List<Text>,
+    pub negated: bool,
 }
 
 impl ICalendarEntity for XCategoriesProperty {
@@ -89,6 +90,7 @@ impl ICalendarEntity for XCategoriesProperty {
                             XCategoriesProperty {
                                 params: params.unwrap_or(XCategoriesPropertyParams::default()),
                                 categories,
+                                negated: false,
                             }
                         }
                     )
@@ -150,6 +152,7 @@ mod tests {
                 XCategoriesProperty {
                     params: XCategoriesPropertyParams { op: WhereOperator::And },
                     categories: List::from(vec![Text(String::from("APPOINTMENT")), Text(String::from("EDUCATION"))]),
+                    negated: false,
                 },
             ),
         );
@@ -161,6 +164,7 @@ mod tests {
                 XCategoriesProperty {
                     params: XCategoriesPropertyParams { op: WhereOperator::And },
                     categories: List::from(vec![Text(String::from("APPOINTMENT")), Text(String::from("EDUCATION"))]),
+                    negated: false,
                 },
             ),
         );
@@ -172,6 +176,7 @@ mod tests {
                 XCategoriesProperty {
                     params: XCategoriesPropertyParams { op: WhereOperator::Or },
                     categories: List::from(vec![Text(String::from("APPOINTMENT")), Text(String::from("EDUCATION"))]),
+                    negated: false,
                 },
             ),
         );
@@ -186,6 +191,7 @@ mod tests {
             XCategoriesProperty {
                 params: XCategoriesPropertyParams { op: WhereOperator::And },
                 categories: List::from(vec![Text(String::from("APPOINTMENT")), Text(String::from("EDUCATION"))]),
+                negated: false,
             }.render_ical(),
             String::from("X-CATEGORIES;OP=AND:APPOINTMENT,EDUCATION"),
         );
@@ -194,6 +200,7 @@ mod tests {
             XCategoriesProperty {
                 params: XCategoriesPropertyParams { op: WhereOperator::Or },
                 categories: List::from(vec![Text(String::from("APPOINTMENT")), Text(String::from("EDUCATION"))]),
+                negated: false,
             }.render_ical(),
             String::from("X-CATEGORIES;OP=OR:APPOINTMENT,EDUCATION"),
         );

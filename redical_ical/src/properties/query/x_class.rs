@@ -72,6 +72,7 @@ impl Default for XClassPropertyParams {
 pub struct XClassProperty {
     pub params: XClassPropertyParams,
     pub classes: List<ClassValue>,
+    pub negated: bool,
 }
 
 impl ICalendarEntity for XClassProperty {
@@ -90,6 +91,7 @@ impl ICalendarEntity for XClassProperty {
                             XClassProperty {
                                 params: params.unwrap_or(XClassPropertyParams::default()),
                                 classes,
+                                negated: false,
                             }
                         }
                     )
@@ -149,6 +151,7 @@ mod tests {
                 XClassProperty {
                     params: XClassPropertyParams { op: WhereOperator::And },
                     classes: List::from(vec![ClassValue::Public, ClassValue::Private]),
+                    negated: false,
                 },
             ),
         );
@@ -160,6 +163,7 @@ mod tests {
                 XClassProperty {
                     params: XClassPropertyParams { op: WhereOperator::And },
                     classes: List::from(vec![ClassValue::Public, ClassValue::Private]),
+                    negated: false,
                 },
             ),
         );
@@ -171,6 +175,7 @@ mod tests {
                 XClassProperty {
                     params: XClassPropertyParams { op: WhereOperator::Or },
                     classes: List::from(vec![ClassValue::Public, ClassValue::Private]),
+                    negated: false,
                 },
             ),
         );
@@ -185,6 +190,7 @@ mod tests {
             XClassProperty {
                 params: XClassPropertyParams { op: WhereOperator::And },
                 classes: List::from(vec![ClassValue::Public, ClassValue::Private]),
+                negated: false,
             }.render_ical(),
             String::from("X-CLASS;OP=AND:PRIVATE,PUBLIC"),
         );
@@ -193,6 +199,7 @@ mod tests {
             XClassProperty {
                 params: XClassPropertyParams { op: WhereOperator::Or },
                 classes: List::from(vec![ClassValue::Public, ClassValue::Private]),
+                negated: false,
             }.render_ical(),
             String::from("X-CLASS;OP=OR:PRIVATE,PUBLIC"),
         );

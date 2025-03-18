@@ -94,6 +94,7 @@ pub struct XGeoProperty {
     pub params: XGeoPropertyParams,
     pub latitude: Float,
     pub longitude: Float,
+    pub negated: bool,
 }
 
 impl ICalendarEntity for XGeoProperty {
@@ -116,6 +117,7 @@ impl ICalendarEntity for XGeoProperty {
                                 params: params.unwrap_or(XGeoPropertyParams::default()),
                                 latitude,
                                 longitude,
+                                negated: false,
                             }
                         }
                     )
@@ -181,6 +183,7 @@ mod tests {
                     params: XGeoPropertyParams { dist: DistValue::Kilometers(Float(10.0_f64)) },
                     latitude: Float(48.85299_f64),
                     longitude: Float(2.36885_f64),
+                    negated: false,
                 },
             ),
         );
@@ -193,6 +196,7 @@ mod tests {
                     params: XGeoPropertyParams { dist: DistValue::Kilometers(Float(1.5_f64)) },
                     latitude: Float(48.85299_f64),
                     longitude: Float(2.36885_f64),
+                    negated: false,
                 },
             ),
         );
@@ -205,6 +209,7 @@ mod tests {
                     params: XGeoPropertyParams { dist: DistValue::Miles(Float(30.0_f64)) },
                     latitude: Float(48.85299_f64),
                     longitude: Float(2.36885_f64),
+                    negated: false,
                 },
             ),
         );
@@ -219,6 +224,7 @@ mod tests {
                 params: XGeoPropertyParams { dist: DistValue::Kilometers(Float(1.5_f64)) },
                 latitude: Float(48.85299_f64),
                 longitude: Float(2.36885_f64),
+                negated: false,
             }.render_ical(),
             String::from("X-GEO;DIST=1.5KM:48.85299;2.36885"),
         );
@@ -228,6 +234,7 @@ mod tests {
                 params: XGeoPropertyParams { dist: DistValue::Miles(Float(30.0_f64)) },
                 latitude: Float(48.85299_f64),
                 longitude: Float(2.36885_f64),
+                negated: false,
             }.render_ical(),
             String::from("X-GEO;DIST=30MI:48.85299;2.36885"),
         );
