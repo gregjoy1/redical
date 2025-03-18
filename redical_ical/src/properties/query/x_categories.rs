@@ -1,5 +1,5 @@
 use nom::error::context;
-use nom::sequence::{pair, preceded};
+use nom::sequence::{pair, preceded, tuple};
 use nom::combinator::{map, cut, opt};
 
 use crate::grammar::{tag, semicolon, colon};
@@ -67,6 +67,13 @@ impl Default for XCategoriesPropertyParams {
 /// X-CATEGORIES:CATEGORY_ONE,CATEGORY_TWO (equivalent X-CATEGORIES;OP=AND:CATEGORY_ONE,CATEGORY_TWO)
 /// X-CATEGORIES;OP=OR:CATEGORY_ONE,CATEGORY_TWO
 /// X-CATEGORIES;OP=AND:CATEGORY_ONE,CATEGORY_TWO
+///
+/// Negated:
+///
+/// X-CATEGORIES-NOT:CATEGORY_ONE
+/// X-CATEGORIES-NOT:CATEGORY_ONE,CATEGORY_TWO (equivalent X-CATEGORIES;OP=AND:CATEGORY_ONE,CATEGORY_TWO)
+/// X-CATEGORIES-NOT;OP=OR:CATEGORY_ONE,CATEGORY_TWO
+/// X-CATEGORIES-NOT;OP=AND:CATEGORY_ONE,CATEGORY_TWO
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct XCategoriesProperty {
     pub params: XCategoriesPropertyParams,
@@ -82,15 +89,18 @@ impl ICalendarEntity for XCategoriesProperty {
                 tag("X-CATEGORIES"),
                 cut(
                     map(
-                        pair(
-                            opt(XCategoriesPropertyParams::parse_ical),
-                            preceded(colon, List::parse_ical),
+                        tuple(
+                            (
+                                opt(tag("-NOT")),
+                                opt(XCategoriesPropertyParams::parse_ical),
+                                preceded(colon, List::parse_ical),
+                            )
                         ),
-                        |(params, categories)| {
+                        |(not, params, categories)| {
                             XCategoriesProperty {
                                 params: params.unwrap_or(XCategoriesPropertyParams::default()),
                                 categories,
-                                negated: false,
+                                negated: not.is_some(),
                             }
                         }
                     )
@@ -108,8 +118,10 @@ impl ICalendarProperty for XCategoriesProperty {
     /// Build a `ContentLineParams` instance with consideration to the optionally provided
     /// `RenderingContext`.
     fn to_content_line_with_context(&self, _context: Option<&RenderingContext>) -> ContentLine {
+        let property = if self.negated { "X-CATEGORIES-NOT" } else { "X-CATEGORIES" };
+
         ContentLine::from((
-            "X-CATEGORIES",
+            property,
             (
                 ContentLineParams::from(&self.params),
                 self.categories.to_string(),
@@ -158,6 +170,18 @@ mod tests {
         );
 
         assert_parser_output!(
+            XCategoriesProperty::parse_ical("X-CATEGORIES-NOT:APPOINTMENT,EDUCATION DESCRIPTION:Description text".into()),
+            (
+                " DESCRIPTION:Description text",
+                XCategoriesProperty {
+                    params: XCategoriesPropertyParams { op: WhereOperator::And },
+                    categories: List::from(vec![Text(String::from("APPOINTMENT")), Text(String::from("EDUCATION"))]),
+                    negated: true,
+                },
+            ),
+        );
+
+        assert_parser_output!(
             XCategoriesProperty::parse_ical("X-CATEGORIES;OP=AND:APPOINTMENT,EDUCATION DESCRIPTION:Description text".into()),
             (
                 " DESCRIPTION:Description text",
@@ -170,6 +194,18 @@ mod tests {
         );
 
         assert_parser_output!(
+            XCategoriesProperty::parse_ical("X-CATEGORIES-NOT;OP=AND:APPOINTMENT,EDUCATION DESCRIPTION:Description text".into()),
+            (
+                " DESCRIPTION:Description text",
+                XCategoriesProperty {
+                    params: XCategoriesPropertyParams { op: WhereOperator::And },
+                    categories: List::from(vec![Text(String::from("APPOINTMENT")), Text(String::from("EDUCATION"))]),
+                    negated: true,
+                },
+            ),
+        );
+
+        assert_parser_output!(
             XCategoriesProperty::parse_ical("X-CATEGORIES;OP=OR:APPOINTMENT,EDUCATION DESCRIPTION:Description text".into()),
             (
                 " DESCRIPTION:Description text",
@@ -177,6 +213,18 @@ mod tests {
                     params: XCategoriesPropertyParams { op: WhereOperator::Or },
                     categories: List::from(vec![Text(String::from("APPOINTMENT")), Text(String::from("EDUCATION"))]),
                     negated: false,
+                },
+            ),
+        );
+
+        assert_parser_output!(
+            XCategoriesProperty::parse_ical("X-CATEGORIES-NOT;OP=OR:APPOINTMENT,EDUCATION DESCRIPTION:Description text".into()),
+            (
+                " DESCRIPTION:Description text",
+                XCategoriesProperty {
+                    params: XCategoriesPropertyParams { op: WhereOperator::Or },
+                    categories: List::from(vec![Text(String::from("APPOINTMENT")), Text(String::from("EDUCATION"))]),
+                    negated: true,
                 },
             ),
         );
@@ -198,11 +246,29 @@ mod tests {
 
         assert_eq!(
             XCategoriesProperty {
+                params: XCategoriesPropertyParams { op: WhereOperator::And },
+                categories: List::from(vec![Text(String::from("APPOINTMENT")), Text(String::from("EDUCATION"))]),
+                negated: true,
+            }.render_ical(),
+            String::from("X-CATEGORIES-NOT;OP=AND:APPOINTMENT,EDUCATION"),
+        );
+
+        assert_eq!(
+            XCategoriesProperty {
                 params: XCategoriesPropertyParams { op: WhereOperator::Or },
                 categories: List::from(vec![Text(String::from("APPOINTMENT")), Text(String::from("EDUCATION"))]),
                 negated: false,
             }.render_ical(),
             String::from("X-CATEGORIES;OP=OR:APPOINTMENT,EDUCATION"),
+        );
+
+        assert_eq!(
+            XCategoriesProperty {
+                params: XCategoriesPropertyParams { op: WhereOperator::Or },
+                categories: List::from(vec![Text(String::from("APPOINTMENT")), Text(String::from("EDUCATION"))]),
+                negated: true,
+            }.render_ical(),
+            String::from("X-CATEGORIES-NOT;OP=OR:APPOINTMENT,EDUCATION"),
         );
     }
 }
