@@ -89,11 +89,17 @@ impl ICalendarPropertyParams for XGeoPropertyParams {
 ///
 /// X-GEO;DIST=1.5KM:48.85299;2.36885
 /// X-GEO;DIST=30MI:48.85299;2.36885
+///
+/// Negated:
+///
+/// X-GEO-NOT;DIST=1.5KM:48.85299;2.36885
+/// X-GEO-NOT;DIST=30MI:48.85299;2.36885
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct XGeoProperty {
     pub params: XGeoPropertyParams,
     pub latitude: Float,
     pub longitude: Float,
+    pub negated: bool,
 }
 
 impl ICalendarEntity for XGeoProperty {
@@ -104,18 +110,22 @@ impl ICalendarEntity for XGeoProperty {
                 tag("X-GEO"),
                 cut(
                     map(
-                        pair(
-                            opt(XGeoPropertyParams::parse_ical),
-                            preceded(
-                                colon,
-                                tuple((Float::parse_ical, semicolon, Float::parse_ical)),
-                            ),
+                        tuple(
+                            (
+                                opt(tag("-NOT")),
+                                opt(XGeoPropertyParams::parse_ical),
+                                preceded(
+                                    colon,
+                                    tuple((Float::parse_ical, semicolon, Float::parse_ical)),
+                                ),
+                            )
                         ),
-                        |(params, (latitude, _, longitude))| {
+                        |(not, params, (latitude, _, longitude))| {
                             XGeoProperty {
                                 params: params.unwrap_or(XGeoPropertyParams::default()),
                                 latitude,
                                 longitude,
+                                negated: not.is_some(),
                             }
                         }
                     )
@@ -133,8 +143,10 @@ impl ICalendarProperty for XGeoProperty {
     /// Build a `ContentLineParams` instance with consideration to the optionally provided
     /// `RenderingContext`.
     fn to_content_line_with_context(&self, _context: Option<&RenderingContext>) -> ContentLine {
+        let property = if self.negated { "X-GEO-NOT" } else { "X-GEO" };
+
         ContentLine::from((
-            "X-GEO",
+            property,
             (
                 ContentLineParams::from(&self.params),
                 format!("{};{}", self.latitude.render_ical(), self.longitude.render_ical()),
@@ -181,6 +193,20 @@ mod tests {
                     params: XGeoPropertyParams { dist: DistValue::Kilometers(Float(10.0_f64)) },
                     latitude: Float(48.85299_f64),
                     longitude: Float(2.36885_f64),
+                    negated: false,
+                },
+            ),
+        );
+
+        assert_parser_output!(
+            XGeoProperty::parse_ical("X-GEO-NOT:48.85299;2.36885 DESCRIPTION:Description text".into()),
+            (
+                " DESCRIPTION:Description text",
+                XGeoProperty {
+                    params: XGeoPropertyParams { dist: DistValue::Kilometers(Float(10.0_f64)) },
+                    latitude: Float(48.85299_f64),
+                    longitude: Float(2.36885_f64),
+                    negated: true,
                 },
             ),
         );
@@ -193,6 +219,20 @@ mod tests {
                     params: XGeoPropertyParams { dist: DistValue::Kilometers(Float(1.5_f64)) },
                     latitude: Float(48.85299_f64),
                     longitude: Float(2.36885_f64),
+                    negated: false,
+                },
+            ),
+        );
+
+        assert_parser_output!(
+            XGeoProperty::parse_ical("X-GEO-NOT;DIST=1.5KM:48.85299;2.36885 DESCRIPTION:Description text".into()),
+            (
+                " DESCRIPTION:Description text",
+                XGeoProperty {
+                    params: XGeoPropertyParams { dist: DistValue::Kilometers(Float(1.5_f64)) },
+                    latitude: Float(48.85299_f64),
+                    longitude: Float(2.36885_f64),
+                    negated: true,
                 },
             ),
         );
@@ -205,6 +245,20 @@ mod tests {
                     params: XGeoPropertyParams { dist: DistValue::Miles(Float(30.0_f64)) },
                     latitude: Float(48.85299_f64),
                     longitude: Float(2.36885_f64),
+                    negated: false,
+                },
+            ),
+        );
+
+        assert_parser_output!(
+            XGeoProperty::parse_ical("X-GEO-NOT;DIST=30MI:48.85299;2.36885 DESCRIPTION:Description text".into()),
+            (
+                " DESCRIPTION:Description text",
+                XGeoProperty {
+                    params: XGeoPropertyParams { dist: DistValue::Miles(Float(30.0_f64)) },
+                    latitude: Float(48.85299_f64),
+                    longitude: Float(2.36885_f64),
+                    negated: true,
                 },
             ),
         );
@@ -219,8 +273,19 @@ mod tests {
                 params: XGeoPropertyParams { dist: DistValue::Kilometers(Float(1.5_f64)) },
                 latitude: Float(48.85299_f64),
                 longitude: Float(2.36885_f64),
+                negated: false,
             }.render_ical(),
             String::from("X-GEO;DIST=1.5KM:48.85299;2.36885"),
+        );
+
+        assert_eq!(
+            XGeoProperty {
+                params: XGeoPropertyParams { dist: DistValue::Kilometers(Float(1.5_f64)) },
+                latitude: Float(48.85299_f64),
+                longitude: Float(2.36885_f64),
+                negated: true,
+            }.render_ical(),
+            String::from("X-GEO-NOT;DIST=1.5KM:48.85299;2.36885"),
         );
 
         assert_eq!(
@@ -228,8 +293,19 @@ mod tests {
                 params: XGeoPropertyParams { dist: DistValue::Miles(Float(30.0_f64)) },
                 latitude: Float(48.85299_f64),
                 longitude: Float(2.36885_f64),
+                negated: false,
             }.render_ical(),
             String::from("X-GEO;DIST=30MI:48.85299;2.36885"),
+        );
+
+        assert_eq!(
+            XGeoProperty {
+                params: XGeoPropertyParams { dist: DistValue::Miles(Float(30.0_f64)) },
+                latitude: Float(48.85299_f64),
+                longitude: Float(2.36885_f64),
+                negated: true,
+            }.render_ical(),
+            String::from("X-GEO-NOT;DIST=30MI:48.85299;2.36885"),
         );
     }
 }

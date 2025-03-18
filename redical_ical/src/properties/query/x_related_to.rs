@@ -1,5 +1,5 @@
 use nom::error::context;
-use nom::sequence::{pair, preceded};
+use nom::sequence::{pair, preceded, tuple};
 use nom::combinator::{map, cut, opt};
 
 use crate::values::text::Text;
@@ -79,6 +79,7 @@ impl Default for XRelatedToPropertyParams {
 pub struct XRelatedToProperty {
     pub params: XRelatedToPropertyParams,
     pub uids: List<Text>,
+    pub negated: bool,
 }
 
 impl ICalendarEntity for XRelatedToProperty {
@@ -89,14 +90,18 @@ impl ICalendarEntity for XRelatedToProperty {
                 tag("X-RELATED-TO"),
                 cut(
                     map(
-                        pair(
-                            opt(XRelatedToPropertyParams::parse_ical),
-                            preceded(colon, List::parse_ical),
+                        tuple(
+                            (
+                                opt(tag("-NOT")),
+                                opt(XRelatedToPropertyParams::parse_ical),
+                                preceded(colon, List::parse_ical),
+                            )
                         ),
-                        |(params, uids)| {
+                        |(not, params, uids)| {
                             XRelatedToProperty {
                                 params: params.unwrap_or(XRelatedToPropertyParams::default()),
                                 uids,
+                                negated: not.is_some(),
                             }
                         }
                     )
@@ -115,8 +120,10 @@ impl ICalendarProperty for XRelatedToProperty {
     /// Build a `ContentLineParams` instance with consideration to the optionally provided
     /// `RenderingContext`.
     fn to_content_line_with_context(&self, _context: Option<&RenderingContext>) -> ContentLine {
+        let property = if self.negated { "X-RELATED-TO-NOT" } else { "X-RELATED-TO" };
+
         ContentLine::from((
-            "X-RELATED-TO",
+            property,
             (
                 ContentLineParams::from(&self.params),
                 self.uids.to_string(),
@@ -170,6 +177,24 @@ mod tests {
                         op: WhereOperator::And,
                     },
                     uids: List::from(vec![Text(String::from("parent.uid.one")), Text(String::from("parent.uid.two"))]),
+                    negated: false,
+                },
+            ),
+        );
+
+        assert_parser_output!(
+            XRelatedToProperty::parse_ical(
+                "X-RELATED-TO-NOT:parent.uid.one,parent.uid.two DESCRIPTION:Description text".into()
+            ),
+            (
+                " DESCRIPTION:Description text",
+                XRelatedToProperty {
+                    params: XRelatedToPropertyParams {
+                        reltype: Reltype::Parent,
+                        op: WhereOperator::And,
+                    },
+                    uids: List::from(vec![Text(String::from("parent.uid.one")), Text(String::from("parent.uid.two"))]),
+                    negated: true,
                 },
             ),
         );
@@ -184,6 +209,22 @@ mod tests {
                         op: WhereOperator::Or,
                     },
                     uids: List::from(vec![Text(String::from("x-reltype.uid.one")), Text(String::from("x-reltype.uid.two"))]),
+                    negated: false,
+                },
+            ),
+        );
+
+        assert_parser_output!(
+            XRelatedToProperty::parse_ical("X-RELATED-TO-NOT;RELTYPE=X-RELTYPE;OP=OR:x-reltype.uid.one,x-reltype.uid.two DESCRIPTION:Description text".into()),
+            (
+                " DESCRIPTION:Description text",
+                XRelatedToProperty {
+                    params: XRelatedToPropertyParams {
+                        reltype: Reltype::XName(String::from("X-RELTYPE")),
+                        op: WhereOperator::Or,
+                    },
+                    uids: List::from(vec![Text(String::from("x-reltype.uid.one")), Text(String::from("x-reltype.uid.two"))]),
+                    negated: true,
                 },
             ),
         );
@@ -200,8 +241,21 @@ mod tests {
                     op: WhereOperator::And,
                 },
                 uids: List::from(vec![Text(String::from("parent.uid.one")), Text(String::from("parent.uid.two"))]),
+                negated: false,
             }.render_ical(),
             String::from("X-RELATED-TO;RELTYPE=PARENT;OP=AND:parent.uid.one,parent.uid.two"),
+        );
+
+        assert_eq!(
+            XRelatedToProperty {
+                params: XRelatedToPropertyParams {
+                    reltype: Reltype::Parent,
+                    op: WhereOperator::And,
+                },
+                uids: List::from(vec![Text(String::from("parent.uid.one")), Text(String::from("parent.uid.two"))]),
+                negated: true,
+            }.render_ical(),
+            String::from("X-RELATED-TO-NOT;RELTYPE=PARENT;OP=AND:parent.uid.one,parent.uid.two"),
         );
 
         assert_eq!(
@@ -211,8 +265,21 @@ mod tests {
                     op: WhereOperator::Or,
                 },
                 uids: List::from(vec![Text(String::from("x-reltype.uid.one")), Text(String::from("x-reltype.uid.two"))]),
+                negated: false,
             }.render_ical(),
             String::from("X-RELATED-TO;RELTYPE=X-RELTYPE;OP=OR:x-reltype.uid.one,x-reltype.uid.two"),
+        );
+
+        assert_eq!(
+            XRelatedToProperty {
+                params: XRelatedToPropertyParams {
+                    reltype: Reltype::XName(String::from("X-RELTYPE")),
+                    op: WhereOperator::Or,
+                },
+                uids: List::from(vec![Text(String::from("x-reltype.uid.one")), Text(String::from("x-reltype.uid.two"))]),
+                negated: true,
+            }.render_ical(),
+            String::from("X-RELATED-TO-NOT;RELTYPE=X-RELTYPE;OP=OR:x-reltype.uid.one,x-reltype.uid.two"),
         );
     }
 }
