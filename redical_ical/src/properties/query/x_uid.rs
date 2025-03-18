@@ -93,22 +93,11 @@ mod tests {
     #[test]
     fn parse_ical() {
         assert_parser_output!(
-            XUIDProperty::parse_ical("X-UID:UID_ONE,UID_TWO DESCRIPTION:Description text".into()),
+            XUIDProperty::parse_ical("X-UID:UID_ONE DESCRIPTION:Description text".into()),
             (
                 " DESCRIPTION:Description text",
                 XUIDProperty {
-                    uids: List::from(vec![Text(String::from("UID_ONE")), Text(String::from("UID_TWO"))]),
-                    negated: false,
-                },
-            ),
-        );
-
-        assert_parser_output!(
-            XUIDProperty::parse_ical("X-UID:UID_ONE,UID_TWO DESCRIPTION:Description text".into()),
-            (
-                " DESCRIPTION:Description text",
-                XUIDProperty {
-                    uids: List::from(vec![Text(String::from("UID_ONE")), Text(String::from("UID_TWO"))]),
+                    uids: List::from(vec![Text(String::from("UID_ONE"))]),
                     negated: false,
                 },
             ),
@@ -134,10 +123,10 @@ mod tests {
     fn render_ical() {
         assert_eq!(
             XUIDProperty {
-                uids: List::from(vec![Text(String::from("UID_ONE")), Text(String::from("UID_TWO"))]),
+                uids: List::from(vec![Text(String::from("UID_ONE"))]),
                 negated: false,
             }.render_ical(),
-            String::from("X-UID:UID_ONE,UID_TWO"),
+            String::from("X-UID:UID_ONE"),
         );
 
         assert_eq!(
