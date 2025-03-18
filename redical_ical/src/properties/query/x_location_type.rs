@@ -1,5 +1,5 @@
 use nom::error::context;
-use nom::sequence::{pair, preceded};
+use nom::sequence::{pair, preceded, tuple};
 use nom::combinator::{map, cut, opt};
 
 use crate::grammar::{tag, semicolon, colon};
@@ -67,6 +67,13 @@ impl Default for XLocationTypePropertyParams {
 /// X-LOCATION-TYPE:HOTEL,RESTAURANT (equivalent X-LOCATION-TYPE;OP=AND:HOTEL,RESTAURANT)
 /// X-LOCATION-TYPE;OP=OR:HOTEL,RESTAURANT
 /// X-LOCATION-TYPE;OP=AND:HOTEL,RESTAURANT
+///
+/// Negated:
+///
+/// X-LOCATION-TYPE-NOT:ONLINE
+/// X-LOCATION-TYPE-NOT:HOTEL,RESTAURANT (equivalent X-LOCATION-TYPE;OP=AND:HOTEL,RESTAURANT)
+/// X-LOCATION-TYPE-NOT;OP=OR:HOTEL,RESTAURANT
+/// X-LOCATION-TYPE-NOT;OP=AND:HOTEL,RESTAURANT
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct XLocationTypeProperty {
     pub params: XLocationTypePropertyParams,
@@ -82,15 +89,18 @@ impl ICalendarEntity for XLocationTypeProperty {
                 tag("X-LOCATION-TYPE"),
                 cut(
                     map(
-                        pair(
-                            opt(XLocationTypePropertyParams::parse_ical),
-                            preceded(colon, List::parse_ical),
+                        tuple(
+                            (
+                                opt(tag("-NOT")),
+                                opt(XLocationTypePropertyParams::parse_ical),
+                                preceded(colon, List::parse_ical),
+                            )
                         ),
-                        |(params, types)| {
+                        |(not, params, types)| {
                             XLocationTypeProperty {
                                 params: params.unwrap_or(XLocationTypePropertyParams::default()),
                                 types,
-                                negated: false,
+                                negated: not.is_some(),
                             }
                         }
                     )
@@ -108,8 +118,10 @@ impl ICalendarProperty for XLocationTypeProperty {
     /// Build a `ContentLineParams` instance with consideration to the optionally provided
     /// `RenderingContext`.
     fn to_content_line_with_context(&self, _context: Option<&RenderingContext>) -> ContentLine {
+        let property = if self.negated { "X-LOCATION-TYPE-NOT" } else { "X-LOCATION-TYPE" };
+
         ContentLine::from((
-            "X-LOCATION-TYPE",
+            property,
             (
                 ContentLineParams::from(&self.params),
                 self.types.to_string(),
@@ -158,6 +170,18 @@ mod tests {
         );
 
         assert_parser_output!(
+            XLocationTypeProperty::parse_ical("X-LOCATION-TYPE-NOT:RESTAURANT,HOTEL DESCRIPTION:Description text".into()),
+            (
+                " DESCRIPTION:Description text",
+                XLocationTypeProperty {
+                    params: XLocationTypePropertyParams { op: WhereOperator::And },
+                    types: List::from(vec![Text(String::from("RESTAURANT")), Text(String::from("HOTEL"))]),
+                    negated: true,
+                },
+            ),
+        );
+
+        assert_parser_output!(
             XLocationTypeProperty::parse_ical("X-LOCATION-TYPE;OP=AND:RESTAURANT,HOTEL DESCRIPTION:Description text".into()),
             (
                 " DESCRIPTION:Description text",
@@ -170,6 +194,18 @@ mod tests {
         );
 
         assert_parser_output!(
+            XLocationTypeProperty::parse_ical("X-LOCATION-TYPE-NOT;OP=AND:RESTAURANT,HOTEL DESCRIPTION:Description text".into()),
+            (
+                " DESCRIPTION:Description text",
+                XLocationTypeProperty {
+                    params: XLocationTypePropertyParams { op: WhereOperator::And },
+                    types: List::from(vec![Text(String::from("RESTAURANT")), Text(String::from("HOTEL"))]),
+                    negated: true,
+                },
+            ),
+        );
+
+        assert_parser_output!(
             XLocationTypeProperty::parse_ical("X-LOCATION-TYPE;OP=OR:RESTAURANT,HOTEL DESCRIPTION:Description text".into()),
             (
                 " DESCRIPTION:Description text",
@@ -177,6 +213,18 @@ mod tests {
                     params: XLocationTypePropertyParams { op: WhereOperator::Or },
                     types: List::from(vec![Text(String::from("RESTAURANT")), Text(String::from("HOTEL"))]),
                     negated: false,
+                },
+            ),
+        );
+
+        assert_parser_output!(
+            XLocationTypeProperty::parse_ical("X-LOCATION-TYPE-NOT;OP=OR:RESTAURANT,HOTEL DESCRIPTION:Description text".into()),
+            (
+                " DESCRIPTION:Description text",
+                XLocationTypeProperty {
+                    params: XLocationTypePropertyParams { op: WhereOperator::Or },
+                    types: List::from(vec![Text(String::from("RESTAURANT")), Text(String::from("HOTEL"))]),
+                    negated: true,
                 },
             ),
         );
@@ -198,11 +246,29 @@ mod tests {
 
         assert_eq!(
             XLocationTypeProperty {
+                params: XLocationTypePropertyParams { op: WhereOperator::And },
+                types: List::from(vec![Text(String::from("RESTAURANT")), Text(String::from("HOTEL"))]),
+                negated: true,
+            }.render_ical(),
+            String::from("X-LOCATION-TYPE-NOT;OP=AND:HOTEL,RESTAURANT"),
+        );
+
+        assert_eq!(
+            XLocationTypeProperty {
                 params: XLocationTypePropertyParams { op: WhereOperator::Or },
                 types: List::from(vec![Text(String::from("RESTAURANT")), Text(String::from("HOTEL"))]),
                 negated: false,
             }.render_ical(),
             String::from("X-LOCATION-TYPE;OP=OR:HOTEL,RESTAURANT"),
+        );
+
+        assert_eq!(
+            XLocationTypeProperty {
+                params: XLocationTypePropertyParams { op: WhereOperator::Or },
+                types: List::from(vec![Text(String::from("RESTAURANT")), Text(String::from("HOTEL"))]),
+                negated: true,
+            }.render_ical(),
+            String::from("X-LOCATION-TYPE-NOT;OP=OR:HOTEL,RESTAURANT"),
         );
     }
 }
