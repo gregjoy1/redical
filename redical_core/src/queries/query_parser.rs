@@ -70,43 +70,43 @@ pub fn parse_query_string<T: QueryableEntity, Q: Query<T>>(input: &str) -> Resul
 
                     QueryProperty::XUID(x_uid_property) => {
                         query.insert_new_where_conditional(
-                            x_uid_query_property_to_where_conditional(x_uid_property)
+                            build_uid_property_condition(x_uid_property)
                         );
                     }
 
                     QueryProperty::XLocationType(x_location_type_property) => {
                         query.insert_new_where_conditional(
-                            x_location_type_query_property_to_where_conditional(x_location_type_property)
+                            build_location_type_property_condition(x_location_type_property)
                         );
                     }
 
                     QueryProperty::XCategories(x_categories_property) => {
                         query.insert_new_where_conditional(
-                            x_categories_query_property_to_where_conditional(x_categories_property)
+                            build_categories_property_condition(x_categories_property)
                         );
                     }
 
                     QueryProperty::XRelatedTo(x_related_to_property) => {
                         query.insert_new_where_conditional(
-                            x_related_to_query_property_to_where_conditional(x_related_to_property)
+                            build_related_to_property_condition(x_related_to_property)
                         );
                     }
 
                     QueryProperty::XGeo(x_geo_property) => {
                         query.insert_new_where_conditional(
-                            x_geo_query_property_to_where_conditional(x_geo_property)
+                            build_geo_property_condition(x_geo_property)
                         );
                     }
 
                     QueryProperty::XClass(x_class_property) => {
                         query.insert_new_where_conditional(
-                            x_class_property_to_where_conditional(x_class_property)
+                            build_class_property_condition(x_class_property)
                         );
                     }
 
                     QueryProperty::WherePropertiesGroup(where_properties_group) => {
                         query.insert_new_where_conditional(
-                            where_properties_group_to_where_conditional(where_properties_group)
+                            build_grouped_conditional(where_properties_group)
                         );
                     }
                 }
@@ -117,43 +117,135 @@ pub fn parse_query_string<T: QueryableEntity, Q: Query<T>>(input: &str) -> Resul
     Ok(query)
 }
 
-fn where_properties_group_to_where_conditional(where_properties_group: &WherePropertiesGroup) -> Option<WhereConditional> {
+macro_rules! fold_terms {
+    ($variant:ident, $terms:expr, $op:expr) => {{
+        if $terms.len() == 0 { return None }
+
+        let condition = WhereConditional::Property(
+            WhereConditionalProperty::$variant($terms[0].to_owned())
+        );
+
+        if $terms.len() == 1 { return Some(condition) }
+
+        let condition = $terms[1..].iter().fold(condition, |last, term|
+            WhereConditional::Operator(
+                Box::new(last),
+                Box::new(WhereConditional::Property(
+                    WhereConditionalProperty::$variant(term.to_owned())
+                )),
+                $op,
+            )
+        );
+
+        Some(WhereConditional::Group(Box::new(condition)))
+    }}
+}
+
+fn build_uid_property_condition(property: &XUIDProperty) -> Option<WhereConditional> {
+    fold_terms!(
+        UID,
+        property.get_uids(),
+        WhereOperator::Or
+    )
+}
+
+fn build_location_type_property_condition(property: &XLocationTypeProperty) -> Option<WhereConditional> {
+    fold_terms!(
+        LocationType,
+        property.get_location_types(),
+        property.params.op.clone().into()
+    )
+}
+
+fn build_categories_property_condition(property: &XCategoriesProperty) -> Option<WhereConditional> {
+    fold_terms!(
+        Categories,
+        property.get_categories(),
+        property.params.op.clone().into()
+    )
+}
+
+fn build_related_to_property_condition(property: &XRelatedToProperty) -> Option<WhereConditional> {
+    let reltype = property.get_reltype();
+
+    let key_values: Vec<_> = property.get_uids()
+        .into_iter()
+        .map(|uid| KeyValuePair::new(reltype.to_string(), uid))
+        .collect();
+
+    fold_terms!(
+        RelatedTo,
+        key_values,
+        property.params.op.clone().into()
+    )
+}
+
+fn build_geo_property_condition(property: &XGeoProperty) -> Option<WhereConditional> {
+    use redical_ical::properties::query::x_geo::DistValue as XGeoDistValue;
+
+    let x_geo_distance =
+        match property.params.dist.to_owned() {
+            XGeoDistValue::Kilometers(kilometers) => {
+                GeoDistance::new_from_kilometers_float(kilometers.into())
+            },
+
+            XGeoDistValue::Miles(miles) => {
+                GeoDistance::new_from_miles_float(miles.into())
+            },
+        };
+
+    let (latitude, longitude) = property.get_lat_long_pair()?;
+
+    Some(WhereConditional::Property(
+        WhereConditionalProperty::Geo(x_geo_distance, GeoPoint::from((latitude, longitude))),
+    ))
+}
+
+fn build_class_property_condition(property: &XClassProperty) -> Option<WhereConditional> {
+    fold_terms!(
+        Class,
+        property.get_classifications(),
+        property.params.op.to_owned().into()
+    )
+}
+
+fn build_grouped_conditional(where_properties_group: &WherePropertiesGroup) -> Option<WhereConditional> {
     let mut current_where_conditional: Option<WhereConditional> = None;
 
     for grouped_where_property in &where_properties_group.properties {
         let (new_where_conditional, external_operator) = match &grouped_where_property {
             GroupedWhereProperty::XLocationType(external_operator, x_location_type_property) => (
-                x_location_type_query_property_to_where_conditional(x_location_type_property),
+                build_location_type_property_condition(x_location_type_property),
                 external_operator,
             ),
 
             GroupedWhereProperty::XUID(external_operator, x_uid_property) => (
-                x_uid_query_property_to_where_conditional(x_uid_property),
+                build_uid_property_condition(x_uid_property),
                 external_operator,
             ),
 
             GroupedWhereProperty::XCategories(external_operator, x_categories_property) => (
-                x_categories_query_property_to_where_conditional(x_categories_property),
+                build_categories_property_condition(x_categories_property),
                 external_operator,
             ),
 
             GroupedWhereProperty::XRelatedTo(external_operator, x_related_to_property) => (
-                x_related_to_query_property_to_where_conditional(x_related_to_property),
+                build_related_to_property_condition(x_related_to_property),
                 external_operator,
             ),
 
             GroupedWhereProperty::XGeo(external_operator, x_geo_property) => (
-                x_geo_query_property_to_where_conditional(x_geo_property),
+                build_geo_property_condition(x_geo_property),
                 external_operator,
             ),
 
             GroupedWhereProperty::XClass(external_operator, x_class_property) => (
-                x_class_property_to_where_conditional(x_class_property),
+                build_class_property_condition(x_class_property),
                 external_operator,
             ),
 
             GroupedWhereProperty::WherePropertiesGroup(external_operator, nested_where_properties_group) => (
-                where_properties_group_to_where_conditional(nested_where_properties_group),
+                build_grouped_conditional(nested_where_properties_group),
                 external_operator,
             ),
         };
@@ -180,187 +272,6 @@ fn where_properties_group_to_where_conditional(where_properties_group: &WherePro
     })
 }
 
-fn x_uid_query_property_to_where_conditional(x_uid_property: &XUIDProperty) -> Option<WhereConditional> {
-    let uids = x_uid_property.get_uids();
-
-    match uids.len() {
-        0 => None,
-
-        1 => Some(WhereConditional::Property(
-            WhereConditionalProperty::UID(uids[0].to_owned()),
-        )),
-
-        _ => {
-            let mut current_property = WhereConditional::Property(
-                WhereConditionalProperty::UID(uids[0].to_owned()),
-            );
-
-            for uid in uids[1..].iter() {
-                current_property = WhereConditional::Operator(
-                    Box::new(current_property),
-                    Box::new(WhereConditional::Property(
-                        WhereConditionalProperty::UID(uid.to_owned()),
-                    )),
-                    WhereOperator::Or,
-                );
-            }
-
-            Some(WhereConditional::Group(Box::new(current_property)))
-        }
-    }
-}
-
-fn x_location_type_query_property_to_where_conditional(x_location_type_property: &XLocationTypeProperty) -> Option<WhereConditional> {
-    let location_types = x_location_type_property.get_location_types();
-
-    match location_types.len() {
-        0 => None,
-
-        1 => Some(WhereConditional::Property(
-            WhereConditionalProperty::LocationType(location_types[0].to_owned()),
-        )),
-
-        _ => {
-            let mut current_property = WhereConditional::Property(
-                WhereConditionalProperty::LocationType(location_types[0].to_owned()),
-            );
-
-            for location_type in location_types[1..].iter() {
-                current_property = WhereConditional::Operator(
-                    Box::new(current_property),
-                    Box::new(WhereConditional::Property(
-                        WhereConditionalProperty::LocationType(location_type.to_owned()),
-                    )),
-                    x_location_type_property.params.op.to_owned().into(),
-                );
-            }
-
-            Some(WhereConditional::Group(Box::new(current_property)))
-        }
-    }
-}
-
-fn x_categories_query_property_to_where_conditional(x_categories_property: &XCategoriesProperty) -> Option<WhereConditional> {
-    let categories = x_categories_property.get_categories();
-
-    match categories.len() {
-        0 => None,
-
-        1 => Some(WhereConditional::Property(
-            WhereConditionalProperty::Categories(categories[0].to_owned()),
-        )),
-
-        _ => {
-            let mut current_property = WhereConditional::Property(
-                WhereConditionalProperty::Categories(categories[0].to_owned()),
-            );
-
-            for category in categories[1..].iter() {
-                current_property = WhereConditional::Operator(
-                    Box::new(current_property),
-                    Box::new(WhereConditional::Property(
-                        WhereConditionalProperty::Categories(category.to_owned()),
-                    )),
-                    x_categories_property.params.op.to_owned().into(),
-                );
-            }
-
-            Some(WhereConditional::Group(Box::new(current_property)))
-        }
-    }
-}
-
-fn x_related_to_query_property_to_where_conditional(x_related_to_property: &XRelatedToProperty) -> Option<WhereConditional> {
-    let reltype = x_related_to_property.get_reltype();
-    let related_to_uids = x_related_to_property.get_uids();
-
-    match related_to_uids.len() {
-        0 => None,
-
-        1 => Some(WhereConditional::Property(
-            WhereConditionalProperty::RelatedTo(KeyValuePair::new(
-                reltype.to_string(),
-                related_to_uids[0].to_owned(),
-            )),
-        )),
-
-        _ => {
-            let mut current_property = WhereConditional::Property(
-                WhereConditionalProperty::RelatedTo(KeyValuePair::new(
-                    reltype.to_string(),
-                    related_to_uids[0].to_owned(),
-                )),
-            );
-
-            for related_to_uid in related_to_uids[1..].iter() {
-                current_property = WhereConditional::Operator(
-                    Box::new(current_property),
-                    Box::new(WhereConditional::Property(
-                        WhereConditionalProperty::RelatedTo(KeyValuePair::new(
-                            reltype.to_string(),
-                            related_to_uid.to_owned(),
-                        )),
-                    )),
-                    x_related_to_property.params.op.to_owned().into(),
-                );
-            }
-
-            Some(WhereConditional::Group(Box::new(current_property)))
-        }
-    }
-}
-
-fn x_geo_query_property_to_where_conditional(x_geo_property: &XGeoProperty) -> Option<WhereConditional> {
-    use redical_ical::properties::query::x_geo::DistValue as XGeoDistValue;
-
-    let x_geo_distance =
-        match x_geo_property.params.dist.to_owned() {
-            XGeoDistValue::Kilometers(kilometers) => {
-                GeoDistance::new_from_kilometers_float(kilometers.into())
-            },
-
-            XGeoDistValue::Miles(miles) => {
-                GeoDistance::new_from_miles_float(miles.into())
-            },
-        };
-
-    let (latitude, longitude) = x_geo_property.get_lat_long_pair()?;
-
-    Some(WhereConditional::Property(
-        WhereConditionalProperty::Geo(x_geo_distance, GeoPoint::from((latitude, longitude))),
-    ))
-}
-
-fn x_class_property_to_where_conditional(x_class_property: &XClassProperty) -> Option<WhereConditional> {
-    let classifications = x_class_property.get_classifications();
-
-    match classifications.len() {
-        0 => None,
-
-        1 => Some(WhereConditional::Property(
-            WhereConditionalProperty::Class(classifications[0].to_owned()),
-        )),
-
-        _ => {
-            let mut current_property = WhereConditional::Property(
-                WhereConditionalProperty::Class(classifications[0].to_owned()),
-            );
-
-            for class in classifications[1..].iter() {
-                current_property = WhereConditional::Operator(
-                    Box::new(current_property),
-                    Box::new(WhereConditional::Property(
-                        WhereConditionalProperty::Class(class.to_owned()),
-                    )),
-                    x_class_property.params.op.to_owned().into(),
-                );
-            }
-
-            Some(WhereConditional::Group(Box::new(current_property)))
-        }
-    }
-}
-
 #[cfg(test)]
 mod test {
     use crate::queries::event_instance_query::EventInstanceQuery;
@@ -384,21 +295,21 @@ mod test {
     use crate::{GeoDistance, KeyValuePair};
 
     #[test]
-    fn test_x_class_property_to_where_conditional() {
+    fn test_build_class_property_condition_condition() {
         assert_eq!(
-            x_class_property_to_where_conditional(&build_property_from_ical!(XClassProperty, "X-CLASS:")),
+            build_class_property_condition(&build_property_from_ical!(XClassProperty, "X-CLASS:")),
             None,
         );
 
         assert_eq!(
-            x_class_property_to_where_conditional(&build_property_from_ical!(XClassProperty, "X-CLASS:PRIVATE")),
+            build_class_property_condition(&build_property_from_ical!(XClassProperty, "X-CLASS:PRIVATE")),
             Some(WhereConditional::Property(
                 WhereConditionalProperty::Class(String::from("PRIVATE")),
             )),
         );
 
         assert_eq!(
-            x_class_property_to_where_conditional(
+            build_class_property_condition(
                 &build_property_from_ical!(XClassProperty, "X-CLASS;OP=OR:PUBLIC,PRIVATE,CONFIDENTIAL")
             ),
             Some(WhereConditional::Group(
@@ -422,21 +333,21 @@ mod test {
     }
 
     #[test]
-    fn test_x_categories_query_property_to_where_conditional() {
+    fn test_build_categories_property_condition_condition() {
         assert_eq!(
-            x_categories_query_property_to_where_conditional(&build_property_from_ical!(XCategoriesProperty, "X-CATEGORIES:")),
+            build_categories_property_condition(&build_property_from_ical!(XCategoriesProperty, "X-CATEGORIES:")),
             None,
         );
 
         assert_eq!(
-            x_categories_query_property_to_where_conditional(&build_property_from_ical!(XCategoriesProperty, "X-CATEGORIES:CATEGORY_ONE")),
+            build_categories_property_condition(&build_property_from_ical!(XCategoriesProperty, "X-CATEGORIES:CATEGORY_ONE")),
             Some(WhereConditional::Property(
                 WhereConditionalProperty::Categories(String::from("CATEGORY_ONE")),
             )),
         );
 
         assert_eq!(
-            x_categories_query_property_to_where_conditional(&build_property_from_ical!(XCategoriesProperty, "X-CATEGORIES;OP=OR:CATEGORY_ONE,CATEGORY_TWO,CATEGORY_THREE")),
+            build_categories_property_condition(&build_property_from_ical!(XCategoriesProperty, "X-CATEGORIES;OP=OR:CATEGORY_ONE,CATEGORY_TWO,CATEGORY_THREE")),
             Some(WhereConditional::Group(
                 Box::new(WhereConditional::Operator(
                     Box::new(WhereConditional::Operator(
@@ -458,14 +369,14 @@ mod test {
     }
 
     #[test]
-    fn test_x_related_to_query_property_to_where_conditional() {
+    fn test_build_related_to_property_condition_condition() {
         assert_eq!(
-            x_related_to_query_property_to_where_conditional(&build_property_from_ical!(XRelatedToProperty, "X-RELATED-TO:")),
+            build_related_to_property_condition(&build_property_from_ical!(XRelatedToProperty, "X-RELATED-TO:")),
             None,
         );
 
         assert_eq!(
-            x_related_to_query_property_to_where_conditional(&build_property_from_ical!(XRelatedToProperty, "X-RELATED-TO:PARENT_UID_ONE")),
+            build_related_to_property_condition(&build_property_from_ical!(XRelatedToProperty, "X-RELATED-TO:PARENT_UID_ONE")),
             Some(WhereConditional::Property(
                 WhereConditionalProperty::RelatedTo(KeyValuePair::new(
                     String::from("PARENT"),
@@ -475,7 +386,7 @@ mod test {
         );
 
         assert_eq!(
-            x_related_to_query_property_to_where_conditional(&build_property_from_ical!(XRelatedToProperty, "X-RELATED-TO;OP=OR;RELTYPE=CHILD:CHILD_UID_ONE,CHILD_UID_TWO,CHILD_UID_THREE")),
+            build_related_to_property_condition(&build_property_from_ical!(XRelatedToProperty, "X-RELATED-TO;OP=OR;RELTYPE=CHILD:CHILD_UID_ONE,CHILD_UID_TWO,CHILD_UID_THREE")),
             Some(WhereConditional::Group(
                 Box::new(WhereConditional::Operator(
                     Box::new(WhereConditional::Operator(
