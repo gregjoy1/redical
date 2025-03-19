@@ -141,28 +141,76 @@ macro_rules! fold_terms {
     }}
 }
 
+macro_rules! fold_negated_terms {
+    ($variant:ident, $terms:expr, $op:expr) => {{
+        if $terms.len() == 0 { return None }
+
+        let condition = WhereConditional::NegatedProperty(
+            WhereConditionalProperty::$variant($terms[0].to_owned())
+        );
+
+        if $terms.len() == 1 { return Some(condition) }
+
+        let condition = $terms[1..].iter().fold(condition, |last, term|
+            WhereConditional::Operator(
+                Box::new(last),
+                Box::new(WhereConditional::NegatedProperty(
+                    WhereConditionalProperty::$variant(term.to_owned())
+                )),
+                $op,
+            )
+        );
+
+        Some(WhereConditional::Group(Box::new(condition)))
+    }}
+}
+
 fn build_uid_property_condition(property: &XUIDProperty) -> Option<WhereConditional> {
-    fold_terms!(
-        UID,
-        property.get_uids(),
-        WhereOperator::Or
-    )
+    if property.negated {
+        fold_negated_terms!(
+            UID,
+            property.get_uids(),
+            WhereOperator::Or
+        )
+    } else {
+        fold_terms!(
+            UID,
+            property.get_uids(),
+            WhereOperator::Or
+        )
+    }
 }
 
 fn build_location_type_property_condition(property: &XLocationTypeProperty) -> Option<WhereConditional> {
-    fold_terms!(
-        LocationType,
-        property.get_location_types(),
-        property.params.op.clone().into()
-    )
+    if property.negated {
+        fold_negated_terms!(
+            LocationType,
+            property.get_location_types(),
+            property.params.op.clone().into()
+        )
+    } else {
+        fold_terms!(
+            LocationType,
+            property.get_location_types(),
+            property.params.op.clone().into()
+        )
+    }
 }
 
 fn build_categories_property_condition(property: &XCategoriesProperty) -> Option<WhereConditional> {
-    fold_terms!(
-        Categories,
-        property.get_categories(),
-        property.params.op.clone().into()
-    )
+    if property.negated {
+        fold_negated_terms!(
+            Categories,
+            property.get_categories(),
+            property.params.op.clone().into()
+        )
+    } else {
+        fold_terms!(
+            Categories,
+            property.get_categories(),
+            property.params.op.clone().into()
+        )
+    }
 }
 
 fn build_related_to_property_condition(property: &XRelatedToProperty) -> Option<WhereConditional> {
@@ -173,11 +221,19 @@ fn build_related_to_property_condition(property: &XRelatedToProperty) -> Option<
         .map(|uid| KeyValuePair::new(reltype.to_string(), uid))
         .collect();
 
-    fold_terms!(
-        RelatedTo,
-        key_values,
-        property.params.op.clone().into()
-    )
+    if property.negated {
+        fold_negated_terms!(
+            RelatedTo,
+            key_values,
+            property.params.op.clone().into()
+        )
+    } else {
+        fold_terms!(
+            RelatedTo,
+            key_values,
+            property.params.op.clone().into()
+        )
+    }
 }
 
 fn build_geo_property_condition(property: &XGeoProperty) -> Option<WhereConditional> {
@@ -196,17 +252,32 @@ fn build_geo_property_condition(property: &XGeoProperty) -> Option<WhereConditio
 
     let (latitude, longitude) = property.get_lat_long_pair()?;
 
-    Some(WhereConditional::Property(
-        WhereConditionalProperty::Geo(x_geo_distance, GeoPoint::from((latitude, longitude))),
-    ))
+    let where_conditional_property = WhereConditionalProperty::Geo(
+        x_geo_distance,
+        GeoPoint::from((latitude, longitude))
+    );
+
+    if property.negated {
+        Some(WhereConditional::NegatedProperty(where_conditional_property))
+    } else {
+        Some(WhereConditional::Property(where_conditional_property))
+    }
 }
 
 fn build_class_property_condition(property: &XClassProperty) -> Option<WhereConditional> {
-    fold_terms!(
-        Class,
-        property.get_classifications(),
-        property.params.op.to_owned().into()
-    )
+    if property.negated {
+        fold_negated_terms!(
+            Class,
+            property.get_classifications(),
+            property.params.op.to_owned().into()
+        )
+    } else {
+        fold_terms!(
+            Class,
+            property.get_classifications(),
+            property.params.op.to_owned().into()
+        )
+    }
 }
 
 fn build_grouped_conditional(where_properties_group: &WherePropertiesGroup) -> Option<WhereConditional> {
@@ -426,7 +497,7 @@ mod test {
             "X-CATEGORIES;OP=OR:CATEGORY_ONE,CATEGORY_TWO",
             "X-RELATED-TO:PARENT_UID",
             "X-GEO;DIST=1.5KM:48.85299;2.36885",
-            "X-CLASS:PRIVATE",
+            "X-CLASS-NOT:PRIVATE",
             "X-LIMIT:50",
             "X-TZID:Europe/Vilnius",
             "X-ORDER-BY:DTSTART-GEO-DIST;48.85299;2.36885",
@@ -474,7 +545,7 @@ mod test {
                             )),
                             WhereOperator::And,
                         )),
-                        Box::new(WhereConditional::Property(
+                        Box::new(WhereConditional::NegatedProperty(
                             WhereConditionalProperty::Class(String::from("PRIVATE")),
                         )),
                         WhereOperator::And,
@@ -514,9 +585,9 @@ mod test {
             ")",
             "AND",
             "(",
-            "X-LOCATION-TYPE:ONLINE",
+            "X-LOCATION-TYPE-NOT:ONLINE",
             "OR",
-            "X-RELATED-TO;RELTYPE=CHILD:CHILD_UID",
+            "X-RELATED-TO-NOT;RELTYPE=CHILD:CHILD_UID",
             ")",
             ")",
             "X-LIMIT:50",
@@ -563,12 +634,12 @@ mod test {
                             )),
                             Box::new(WhereConditional::Group(
                                 Box::new(WhereConditional::Operator(
-                                    Box::new(WhereConditional::Property(
+                                    Box::new(WhereConditional::NegatedProperty(
                                         WhereConditionalProperty::LocationType(String::from(
                                             "ONLINE"
                                         )),
                                     )),
-                                    Box::new(WhereConditional::Property(
+                                    Box::new(WhereConditional::NegatedProperty(
                                         WhereConditionalProperty::RelatedTo(KeyValuePair::new(
                                             String::from("CHILD"),
                                             String::from("CHILD_UID"),
