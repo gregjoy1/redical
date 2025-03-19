@@ -372,36 +372,95 @@ Restrict  events to those with `PUBLIC` `CLASS` **or** `APPOINTMENT` `CATEGORIES
 (X-CLASS:PUBLIC OR X-CATEGORIES:APPOINTMENT AND (X-CLASS:PRIVATE OR X-CATEGORIES:EDUCATION)) X-CATEGORIES:Categories text
 ```
 
-## Return value 
+### Negative (NOT) querying
 
-`RDCL.EVT_QUERY` returns a multi dimensional [array](https://redis.io/docs/reference/protocol-spec/#arrays) of string replies for each event instance returned by the query.
+Redical offers the ability to query events by negated (NOT) matching. This returns entities where the result either has not indexed a specific term, or is indexed with a different term.
 
-This is comprised of two nested arrays:
-* The first highlights the utilised ordering attributes of the event instance
-* The second contains each ICalendar property of the event instance
+To use negated clauses, append `-NOT` to the property name identifier. Note that the `OR` operator cannot be used with negated query clauses. This functionality can still be acheived by chaining and joining clauses with the desired operator.
 
-```bash
-1) 1) 1) DTSTART:20210104T170000Z
-      2) X-GEO-DIST:35.633761KM
-   2) 1) CATEGORIES:OVERRIDDEN_CATEGORY
-      2) DTEND:20210104T173000Z
-      3) DTSTART:20210104T170000Z
-      4) DURATION:PT30M
-      5) GEO:51.751365550307604;-1.2601196837753945
-      6) RECURRENCE-ID;VALUE=DATE-TIME:20210104T170000Z
-      7) RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_PARENT_UUID
-      8) SUMMARY:Overridden event in Oxford summary text
-      9) UID:EVENT_IN_OXFORD_MON_WED
-2) 1) 1) ...
-      2) ...
-   2) 1) ...
-      2) ...
-      ...
+#### `X-CATEGORIES-NOT` property
+This property defines the `CATEGORIES` values on each event to exclude.
+
+##### Usage:
+```
+X-CATEGORIES-NOT:<categories>[,<categories>...]
 ```
 
-If unsuccessful, it simply returns an `error` response.
+##### Example:
+Query all events that are not indexed with categories `APPOINTMENT`, **or** `EDUCATION`:
+```
+X-CATEGORIES-NOT:APPOINTMENT,EDUCATION
+```
 
-For more information about replies, see [Redis serialization protocol specification](https://redis.io/docs/reference/protocol-spec). 
+#### `X-CLASS-NOT` property
+This property defines the `CLASS` values on each event to exclude.
+
+##### Usage:
+```
+X-CLASS-NOT:<class>[,<class>...]
+```
+
+##### Example:
+Query all events that are not indexed with classes `PUBLIC`, **or** `PRIVATE`:
+```
+X-CLASS-NOT:PUBLIC,PRIVATE
+```
+
+#### `X-GEO-NOT` property
+This property filters the events returned to those without `GEO` properties defined to be inside of the distance specified from the point specified.
+
+##### Usage:
+```
+X-GEO-NOT[;DIST=<distance>(KM|MI)]:<latitude>;<longitude>
+```
+
+##### Example:
+Query all events that are not within 10 kilometers from latitude: `48.85299` and longitude: `2.36885`:
+```
+X-GEO-NOT:48.85299;2.36885
+```
+
+#### `X-LOCATION-TYPE-NOT` property
+This property defines the `LOCATION-TYPE` values on each event to exclude.
+
+##### Usage:
+```
+X-LOCATION-TYPE-NOT:<types>[,<types>...]
+```
+
+##### Example:
+Query all events that are not indexed with location types `ONLINE`, **or** `OFFLINE`:
+```
+X-LOCATION-TYPE-NOT:ONLINE,OFFLINE
+```
+
+#### `X-RELATED-TO-NOT` property
+This property defines the `RELATED-TO` values on each event to exclude.
+
+##### Usage:
+```
+X-RELATED-TO-NOT:<related-to-uid>[,<related-to-uid>...]
+```
+
+##### Example:
+Query all events that are not indexed with related-to UIDs `parent.uid.one`, **or** `parent.uid.two`:
+```
+X-RELATED-TO-NOT:parent.uid.one,parent.uid.two
+```
+
+#### `X-UID-NOT` property
+This property defines the `UID` values on each event to exclude.
+
+##### Usage:
+```
+X-UID-NOT:<uids>[,<uids>...]
+```
+
+##### Example:
+Query all events that are not indexed with UIDs `UID_ONE`, **or** `UID_TWO`:
+```
+X-UID-NOT:UID_ONE,UID_TWO
+```
 
 ## Examples
 

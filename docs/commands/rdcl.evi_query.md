@@ -381,6 +381,96 @@ Restrict event instances to those with `PUBLIC` `CLASS` **or** `APPOINTMENT` `CA
 (X-CLASS:PUBLIC OR X-CATEGORIES:APPOINTMENT AND (X-CLASS:PRIVATE OR X-CATEGORIES:EDUCATION)) X-CATEGORIES:Categories text
 ```
 
+### Negative (NOT) querying
+
+Redical offers the ability to query event instances by negated (NOT) matching. This returns entities where the result either has not indexed a specific term, or is indexed with a different term.
+
+To use negated clauses, append `-NOT` to the property name identifier. Note that the `OR` operator cannot be used with negated query clauses. This functionality can still be acheived by chaining and joining clauses with the desired operator.
+
+#### `X-CATEGORIES-NOT` property
+This property defines the `CATEGORIES` values on each event to exclude.
+
+##### Usage:
+```
+X-CATEGORIES-NOT:<categories>[,<categories>...]
+```
+
+##### Example:
+Query all event instances that are not indexed with categories `APPOINTMENT`, **or** `EDUCATION`:
+```
+X-CATEGORIES-NOT:APPOINTMENT,EDUCATION
+```
+
+#### `X-CLASS-NOT` property
+This property defines the `CLASS` values on each event to exclude.
+
+##### Usage:
+```
+X-CLASS-NOT:<class>[,<class>...]
+```
+
+##### Example:
+Query all event instances that are not indexed with classes `PUBLIC`, **or** `PRIVATE`:
+```
+X-CLASS-NOT:PUBLIC,PRIVATE
+```
+
+#### `X-GEO-NOT` property
+This property filters the event instances returned to those without `GEO` properties defined to be inside of the distance specified from the point specified.
+
+##### Usage:
+```
+X-GEO-NOT[;DIST=<distance>(KM|MI)]:<latitude>;<longitude>
+```
+
+##### Example:
+Query all event instances that are not within 10 kilometers from latitude: `48.85299` and longitude: `2.36885`:
+```
+X-GEO-NOT:48.85299;2.36885
+```
+
+#### `X-LOCATION-TYPE-NOT` property
+This property defines the `LOCATION-TYPE` values on each event to exclude.
+
+##### Usage:
+```
+X-LOCATION-TYPE-NOT:<types>[,<types>...]
+```
+
+##### Example:
+Query all event instances that are not indexed with location types `ONLINE`, **or** `OFFLINE`:
+```
+X-LOCATION-TYPE-NOT:ONLINE,OFFLINE
+```
+
+#### `X-RELATED-TO-NOT` property
+This property defines the `RELATED-TO` values on each event to exclude.
+
+##### Usage:
+```
+X-RELATED-TO-NOT:<related-to-uid>[,<related-to-uid>...]
+```
+
+##### Example:
+Query all event instances that are not indexed with related-to UIDs `parent.uid.one`, **or** `parent.uid.two`:
+```
+X-RELATED-TO-NOT:parent.uid.one,parent.uid.two
+```
+
+#### `X-UID-NOT` property
+This property defines the `UID` values on each event to exclude.
+
+##### Usage:
+```
+X-UID-NOT:<uids>[,<uids>...]
+```
+
+##### Example:
+Query all event instances that are not indexed with UIDs `UID_ONE`, **or** `UID_TWO`:
+```
+X-UID-NOT:UID_ONE,UID_TWO
+```
+
 ## Return value 
 
 `RDCL.EVI_QUERY` returns a multi dimensional [array](https://redis.io/docs/reference/protocol-spec/#arrays) of string replies for each event instance returned by the query.
@@ -518,7 +608,7 @@ redis> RDCL.EVI_QUERY CALENDAR_UID X-ORDER-BY:GEO-DIST-DTSTART;51.4514278;-1.078
       10) UID:EVENT_IN_BRISTOL_TUE_THU
 ```
 
-Find all events with the `PARENT` relation to `PARENT_UID` that are within 60KM of Western-Super-Mare OR with the `OVERRIDDEN_CATEGORY` limited to 2 results:
+Find all event instances with the `PARENT` relation to `PARENT_UID` that are within 60KM of Western-Super-Mare OR with the `OVERRIDDEN_CATEGORY` limited to 2 results:
 ```bash
 redis> RDCL.EVI_QUERY CALENDAR_UID (X-GEO;DIST=60KM:51.3432622;-3.1608606 OR X-CATEGORIES:OVERRIDDEN_CATEGORY) X-ORDER-BY:GEO-DIST-DTSTART;51.4514278;-1.078448 X-RELATED-TO;RELTYPE=PARENT:PARENT_UUID X-LIMIT:2
 1) 1) 1) DTSTART:20201231T183000Z
