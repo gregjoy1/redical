@@ -1428,6 +1428,32 @@ mod integration {
             ],
         );
 
+        // Assert simple negative querying
+        query_calendar_and_assert_matching_event_instances!(
+            connection,
+            "TEST_CALENDAR_UID",
+            [
+                "X-CATEGORIES-NOT:CATEGORY_ONE"
+            ],
+            [
+                [
+                    [
+                        "DTSTART:20210105T183000Z",
+                    ],
+                    [
+                        "CATEGORIES:CATEGORY_OVERRIDE",
+                        "DTEND:20210105T190000Z",
+                        "DTSTART:20210105T183000Z",
+                        "DURATION:PT30M",
+                        "RECURRENCE-ID;VALUE=DATE-TIME:20210105T183000Z",
+                        "RELATED-TO;RELTYPE=PARENT:PARENT_UID_OVERRIDE",
+                        "SUMMARY:Overridden Event in Bristol on Tuesdays and Thursdays at 6:30PM (running online)",
+                        "UID:OVERRIDDEN_EVENT_IN_BRISTOL_TUE_THU",
+                    ],
+                ],
+            ]
+        );
+
         set_and_assert_event!(
             connection,
             "TEST_CALENDAR_UID",
@@ -1516,6 +1542,87 @@ mod integration {
             ],
         );
 
+        // Assert negative querying with more events
+        query_calendar_and_assert_matching_event_instances!(
+            connection,
+            "TEST_CALENDAR_UID",
+            [
+                "(",
+                    "X-CATEGORIES-NOT:CATEGORY_FOUR",
+                "AND",
+                    "X-LOCATION-TYPE-NOT:ONLINE",
+                "AND",
+                    "X-UID-NOT:EVENT_IN_READING_TUE_THU",
+                ")",
+            ],
+            [
+                [
+                    [
+                        "DTSTART:20210104T170000Z",
+                    ],
+                    [
+                        "CATEGORIES:OVERRIDDEN_CATEGORY",
+                        "DTEND:20210104T173000Z",
+                        "DTSTART:20210104T170000Z",
+                        "DURATION:PT30M",
+                        "GEO:51.751365550307604;-1.2601196837753945",
+                        "RECURRENCE-ID;VALUE=DATE-TIME:20210104T170000Z",
+                        "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_PARENT_UID",
+                        "SUMMARY:Overridden event in Oxford summary text",
+                        "UID:EVENT_IN_OXFORD_MON_WED",
+                    ],
+                ],
+                [
+                    [
+                        "DTSTART:20210105T183000Z",
+                    ],
+                    [
+                        "CATEGORIES:CATEGORY_OVERRIDE",
+                        "DTEND:20210105T190000Z",
+                        "DTSTART:20210105T183000Z",
+                        "DURATION:PT30M",
+                        "RECURRENCE-ID;VALUE=DATE-TIME:20210105T183000Z",
+                        "RELATED-TO;RELTYPE=PARENT:PARENT_UID_OVERRIDE",
+                        "SUMMARY:Overridden Event in Bristol on Tuesdays and Thursdays at 6:30PM (running online)",
+                        "UID:OVERRIDDEN_EVENT_IN_BRISTOL_TUE_THU",
+                    ],
+                ],
+                [
+                    [
+                        "DTSTART:20210106T170000Z",
+                    ],
+                    [
+                        "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
+                        "DTEND:20210106T173000Z",
+                        "DTSTART:20210106T170000Z",
+                        "DURATION:PT30M",
+                        "GEO:51.751365550307604;-1.2601196837753945",
+                        "RECURRENCE-ID;VALUE=DATE-TIME:20210106T170000Z",
+                        "RELATED-TO;RELTYPE=PARENT:PARENT_UID",
+                        "SUMMARY:Event in Oxford on Mondays and Wednesdays at 5:00PM",
+                        "UID:EVENT_IN_OXFORD_MON_WED",
+                    ],
+                ],
+                [
+                    [
+                        "DTSTART:20210111T170000Z",
+                    ],
+                    [
+                        "CATEGORIES:CATEGORY_ONE,OVERRIDDEN_CATEGORY",
+                        "DTEND:20210111T173000Z",
+                        "DTSTART:20210111T170000Z",
+                        "DURATION:PT30M",
+                        "GEO:51.751365550307604;-1.2601196837753945",
+                        "RECURRENCE-ID;VALUE=DATE-TIME:20210111T170000Z",
+                        "RELATED-TO;RELTYPE=PARENT:PARENT_UID",
+                        "SUMMARY:Event in Oxford on Mondays and Wednesdays at 5:00PM",
+                        "UID:EVENT_IN_OXFORD_MON_WED",
+                        "X-SPACES-BOOKED:12",
+                    ],
+                ],
+            ]
+        );
+
         // Assert comprehensive query with more events (and overrides) added
         query_calendar_and_assert_matching_event_instances!(
             connection,
@@ -1537,6 +1644,10 @@ mod integration {
                         "OR",
                         "X-LOCATION-TYPE:ONLINE",
                     ")",
+                    "AND",
+                    "(",
+                        "X-LOCATION-TYPE-NOT:DIGITAL",
+                    ")",
                 ")",
                 "X-LIMIT:50",
                 "X-OFFSET:0",
@@ -1545,21 +1656,6 @@ mod integration {
                 "X-ORDER-BY:DTSTART-GEO-DIST;51.55577390;-1.77971760",
             ],
             [
-                [
-                    [
-                        "DTSTART;TZID=Europe/Vilnius:20210106T180000",
-                    ],
-                    [
-                        "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
-                        "DTEND;TZID=Europe/Vilnius:20210106T190000",
-                        "DTSTART;TZID=Europe/Vilnius:20210106T180000",
-                        "DURATION:PT1H",
-                        "LOCATION-TYPE:DIGITAL,ONLINE",
-                        "RECURRENCE-ID;VALUE=DATE-TIME;TZID=Europe/Vilnius:20210106T180000",
-                        "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM",
-                        "UID:ONLINE_EVENT_MON_WED",
-                    ],
-                ],
                 [
                     [
                         "DTSTART;TZID=Europe/Vilnius:20210106T190000",
@@ -1831,6 +1927,39 @@ mod integration {
             [],
         );
 
+        // Assert negative querying
+        query_calendar_and_assert_matching_events!(
+            connection,
+            "TEST_CALENDAR_UID",
+            [
+                "X-CATEGORIES-NOT:CATEGORY_ONE",
+                "X-TZID:Europe/Vilnius",
+                "X-ORDER-BY:DTSTART-GEO-DIST;51.55577390;-1.77971760",
+            ],
+            [
+                [
+                    [
+                        "DTSTART;TZID=Europe/Vilnius:20201231T223000",
+                        "X-GEO-DIST:57.088038KM",
+                    ],
+                    [
+                        "CATEGORIES:CATEGORY_THREE",
+                        "CLASS:CONFIDENTIAL",
+                        "DTEND;TZID=Europe/Vilnius:20201231T230000",
+                        "DTSTART;TZID=Europe/Vilnius:20201231T223000",
+                        "GEO:51.454481838260214;-2.588329192623361",
+                        "LAST-MODIFIED:20210501T090000Z",
+                        "LOCATION-TYPE:HOTEL",
+                        "RELATED-TO;RELTYPE=SIBLING:SIBLING_UID",
+                        "RRULE:BYDAY=TH,TU;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
+                        "SUMMARY:Event in Bristol on Tuesdays and Thursdays at 8:30PM",
+                        "UID:EVENT_IN_BRISTOL_TUE_THU",
+                    ],
+                ],
+            ],
+        );
+
+
         // Assert comprehensive query
         query_calendar_and_assert_matching_events!(
             connection,
@@ -1850,6 +1979,10 @@ mod integration {
                         "OR",
                          "X-LOCATION-TYPE:HALL",
                     ")",
+                    "AND",
+                    "(",
+                        "X-UID-NOT:EVENT_IN_CHELTENHAM_TUE_THU",
+                    ")",
                 ")",
                 "X-LIMIT:50",
                 "X-OFFSET:0",
@@ -1857,25 +1990,6 @@ mod integration {
                 "X-ORDER-BY:DTSTART-GEO-DIST;51.55577390;-1.77971760",
             ],
             [
-                [
-                    [
-                        "DTSTART;TZID=Europe/Vilnius:20201231T203000",
-                        "X-GEO-DIST:43.390803KM",
-                    ],
-                    [
-                        "CATEGORIES:CATEGORY_ONE,CATEGORY_TWO",
-                        "CLASS:PUBLIC",
-                        "DTEND;TZID=Europe/Vilnius:20201231T210000",
-                        "DTSTART;TZID=Europe/Vilnius:20201231T203000",
-                        "GEO:51.89936851432488;-2.078357552295971",
-                        "LAST-MODIFIED:20210501T090000Z",
-                        "LOCATION-TYPE:HALL",
-                        "RELATED-TO;RELTYPE=PARENT:PARENT_UID",
-                        "RRULE:BYDAY=TH,TU;COUNT=3;FREQ=WEEKLY;INTERVAL=1",
-                        "SUMMARY:Event in Cheltenham on Tuesdays and Thursdays at 6:30PM",
-                        "UID:EVENT_IN_CHELTENHAM_TUE_THU",
-                    ],
-                ],
                 [
                     [
                         "DTSTART;TZID=Europe/Vilnius:20201231T223000",
