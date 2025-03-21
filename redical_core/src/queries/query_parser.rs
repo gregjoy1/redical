@@ -368,7 +368,7 @@ mod test {
     use crate::{GeoDistance, KeyValuePair};
 
     #[test]
-    fn test_build_class_property_condition_condition() {
+    fn test_build_class_property_condition() {
         assert_eq!(
             build_class_property_condition(&build_property_from_ical!(XClassProperty, "X-CLASS:")),
             None,
@@ -406,7 +406,7 @@ mod test {
     }
 
     #[test]
-    fn test_build_categories_property_condition_condition() {
+    fn test_build_categories_property_condition() {
         assert_eq!(
             build_categories_property_condition(&build_property_from_ical!(XCategoriesProperty, "X-CATEGORIES:")),
             None,
@@ -442,7 +442,7 @@ mod test {
     }
 
     #[test]
-    fn test_build_related_to_property_condition_condition() {
+    fn test_build_related_to_property_condition() {
         assert_eq!(
             build_related_to_property_condition(&build_property_from_ical!(XRelatedToProperty, "X-RELATED-TO:")),
             None,
