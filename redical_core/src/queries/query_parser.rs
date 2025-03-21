@@ -165,12 +165,14 @@ macro_rules! fold_negated_terms {
     }}
 }
 
+// Operator is hardcoded for UIDs due to the mutual exclusivity between separate
+// events (ie an event can't have multiple UIDs).
 fn build_uid_property_condition(property: &XUIDProperty) -> Option<WhereConditional> {
     if property.negated {
         fold_negated_terms!(
             UID,
             property.get_uids(),
-            WhereOperator::Or
+            WhereOperator::And
         )
     } else {
         fold_terms!(

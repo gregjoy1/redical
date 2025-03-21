@@ -1766,6 +1766,87 @@ mod integration {
             ]
         );
 
+        // Assert negative querying by UID
+        query_calendar_and_assert_matching_event_instances!(
+            connection,
+            "TEST_CALENDAR_UID",
+            [
+                "(X-UID-NOT:EVENT_IN_CHELTENHAM_TUE_THU,OVERRIDDEN_EVENT_IN_BRISTOL_TUE_THU)",
+                "X-LIMIT:4",
+                "X-OFFSET:0",
+                "X-TZID:Europe/Vilnius",
+                "X-ORDER-BY:DTSTART-GEO-DIST;51.454481838260214;-2.588329192623361",
+            ],
+            [
+                [
+                    [
+                        "DTSTART;TZID=Europe/Vilnius:20201231T200000",
+                        "X-GEO-DIST:111.491952KM",
+                    ],
+                    [
+                        "CATEGORIES:CATEGORY_ONE,CATEGORY_THREE",
+                        "DTEND;TZID=Europe/Vilnius:20201231T203000",
+                        "DTSTART;TZID=Europe/Vilnius:20201231T200000",
+                        "DURATION:PT30M",
+                        "GEO:51.45442303961853;-0.9792277140273513",
+                        "RECURRENCE-ID;VALUE=DATE-TIME;TZID=Europe/Vilnius:20201231T200000",
+                        "RELATED-TO;RELTYPE=PARENT:PARENT_UID",
+                        "SUMMARY:Event in Reading on Tuesdays and Thursdays at 6:00PM",
+                        "UID:EVENT_IN_READING_TUE_THU",
+                    ],
+                ],
+                [
+                    [
+                        "DTSTART;TZID=Europe/Vilnius:20201231T203000",
+                        "X-GEO-DIST:170.540546KM",
+                    ],
+                    [
+                        "CATEGORIES:CATEGORY_FOUR,CATEGORY_ONE",
+                        "DTEND;TZID=Europe/Vilnius:20201231T210000",
+                        "DTSTART;TZID=Europe/Vilnius:20201231T203000",
+                        "DURATION:PT30M",
+                        "GEO:51.50740017561507;-0.12698231869919185",
+                        "RECURRENCE-ID;VALUE=DATE-TIME;TZID=Europe/Vilnius:20201231T203000",
+                        "RELATED-TO;RELTYPE=PARENT:PARENT_UID",
+                        "SUMMARY:Event in London on Tuesdays and Thursdays at 6:30PM",
+                        "UID:EVENT_IN_LONDON_TUE_THU",
+                    ],
+                ],
+                [
+                    [
+                        "DTSTART;TZID=Europe/Vilnius:20210104T180000",
+                    ],
+                    [
+                        "CATEGORIES:CATEGORY TWO,CATEGORY_ONE",
+                        "DTEND;TZID=Europe/Vilnius:20210104T190000",
+                        "DTSTART;TZID=Europe/Vilnius:20210104T180000",
+                        "DURATION:PT1H",
+                        "LOCATION-TYPE:DIGITAL,ONLINE",
+                        "RECURRENCE-ID;VALUE=DATE-TIME;TZID=Europe/Vilnius:20210104T180000",
+                        "SUMMARY:Online Event on Mondays and Wednesdays at 4:00PM",
+                        "UID:ONLINE_EVENT_MON_WED",
+                    ],
+                ],
+                [
+                    [
+                        "DTSTART;TZID=Europe/Vilnius:20210104T190000",
+                        "X-GEO-DIST:97.489206KM",
+                    ],
+                    [
+                        "CATEGORIES:OVERRIDDEN_CATEGORY",
+                        "DTEND;TZID=Europe/Vilnius:20210104T193000",
+                        "DTSTART;TZID=Europe/Vilnius:20210104T190000",
+                        "DURATION:PT30M",
+                        "GEO:51.751365550307604;-1.2601196837753945",
+                        "RECURRENCE-ID;VALUE=DATE-TIME;TZID=Europe/Vilnius:20210104T190000",
+                        "RELATED-TO;RELTYPE=PARENT:OVERRIDDEN_PARENT_UID",
+                        "SUMMARY:Overridden event in Oxford summary text",
+                        "UID:EVENT_IN_OXFORD_MON_WED",
+                    ],
+                ],
+            ]
+        );
+
         assert_error_returned!(
             connection,
             "Error: - expected iCalendar RFC-5545 DATE-VALUE (DATE-FULLYEAR DATE-MONTH DATE-MDAY) at \"41T180000Z\" -- Context: X-UNTIL -> DATE-TIME -> DATE",
@@ -2074,6 +2155,89 @@ mod integration {
                 "LAST-MODIFIED:20210501T090000Z",
                 "GEO:51.45442303961853;-0.9792277140273513",
             ],
+        );
+
+        // Assert negative querying by UID
+        query_calendar_and_assert_matching_event_instances!(
+            connection,
+            "TEST_CALENDAR_UID",
+            [
+                "(X-UID-NOT:ONLINE_EVENT_MON_WED,OVERRIDDEN_EVENT_IN_BRISTOL_TUE_THU)",
+                "X-LIMIT:4",
+                "X-OFFSET:0",
+                "X-TZID:Europe/Vilnius",
+                "X-ORDER-BY:DTSTART-GEO-DIST;51.454481838260214;-2.588329192623361",
+            ],
+            [
+                [
+                    [
+                        "DTSTART;TZID=Europe/Vilnius:20201231T200000",
+                        "X-GEO-DIST:111.491952KM",
+                    ],
+                    [
+                        "DTEND;TZID=Europe/Vilnius:20201231T203000",
+                        "DTSTART;TZID=Europe/Vilnius:20201231T200000",
+                        "DURATION:PT30M",
+                        "GEO:51.45442303961853;-0.9792277140273513",
+                        "RECURRENCE-ID;VALUE=DATE-TIME;TZID=Europe/Vilnius:20201231T200000",
+                        "SUMMARY:Event in Reading on Tuesdays and Thursdays at 6:00PM",
+                        "UID:EVENT_IN_READING_TUE_THU",
+                    ],
+                ],
+                [
+                    [
+                        "DTSTART;TZID=Europe/Vilnius:20201231T203000",
+                        "X-GEO-DIST:170.540546KM",
+                    ],
+                    [
+                        "CATEGORIES:OVERRIDDEN_CATEGORY",
+                        "CLASS:OVERRIDDEN",
+                        "DTEND;TZID=Europe/Vilnius:20201231T210000",
+                        "DTSTART;TZID=Europe/Vilnius:20201231T203000",
+                        "DURATION:PT30M",
+                        "GEO:51.50740017561507;-0.12698231869919185",
+                        "LOCATION-TYPE:OVERRIDDEN_TYPE",
+                        "RECURRENCE-ID;VALUE=DATE-TIME;TZID=Europe/Vilnius:20201231T203000",
+                        "RELATED-TO;RELTYPE=PARENT:OVERIDDEN_UID",
+                        "SUMMARY:Overridden Event in Cheltenham running in London",
+                        "UID:EVENT_IN_CHELTENHAM_TUE_THU",
+                    ],
+                ],
+                [
+                    [
+                        "DTSTART;TZID=Europe/Vilnius:20201231T223000",
+                        "X-GEO-DIST:170.540546KM",
+                    ],
+                    [
+                        "CATEGORIES:OVERRIDDEN_CATEGORY",
+                        "CLASS:OVERRIDDEN",
+                        "DTEND;TZID=Europe/Vilnius:20201231T230000",
+                        "DTSTART;TZID=Europe/Vilnius:20201231T223000",
+                        "DURATION:PT30M",
+                        "GEO:51.50740017561507;-0.12698231869919185",
+                        "LOCATION-TYPE:OVERRIDDEN_TYPE",
+                        "RECURRENCE-ID;VALUE=DATE-TIME;TZID=Europe/Vilnius:20201231T223000",
+                        "RELATED-TO;RELTYPE=PARENT:OVERIDDEN_UID",
+                        "SUMMARY:Overridden Event in Bristol running in London",
+                        "UID:EVENT_IN_BRISTOL_TUE_THU",
+                    ],
+                ],
+                [
+                    [
+                        "DTSTART;TZID=Europe/Vilnius:20210105T200000",
+                        "X-GEO-DIST:111.491952KM",
+                    ],
+                    [
+                        "DTEND;TZID=Europe/Vilnius:20210105T203000",
+                        "DTSTART;TZID=Europe/Vilnius:20210105T200000",
+                        "DURATION:PT30M",
+                        "GEO:51.45442303961853;-0.9792277140273513",
+                        "RECURRENCE-ID;VALUE=DATE-TIME;TZID=Europe/Vilnius:20210105T200000",
+                        "SUMMARY:Event in Reading on Tuesdays and Thursdays at 6:00PM",
+                        "UID:EVENT_IN_READING_TUE_THU",
+                    ],
+                ]
+            ]
         );
 
         // Assert comprehensive impossible query
