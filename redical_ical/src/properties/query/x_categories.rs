@@ -1,6 +1,6 @@
 use nom::error::context;
 use nom::sequence::{pair, preceded, tuple};
-use nom::combinator::{map, cut, opt};
+use nom::combinator::{map_res, cut, opt};
 
 use crate::grammar::{tag, semicolon, colon};
 
@@ -12,7 +12,7 @@ use crate::properties::{ICalendarProperty, ICalendarPropertyParams, define_prope
 
 use crate::content_line::{ContentLineParams, ContentLine};
 
-use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
+use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, ParserError, impl_icalendar_entity_traits};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct XCategoriesPropertyParams {
@@ -88,7 +88,7 @@ impl ICalendarEntity for XCategoriesProperty {
             preceded(
                 tag("X-CATEGORIES"),
                 cut(
-                    map(
+                    map_res(
                         tuple(
                             (
                                 opt(tag("-NOT")),
@@ -97,11 +97,22 @@ impl ICalendarEntity for XCategoriesProperty {
                             )
                         ),
                         |(not, params, categories)| {
-                            XCategoriesProperty {
-                                params: params.unwrap_or(XCategoriesPropertyParams::default()),
+                            let property = XCategoriesProperty {
+                                params: params.unwrap_or_default(),
                                 categories,
                                 negated: not.is_some(),
+                            };
+
+                            if property.negated && property.params.op != WhereOperator::And {
+                                return Err(
+                                    ParserError::new(
+                                        String::from("incompatible NOT operator"),
+                                        input
+                                    )
+                                );
                             }
+
+                            Ok(property)
                         }
                     )
                 )
@@ -217,18 +228,7 @@ mod tests {
             ),
         );
 
-        assert_parser_output!(
-            XCategoriesProperty::parse_ical("X-CATEGORIES-NOT;OP=OR:APPOINTMENT,EDUCATION DESCRIPTION:Description text".into()),
-            (
-                " DESCRIPTION:Description text",
-                XCategoriesProperty {
-                    params: XCategoriesPropertyParams { op: WhereOperator::Or },
-                    categories: List::from(vec![Text(String::from("APPOINTMENT")), Text(String::from("EDUCATION"))]),
-                    negated: true,
-                },
-            ),
-        );
-
+        assert!(XCategoriesProperty::parse_ical("X-CATEGORIES-NOT;OP=OR:APPOINTMENT".into()).is_err());
         assert!(XCategoriesProperty::parse_ical(":".into()).is_err());
         assert!(XCategoriesProperty::parse_ical("X-CATEGORIES;OP=WRONG:APPOINTMENT".into()).is_err());
     }
