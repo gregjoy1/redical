@@ -1,6 +1,6 @@
 use nom::error::context;
 use nom::sequence::{pair, preceded, tuple};
-use nom::combinator::{map, cut, opt};
+use nom::combinator::{map_res, cut, opt};
 
 use crate::grammar::{tag, semicolon, colon};
 
@@ -12,7 +12,7 @@ use crate::properties::{ICalendarProperty, ICalendarPropertyParams, define_prope
 
 use crate::content_line::{ContentLineParams, ContentLine};
 
-use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
+use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, ParserError, impl_icalendar_entity_traits};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct XLocationTypePropertyParams {
@@ -88,7 +88,7 @@ impl ICalendarEntity for XLocationTypeProperty {
             preceded(
                 tag("X-LOCATION-TYPE"),
                 cut(
-                    map(
+                    map_res(
                         tuple(
                             (
                                 opt(tag("-NOT")),
@@ -97,11 +97,22 @@ impl ICalendarEntity for XLocationTypeProperty {
                             )
                         ),
                         |(not, params, types)| {
-                            XLocationTypeProperty {
-                                params: params.unwrap_or(XLocationTypePropertyParams::default()),
+                            let property = XLocationTypeProperty {
+                                params: params.unwrap_or_default(),
                                 types,
                                 negated: not.is_some(),
+                            };
+
+                            if property.negated && property.params.op != WhereOperator::And {
+                                return Err(
+                                    ParserError::new(
+                                        String::from("incompatible NOT operator"),
+                                        input
+                                    )
+                                );
                             }
+
+                            Ok(property)
                         }
                     )
                 )
@@ -217,18 +228,7 @@ mod tests {
             ),
         );
 
-        assert_parser_output!(
-            XLocationTypeProperty::parse_ical("X-LOCATION-TYPE-NOT;OP=OR:RESTAURANT,HOTEL DESCRIPTION:Description text".into()),
-            (
-                " DESCRIPTION:Description text",
-                XLocationTypeProperty {
-                    params: XLocationTypePropertyParams { op: WhereOperator::Or },
-                    types: List::from(vec![Text(String::from("RESTAURANT")), Text(String::from("HOTEL"))]),
-                    negated: true,
-                },
-            ),
-        );
-
+        assert!(XLocationTypeProperty::parse_ical("X-LOCATION-TYPE-NOT;OP=OR:RESTAURANT".into()).is_err());
         assert!(XLocationTypeProperty::parse_ical(":".into()).is_err());
         assert!(XLocationTypeProperty::parse_ical("X-LOCATION-TYPE;OP=WRONG:RESTAURANT".into()).is_err());
     }

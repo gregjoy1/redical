@@ -1,6 +1,6 @@
 use nom::error::context;
 use nom::sequence::{pair, preceded, tuple};
-use nom::combinator::{map, cut, opt};
+use nom::combinator::{map_res, cut, opt};
 
 use crate::values::text::Text;
 use crate::values::list::List;
@@ -13,7 +13,7 @@ use crate::properties::{ICalendarProperty, ICalendarPropertyParams, define_prope
 
 use crate::content_line::{ContentLineParams, ContentLine};
 
-use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
+use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, ParserError, impl_icalendar_entity_traits};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct XRelatedToPropertyParams {
@@ -89,7 +89,7 @@ impl ICalendarEntity for XRelatedToProperty {
             preceded(
                 tag("X-RELATED-TO"),
                 cut(
-                    map(
+                    map_res(
                         tuple(
                             (
                                 opt(tag("-NOT")),
@@ -98,11 +98,22 @@ impl ICalendarEntity for XRelatedToProperty {
                             )
                         ),
                         |(not, params, uids)| {
-                            XRelatedToProperty {
+                            let property = XRelatedToProperty {
                                 params: params.unwrap_or(XRelatedToPropertyParams::default()),
                                 uids,
                                 negated: not.is_some(),
+                            };
+
+                            if property.negated && property.params.op != WhereOperator::And {
+                                return Err(
+                                    ParserError::new(
+                                        String::from("incompatible NOT operator"),
+                                        input
+                                    )
+                                );
                             }
+
+                            Ok(property)
                         }
                     )
                 )
@@ -214,20 +225,7 @@ mod tests {
             ),
         );
 
-        assert_parser_output!(
-            XRelatedToProperty::parse_ical("X-RELATED-TO-NOT;RELTYPE=X-RELTYPE;OP=OR:x-reltype.uid.one,x-reltype.uid.two DESCRIPTION:Description text".into()),
-            (
-                " DESCRIPTION:Description text",
-                XRelatedToProperty {
-                    params: XRelatedToPropertyParams {
-                        reltype: Reltype::XName(String::from("X-RELTYPE")),
-                        op: WhereOperator::Or,
-                    },
-                    uids: List::from(vec![Text(String::from("x-reltype.uid.one")), Text(String::from("x-reltype.uid.two"))]),
-                    negated: true,
-                },
-            ),
-        );
+        assert!(XRelatedToProperty::parse_ical("X-RELATED-TO-NOT;RELTYPE=X-RELTYPE;OP=OR:x-reltype.uid.one,x-reltype.uid.two DESCRIPTION:Description text".into()).is_err());
 
         assert!(XRelatedToProperty::parse_ical(":".into()).is_err());
     }
