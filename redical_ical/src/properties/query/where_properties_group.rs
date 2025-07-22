@@ -267,6 +267,25 @@ mod tests {
         );
 
         assert_parser_output!(
+            WherePropertiesGroup::parse_ical(ParserInput::new_extra("(X-CATEGORIES:((TESTING)) Category One,Category Two) X-CLASS:PRIVATE", ParserContext::Query)),
+            (
+                " X-CLASS:PRIVATE",
+                WherePropertiesGroup {
+                    properties: vec![
+                        GroupedWhereProperty::XCategories(
+                            None,
+                            XCategoriesProperty {
+                                params: XCategoriesPropertyParams::default(),
+                                categories: List::from(vec![Text(String::from("((TESTING)) Category One")), Text(String::from("Category Two"))]),
+                                negated: false,
+                            },
+                        ),
+                    ]
+                },
+            ),
+        );
+
+        assert_parser_output!(
             WherePropertiesGroup::parse_ical(ParserInput::new_extra("(X-CLASS:PUBLIC,PRIVATE) X-CATEGORIES:Categories text", ParserContext::Query)),
             (
                 " X-CATEGORIES:Categories text",

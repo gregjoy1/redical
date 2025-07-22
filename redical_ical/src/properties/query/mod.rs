@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use nom::error::context;
 use nom::combinator::{recognize, eof, opt, not, map, all_consuming};
-use nom::sequence::{tuple, preceded};
+use nom::sequence::{tuple, preceded, pair};
 use nom::multi::{many1, separated_list1};
 use nom::branch::alt;
 
@@ -71,7 +71,37 @@ impl QueryProperty {
                         // TODO: HACK HACK HACK HACK - tidy and consolidate
                         recognize(tuple((WhereOperator::parse_ical, opt(wsp), tag("(")))),
                         recognize(tuple((opt(wsp), tag("("), opt(wsp), GroupedWhereProperty::parse_ical))),
-                        recognize(tuple((not(contentline), many1(tag(")")), alt((wsp, eof))))),
+                        // NOTE: HORRIBLE HORRIBLE HORRIBLE HACK!!!!
+                        recognize(
+                            tuple(
+                                (
+                                    not(contentline),
+                                    many1(
+                                        recognize(
+                                            pair(
+                                                tag(")"), opt(wsp)
+                                            )
+                                        )
+                                    ),
+                                    alt(
+                                        (
+                                            recognize(
+                                                pair(
+                                                    opt(wsp),
+                                                    alt(
+                                                        (
+                                                            recognize(contentline),
+                                                            recognize(GroupedWhereProperty::parse_ical)
+                                                        )
+                                                    )
+                                                )
+                                            ),
+                                            eof
+                                        )
+                                    )
+                                )
+                            )
+                        ),
                         recognize(GroupedWhereProperty::parse_ical),
                         recognize(QueryProperty::parse_ical),
                     )),
