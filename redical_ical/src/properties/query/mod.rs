@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use nom::error::context;
-use nom::combinator::{recognize, eof, opt, not, map, all_consuming};
+use nom::combinator::{recognize, eof, opt, map, all_consuming};
 use nom::sequence::{tuple, preceded, pair};
 use nom::multi::{many1, separated_list1};
 use nom::branch::alt;
@@ -68,41 +68,52 @@ impl QueryProperty {
                 preceded(
                     opt(wsp_1_1),
                     alt((
-                        // TODO: HACK HACK HACK HACK - tidy and consolidate
+                        // Terminate on operator and opening bracket (grouped where property)
+                        // e.g. `OR (` or `AND (`
                         recognize(tuple((WhereOperator::parse_ical, opt(wsp), tag("(")))),
+
+                        // Terminate on multiple opening brackets (grouped where property)
+                        // e.g. `( ((`
                         recognize(tuple((opt(wsp), tag("("), opt(wsp), GroupedWhereProperty::parse_ical))),
-                        // NOTE: HORRIBLE HORRIBLE HORRIBLE HACK!!!!
+
+                        // Terminate on closing bracket(s) found followed by:
+                        // * End of line
+                        // * Content line
+                        // * Opening bracket (grouped where property)
                         recognize(
-                            tuple(
-                                (
-                                    not(contentline),
-                                    many1(
-                                        recognize(
-                                            pair(
-                                                tag(")"), opt(wsp)
-                                            )
+                            pair(
+                                many1(
+                                    recognize(
+                                        pair(
+                                            tag(")"), opt(wsp)
                                         )
-                                    ),
-                                    alt(
-                                        (
-                                            recognize(
-                                                pair(
-                                                    opt(wsp),
-                                                    alt(
-                                                        (
-                                                            recognize(contentline),
-                                                            recognize(GroupedWhereProperty::parse_ical)
-                                                        )
+                                    )
+                                ),
+                                alt(
+                                    (
+                                        recognize(
+                                            preceded(
+                                                opt(wsp),
+                                                alt(
+                                                    (
+                                                        recognize(contentline),
+                                                        recognize(GroupedWhereProperty::parse_ical)
                                                     )
                                                 )
-                                            ),
-                                            eof
-                                        )
+                                            )
+                                        ),
+                                        eof
                                     )
                                 )
                             )
                         ),
+
+                        // Terminate on grouped where property
+                        // e.g. `(X-CATEGORY:ONE)`
                         recognize(GroupedWhereProperty::parse_ical),
+
+                        // Terminate on query property
+                        // e.g. `X-CATEGORY:ONE`
                         recognize(QueryProperty::parse_ical),
                     )),
                 )
