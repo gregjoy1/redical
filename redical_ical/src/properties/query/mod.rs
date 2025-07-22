@@ -96,6 +96,7 @@ impl QueryProperty {
                                                 opt(wsp),
                                                 alt(
                                                     (
+                                                        recognize(WhereOperator::parse_ical),
                                                         recognize(contentline),
                                                         recognize(GroupedWhereProperty::parse_ical)
                                                     )
