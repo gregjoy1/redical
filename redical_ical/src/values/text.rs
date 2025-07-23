@@ -124,6 +124,8 @@ mod tests {
 
     use crate::tests::assert_parser_output;
 
+    use crate::ParserContext;
+
     #[test]
     fn parse_ical() {
         assert_parser_output!(
@@ -148,6 +150,19 @@ mod tests {
             (
                 " DESCRIPTION:Description Text",
                 Text(String::from("Some text\\, some more text!")),
+            ),
+        );
+
+        assert_parser_output!(
+            Text::parse_ical(
+                ParserInput::new_extra(
+                    "((TESTING)) SOMETHING X-CATEGORIES:Categories text",
+                    ParserContext::Query
+                )
+            ),
+            (
+                " X-CATEGORIES:Categories text",
+                Text(String::from("((TESTING)) SOMETHING")),
             ),
         );
     }

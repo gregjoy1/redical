@@ -50,7 +50,7 @@ pub fn tag<'a>(tag: &'a str) -> impl Fn(ParserInput) -> ParserResult<ParserInput
             Err(nom::Err::Error(_error)) => {
                 Err(
                     nom::Err::Error(
-                        ParserError::new(format!("expected '{}'", tag), input)
+                        ParserError::new(format!("expected '{tag}'"), input)
                     )
                 )
             },
@@ -58,7 +58,7 @@ pub fn tag<'a>(tag: &'a str) -> impl Fn(ParserInput) -> ParserResult<ParserInput
             Err(nom::Err::Failure(_error)) => {
                 Err(
                     nom::Err::Failure(
-                        ParserError::new(format!("expected '{}'", tag), input)
+                        ParserError::new(format!("expected '{tag}'"), input)
                     )
                 )
             },

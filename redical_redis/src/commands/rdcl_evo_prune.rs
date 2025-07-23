@@ -8,7 +8,7 @@ use crate::datatype::CALENDAR_DATA_TYPE;
 use redical_ical::values::date_time::DateTime;
 
 fn notify_keyspace_event(ctx: &Context, calendar_uid: &RedisString, event_uid: &String, override_date_string: &str) -> Result<(), RedisError> {
-    let event_message = format!("rdcl.evo_prune:{}:{}", event_uid, override_date_string);
+    let event_message = format!("rdcl.evo_prune:{event_uid}:{override_date_string}");
 
     if ctx.notify_keyspace_event(NotifyEvent::MODULE, event_message.as_str(), calendar_uid) == Status::Err {
         return Err(
@@ -24,8 +24,7 @@ fn notify_keyspace_event(ctx: &Context, calendar_uid: &RedisString, event_uid: &
 fn prune_calendar_events_overrides(calendar: &mut Calendar, event_uid: String, from_timestamp: i64, until_timestamp: i64) -> Result<Vec<(i64, EventOccurrenceOverride)>, RedisError> {
     let Some(mut event) = calendar.events.get(&event_uid).cloned() else {
         return Err(RedisError::String(format!(
-            "No event with UID: '{}' found",
-            event_uid
+            "No event with UID: '{event_uid}' found",
         )));
     };
 

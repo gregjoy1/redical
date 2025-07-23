@@ -216,7 +216,7 @@ impl ICalendarProperty for WherePropertiesGroup {
                            .join(" ");
 
         ContentLine::new_unstructured(
-            format!("({})", joined_properties)
+            format!("({joined_properties})")
         )
     }
 }
@@ -263,6 +263,25 @@ mod tests {
             (
                 " X-CATEGORIES:Categories text",
                 WherePropertiesGroup { properties: vec![] },
+            ),
+        );
+
+        assert_parser_output!(
+            WherePropertiesGroup::parse_ical(ParserInput::new_extra("(X-CATEGORIES:((TESTING)) Category One,(TESTING) Category Two) X-CLASS:PRIVATE", ParserContext::Query)),
+            (
+                " X-CLASS:PRIVATE",
+                WherePropertiesGroup {
+                    properties: vec![
+                        GroupedWhereProperty::XCategories(
+                            None,
+                            XCategoriesProperty {
+                                params: XCategoriesPropertyParams::default(),
+                                categories: List::from(vec![Text(String::from("((TESTING)) Category One")), Text(String::from("(TESTING) Category Two"))]),
+                                negated: false,
+                            },
+                        ),
+                    ]
+                },
             ),
         );
 

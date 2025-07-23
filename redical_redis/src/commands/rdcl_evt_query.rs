@@ -97,8 +97,7 @@ pub fn redical_event_query(ctx: &Context, args: Vec<RedisString>) -> RedisResult
 
         thread_ctx.lock().log_debug(
             format!(
-                "rdcl.evt_query: calendar_uid: {calendar_uid} parsed query: {:#?}",
-                parsed_query
+                "rdcl.evt_query: calendar_uid: {calendar_uid} parsed query: {parsed_query:#?}",
             ).as_str(),
         );
 
