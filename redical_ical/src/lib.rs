@@ -57,7 +57,7 @@ impl<'a> ParserError<'a> {
 impl<'a> nom::error::ParseError<ParserInput<'a>> for ParserError<'a> {
     fn from_error_kind(input: ParserInput<'a>, kind: nom::error::ErrorKind) -> Self {
         Self::new(
-            format!("parse error {:?}", kind),
+            format!("parse error {kind:?}"),
             input,
         )
     }
@@ -68,7 +68,7 @@ impl<'a> nom::error::ParseError<ParserInput<'a>> for ParserError<'a> {
 
     fn from_char(input: ParserInput<'a>, unexpected: char) -> Self {
         Self::new(
-            format!("unexpected character '{}'", unexpected),
+            format!("unexpected character '{unexpected}'"),
             input,
         )
     }
@@ -103,9 +103,9 @@ pub fn convert_error<I: core::ops::Deref<Target = str>>(_input: I, error: Parser
     invalid_span.truncate(45);
 
     if error.context.is_empty() {
-        format!("Error - {} at \"{}\"", error_message, invalid_span)
+        format!("Error - {error_message} at \"{invalid_span}\"")
     } else {
-        format!("Error - {} at \"{}\" -- Context: {}", error_message, invalid_span, error.context.join(" -> "))
+        format!("Error - {error_message} at \"{invalid_span}\" -- Context: {}", error.context.join(" -> "))
     }
 }
 

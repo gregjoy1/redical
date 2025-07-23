@@ -195,7 +195,7 @@ pub fn redical_event_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
 }
 
 fn notify_keyspace_event(ctx: &Context, calendar_uid: &RedisString, event_uid: &String, last_modified_ical_property: &String) -> Result<(), RedisError> {
-    let event_message = format!("rdcl.evt_set:{} {}", event_uid, last_modified_ical_property);
+    let event_message = format!("rdcl.evt_set:{event_uid} {last_modified_ical_property}");
 
     if ctx.notify_keyspace_event(NotifyEvent::MODULE, event_message.as_str(), calendar_uid) == Status::Err {
         return Err(

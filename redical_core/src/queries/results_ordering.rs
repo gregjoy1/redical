@@ -289,7 +289,7 @@ impl Ord for QueryResultOrdering {
             }
 
             _ => {
-                panic!("Unexpected comparison between disparate QueryResultOrdering variants, self: {:#?} other: {:#?}", self, other);
+                panic!("Unexpected comparison between disparate QueryResultOrdering variants, self: {self:#?} other: {other:#?}");
             }
         }
     }

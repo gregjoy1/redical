@@ -155,7 +155,7 @@ impl ScheduleProperties {
             },
 
             _ => {
-                return Err(format!("Expected schedule property (RRULE, EXRULE, RDATE, EXDATE, DURATION, DTSTART, DTEND), received: {:#?}", property))
+                return Err(format!("Expected schedule property (RRULE, EXRULE, RDATE, EXDATE, DURATION, DTSTART, DTEND), received: {property:#?}"))
             }
         }
 

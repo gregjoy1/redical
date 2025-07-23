@@ -216,7 +216,7 @@ impl ICalendarProperty for WherePropertiesGroup {
                            .join(" ");
 
         ContentLine::new_unstructured(
-            format!("({})", joined_properties)
+            format!("({joined_properties})")
         )
     }
 }

@@ -60,8 +60,7 @@ pub fn redical_event_override_set(ctx: &Context, args: Vec<RedisString>) -> Redi
 
     let Some(mut event) = calendar.get_event(&event_uid).cloned() else {
         return Err(RedisError::String(format!(
-            "No event with UID: '{}' found",
-            event_uid
+            "No event with UID: '{event_uid}' found",
         )));
     };
 
@@ -197,7 +196,7 @@ pub fn redical_event_override_set(ctx: &Context, args: Vec<RedisString>) -> Redi
 }
 
 fn notify_keyspace_event(ctx: &Context, calendar_uid: &RedisString, event_uid: &String, override_date_string: &str, last_modified_ical_property: &String) -> Result<(), RedisError> {
-    let event_message = format!("rdcl.evo_set:{}:{} {}", event_uid, override_date_string, last_modified_ical_property);
+    let event_message = format!("rdcl.evo_set:{event_uid}:{override_date_string} {last_modified_ical_property}");
 
     if ctx.notify_keyspace_event(NotifyEvent::MODULE, event_message.as_str(), calendar_uid) == Status::Err {
         return Err(

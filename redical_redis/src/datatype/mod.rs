@@ -71,7 +71,7 @@ pub unsafe extern "C" fn rdb_save(rdb: *mut raw::RedisModuleIO, value: *mut c_vo
 
         // TODO: Handle properly - log error and return null etc.
         Err(error) => {
-            panic!("rdb_save failed for Calendar with error: {:#?}", error);
+            panic!("rdb_save failed for Calendar with error: {error:#?}");
         },
     };
 

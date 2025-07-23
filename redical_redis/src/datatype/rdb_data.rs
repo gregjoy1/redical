@@ -31,7 +31,7 @@ impl std::fmt::Display for ParseRDBEntityError {
             match current_error {
                 Self::OnSelf(current_name, error_message) => {
                     error_string.push_str(
-                        format!("{}:{}", current_name, error_message).as_str()
+                        format!("{current_name}:{error_message}").as_str()
                     );
 
                     pointer = None;
@@ -39,7 +39,7 @@ impl std::fmt::Display for ParseRDBEntityError {
 
                 Self::OnChild(current_name, child_error) => {
                     error_string.push_str(
-                        format!("{} -> ", current_name).as_str()
+                        format!("{current_name} -> ").as_str()
                     );
 
                     pointer = Some(child_error.as_ref());
@@ -47,7 +47,7 @@ impl std::fmt::Display for ParseRDBEntityError {
             }
         }
 
-        write!(f, "{}", error_string)
+        write!(f, "{error_string}")
     }
 }
 
@@ -96,7 +96,7 @@ impl TryFrom<&RDBCalendar> for Calendar {
             return Err(
                 ParseRDBEntityError::OnSelf(
                     rdb_calendar_uid.to_string(),
-                    format!("Calendar UID property: {} does not match stored UID key: {}", parsed_calendar_uid, rdb_calendar_uid),
+                    format!("Calendar UID property: {parsed_calendar_uid} does not match stored UID key: {rdb_calendar_uid}"),
                 )
             );
         }
@@ -167,7 +167,7 @@ impl TryFrom<&RDBEvent> for Event {
             return Err(
                 ParseRDBEntityError::OnSelf(
                     rdb_event_uid.to_string(),
-                    format!("Event UID property: {} does not match stored UID key: {}", parsed_event_uid, rdb_event_uid),
+                    format!("Event UID property: {parsed_event_uid} does not match stored UID key: {rdb_event_uid}"),
                 )
             );
         }
