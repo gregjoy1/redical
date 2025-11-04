@@ -41,7 +41,7 @@ impl<'a> ParserError<'a> {
         &self.message
     }
 
-    pub fn span(&self) -> &ParserInput {
+    pub fn span(&self) -> &ParserInput<'_> {
         &self.span
     }
 
@@ -173,19 +173,19 @@ pub type ParserResult<'a, O> = nom::IResult<ParserInput<'a>, O, ParserError<'a>>
 
 // TODO: document this
 pub trait UnicodeSegmentation {
-    fn wrapped_grapheme_indices(&self, is_extended: bool) -> unicode_segmentation::GraphemeIndices;
+    fn wrapped_grapheme_indices(&self, is_extended: bool) -> unicode_segmentation::GraphemeIndices<'_>;
 }
 
 impl UnicodeSegmentation for ParserInput<'_> {
     #[inline]
-    fn wrapped_grapheme_indices(&self, is_extended: bool) -> unicode_segmentation::GraphemeIndices {
+    fn wrapped_grapheme_indices(&self, is_extended: bool) -> unicode_segmentation::GraphemeIndices<'_> {
         unicode_segmentation::UnicodeSegmentation::grapheme_indices(self.into_fragment(), is_extended)
     }
 }
 
 impl UnicodeSegmentation for &str {
     #[inline]
-    fn wrapped_grapheme_indices(&self, is_extended: bool) -> unicode_segmentation::GraphemeIndices {
+    fn wrapped_grapheme_indices(&self, is_extended: bool) -> unicode_segmentation::GraphemeIndices<'_> {
         unicode_segmentation::UnicodeSegmentation::grapheme_indices(*self, is_extended)
     }
 }
