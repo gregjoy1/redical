@@ -518,6 +518,35 @@ mod test {
     }
 
     #[test]
+    #[ignore]
+    fn generate_fixtures() {
+        use crate::datatype::test_helpers::{build_test_calendar, fixture_path};
+
+        let calendar = build_test_calendar();
+
+        let rdb_calendar = RDBCalendar::try_from(&calendar).unwrap();
+
+        // Legacy fixture: bare RDBCalendar bincode bytes
+        let legacy_bytes = bincode::serialize(&rdb_calendar).unwrap();
+
+        // Mismatch fixture: RDBCalendarDump with non-matching version
+        let envelope = RDBCalendarDump {
+            version:  Some(String::from("fixture_mismatch")),
+            raw_dump: bincode::serialize(&calendar).unwrap(),
+            dump:     rdb_calendar,
+        };
+
+        let mismatch_bytes = bincode::serialize(&envelope).unwrap();
+
+        let fixtures_dir = fixture_path("");
+
+        std::fs::create_dir_all(&fixtures_dir).unwrap();
+
+        std::fs::write(fixture_path("rdb_calendar_legacy.bin"), &legacy_bytes).unwrap();
+        std::fs::write(fixture_path("rdb_calendar_dump_mismatch.bin"), &mismatch_bytes).unwrap();
+    }
+
+    #[test]
     fn test_event_occurrence_override_level_parse_rdb_entity_error_to_string() {
         assert_eq!(
             ParseRDBEntityError::OnChild(
