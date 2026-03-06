@@ -13,6 +13,9 @@ use std::{
 
 mod rdb_data;
 
+#[cfg(test)]
+pub(crate) mod test_helpers;
+
 use rdb_data::{RDBCalendar, RDBCalendarDump};
 
 const BUILD_VERSION: Option<&str> = option_env!("GIT_SHA");
@@ -214,28 +217,9 @@ unsafe extern "C" fn copy(
 mod load_tests {
     use super::*;
 
-    use redical_core::Event;
+    use super::test_helpers::build_test_calendar;
 
     use pretty_assertions_sorted::assert_eq;
-
-    fn build_test_calendar() -> Calendar {
-        let mut calendar = Calendar::new(String::from("LOAD_TEST_UID"));
-
-        let mut event = Event::parse_ical(
-            "EVENT_UID",
-            "RRULE:FREQ=WEEKLY;UNTIL=19700101T000500Z;INTERVAL=1 \
-             CLASS:PUBLIC CATEGORIES:CATEGORY_ONE \
-             DTSTART:19700101T000500Z \
-             LAST-MODIFIED:19700101T010500Z",
-        ).unwrap();
-
-        event.validate().unwrap();
-
-        calendar.insert_event(event);
-        calendar.rebuild_indexes().unwrap();
-
-        calendar
-    }
 
     #[test]
     fn load_from_envelope_with_none_version_uses_ical_fallback() {
