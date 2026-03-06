@@ -1,5 +1,7 @@
 use std::collections::{BTreeSet, BTreeMap, HashMap};
 
+use serde::{Serialize, Deserialize};
+
 use crate::inverted_index::{IndexedConclusion, InvertedCalendarIndex};
 
 use crate::utils::{KeyValuePair, UpdatedHashMapMembers};
@@ -19,15 +21,35 @@ use redical_ical::{
     },
 };
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct Calendar {
     pub uid: UIDProperty,
     pub events: BTreeMap<String, Box<Event>>,
     pub indexes_active: bool,
+
+    // Computed index field -- rebuilt by rebuild_indexes() after deserialization.
+    // Not serialized because it's derived from indexed_properties, not source data.
+    #[serde(skip)]
     pub indexed_categories: InvertedCalendarIndex<String>,
+
+    // Computed index field -- rebuilt by rebuild_indexes() after deserialization.
+    // Not serialized because it's derived from indexed_properties, not source data.
+    #[serde(skip)]
     pub indexed_location_type: InvertedCalendarIndex<String>,
+
+    // Computed index field -- rebuilt by rebuild_indexes() after deserialization.
+    // Not serialized because it's derived from indexed_properties, not source data.
+    #[serde(skip)]
     pub indexed_related_to: InvertedCalendarIndex<KeyValuePair>,
+
+    // Computed index field -- rebuilt by rebuild_indexes() after deserialization.
+    // Not serialized because it's derived from indexed_properties, not source data.
+    #[serde(skip)]
     pub indexed_geo: GeoSpatialCalendarIndex,
+
+    // Computed index field -- rebuilt by rebuild_indexes() after deserialization.
+    // Not serialized because it's derived from indexed_properties, not source data.
+    #[serde(skip)]
     pub indexed_class: InvertedCalendarIndex<String>,
 }
 

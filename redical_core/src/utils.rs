@@ -4,12 +4,14 @@ use std::hash::Hash;
 
 use std::cmp::Ordering;
 
+use serde::{Serialize, Deserialize};
+
 use redical_ical::{
     ICalendarEntity,
     content_line::ContentLine,
 };
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
 pub struct KeyValuePair {
     pub key: String,
     pub value: String,
