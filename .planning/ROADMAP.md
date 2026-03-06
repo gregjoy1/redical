@@ -42,7 +42,11 @@ Plans:
   2. `bincode::serialize(&calendar)` and `bincode::deserialize::<Calendar>(bytes)` compile without error
   3. All computed/index fields (`indexed_categories`, `indexed_geo`, `indexed_class`, `indexed_related_to`, `indexed_location_type`, `parsed_rrule_set`) carry `#[serde(skip)]`
   4. `cargo test` passes — existing `RDBCalendar` round-trip tests still green
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 02-01-PLAN.md — Cargo.toml changes, Tzid custom serde, derive Serialize/Deserialize on all redical_ical types
+- [ ] 02-02-PLAN.md — Derive serde on redical_core types with skip annotations, bincode round-trip smoke test
 
 ### Phase 3: RDB Format
 **Goal**: RDB save always writes the dual-representation `RDBCalendarDump` envelope; RDB load selects the fast path when versions match, falls back to iCal safely on any mismatch or failure
@@ -76,6 +80,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Safety Fixes | 1/1 | Complete   | 2026-03-06 |
-| 2. Serde Derive Chain | 0/? | Not started | - |
+| 2. Serde Derive Chain | 0/2 | Not started | - |
 | 3. RDB Format | 0/? | Not started | - |
 | 4. Fixtures and Integration Tests | 0/? | Not started | - |
