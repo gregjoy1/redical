@@ -77,9 +77,7 @@ pub unsafe extern "C" fn rdb_save(rdb: *mut raw::RedisModuleIO, value: *mut c_vo
 
     let bytes: Vec<u8> = bincode::serialize(&rdb_calendar).unwrap();
 
-    let str = std::str::from_utf8_unchecked(&bytes[..]); // no save_string_buffer available in redis-module :(
-
-    raw::save_string(rdb, str);
+    raw::save_slice(rdb, &bytes);
 }
 
 unsafe extern "C" fn aof_rewrite(
@@ -87,7 +85,9 @@ unsafe extern "C" fn aof_rewrite(
     _key: *mut RedisModuleString,
     _value: *mut c_void,
 ) {
-    todo!();
+    // A Calendar is built from multiple commands (RICAL_SET, property decorators, etc.)
+    // so there is no single Redis command that can reconstruct it. AOF rewrite is a no-op
+    // until a multi-command emit strategy is designed in a future version.
 }
 
 unsafe extern "C" fn mem_usage(_value: *const c_void) -> usize {
