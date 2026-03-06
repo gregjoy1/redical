@@ -1,11 +1,13 @@
 use redical_core::Calendar;
 
 use redis_module::{
+    logging,
     native_types::RedisType, raw, RedisModuleIO, RedisModuleString, RedisModuleTypeMethods,
 };
 
 use std::{
     ffi::{c_int, c_void},
+    panic::{catch_unwind, AssertUnwindSafe},
     ptr::null_mut,
 };
 
@@ -46,23 +48,87 @@ pub static CALENDAR_DATA_TYPE: RedisType = RedisType::new(
 
 pub extern "C" fn rdb_load(rdb: *mut raw::RedisModuleIO, _encver: c_int) -> *mut c_void {
     let Ok(buffer) = raw::load_string_buffer(rdb) else {
+        logging::log_warning("RDB load: failed to read string buffer from RDB");
         return null_mut();
     };
 
     let bytes: &[u8] = buffer.as_ref();
 
-    let rdb_calendar: RDBCalendar = bincode::deserialize(bytes).unwrap();
+    let calendar = match bincode::deserialize::<RDBCalendarDump>(bytes) {
+        Ok(envelope) => load_from_envelope(envelope),
 
-    let calendar = match Calendar::try_from(&rdb_calendar) {
-        Ok(calendar) => calendar,
-
-        // TODO: Handle properly - log error and return null etc.
-        Err(error) => {
-            panic!("rdb_load failed for Calendar with error: {:#?}", error.to_string());
+        Err(_) => {
+            logging::log_notice("RDB calendar load: not current format, trying legacy");
+            load_legacy(bytes)
         },
     };
 
-    Box::into_raw(Box::new(calendar)).cast::<libc::c_void>()
+    Box::into_raw(Box::new(calendar)).cast::<c_void>()
+}
+
+pub(crate) fn load_from_envelope(envelope: RDBCalendarDump) -> Calendar {
+    let version_match = match (&envelope.version, BUILD_VERSION) {
+        (Some(saved), Some(current)) if saved == current => true,
+        _ => false,
+    };
+
+    if !version_match {
+        let saved   = envelope.version.as_deref().unwrap_or("None");
+        let current = BUILD_VERSION.unwrap_or("None");
+
+        logging::log_warning(
+            &format!("RDB load: fast path skipped (version build digest mismatch: {saved} vs {current})")
+        );
+    } else {
+        let result = catch_unwind(AssertUnwindSafe(|| -> Result<Calendar, String> {
+            let mut calendar = bincode::deserialize::<Calendar>(&envelope.raw_dump)
+                .map_err(|e| format!("{e}"))?;
+
+            calendar.rebuild_indexes()
+                .map_err(|e| format!("{e}"))?;
+
+            Ok(calendar)
+        }));
+
+        match result {
+            Ok(Ok(calendar)) => {
+                logging::log_debug("RDB load: fast path OK");
+                return calendar;
+            },
+
+            Ok(Err(error)) => {
+                logging::log_warning(
+                    &format!("RDB load: fast path failed ({error}), using iCal fallback")
+                );
+            },
+
+            Err(panic_payload) => {
+                let message = if let Some(s) = panic_payload.downcast_ref::<&str>() {
+                    (*s).to_string()
+                } else if let Some(s) = panic_payload.downcast_ref::<String>() {
+                    s.clone()
+                } else {
+                    String::from("unknown panic")
+                };
+
+                logging::log_warning(
+                    &format!("RDB load: fast path panicked (payload: '{message}'), using iCal fallback")
+                );
+            },
+        }
+    }
+
+    Calendar::try_from(&envelope.dump).unwrap_or_else(|error| {
+        panic!("RDB load: iCal fallback failed: {error}")
+    })
+}
+
+pub(crate) fn load_legacy(bytes: &[u8]) -> Calendar {
+    let rdb_calendar: RDBCalendar = bincode::deserialize(bytes).unwrap();
+
+    Calendar::try_from(&rdb_calendar).unwrap_or_else(|error| {
+        panic!("rdb_load failed for Calendar with error: {error:#?}")
+    })
 }
 
 pub unsafe extern "C" fn rdb_save(rdb: *mut raw::RedisModuleIO, value: *mut c_void) {
