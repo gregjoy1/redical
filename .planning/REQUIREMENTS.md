@@ -24,8 +24,8 @@
 
 ### RDB Format
 
-- [ ] **RDB-01**: `RDBCalendarDump` struct added to `rdb_data.rs` with fields: `version: Option<String>`, `raw_dump: Vec<u8>`, `dump: RDBCalendar`
-- [ ] **RDB-02**: `rdb_save` serializes `RDBCalendarDump`: `version` from `option_env!("GIT_SHA")`, `raw_dump` from bincode of `Calendar`, `dump` from existing `RDBCalendar`
+- [x] **RDB-01**: `RDBCalendarDump` struct added to `rdb_data.rs` with fields: `version: Option<String>`, `raw_dump: Vec<u8>`, `dump: RDBCalendar`
+- [x] **RDB-02**: `rdb_save` serializes `RDBCalendarDump`: `version` from `option_env!("GIT_SHA")`, `raw_dump` from bincode of `Calendar`, `dump` from existing `RDBCalendar`
 - [ ] **RDB-03**: `rdb_load` implements three-layer dispatch:
   1. Attempt `RDBCalendarDump` deserialization — if fails, fall back to legacy bare `RDBCalendar` path
   2. If `RDBCalendarDump` succeeds: if `version` is `None` or mismatches current `GIT_SHA`, load from `dump` (iCal path)
@@ -73,8 +73,8 @@
 | SERD-03 | Phase 2 | Complete |
 | SERD-04 | Phase 2 | Complete |
 | SERD-05 | Phase 2 | Complete |
-| RDB-01 | Phase 3 | Pending |
-| RDB-02 | Phase 3 | Pending |
+| RDB-01 | Phase 3 | Complete |
+| RDB-02 | Phase 3 | Complete |
 | RDB-03 | Phase 3 | Pending |
 | RDB-04 | Phase 3 | Pending |
 | RDB-05 | Phase 3 | Pending |

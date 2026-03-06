@@ -4,14 +4,14 @@ milestone: v1.0
 milestone_name: milestone
 status: completed
 stopped_at: Phase 3 context gathered
-last_updated: "2026-03-06T15:48:54.409Z"
+last_updated: "2026-03-06T16:07:18.640Z"
 last_activity: 2026-03-06 — Phase 2 Plan 2 complete
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 3
-  completed_plans: 3
-  percent: 38
+  total_plans: 5
+  completed_plans: 4
+  percent: 80
 ---
 
 # Project State
@@ -21,23 +21,23 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-06)
 
 **Core value:** Calendar RDB load/save must be fast for same-version deployments while never corrupting or losing data across version boundaries.
-**Current focus:** Phase 2 — Serde Derive Chain
+**Current focus:** Phase 3 — RDB Format
 
 ## Current Position
 
-Phase: 2 of 4 (Serde Derive Chain)
-Plan: 2 of 4 in current phase
-Status: Plan 02-02 complete
-Last activity: 2026-03-06 — Phase 2 Plan 2 complete
+Phase: 3 of 4 (RDB Format)
+Plan: 1 of 2 in current phase
+Status: Plan 03-01 complete
+Last activity: 2026-03-06 — Phase 3 Plan 1 complete
 
-Progress: [####░░░░░░] 38%
+Progress: [████████░░] 80%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 2
-- Average duration: 5min
-- Total execution time: 0.15 hours
+- Total plans completed: 3
+- Average duration: 4min
+- Total execution time: 0.2 hours
 
 **By Phase:**
 
@@ -45,9 +45,10 @@ Progress: [####░░░░░░] 38%
 |-------|-------|-------|----------|
 | 02-serde-derive-chain P01 | 2 tasks | 6min | 3min |
 | 02-serde-derive-chain P02 | 2 tasks | 3min | 1.5min |
+| 03-rdb-format P01 | 2 tasks | 2min | 1min |
 
 **Recent Trend:**
-- Last 5 plans: 6min, 3min
+- Last 5 plans: 6min, 3min, 2min
 - Trend: improving
 
 ## Accumulated Context
@@ -69,6 +70,8 @@ Recent decisions affecting current work:
 - [Phase 02-serde-derive-chain]: build_ical_param! macro updated to include Serialize, Deserialize in generated derives
 - [Phase 02-serde-derive-chain]: indexes_active kept serialized (source state, not computed)
 - [Phase 02-serde-derive-chain]: InvertedEventIndex/InvertedCalendarIndex/GeoSpatialCalendarIndex excluded from serde (rebuilt post-load)
+- [Phase 03-rdb-format]: Keep panics in rdb_save -- fundamentally broken state if in-memory Calendar fails to serialize
+- [Phase 03-rdb-format]: BUILD_VERSION as Option<&str> const from option_env!(GIT_SHA)
 
 ### Pending Todos
 
@@ -82,6 +85,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-06T15:48:54.399Z
-Stopped at: Phase 3 context gathered
-Resume file: .planning/phases/03-rdb-format/03-CONTEXT.md
+Last session: 2026-03-06T16:06:43Z
+Stopped at: Completed 03-01-PLAN.md
+Resume file: .planning/phases/03-rdb-format/03-02-PLAN.md
