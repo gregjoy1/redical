@@ -423,6 +423,39 @@ mod test {
     }
 
     #[test]
+    fn test_calendar_bincode_round_trip() {
+        let mut calendar = Calendar::new(String::from("TEST_UID"));
+
+        let event = Event::parse_ical(
+            "EVENT_UID",
+            "RRULE:FREQ=WEEKLY;UNTIL=19700101T000500Z;INTERVAL=1 \
+             CLASS:PUBLIC CATEGORIES:CATEGORY_ONE \
+             DTSTART:19700101T000500Z \
+             LAST-MODIFIED:19700101T010500Z",
+        ).unwrap();
+
+        calendar.insert_event(event);
+        calendar.rebuild_indexes().unwrap();
+
+        let bytes = bincode::serialize(&calendar).unwrap();
+        let mut deserialized: Calendar = bincode::deserialize(&bytes).unwrap();
+        deserialized.rebuild_indexes().unwrap();
+
+        assert_eq!(calendar, deserialized);
+    }
+
+    #[test]
+    fn test_empty_calendar_bincode_round_trip() {
+        let calendar = Calendar::new(String::from("EMPTY_UID"));
+
+        let bytes = bincode::serialize(&calendar).unwrap();
+        let mut deserialized: Calendar = bincode::deserialize(&bytes).unwrap();
+        deserialized.rebuild_indexes().unwrap();
+
+        assert_eq!(calendar, deserialized);
+    }
+
+    #[test]
     fn test_event_occurrence_override_level_parse_rdb_entity_error_to_string() {
         assert_eq!(
             ParseRDBEntityError::OnChild(
