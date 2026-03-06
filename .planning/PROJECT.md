@@ -2,7 +2,7 @@
 
 ## What This Is
 
-RediCal is a Redis module that stores iCalendar data as a native Redis type. This milestone adds a fast-path RDB serialization strategy so that RDB persistence within the same build version is dramatically faster, while maintaining full backward compatibility with the existing iCal string-based approach across version boundaries.
+RediCal is a Redis module that stores iCalendar data as a native Redis type. v1.0 added a fast-path RDB serialization strategy: same-version deployments use direct bincode deserialization of `Calendar`, while cross-version loads fall back safely to the existing iCal string-based approach via `RDBCalendar`.
 
 ## Core Value
 
@@ -15,35 +15,36 @@ Calendar RDB load/save must be fast for same-version deployments while never cor
 - ✓ Calendar data persisted to RDB via `RDBCalendar` (iCal string serialization) — existing
 - ✓ RDB round-trip works: `rdb_save` serializes via bincode, `rdb_load` deserializes and re-parses iCal — existing
 - ✓ Unit tests covering `RDBCalendar` round-trip, error cases, and `ParseRDBEntityError` formatting — existing
+- ✓ `aof_rewrite` empty no-op stub, `from_utf8_unchecked` UB eliminated — v1.0
+- ✓ `redis-module` upgraded to 2.0.4 — v1.0
+- ✓ Serde derives on full Calendar type graph (~50 types) with custom Tzid impl — v1.0
+- ✓ `#[serde(skip)]` on all computed/index fields, `rebuild_indexes()` after deserialization — v1.0
+- ✓ `RDBCalendarDump` envelope with version-gated fast path + iCal fallback — v1.0
+- ✓ Three-layer `rdb_load` dispatch with `catch_unwind` panic safety — v1.0
+- ✓ Pre-generated binary fixtures and integration tests covering all dispatch paths — v1.0
 
 ### Active
 
-- [ ] `RDBCalendarDump` wrapper struct with `version: Option<String>`, `raw_dump: Vec<u8>`, and `dump: RDBCalendar` fields
-- [ ] `rdb_save` serializes to `RDBCalendarDump` (raw bincode of `Calendar` + `RDBCalendar` fallback + GIT_SHA version)
-- [ ] `rdb_load` attempts `RDBCalendarDump` deserialization first; on success, uses fast path if version matches
-- [ ] Fast-path `raw_dump` deserialization wrapped in `catch_unwind` for panic safety; falls back to `dump` on any failure
-- [ ] When `GIT_SHA` env is blank at build time, version is `None` and fast path is always skipped
-- [ ] `aof_rewrite` replaced with empty no-op stub (remove `todo!()`)
-- [ ] `Calendar` and all nested types have `serde` derives added where missing (investigation + implementation)
-- [ ] Pre-generated binary fixture: legacy `RDBCalendar` bytes (tests backward compat load)
-- [ ] Pre-generated binary fixture: `RDBCalendarDump` bytes (tests new format load)
-- [ ] Integration tests loading both fixtures and asserting correct `Calendar` rehydration
-- [ ] `redismodule-rs` upgraded to latest version
+(None — next milestone not yet planned)
 
 ### Out of Scope
 
 - AOF rewrite functional implementation — deferred, stub sufficient for now
 - Cross-platform binary fixture portability — fixtures are for CI only, not cross-arch guarantees
 - Downgrade path (new binary reading old `RDBCalendarDump` format) — not required
+- Benchmarking legacy vs fast-path load times — deferred to v2
 
 ## Context
 
-- `redical_redis/src/datatype/mod.rs` — `rdb_load`/`rdb_save`/`aof_rewrite` entry points
-- `redical_redis/src/datatype/rdb_data.rs` — `RDBCalendar`, `RDBEvent`, `RDBEventOccurrenceOverride` structs
-- `redical_core/src/calendar.rs` — `Calendar` struct; currently only `Debug, PartialEq, Clone` — no serde derives yet
-- `redical_redis/build.rs` — already sets `GIT_SHA` env var via `git rev-parse --short HEAD`; use `option_env!("GIT_SHA")` in code
-- Serialization throughout uses `bincode` 1.3.3 + `serde` 1.0.162
-- `redis-module` currently at 2.0.2
+Shipped v1.0 with 41 files changed, +561/-78 lines across Rust and TOML.
+Tech stack: Rust, redis-module 2.0.4, bincode 1.3.3, serde 1.0.162.
+248 tests passing (2 ignored by design).
+
+Key files:
+- `redical_redis/src/datatype/mod.rs` — `rdb_load`/`rdb_save`/`aof_rewrite` with three-layer dispatch
+- `redical_redis/src/datatype/rdb_data.rs` — `RDBCalendar`, `RDBCalendarDump` structs
+- `redical_redis/src/datatype/test_helpers.rs` — shared test Calendar builder
+- `tests/fixtures/` — committed binary fixtures for regression testing
 
 ## Constraints
 
@@ -56,11 +57,15 @@ Calendar RDB load/save must be fast for same-version deployments while never cor
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| GIT_SHA as version discriminator | Already set in build.rs; exact binary match is the right signal for raw bincode compat | — Pending |
-| `catch_unwind` on raw_dump path | bincode deserialization of mismatched types can panic; must not bring down Redis | — Pending |
-| `RDBCalendar` kept as fallback inside `RDBCalendarDump` | Single serialized blob contains both fast and safe path; no second load needed | — Pending |
-| aof_rewrite as empty stub | Unblocks compilation; AOF rewrite is a future concern | — Pending |
-| Pre-generated fixture files | Ensures backward compat is tested against real bytes, not synthesized in tests | — Pending |
+| GIT_SHA as version discriminator | Already set in build.rs; exact binary match is the right signal for raw bincode compat | ✓ Good |
+| `catch_unwind` on raw_dump path | bincode deserialization of mismatched types can panic; must not bring down Redis | ✓ Good |
+| `RDBCalendar` kept as fallback inside `RDBCalendarDump` | Single serialized blob contains both fast and safe path; no second load needed | ✓ Good |
+| aof_rewrite as empty stub | Unblocks compilation; AOF rewrite is a future concern | ✓ Good |
+| Pre-generated fixture files | Ensures backward compat is tested against real bytes, not synthesized in tests | ✓ Good |
+| Tzid custom serde (serialize as name string) | chrono_tz::Tz doesn't derive serde; string round-trip is lossless | ✓ Good |
+| `build_ical_param!` macro updated with serde derives | Covers ~14 param types generated by the macro in one change | ✓ Good |
+| Thin log wrapper for test-safe Redis logging | upstream `cfg!(test)` only applies within redis-module crate | ✓ Good |
+| `load_from_envelope`/`load_legacy` as pub(crate) | Enables direct unit testing of dispatch paths without Redis IO | ✓ Good |
 
 ---
-*Last updated: 2026-03-06 after initialization*
+*Last updated: 2026-03-06 after v1.0 milestone*
