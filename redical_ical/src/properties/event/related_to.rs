@@ -15,11 +15,13 @@ use crate::properties::{ICalendarProperty, ICalendarPropertyParams, define_prope
 
 use crate::content_line::{ContentLineParams, ContentLine};
 
+use serde::{Serialize, Deserialize};
+
 use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
 
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, Eq, PartialEq, Default)]
+#[derive(Debug, Clone, Eq, PartialEq, Default, Serialize, Deserialize)]
 pub struct RelatedToPropertyParams {
     pub reltype: Option<Reltype>,
     pub other: HashMap<String, String>,
@@ -106,7 +108,7 @@ impl From<RelatedToPropertyParams> for ContentLineParams {
 //     RELATED-TO:jsmith.part7.19960817T083000.xyzMail@example.com
 //
 //     RELATED-TO:19960401-080045-4000F192713-0052@example.com
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct RelatedToProperty {
     pub params: RelatedToPropertyParams,
     pub uid: Text,

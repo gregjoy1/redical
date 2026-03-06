@@ -8,6 +8,8 @@ use nom::bytes::complete::take_while1;
 
 use crate::grammar::{comma, semicolon, tag};
 
+use serde::{Serialize, Deserialize};
+
 use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, ParserError, impl_icalendar_entity_traits, map_err_message};
 
 use crate::values::date_time::DateTime;
@@ -17,7 +19,7 @@ use crate::values::list::List;
 #[macro_export]
 macro_rules! build_ical_param {
     ($struct_name:ident, $key_str:expr, $value_parser:expr, $value_type:ty $(,)*) => {
-        #[derive(Debug, Clone, Eq, PartialEq)]
+        #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
         pub struct $struct_name(pub $value_type);
 
         impl ICalendarEntity for $struct_name {
@@ -291,7 +293,7 @@ pub fn bysplist(input: ParserInput) -> ParserResult<List<Integer>> {
 ///
 /// freq        = "SECONDLY" / "MINUTELY" / "HOURLY" / "DAILY"
 ///             / "WEEKLY" / "MONTHLY" / "YEARLY"
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub enum Frequency {
     Secondly,
     Minutely,
@@ -368,7 +370,7 @@ impl_icalendar_entity_traits!(Frequency);
 ///
 /// weekdaynum  = [[plus / minus] ordwk] weekday
 /// ordwk       = 1*2DIGIT       ;1 to 53
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct WeekDayNum(pub Option<Integer>, pub WeekDay);
 
 impl ICalendarEntity for WeekDayNum {
@@ -437,7 +439,7 @@ impl_icalendar_entity_traits!(WeekDayNum);
 /// weekday     = "SU" / "MO" / "TU" / "WE" / "TH" / "FR" / "SA"
 /// ;Corresponding to SUNDAY, MONDAY, TUESDAY, WEDNESDAY, THURSDAY,
 /// ;FRIDAY, and SATURDAY days of the week.
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub enum WeekDay {
     Sunday,
     Monday,
@@ -501,7 +503,7 @@ impl_icalendar_entity_traits!(WeekDay);
 ///                 ;
 ///                 ; The other rule parts are OPTIONAL,
 ///                 ; but MUST NOT occur more than once.
-#[derive(Default, Debug, Clone, Eq, PartialEq)]
+#[derive(Default, Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Recur {
     pub freq: Option<FreqParam>,
     pub until: Option<UntilParam>,

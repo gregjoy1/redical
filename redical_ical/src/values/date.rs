@@ -4,6 +4,8 @@ use nom::combinator::{recognize, map_res};
 use nom::bytes::complete::take_while_m_n;
 use nom::character::is_digit;
 
+use serde::{Serialize, Deserialize};
+
 use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, ParserError, impl_icalendar_entity_traits, map_err_message};
 
 /// Parse date chars.
@@ -183,7 +185,7 @@ pub fn date_mday(input: ParserInput) -> ParserResult<u32> {
 //        date-month         = 2DIGIT        ;01-12
 //        date-mday          = 2DIGIT        ;01-28, 01-29, 01-30, 01-31
 //                                           ;based on month/year
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct Date {
     pub year: i32,
     pub month: u32,

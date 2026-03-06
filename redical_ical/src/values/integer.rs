@@ -6,6 +6,8 @@ use nom::bytes::complete::take_while_m_n;
 use nom::character::is_digit;
 use nom::sequence::pair;
 
+use serde::{Serialize, Deserialize};
+
 use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, ParserError, impl_icalendar_entity_traits};
 use crate::grammar::PositiveNegative;
 
@@ -28,7 +30,7 @@ pub fn integer(input: ParserInput) -> ParserResult<i64> {
 //       notation:
 //
 //        integer      = (["+"] / "-") 1*DIGIT ["." 1*DIGIT]
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct Integer(pub i64);
 
 impl ICalendarEntity for Integer {

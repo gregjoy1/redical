@@ -3,10 +3,12 @@ use nom::combinator::{map, all_consuming};
 
 use crate::content_line::{ContentLine, ContentLineParams};
 
+use serde::{Serialize, Deserialize};
+
 use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, ParserContext};
 use crate::properties::ICalendarProperty;
 
-#[derive(Debug, Eq, PartialEq, Clone, Ord, PartialOrd)]
+#[derive(Debug, Eq, PartialEq, Clone, Ord, PartialOrd, Serialize, Deserialize)]
 pub enum PassiveProperty {
     Calscale(ContentLineParams, String),
     Method(ContentLineParams, String),

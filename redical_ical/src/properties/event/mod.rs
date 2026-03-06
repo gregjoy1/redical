@@ -45,9 +45,11 @@ pub use passive::PassiveProperty;
 use crate::properties::uid::UIDProperty;
 use crate::properties::last_modified::LastModifiedProperty;
 
+use serde::{Serialize, Deserialize};
+
 use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserContext, ParserResult, convert_error};
 
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, Serialize, Deserialize)]
 pub enum EventProperty {
     UID(UIDProperty),
     LastModified(LastModifiedProperty),
@@ -169,7 +171,7 @@ impl std::fmt::Display for EventProperty {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, Serialize, Deserialize)]
 pub struct EventProperties(pub Vec<EventProperty>);
 
 impl FromStr for EventProperties {

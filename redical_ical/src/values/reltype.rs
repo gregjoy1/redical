@@ -4,6 +4,8 @@ use nom::combinator::map;
 
 use crate::grammar::{tag, x_name, iana_token};
 
+use serde::{Serialize, Deserialize};
+
 use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits, map_err_message};
 
 // RELTYPE = ("PARENT"    ; Parent relationship - Default
@@ -13,7 +15,7 @@ use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_i
 //                        ; iCalendar relationship type
 //          / x-name)     ; A non-standard, experimental
 //                        ; relationship type
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub enum Reltype {
     Parent,            // Parent relationship - Default
     Child,             // Child relationship

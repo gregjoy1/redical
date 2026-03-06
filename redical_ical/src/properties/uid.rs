@@ -14,11 +14,13 @@ use crate::properties::{ICalendarProperty, ICalendarPropertyParams, define_prope
 
 use crate::content_line::{ContentLineParams, ContentLine};
 
+use serde::{Serialize, Deserialize};
+
 use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
 
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, Eq, PartialEq, Default)]
+#[derive(Debug, Clone, Eq, PartialEq, Default, Serialize, Deserialize)]
 pub struct UIDPropertyParams {
     pub other: HashMap<String, String>,
 }
@@ -82,7 +84,7 @@ impl From<UIDPropertyParams> for ContentLineParams {
 // Example:  The following is an example of this property:
 //
 //     UID:19960401T080045Z-4000F192713-0052@example.com
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct UIDProperty {
     pub params: UIDPropertyParams,
     pub uid: Text,

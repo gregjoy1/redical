@@ -16,11 +16,13 @@ use crate::properties::{ICalendarProperty, ICalendarPropertyParams, ICalendarDat
 
 use crate::content_line::{ContentLineParams, ContentLine};
 
+use serde::{Serialize, Deserialize};
+
 use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, ParserError, impl_icalendar_entity_traits};
 
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, Eq, PartialEq, Default)]
+#[derive(Debug, Clone, Eq, PartialEq, Default, Serialize, Deserialize)]
 pub struct RDatePropertyParams {
     pub tzid: Option<Tzid>,
     pub value_type: Option<ValueType>,
@@ -150,7 +152,7 @@ impl RDatePropertyParams {
 //      19970526,19970704,19970901,19971014,19971128,19971129,19971225
 //
 // TODO: Implement PERIOD VALUE type.
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct RDateProperty {
     pub params: RDatePropertyParams,
     pub date_times: List<DateTime>,

@@ -5,6 +5,8 @@ use nom::combinator::map;
 
 use crate::grammar::comma;
 
+use serde::{Serialize, Deserialize};
+
 use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult};
 
 /// Parses and serializes a list of values
@@ -50,7 +52,7 @@ use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult};
 /// assert_eq!(parsed_list, List(vec![Integer(10), Integer(20), Integer(30)]));
 /// ```
 /// [plus / minus] 1*digit
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct List<T>(pub Vec<T>)
 where
     T: std::fmt::Debug + Clone + ICalendarEntity + Eq + PartialEq + std::hash::Hash,

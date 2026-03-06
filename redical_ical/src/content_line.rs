@@ -5,9 +5,11 @@ use nom::combinator::{cut, map};
 
 use crate::grammar::{tag, colon, semicolon, x_name, name, param, value};
 
+use serde::{Serialize, Deserialize};
+
 use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits, terminated_lookahead};
 
-#[derive(Debug, Clone, Eq, PartialEq, Default, Ord, PartialOrd)]
+#[derive(Debug, Clone, Eq, PartialEq, Default, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct ContentLineParam(pub String, pub String);
 
 impl<'a> From<(ParserInput<'a>, ParserInput<'a>)> for ContentLineParam {
@@ -49,7 +51,7 @@ impl ICalendarEntity for ContentLineParam {
 
 impl_icalendar_entity_traits!(ContentLineParam);
 
-#[derive(Debug, Clone, Eq, PartialEq, Default, Ord, PartialOrd)]
+#[derive(Debug, Clone, Eq, PartialEq, Default, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct ContentLineParams(pub Vec<ContentLineParam>);
 
 impl From<Vec<ContentLineParam>> for ContentLineParams {
@@ -116,7 +118,7 @@ impl ContentLineParams {
 
 impl_icalendar_entity_traits!(ContentLineParams);
 
-#[derive(Debug, Clone, Eq, PartialEq, Default, Ord, PartialOrd)]
+#[derive(Debug, Clone, Eq, PartialEq, Default, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct ContentLine(pub String, pub ContentLineParams, pub String);
 
 impl<'a> From<(ParserInput<'a>, ContentLineParams, ParserInput<'a>)> for ContentLine {

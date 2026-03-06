@@ -16,12 +16,14 @@ use crate::properties::{ICalendarProperty, ICalendarPropertyParams, ICalendarDat
 
 use crate::content_line::{ContentLineParams, ContentLine};
 
+use serde::{Serialize, Deserialize};
+
 use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
 
 use std::collections::HashMap;
 
 // TODO: Potentially accomodate RANGE param if required.
-#[derive(Debug, Clone, Eq, PartialEq, Default)]
+#[derive(Debug, Clone, Eq, PartialEq, Default, Serialize, Deserialize)]
 pub struct LastModifiedPropertyParams {
     pub millis: Option<Integer>,
     pub other: HashMap<String, String>,
@@ -93,7 +95,7 @@ impl ICalendarPropertyParams for LastModifiedPropertyParams {
 //
 //     LAST-MODIFIED:19960817T133000Z
 //
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct LastModifiedProperty {
     pub params: LastModifiedPropertyParams,
     pub date_time: DateTime,

@@ -14,11 +14,13 @@ use crate::content_line::{ContentLineParams, ContentLine};
 
 use crate::values::class::ClassValue;
 
+use serde::{Serialize, Deserialize};
+
 use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
 
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, Eq, PartialEq, Default)]
+#[derive(Debug, Clone, Eq, PartialEq, Default, Serialize, Deserialize)]
 pub struct ClassPropertyParams {
     pub other: HashMap<String, String>,
 }
@@ -86,7 +88,7 @@ impl From<ClassPropertyParams> for ContentLineParams {
 // Example:  The following is an example of this property:
 //
 //     CLASS:PUBLIC
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ClassProperty {
     pub params: ClassPropertyParams,
     pub class: ClassValue,

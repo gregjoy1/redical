@@ -15,11 +15,13 @@ use crate::properties::{ICalendarProperty, ICalendarPropertyParams, define_prope
 
 use crate::content_line::{ContentLineParams, ContentLine};
 
+use serde::{Serialize, Deserialize};
+
 use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
 
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, Eq, PartialEq, Default)]
+#[derive(Debug, Clone, Eq, PartialEq, Default, Serialize, Deserialize)]
 pub struct LocationTypePropertyParams {
     pub other: HashMap<String, String>,
 }
@@ -85,7 +87,7 @@ impl From<LocationTypePropertyParams> for ContentLineParams {
 //     LOCATION-TYPE:ONLINE,ZOOM
 //
 //     LOCATION-TYPE:HOTEL
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct LocationTypeProperty {
     pub params: LocationTypePropertyParams,
     pub types: List<Text>,

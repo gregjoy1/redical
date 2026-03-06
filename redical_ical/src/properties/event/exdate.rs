@@ -16,11 +16,13 @@ use crate::properties::{ICalendarProperty, ICalendarPropertyParams, ICalendarDat
 
 use crate::content_line::{ContentLineParams, ContentLine};
 
+use serde::{Serialize, Deserialize};
+
 use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserError, ParserResult, impl_icalendar_entity_traits};
 
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, Eq, PartialEq, Default)]
+#[derive(Debug, Clone, Eq, PartialEq, Default, Serialize, Deserialize)]
 pub struct ExDatePropertyParams {
     pub tzid: Option<Tzid>,
     pub value_type: Option<ValueType>,
@@ -142,7 +144,7 @@ impl ExDatePropertyParams {
 // Example:  The following is an example of this property:
 //
 //     EXDATE:19960402T010000Z,19960403T010000Z,19960404T010000Z
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ExDateProperty {
     pub params: ExDatePropertyParams,
     pub date_times: List<DateTime>,
