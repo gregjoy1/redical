@@ -74,7 +74,11 @@ Plans:
   3. Loading `rdb_calendar_dump_mismatch.bin` falls back to the iCal path and produces the correct `Calendar`
   4. An in-process `rdb_save` → `rdb_load` round-trip within the same build produces an identical `Calendar` via the fast path
   5. A `#[ignore]`-gated fixture generator test exists and can regenerate fixtures without modifying test logic
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 04-01-PLAN.md — Shared test helper, fixture generator, generate binary fixtures
+- [ ] 04-02-PLAN.md — Fixture loading tests and envelope round-trip test
 
 ## Progress
 
@@ -86,4 +90,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | 1. Safety Fixes | 1/1 | Complete   | 2026-03-06 |
 | 2. Serde Derive Chain | 2/2 | Complete   | 2026-03-06 |
 | 3. RDB Format | 2/2 | Complete   | 2026-03-06 |
-| 4. Fixtures and Integration Tests | 0/? | Not started | - |
+| 4. Fixtures and Integration Tests | 0/2 | Not started | - |
