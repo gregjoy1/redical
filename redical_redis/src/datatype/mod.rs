@@ -17,6 +17,26 @@ use rdb_data::{RDBCalendar, RDBCalendarDump};
 
 const BUILD_VERSION: Option<&str> = option_env!("GIT_SHA");
 
+/// Thin wrappers around redis_module::logging that are no-ops in test mode.
+/// The upstream `cfg!(test)` check only applies when redis-module itself is
+/// under test, not when our crate is tested as a dependent.
+mod log {
+    #[allow(unused_variables)]
+    pub fn debug(message: &str) {
+        if !cfg!(test) { super::logging::log_debug(message); }
+    }
+
+    #[allow(unused_variables)]
+    pub fn notice(message: &str) {
+        if !cfg!(test) { super::logging::log_notice(message); }
+    }
+
+    #[allow(unused_variables)]
+    pub fn warning(message: &str) {
+        if !cfg!(test) { super::logging::log_warning(message); }
+    }
+}
+
 pub const CALENDAR_DATA_TYPE_NAME: &str = "RICAL_CAL";
 pub const CALENDAR_DATA_TYPE_VERSION: i32 = 1;
 
@@ -48,7 +68,7 @@ pub static CALENDAR_DATA_TYPE: RedisType = RedisType::new(
 
 pub extern "C" fn rdb_load(rdb: *mut raw::RedisModuleIO, _encver: c_int) -> *mut c_void {
     let Ok(buffer) = raw::load_string_buffer(rdb) else {
-        logging::log_warning("RDB load: failed to read string buffer from RDB");
+        log::warning("RDB load: failed to read string buffer from RDB");
         return null_mut();
     };
 
@@ -58,7 +78,7 @@ pub extern "C" fn rdb_load(rdb: *mut raw::RedisModuleIO, _encver: c_int) -> *mut
         Ok(envelope) => load_from_envelope(envelope),
 
         Err(_) => {
-            logging::log_notice("RDB calendar load: not current format, trying legacy");
+            log::notice("RDB calendar load: not current format, trying legacy");
             load_legacy(bytes)
         },
     };
@@ -76,7 +96,7 @@ pub(crate) fn load_from_envelope(envelope: RDBCalendarDump) -> Calendar {
         let saved   = envelope.version.as_deref().unwrap_or("None");
         let current = BUILD_VERSION.unwrap_or("None");
 
-        logging::log_warning(
+        log::warning(
             &format!("RDB load: fast path skipped (version build digest mismatch: {saved} vs {current})")
         );
     } else {
@@ -92,12 +112,12 @@ pub(crate) fn load_from_envelope(envelope: RDBCalendarDump) -> Calendar {
 
         match result {
             Ok(Ok(calendar)) => {
-                logging::log_debug("RDB load: fast path OK");
+                log::debug("RDB load: fast path OK");
                 return calendar;
             },
 
             Ok(Err(error)) => {
-                logging::log_warning(
+                log::warning(
                     &format!("RDB load: fast path failed ({error}), using iCal fallback")
                 );
             },
@@ -111,7 +131,7 @@ pub(crate) fn load_from_envelope(envelope: RDBCalendarDump) -> Calendar {
                     String::from("unknown panic")
                 };
 
-                logging::log_warning(
+                log::warning(
                     &format!("RDB load: fast path panicked (payload: '{message}'), using iCal fallback")
                 );
             },
@@ -188,4 +208,79 @@ unsafe extern "C" fn copy(
     let calendar_cloned = calendar.clone();
 
     Box::into_raw(Box::new(calendar_cloned)).cast::<c_void>()
+}
+
+#[cfg(test)]
+mod load_tests {
+    use super::*;
+
+    use redical_core::Event;
+
+    use pretty_assertions_sorted::assert_eq;
+
+    fn build_test_calendar() -> Calendar {
+        let mut calendar = Calendar::new(String::from("LOAD_TEST_UID"));
+
+        let mut event = Event::parse_ical(
+            "EVENT_UID",
+            "RRULE:FREQ=WEEKLY;UNTIL=19700101T000500Z;INTERVAL=1 \
+             CLASS:PUBLIC CATEGORIES:CATEGORY_ONE \
+             DTSTART:19700101T000500Z \
+             LAST-MODIFIED:19700101T010500Z",
+        ).unwrap();
+
+        event.validate().unwrap();
+
+        calendar.insert_event(event);
+        calendar.rebuild_indexes().unwrap();
+
+        calendar
+    }
+
+    #[test]
+    fn load_from_envelope_with_none_version_uses_ical_fallback() {
+        let calendar     = build_test_calendar();
+        let rdb_calendar = RDBCalendar::try_from(&calendar).unwrap();
+        let raw_dump     = bincode::serialize(&calendar).unwrap();
+
+        let envelope = RDBCalendarDump {
+            version:  None,
+            raw_dump,
+            dump:     rdb_calendar,
+        };
+
+        let result = load_from_envelope(envelope);
+
+        assert_eq!(result, calendar);
+    }
+
+    #[test]
+    fn load_legacy_produces_correct_calendar() {
+        let calendar     = build_test_calendar();
+        let rdb_calendar = RDBCalendar::try_from(&calendar).unwrap();
+        let bytes        = bincode::serialize(&rdb_calendar).unwrap();
+
+        let result = load_legacy(&bytes);
+
+        assert_eq!(result, calendar);
+    }
+
+    #[test]
+    fn load_from_envelope_with_corrupted_raw_dump_falls_back_to_ical() {
+        let calendar     = build_test_calendar();
+        let rdb_calendar = RDBCalendar::try_from(&calendar).unwrap();
+
+        // BUILD_VERSION is None in tests, so we can't trigger the fast path directly.
+        // Instead, test the iCal fallback path: even with garbage raw_dump, the envelope's
+        // dump field produces the correct Calendar via iCal fallback.
+        let envelope = RDBCalendarDump {
+            version:  None,
+            raw_dump: vec![0xFF, 0xFF, 0xFF],
+            dump:     rdb_calendar,
+        };
+
+        let result = load_from_envelope(envelope);
+
+        assert_eq!(result, calendar);
+    }
 }
