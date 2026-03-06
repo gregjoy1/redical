@@ -217,7 +217,7 @@ unsafe extern "C" fn copy(
 mod load_tests {
     use super::*;
 
-    use super::test_helpers::build_test_calendar;
+    use super::test_helpers::{build_test_calendar, fixture_path};
 
     use pretty_assertions_sorted::assert_eq;
 
@@ -264,6 +264,46 @@ mod load_tests {
         };
 
         let result = load_from_envelope(envelope);
+
+        assert_eq!(result, calendar);
+    }
+
+    #[test]
+    fn load_legacy_fixture_produces_correct_calendar() {
+        let bytes = std::fs::read(fixture_path("rdb_calendar_legacy.bin")).unwrap();
+
+        let result = load_legacy(&bytes);
+
+        assert_eq!(result, build_test_calendar());
+    }
+
+    #[test]
+    fn load_mismatch_fixture_falls_back_to_ical() {
+        let bytes = std::fs::read(fixture_path("rdb_calendar_dump_mismatch.bin")).unwrap();
+
+        let envelope: RDBCalendarDump = bincode::deserialize(&bytes).unwrap();
+
+        let result = load_from_envelope(envelope);
+
+        assert_eq!(result, build_test_calendar());
+    }
+
+    #[test]
+    fn envelope_round_trip_produces_correct_calendar() {
+        let calendar     = build_test_calendar();
+        let rdb_calendar = RDBCalendar::try_from(&calendar).unwrap();
+        let raw_dump     = bincode::serialize(&calendar).unwrap();
+
+        let envelope = RDBCalendarDump {
+            version:  None,
+            raw_dump,
+            dump:     rdb_calendar,
+        };
+
+        let bytes        = bincode::serialize(&envelope).unwrap();
+        let deserialized = bincode::deserialize::<RDBCalendarDump>(&bytes).unwrap();
+
+        let result = load_from_envelope(deserialized);
 
         assert_eq!(result, calendar);
     }
