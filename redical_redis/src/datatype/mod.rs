@@ -11,7 +11,9 @@ use std::{
 
 mod rdb_data;
 
-use rdb_data::RDBCalendar;
+use rdb_data::{RDBCalendar, RDBCalendarDump};
+
+const BUILD_VERSION: Option<&str> = option_env!("GIT_SHA");
 
 pub const CALENDAR_DATA_TYPE_NAME: &str = "RICAL_CAL";
 pub const CALENDAR_DATA_TYPE_VERSION: i32 = 1;
@@ -66,16 +68,19 @@ pub extern "C" fn rdb_load(rdb: *mut raw::RedisModuleIO, _encver: c_int) -> *mut
 pub unsafe extern "C" fn rdb_save(rdb: *mut raw::RedisModuleIO, value: *mut c_void) {
     let calendar = unsafe { &*(value as *mut Calendar) };
 
-    let rdb_calendar = match RDBCalendar::try_from(calendar) {
-        Ok(rdb_calendar) => rdb_calendar,
+    let raw_dump = bincode::serialize(calendar).unwrap();
 
-        // TODO: Handle properly - log error and return null etc.
-        Err(error) => {
-            panic!("rdb_save failed for Calendar with error: {error:#?}");
-        },
+    let rdb_calendar = RDBCalendar::try_from(calendar).unwrap_or_else(|error| {
+        panic!("rdb_save failed for Calendar with error: {error:#?}");
+    });
+
+    let envelope = RDBCalendarDump {
+        version:  BUILD_VERSION.map(String::from),
+        raw_dump,
+        dump:     rdb_calendar,
     };
 
-    let bytes: Vec<u8> = bincode::serialize(&rdb_calendar).unwrap();
+    let bytes = bincode::serialize(&envelope).unwrap();
 
     raw::save_slice(rdb, &bytes);
 }
