@@ -28,7 +28,10 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. `rdb_save` uses only safe string conversion — no `from_utf8_unchecked` call remains
   3. `redis-module` version in `Cargo.toml` matches `2.0.4` (already resolved in lockfile)
   4. `cargo build` succeeds with no warnings from the changed files
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 01-01-PLAN.md — Bump redis-module to 2.0.4, empty aof_rewrite stub, replace from_utf8_unchecked with raw::save_slice
 
 ### Phase 2: Serde Derive Chain
 **Goal**: `bincode::serialize(&calendar)` compiles — every type reachable from `Calendar` derives `Serialize + Deserialize`, and computed index fields are annotated `#[serde(skip)]`
@@ -72,7 +75,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Safety Fixes | 0/? | Not started | - |
+| 1. Safety Fixes | 0/1 | Not started | - |
 | 2. Serde Derive Chain | 0/? | Not started | - |
 | 3. RDB Format | 0/? | Not started | - |
 | 4. Fixtures and Integration Tests | 0/? | Not started | - |
