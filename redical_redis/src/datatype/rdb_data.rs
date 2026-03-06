@@ -51,6 +51,13 @@ impl std::fmt::Display for ParseRDBEntityError {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct RDBCalendarDump {
+    pub version:  Option<String>,
+    pub raw_dump: Vec<u8>,
+    pub dump:     RDBCalendar,
+}
+
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct RDBCalendar(String, Vec<String>, Vec<RDBEvent>);
 
@@ -393,6 +400,61 @@ mod test {
             EventOccurrenceOverride::try_from(&invalid_rdb_event_occurrence_override).map_err(String::from),
             Err(String::from("Error at 19700101T000500Z:Error - parse error Eof at \"\"")),
         );
+    }
+
+    #[test]
+    fn test_rdb_calendar_dump_round_trip_with_version() {
+        let mut calendar = Calendar::new(String::from("DUMP_UID"));
+
+        let event = Event::parse_ical(
+            "EVENT_UID",
+            "RRULE:FREQ=WEEKLY;UNTIL=19700101T000500Z;INTERVAL=1 \
+             CLASS:PUBLIC CATEGORIES:CATEGORY_ONE \
+             DTSTART:19700101T000500Z \
+             LAST-MODIFIED:19700101T010500Z",
+        ).unwrap();
+
+        calendar.insert_event(event);
+        calendar.rebuild_indexes().unwrap();
+
+        let raw_dump = bincode::serialize(&calendar).unwrap();
+
+        let rdb_calendar = RDBCalendar::try_from(&calendar).unwrap();
+
+        let envelope = RDBCalendarDump {
+            version:  Some(String::from("abc123")),
+            raw_dump: raw_dump.clone(),
+            dump:     rdb_calendar.clone(),
+        };
+
+        let envelope_bytes = bincode::serialize(&envelope).unwrap();
+        let deserialized: RDBCalendarDump = bincode::deserialize(&envelope_bytes).unwrap();
+
+        assert_eq!(deserialized.version, Some(String::from("abc123")));
+        assert_eq!(deserialized.raw_dump, raw_dump);
+        assert_eq!(deserialized.dump, rdb_calendar);
+    }
+
+    #[test]
+    fn test_rdb_calendar_dump_round_trip_with_no_version() {
+        let calendar = Calendar::new(String::from("EMPTY_DUMP_UID"));
+
+        let raw_dump = bincode::serialize(&calendar).unwrap();
+
+        let rdb_calendar = RDBCalendar::try_from(&calendar).unwrap();
+
+        let envelope = RDBCalendarDump {
+            version:  None,
+            raw_dump: raw_dump.clone(),
+            dump:     rdb_calendar.clone(),
+        };
+
+        let envelope_bytes = bincode::serialize(&envelope).unwrap();
+        let deserialized: RDBCalendarDump = bincode::deserialize(&envelope_bytes).unwrap();
+
+        assert_eq!(deserialized.version, None);
+        assert_eq!(deserialized.raw_dump, raw_dump);
+        assert_eq!(deserialized.dump, rdb_calendar);
     }
 
     #[test]
