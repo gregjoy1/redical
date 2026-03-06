@@ -12,7 +12,7 @@ This milestone closes two crash risks in the existing codebase, derives serde ac
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Safety Fixes** - Close `aof_rewrite` `todo!()` crash and `from_utf8_unchecked` UB before touching RDB code
+- [x] **Phase 1: Safety Fixes** - Close `aof_rewrite` `todo!()` crash and `from_utf8_unchecked` UB before touching RDB code (completed 2026-03-06)
 - [ ] **Phase 2: Serde Derive Chain** - Add serde to `redical_ical` and derive `Serialize`/`Deserialize` across the full `Calendar` type graph
 - [ ] **Phase 3: RDB Format** - Implement `RDBCalendarDump` envelope, update `rdb_save`/`rdb_load` with three-layer fallback and `catch_unwind`
 - [ ] **Phase 4: Fixtures and Integration Tests** - Commit pre-generated binary fixtures and cover all dispatch paths with integration tests
@@ -75,7 +75,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Safety Fixes | 0/1 | Not started | - |
+| 1. Safety Fixes | 1/1 | Complete   | 2026-03-06 |
 | 2. Serde Derive Chain | 0/? | Not started | - |
 | 3. RDB Format | 0/? | Not started | - |
 | 4. Fixtures and Integration Tests | 0/? | Not started | - |

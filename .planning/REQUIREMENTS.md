@@ -7,12 +7,12 @@
 
 ### Safety
 
-- [ ] **SAFE-01**: `aof_rewrite` replaced with an empty no-op stub (remove `todo!()` to prevent Redis crash on AOF rewrite)
-- [ ] **SAFE-02**: `from_utf8_unchecked` in `rdb_save` replaced with a safe alternative (use `save_string_buffer` if available after redis-module upgrade, otherwise safe conversion)
+- [x] **SAFE-01**: `aof_rewrite` replaced with an empty no-op stub (remove `todo!()` to prevent Redis crash on AOF rewrite)
+- [x] **SAFE-02**: `from_utf8_unchecked` in `rdb_save` replaced with a safe alternative (use `save_string_buffer` if available after redis-module upgrade, otherwise safe conversion)
 
 ### Upgrade
 
-- [ ] **UPGR-01**: `redis-module` Cargo.toml version updated from `2.0.2` to `2.0.4` (already resolved in lockfile; Cargo.toml string alignment)
+- [x] **UPGR-01**: `redis-module` Cargo.toml version updated from `2.0.2` to `2.0.4` (already resolved in lockfile; Cargo.toml string alignment)
 
 ### Serde
 
@@ -65,9 +65,9 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SAFE-01 | Phase 1 | Pending |
-| SAFE-02 | Phase 1 | Pending |
-| UPGR-01 | Phase 1 | Pending |
+| SAFE-01 | Phase 1 | Complete |
+| SAFE-02 | Phase 1 | Complete |
+| UPGR-01 | Phase 1 | Complete |
 | SERD-01 | Phase 2 | Pending |
 | SERD-02 | Phase 2 | Pending |
 | SERD-03 | Phase 2 | Pending |

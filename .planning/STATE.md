@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Phase 1 context gathered
-last_updated: "2026-03-06T11:59:12.013Z"
+stopped_at: Completed 01-safety-fixes-01-PLAN.md
+last_updated: "2026-03-06T14:15:12.776Z"
 last_activity: 2026-03-06 — Roadmap created
 progress:
   total_phases: 4
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  completed_phases: 1
+  total_plans: 1
+  completed_plans: 1
   percent: 0
 ---
 
@@ -50,6 +50,7 @@ Progress: [░░░░░░░░░░] 0%
 - Trend: -
 
 *Updated after each plan completion*
+| Phase 01-safety-fixes P01 | 5 | 1 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -63,6 +64,9 @@ Recent decisions affecting current work:
 - `RDBCalendar` kept as fallback inside `RDBCalendarDump` (single blob, both paths)
 - `aof_rewrite` as empty stub (unblocks compilation; AOF rewrite deferred to v2)
 - Pre-generated fixture files (not generated at test runtime)
+- [Phase 01-safety-fixes]: raw::save_slice replaces from_utf8_unchecked + save_string in rdb_save — identical bytes, no UB
+- [Phase 01-safety-fixes]: aof_rewrite empty stub — multi-command AOF emit deferred to v2
+- [Phase 01-safety-fixes]: redis-module bumped to 2.0.4 in workspace root and redical_redis Cargo.toml
 
 ### Pending Todos
 
@@ -76,6 +80,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-06T11:59:12.006Z
-Stopped at: Phase 1 context gathered
-Resume file: .planning/phases/01-safety-fixes/01-CONTEXT.md
+Last session: 2026-03-06T14:15:12.769Z
+Stopped at: Completed 01-safety-fixes-01-PLAN.md
+Resume file: None
