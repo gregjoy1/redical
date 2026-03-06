@@ -26,12 +26,12 @@
 
 - [x] **RDB-01**: `RDBCalendarDump` struct added to `rdb_data.rs` with fields: `version: Option<String>`, `raw_dump: Vec<u8>`, `dump: RDBCalendar`
 - [x] **RDB-02**: `rdb_save` serializes `RDBCalendarDump`: `version` from `option_env!("GIT_SHA")`, `raw_dump` from bincode of `Calendar`, `dump` from existing `RDBCalendar`
-- [ ] **RDB-03**: `rdb_load` implements three-layer dispatch:
+- [x] **RDB-03**: `rdb_load` implements three-layer dispatch:
   1. Attempt `RDBCalendarDump` deserialization — if fails, fall back to legacy bare `RDBCalendar` path
   2. If `RDBCalendarDump` succeeds: if `version` is `None` or mismatches current `GIT_SHA`, load from `dump` (iCal path)
   3. If version matches: attempt fast-path bincode deserialization of `raw_dump` into `Calendar`
-- [ ] **RDB-04**: Fast-path `raw_dump` deserialization wrapped in `std::panic::catch_unwind` with `AssertUnwindSafe`; on panic or `Err`, falls back to `dump` (`RDBCalendar` iCal path)
-- [ ] **RDB-05**: After fast-path deserialization, `rebuild_indexes()` called on resulting `Calendar` before returning
+- [x] **RDB-04**: Fast-path `raw_dump` deserialization wrapped in `std::panic::catch_unwind` with `AssertUnwindSafe`; on panic or `Err`, falls back to `dump` (`RDBCalendar` iCal path)
+- [x] **RDB-05**: After fast-path deserialization, `rebuild_indexes()` called on resulting `Calendar` before returning
 
 ### Integration Tests
 
@@ -75,9 +75,9 @@
 | SERD-05 | Phase 2 | Complete |
 | RDB-01 | Phase 3 | Complete |
 | RDB-02 | Phase 3 | Complete |
-| RDB-03 | Phase 3 | Pending |
-| RDB-04 | Phase 3 | Pending |
-| RDB-05 | Phase 3 | Pending |
+| RDB-03 | Phase 3 | Complete |
+| RDB-04 | Phase 3 | Complete |
+| RDB-05 | Phase 3 | Complete |
 | TEST-01 | Phase 4 | Pending |
 | TEST-02 | Phase 4 | Pending |
 | TEST-03 | Phase 4 | Pending |

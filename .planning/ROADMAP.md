@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Safety Fixes** - Close `aof_rewrite` `todo!()` crash and `from_utf8_unchecked` UB before touching RDB code (completed 2026-03-06)
 - [x] **Phase 2: Serde Derive Chain** - Add serde to `redical_ical` and derive `Serialize`/`Deserialize` across the full `Calendar` type graph (completed 2026-03-06)
-- [ ] **Phase 3: RDB Format** - Implement `RDBCalendarDump` envelope, update `rdb_save`/`rdb_load` with three-layer fallback and `catch_unwind`
+- [x] **Phase 3: RDB Format** - Implement `RDBCalendarDump` envelope, update `rdb_save`/`rdb_load` with three-layer fallback and `catch_unwind` (completed 2026-03-06)
 - [ ] **Phase 4: Fixtures and Integration Tests** - Commit pre-generated binary fixtures and cover all dispatch paths with integration tests
 
 ## Phase Details
@@ -61,8 +61,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 03-01-PLAN.md — RDBCalendarDump struct, envelope round-trip test, rdb_save rewrite
-- [ ] 03-02-PLAN.md — rdb_load three-layer dispatch with catch_unwind and unit tests
+- [x] 03-01-PLAN.md — RDBCalendarDump struct, envelope round-trip test, rdb_save rewrite
+- [x] 03-02-PLAN.md — rdb_load three-layer dispatch with catch_unwind and unit tests
 
 ### Phase 4: Fixtures and Integration Tests
 **Goal**: All dispatch paths are covered by tests; legacy and mismatch-version binary fixtures are committed and load correctly
@@ -85,5 +85,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 |-------|----------------|--------|-----------|
 | 1. Safety Fixes | 1/1 | Complete   | 2026-03-06 |
 | 2. Serde Derive Chain | 2/2 | Complete   | 2026-03-06 |
-| 3. RDB Format | 0/2 | Not started | - |
+| 3. RDB Format | 2/2 | Complete   | 2026-03-06 |
 | 4. Fixtures and Integration Tests | 0/? | Not started | - |
