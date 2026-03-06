@@ -58,7 +58,11 @@ Plans:
   3. `rdb_load` falls back to the legacy bare `RDBCalendar` path when outer `RDBCalendarDump` deserialization fails (backward compat)
   4. When `GIT_SHA` is absent at build time, fast path is always skipped (version is `None`)
   5. Fast-path deserialization is wrapped in `catch_unwind` — a panic in bincode or `rebuild_indexes()` does not crash Redis
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 03-01-PLAN.md — RDBCalendarDump struct, envelope round-trip test, rdb_save rewrite
+- [ ] 03-02-PLAN.md — rdb_load three-layer dispatch with catch_unwind and unit tests
 
 ### Phase 4: Fixtures and Integration Tests
 **Goal**: All dispatch paths are covered by tests; legacy and mismatch-version binary fixtures are committed and load correctly
@@ -81,5 +85,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 |-------|----------------|--------|-----------|
 | 1. Safety Fixes | 1/1 | Complete   | 2026-03-06 |
 | 2. Serde Derive Chain | 2/2 | Complete   | 2026-03-06 |
-| 3. RDB Format | 0/? | Not started | - |
+| 3. RDB Format | 0/2 | Not started | - |
 | 4. Fixtures and Integration Tests | 0/? | Not started | - |
