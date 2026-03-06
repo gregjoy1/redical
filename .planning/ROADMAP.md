@@ -45,7 +45,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 02-01-PLAN.md — Cargo.toml changes, Tzid custom serde, derive Serialize/Deserialize on all redical_ical types
+- [x] 02-01-PLAN.md — Cargo.toml changes, Tzid custom serde, derive Serialize/Deserialize on all redical_ical types
 - [ ] 02-02-PLAN.md — Derive serde on redical_core types with skip annotations, bincode round-trip smoke test
 
 ### Phase 3: RDB Format
@@ -80,6 +80,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Safety Fixes | 1/1 | Complete   | 2026-03-06 |
-| 2. Serde Derive Chain | 0/2 | Not started | - |
+| 2. Serde Derive Chain | 1/2 | In progress | - |
 | 3. RDB Format | 0/? | Not started | - |
 | 4. Fixtures and Integration Tests | 0/? | Not started | - |

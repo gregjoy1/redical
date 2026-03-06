@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: planning
-stopped_at: Phase 2 context gathered
-last_updated: "2026-03-06T14:44:41.258Z"
-last_activity: 2026-03-06 — Roadmap created
+status: executing
+stopped_at: Completed 02-01-PLAN.md
+last_updated: "2026-03-06T15:06:31Z"
+last_activity: 2026-03-06 — Phase 2 Plan 1 complete
 progress:
   total_phases: 4
   completed_phases: 1
-  total_plans: 1
-  completed_plans: 1
-  percent: 0
+  total_plans: 2
+  completed_plans: 2
+  percent: 25
 ---
 
 # Project State
@@ -21,36 +21,33 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-06)
 
 **Core value:** Calendar RDB load/save must be fast for same-version deployments while never corrupting or losing data across version boundaries.
-**Current focus:** Phase 1 — Safety Fixes
+**Current focus:** Phase 2 — Serde Derive Chain
 
 ## Current Position
 
-Phase: 1 of 4 (Safety Fixes)
-Plan: 0 of ? in current phase
-Status: Ready to plan
-Last activity: 2026-03-06 — Roadmap created
+Phase: 2 of 4 (Serde Derive Chain)
+Plan: 1 of 4 in current phase
+Status: Plan 02-01 complete
+Last activity: 2026-03-06 — Phase 2 Plan 1 complete
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [##░░░░░░░░] 25%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 0
-- Average duration: -
-- Total execution time: 0 hours
+- Total plans completed: 1
+- Average duration: 6min
+- Total execution time: 0.1 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| - | - | - | - |
+| 02-serde-derive-chain P01 | 2 tasks | 6min | 3min |
 
 **Recent Trend:**
-- Last 5 plans: -
-- Trend: -
-
-*Updated after each plan completion*
-| Phase 01-safety-fixes P01 | 5 | 1 tasks | 3 files |
+- Last 5 plans: 6min
+- Trend: baseline
 
 ## Accumulated Context
 
@@ -67,6 +64,8 @@ Recent decisions affecting current work:
 - [Phase 01-safety-fixes]: raw::save_slice replaces from_utf8_unchecked + save_string in rdb_save — identical bytes, no UB
 - [Phase 01-safety-fixes]: aof_rewrite empty stub — multi-command AOF emit deferred to v2
 - [Phase 01-safety-fixes]: redis-module bumped to 2.0.4 in workspace root and redical_redis Cargo.toml
+- [Phase 02-serde-derive-chain]: Tzid custom serde: serialize as timezone name string, deserialize by parsing back
+- [Phase 02-serde-derive-chain]: build_ical_param! macro updated to include Serialize, Deserialize in generated derives
 
 ### Pending Todos
 
@@ -75,11 +74,11 @@ None yet.
 ### Blockers/Concerns
 
 - `redis-module` 2.0.4 API: `save_string_buffer` availability not verified — check changelog before implementing `from_utf8_unchecked` fix in Phase 1
-- `chrono` serde feature: needs verification that `serde` feature is enabled in workspace before Phase 2
-- `redical_ical` property/value type serde surface: exact scope unknown upfront — use compiler-driven discovery in Phase 2
+- `chrono` serde feature: RESOLVED — enabled in workspace Cargo.toml
+- `redical_ical` property/value type serde surface: RESOLVED — all ~42 types in Calendar field graph now derive serde
 
 ## Session Continuity
 
-Last session: 2026-03-06T14:44:41.248Z
-Stopped at: Phase 2 context gathered
-Resume file: .planning/phases/02-serde-derive-chain/02-CONTEXT.md
+Last session: 2026-03-06T15:06:31Z
+Stopped at: Completed 02-01-PLAN.md
+Resume file: .planning/phases/02-serde-derive-chain/02-01-SUMMARY.md
