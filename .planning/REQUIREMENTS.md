@@ -38,9 +38,9 @@
 - [x] **TEST-01**: Pre-generated binary fixture `tests/fixtures/rdb_calendar_legacy.bin` committed — bare `RDBCalendar` bincode bytes
 - [x] **TEST-02**: Pre-generated binary fixture `tests/fixtures/rdb_calendar_dump_mismatch.bin` committed — `RDBCalendarDump` with deliberately mismatched version string
 - [x] **TEST-03**: `#[ignore]`-gated generator test in `rdb_data.rs` to regenerate fixtures (run manually before committing new fixture files)
-- [ ] **TEST-04**: Integration test: loading `rdb_calendar_legacy.bin` via `rdb_load` logic produces correct `Calendar` (backward compat)
-- [ ] **TEST-05**: Integration test: loading `rdb_calendar_dump_mismatch.bin` falls back to iCal path and produces correct `Calendar`
-- [ ] **TEST-06**: In-process unit test: `rdb_save` → `rdb_load` round-trip within same build produces identical `Calendar` via fast path
+- [x] **TEST-04**: Integration test: loading `rdb_calendar_legacy.bin` via `rdb_load` logic produces correct `Calendar` (backward compat)
+- [x] **TEST-05**: Integration test: loading `rdb_calendar_dump_mismatch.bin` falls back to iCal path and produces correct `Calendar`
+- [x] **TEST-06**: In-process unit test: `rdb_save` → `rdb_load` round-trip within same build produces identical `Calendar` via fast path
 
 ## v2 Requirements
 
@@ -81,9 +81,9 @@
 | TEST-01 | Phase 4 | Complete |
 | TEST-02 | Phase 4 | Complete |
 | TEST-03 | Phase 4 | Complete |
-| TEST-04 | Phase 4 | Pending |
-| TEST-05 | Phase 4 | Pending |
-| TEST-06 | Phase 4 | Pending |
+| TEST-04 | Phase 4 | Complete |
+| TEST-05 | Phase 4 | Complete |
+| TEST-06 | Phase 4 | Complete |
 
 **Coverage:**
 - v1 requirements: 19 total
