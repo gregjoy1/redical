@@ -18,8 +18,8 @@
 
 - [x] **SERD-01**: `serde` dependency added to `redical_ical/Cargo.toml` (currently zero serde infrastructure in that crate)
 - [x] **SERD-02**: `#[derive(Serialize, Deserialize)]` added to all `redical_ical` property types that appear in `Calendar`'s field graph (compiler-driven discovery)
-- [ ] **SERD-03**: `#[derive(Serialize, Deserialize)]` added to `redical_core` types: `Calendar`, `Event`, `EventOccurrenceOverride`, and all nested value types
-- [ ] **SERD-04**: `#[serde(skip)]` applied to all computed/index fields: `Calendar::indexed_categories`, `Calendar::indexed_geo`, `Calendar::indexed_class`, `Calendar::indexed_related_to`, `Calendar::indexed_location_type`; same fields on `Event`; `ScheduleProperties::parsed_rrule_set`
+- [x] **SERD-03**: `#[derive(Serialize, Deserialize)]` added to `redical_core` types: `Calendar`, `Event`, `EventOccurrenceOverride`, and all nested value types
+- [x] **SERD-04**: `#[serde(skip)]` applied to all computed/index fields: `Calendar::indexed_categories`, `Calendar::indexed_geo`, `Calendar::indexed_class`, `Calendar::indexed_related_to`, `Calendar::indexed_location_type`; same fields on `Event`; `ScheduleProperties::parsed_rrule_set`
 - [x] **SERD-05**: `chrono` serde feature confirmed enabled in workspace `Cargo.toml` (verify, add if missing)
 
 ### RDB Format
@@ -70,8 +70,8 @@
 | UPGR-01 | Phase 1 | Complete |
 | SERD-01 | Phase 2 | Complete |
 | SERD-02 | Phase 2 | Complete |
-| SERD-03 | Phase 2 | Pending |
-| SERD-04 | Phase 2 | Pending |
+| SERD-03 | Phase 2 | Complete |
+| SERD-04 | Phase 2 | Complete |
 | SERD-05 | Phase 2 | Complete |
 | RDB-01 | Phase 3 | Pending |
 | RDB-02 | Phase 3 | Pending |

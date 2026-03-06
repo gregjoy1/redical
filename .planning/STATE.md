@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02-01-PLAN.md
-last_updated: "2026-03-06T15:06:31Z"
-last_activity: 2026-03-06 — Phase 2 Plan 1 complete
+stopped_at: Completed 02-02-PLAN.md
+last_updated: "2026-03-06T15:12:38Z"
+last_activity: 2026-03-06 — Phase 2 Plan 2 complete
 progress:
   total_phases: 4
   completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
-  percent: 25
+  total_plans: 3
+  completed_plans: 3
+  percent: 38
 ---
 
 # Project State
@@ -26,28 +26,29 @@ See: .planning/PROJECT.md (updated 2026-03-06)
 ## Current Position
 
 Phase: 2 of 4 (Serde Derive Chain)
-Plan: 1 of 4 in current phase
-Status: Plan 02-01 complete
-Last activity: 2026-03-06 — Phase 2 Plan 1 complete
+Plan: 2 of 4 in current phase
+Status: Plan 02-02 complete
+Last activity: 2026-03-06 — Phase 2 Plan 2 complete
 
-Progress: [##░░░░░░░░] 25%
+Progress: [####░░░░░░] 38%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 1
-- Average duration: 6min
-- Total execution time: 0.1 hours
+- Total plans completed: 2
+- Average duration: 5min
+- Total execution time: 0.15 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 02-serde-derive-chain P01 | 2 tasks | 6min | 3min |
+| 02-serde-derive-chain P02 | 2 tasks | 3min | 1.5min |
 
 **Recent Trend:**
-- Last 5 plans: 6min
-- Trend: baseline
+- Last 5 plans: 6min, 3min
+- Trend: improving
 
 ## Accumulated Context
 
@@ -66,6 +67,8 @@ Recent decisions affecting current work:
 - [Phase 01-safety-fixes]: redis-module bumped to 2.0.4 in workspace root and redical_redis Cargo.toml
 - [Phase 02-serde-derive-chain]: Tzid custom serde: serialize as timezone name string, deserialize by parsing back
 - [Phase 02-serde-derive-chain]: build_ical_param! macro updated to include Serialize, Deserialize in generated derives
+- [Phase 02-serde-derive-chain]: indexes_active kept serialized (source state, not computed)
+- [Phase 02-serde-derive-chain]: InvertedEventIndex/InvertedCalendarIndex/GeoSpatialCalendarIndex excluded from serde (rebuilt post-load)
 
 ### Pending Todos
 
@@ -79,6 +82,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-06T15:06:31Z
-Stopped at: Completed 02-01-PLAN.md
-Resume file: .planning/phases/02-serde-derive-chain/02-01-SUMMARY.md
+Last session: 2026-03-06T15:12:38Z
+Stopped at: Completed 02-02-PLAN.md
+Resume file: .planning/phases/02-serde-derive-chain/02-02-SUMMARY.md
