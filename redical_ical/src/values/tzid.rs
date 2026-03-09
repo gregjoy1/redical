@@ -88,8 +88,8 @@ impl Serialize for Tzid {
 
 impl<'de> Deserialize<'de> for Tzid {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let s = String::deserialize(deserializer)?;
-        let tz: Tz = s.parse().map_err(serde::de::Error::custom)?;
+        let tzid_string = String::deserialize(deserializer)?;
+        let tz: Tz = tzid_string.parse().map_err(serde::de::Error::custom)?;
 
         Ok(Tzid(tz))
     }
