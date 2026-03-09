@@ -90,10 +90,9 @@ pub extern "C" fn rdb_load(rdb: *mut raw::RedisModuleIO, _encver: c_int) -> *mut
 }
 
 pub(crate) fn load_from_envelope(envelope: RDBCalendarDump) -> Calendar {
-    let version_match = match (&envelope.version, BUILD_VERSION) {
-        (Some(saved), Some(current)) if saved == current => true,
-        _ => false,
-    };
+    let version_match = matches!(
+        (&envelope.version, BUILD_VERSION), (Some(saved), Some(current)) if saved == current
+    );
 
     if !version_match {
         let saved   = envelope.version.as_deref().unwrap_or("None");
@@ -108,7 +107,7 @@ pub(crate) fn load_from_envelope(envelope: RDBCalendarDump) -> Calendar {
                 .map_err(|e| format!("{e}"))?;
 
             calendar.rebuild_indexes()
-                .map_err(|e| format!("{e}"))?;
+                .map_err(|e| e.to_string())?;
 
             Ok(calendar)
         }));
