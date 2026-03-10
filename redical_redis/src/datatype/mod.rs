@@ -342,7 +342,7 @@ mod load_tests {
         let raw_dump     = bincode::serialize(&calendar).unwrap();
 
         let envelope = RDBCalendarDump {
-            version:  None,
+            version:  BUILD_VERSION.map(String::from),
             raw_dump,
             dump:     rdb_calendar,
         };
