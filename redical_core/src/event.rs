@@ -62,7 +62,7 @@ pub struct ScheduleProperties {
     pub dtend: Option<DTEndProperty>,
 
     // Computed field -- cached parse of RRULE/EXRULE/RDATE/EXDATE properties.
-    // Rebuilt by rebuild_indexes() after deserialization.
+    // Rebuilt by validate_and_rebuild_indexes() after deserialization.
     #[serde(skip)]
     pub parsed_rrule_set: Option<rrule::RRuleSet>,
 }
@@ -460,27 +460,27 @@ pub struct Event {
 
     pub overrides: BTreeMap<i64, EventOccurrenceOverride>,
 
-    // Computed index field -- rebuilt by rebuild_indexes() after deserialization.
+    // Computed index field -- rebuilt by validate_and_rebuild_indexes() after deserialization.
     // Not serialized because it's derived from indexed_properties, not source data.
     #[serde(skip)]
     pub indexed_categories: Option<InvertedEventIndex<String>>,
 
-    // Computed index field -- rebuilt by rebuild_indexes() after deserialization.
+    // Computed index field -- rebuilt by validate_and_rebuild_indexes() after deserialization.
     // Not serialized because it's derived from indexed_properties, not source data.
     #[serde(skip)]
     pub indexed_location_type: Option<InvertedEventIndex<String>>,
 
-    // Computed index field -- rebuilt by rebuild_indexes() after deserialization.
+    // Computed index field -- rebuilt by validate_and_rebuild_indexes() after deserialization.
     // Not serialized because it's derived from indexed_properties, not source data.
     #[serde(skip)]
     pub indexed_related_to: Option<InvertedEventIndex<KeyValuePair>>,
 
-    // Computed index field -- rebuilt by rebuild_indexes() after deserialization.
+    // Computed index field -- rebuilt by validate_and_rebuild_indexes() after deserialization.
     // Not serialized because it's derived from indexed_properties, not source data.
     #[serde(skip)]
     pub indexed_geo: Option<InvertedEventIndex<GeoPoint>>,
 
-    // Computed index field -- rebuilt by rebuild_indexes() after deserialization.
+    // Computed index field -- rebuilt by validate_and_rebuild_indexes() after deserialization.
     // Not serialized because it's derived from indexed_properties, not source data.
     #[serde(skip)]
     pub indexed_class: Option<InvertedEventIndex<String>>,
@@ -515,7 +515,9 @@ impl Event {
         Ok(true)
     }
 
-    pub fn rebuild_indexes(&mut self) -> Result<bool, String> {
+    pub fn validate_and_rebuild_indexes(&mut self) -> Result<bool, String> {
+        self.validate()?;
+
         self.rebuild_indexed_categories()?;
         self.rebuild_indexed_location_type()?;
         self.rebuild_indexed_related_to()?;

@@ -132,7 +132,7 @@ pub(crate) fn load_from_dump_envelope(envelope: RDBCalendarDump) -> Calendar {
                     let mut calendar = bincode::deserialize::<Calendar>(&envelope.raw_dump)
                         .map_err(|error| format!("{error}"))?;
 
-                    calendar.rebuild_indexes()
+                    calendar.validate_and_rebuild_indexes()
                         .map_err(|error| error.to_string())?;
 
                     Ok(calendar)

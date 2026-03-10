@@ -548,14 +548,14 @@ mod test {
     fn test_uid_index_retrieval() {
         let mut calendar = Calendar::new(String::from("CALENDAR_UID"));
 
-        let event_one = Event::parse_ical("EVENT_ONE", "").unwrap();
-        let event_two = Event::parse_ical("EVENT_TWO", "").unwrap();
-        let event_three = Event::parse_ical("EVENT_THREE", "").unwrap();
+        let event_one = Event::parse_ical("EVENT_ONE", "DTSTART:19700101T000500Z").unwrap();
+        let event_two = Event::parse_ical("EVENT_TWO", "DTSTART:19700101T000500Z").unwrap();
+        let event_three = Event::parse_ical("EVENT_THREE", "DTSTART:19700101T000500Z").unwrap();
 
         calendar.insert_event(event_one);
         calendar.insert_event(event_two);
         calendar.insert_event(event_three);
-        calendar.rebuild_indexes().unwrap();
+        calendar.validate_and_rebuild_indexes().unwrap();
 
         let accessor = EventQueryIndexAccessor::new(&calendar);
 

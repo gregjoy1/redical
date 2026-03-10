@@ -22,7 +22,7 @@ pub fn redical_calendar_idx_rebuild(ctx: &Context, args: Vec<RedisString>) -> Re
         )));
     };
 
-    calendar.rebuild_indexes().map_err(RedisError::String)?;
+    calendar.validate_and_rebuild_indexes().map_err(RedisError::String)?;
 
     notify_keyspace_event(ctx, &calendar_uid)?;
 

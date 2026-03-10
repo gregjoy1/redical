@@ -23,7 +23,7 @@ pub fn build_event_and_overrides_from_ical(
         event.override_occurrence(&parsed_event_occurrence_override, true).unwrap();
     }
 
-    event.rebuild_indexes().unwrap();
+    event.validate_and_rebuild_indexes().unwrap();
 
     event
 }

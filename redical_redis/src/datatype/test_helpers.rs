@@ -22,7 +22,7 @@ pub fn build_test_calendar() -> Calendar {
     event.validate().unwrap();
 
     calendar.insert_event(event);
-    calendar.rebuild_indexes().unwrap();
+    calendar.validate_and_rebuild_indexes().unwrap();
 
     calendar
 }

@@ -118,7 +118,11 @@ impl TryFrom<&RDBCalendar> for Calendar {
             calendar.insert_event(parse_event_result?);
         }
 
-        calendar.rebuild_indexes().map_err(|error| ParseRDBEntityError::OnSelf(rdb_calendar_uid.to_string(), error))?;
+        calendar
+            .validate_and_rebuild_indexes()
+            .map_err(|error| {
+                ParseRDBEntityError::OnSelf(rdb_calendar_uid.to_string(), error)
+            })?;
 
         Ok(
             calendar
@@ -194,7 +198,7 @@ impl TryFrom<&RDBEvent> for Event {
             event.override_occurrence(&parse_event_occurrence_override_result?, false).map_err(|error| ParseRDBEntityError::OnSelf(rdb_event_uid.to_string(), error))?;
         }
 
-        event.rebuild_indexes().map_err(|error| ParseRDBEntityError::OnSelf(rdb_event_uid.to_string(), error))?;
+        event.validate_and_rebuild_indexes().map_err(|error| ParseRDBEntityError::OnSelf(rdb_event_uid.to_string(), error))?;
 
         Ok(
             event
@@ -281,13 +285,13 @@ mod test {
         event.override_occurrence(&event_occurrence_override, true).unwrap();
 
         event.validate().unwrap();
-        event.rebuild_indexes().unwrap();
+        event.validate_and_rebuild_indexes().unwrap();
 
         let mut calendar = Calendar::new(String::from("CALENDAR_UID"));
 
         calendar.insert_event(event.clone());
 
-        calendar.rebuild_indexes().unwrap();
+        calendar.validate_and_rebuild_indexes().unwrap();
 
         let rdb_calendar = RDBCalendar::try_from(&calendar).unwrap();
 
@@ -348,13 +352,13 @@ mod test {
         event.override_occurrence(&event_occurrence_override, true).unwrap();
 
         event.validate().unwrap();
-        event.rebuild_indexes().unwrap();
+        event.validate_and_rebuild_indexes().unwrap();
 
         let mut calendar = Calendar::new(String::from("CALENDAR_UID"));
 
         calendar.insert_event(event.clone());
 
-        calendar.rebuild_indexes().unwrap();
+        calendar.validate_and_rebuild_indexes().unwrap();
 
         let invalid_rdb_calendar =
             RDBCalendar(
@@ -415,7 +419,7 @@ mod test {
         ).unwrap();
 
         calendar.insert_event(event);
-        calendar.rebuild_indexes().unwrap();
+        calendar.validate_and_rebuild_indexes().unwrap();
 
         let raw_dump = bincode::serialize(&calendar).unwrap();
 
@@ -497,11 +501,11 @@ mod test {
         ).unwrap();
 
         calendar.insert_event(event);
-        calendar.rebuild_indexes().unwrap();
+        calendar.validate_and_rebuild_indexes().unwrap();
 
         let bytes = bincode::serialize(&calendar).unwrap();
         let mut deserialized: Calendar = bincode::deserialize(&bytes).unwrap();
-        deserialized.rebuild_indexes().unwrap();
+        deserialized.validate_and_rebuild_indexes().unwrap();
 
         assert_eq!(calendar, deserialized);
     }
@@ -512,7 +516,7 @@ mod test {
 
         let bytes = bincode::serialize(&calendar).unwrap();
         let mut deserialized: Calendar = bincode::deserialize(&bytes).unwrap();
-        deserialized.rebuild_indexes().unwrap();
+        deserialized.validate_and_rebuild_indexes().unwrap();
 
         assert_eq!(calendar, deserialized);
     }
