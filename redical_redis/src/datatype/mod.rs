@@ -100,7 +100,7 @@ pub extern "C" fn rdb_load(rdb: *mut raw::RedisModuleIO, _encver: c_int) -> *mut
             Err(_) => {
                 log::notice("RDB calendar load: not envelope format, trying logical dump");
 
-                load_from_logical_dump(bytes)
+                load_from_legacy_logical_dump(bytes)
             },
         };
 
@@ -180,7 +180,10 @@ pub(crate) fn load_from_envelope(envelope: RDBCalendarEnvelope) -> Calendar {
 
 /// Restore a Calendar from a bare logical dump (portable iCal representation)
 /// without envelope wrapping, versioning, or a raw bincode dump.
-pub(crate) fn load_from_logical_dump(bytes: &[u8]) -> Calendar {
+///
+/// This caters to legacy versions of RediCal which simply dumped a logical
+/// representation of a Calendar to RDB.
+pub(crate) fn load_from_legacy_logical_dump(bytes: &[u8]) -> Calendar {
     let rdb_calendar: RDBCalendar = bincode::deserialize(bytes).unwrap();
 
     Calendar::try_from(&rdb_calendar).unwrap_or_else(|error| {
@@ -286,12 +289,12 @@ mod load_tests {
     }
 
     #[test]
-    fn load_from_logical_dump_produces_correct_calendar() {
+    fn load_from_legacy_logical_dump_produces_correct_calendar() {
         let calendar     = build_test_calendar();
         let rdb_calendar = RDBCalendar::try_from(&calendar).unwrap();
         let bytes        = bincode::serialize(&rdb_calendar).unwrap();
 
-        let result = load_from_logical_dump(&bytes);
+        let result = load_from_legacy_logical_dump(&bytes);
 
         assert_eq!(result, calendar);
     }
@@ -316,10 +319,10 @@ mod load_tests {
     }
 
     #[test]
-    fn load_from_logical_dump_fixture_produces_correct_calendar() {
+    fn load_from_legacy_logical_dump_fixture_produces_correct_calendar() {
         let bytes = std::fs::read(fixture_path("rdb_calendar_logical_dump.bin")).unwrap();
 
-        let result = load_from_logical_dump(&bytes);
+        let result = load_from_legacy_logical_dump(&bytes);
 
         assert_eq!(result, build_test_calendar());
     }
