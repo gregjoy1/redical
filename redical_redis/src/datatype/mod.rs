@@ -16,7 +16,7 @@ mod rdb_data;
 #[cfg(test)]
 pub(crate) mod test_helpers;
 
-use rdb_data::{RDBCalendar, RDBCalendarDump};
+use rdb_data::{RDBCalendar, RDBCalendarEnvelope};
 
 const BUILD_VERSION: Option<&str> = option_env!("GIT_SHA");
 
@@ -79,8 +79,8 @@ pub static CALENDAR_DATA_TYPE: RedisType = RedisType::new(
 );
 
 /// Redis RDB load callback. Deserializes a Calendar from the RDB snapshot,
-/// first attempting the current envelope format, then falling back to the
-/// legacy iCal-only format for backward compatibility.
+/// first attempting the envelope format, then falling back to a bare logical
+/// dump for backward compatibility.
 pub extern "C" fn rdb_load(rdb: *mut raw::RedisModuleIO, _encver: c_int) -> *mut c_void {
     let Ok(buffer) =
         raw::load_string_buffer(rdb) else {
@@ -92,15 +92,15 @@ pub extern "C" fn rdb_load(rdb: *mut raw::RedisModuleIO, _encver: c_int) -> *mut
     let bytes: &[u8] = buffer.as_ref();
 
     let calendar =
-        match bincode::deserialize::<RDBCalendarDump>(bytes) {
+        match bincode::deserialize::<RDBCalendarEnvelope>(bytes) {
             Ok(envelope) => {
-                load_from_dump_envelope(envelope)
+                load_from_envelope(envelope)
             },
 
             Err(_) => {
-                log::notice("RDB calendar load: not current format, trying legacy");
+                log::notice("RDB calendar load: not envelope format, trying logical dump");
 
-                load_from_legacy_ical_dump(bytes)
+                load_from_logical_dump(bytes)
             },
         };
 
@@ -109,11 +109,11 @@ pub extern "C" fn rdb_load(rdb: *mut raw::RedisModuleIO, _encver: c_int) -> *mut
     ).cast::<c_void>()
 }
 
-/// Restore a Calendar from a versioned dump envelope. When the build version
+/// Restore a Calendar from a versioned envelope. When the build version
 /// matches the saved version, takes a fast path by deserializing the raw
 /// bincode dump directly. On version mismatch, corrupted data, or panic,
-/// falls back to rebuilding the Calendar from its portable iCal representation.
-pub(crate) fn load_from_dump_envelope(envelope: RDBCalendarDump) -> Calendar {
+/// falls back to rebuilding the Calendar from the logical dump.
+pub(crate) fn load_from_envelope(envelope: RDBCalendarEnvelope) -> Calendar {
     let version_match = matches!(
         (&envelope.version, BUILD_VERSION), (Some(saved), Some(current)) if saved == current
     );
@@ -152,7 +152,7 @@ pub(crate) fn load_from_dump_envelope(envelope: RDBCalendarDump) -> Calendar {
                 Err(error)
             ) => {
                 log::warning(
-                    &format!("RDB load: fast path failed ({error}), using iCal fallback")
+                    &format!("RDB load: fast path failed ({error}), using logical dump fallback")
                 );
             },
 
@@ -167,30 +167,30 @@ pub(crate) fn load_from_dump_envelope(envelope: RDBCalendarDump) -> Calendar {
                     };
 
                 log::warning(
-                    &format!("RDB load: fast path panicked (payload: '{message}'), using iCal fallback")
+                    &format!("RDB load: fast path panicked (payload: '{message}'), using logical dump fallback")
                 );
             },
         }
     }
 
-    Calendar::try_from(&envelope.dump).unwrap_or_else(|error| {
-        panic!("RDB load: iCal fallback failed: {error}")
+    Calendar::try_from(&envelope.logical_dump).unwrap_or_else(|error| {
+        panic!("RDB load: logical dump fallback failed: {error}")
     })
 }
 
-/// Restore a Calendar from the pre-envelope legacy format, which stored only
-/// the iCal-based RDBCalendar without versioning or a raw bincode dump.
-pub(crate) fn load_from_legacy_ical_dump(bytes: &[u8]) -> Calendar {
+/// Restore a Calendar from a bare logical dump (portable iCal representation)
+/// without envelope wrapping, versioning, or a raw bincode dump.
+pub(crate) fn load_from_logical_dump(bytes: &[u8]) -> Calendar {
     let rdb_calendar: RDBCalendar = bincode::deserialize(bytes).unwrap();
 
     Calendar::try_from(&rdb_calendar).unwrap_or_else(|error| {
-        panic!("rdb_load failed for Calendar with error: {error:#?}")
+        panic!("RDB load: logical dump failed for Calendar with error: {error:#?}")
     })
 }
 
 /// Redis RDB save callback. Serializes a Calendar into a versioned envelope
 /// containing both the raw bincode dump (for fast reload on matching builds)
-/// and the portable iCal representation (for cross-version compatibility).
+/// and the logical dump (portable iCal representation for cross-version compatibility).
 pub unsafe extern "C" fn rdb_save(rdb: *mut raw::RedisModuleIO, value: *mut c_void) {
     let calendar = unsafe { &*(value as *mut Calendar) };
 
@@ -202,10 +202,10 @@ pub unsafe extern "C" fn rdb_save(rdb: *mut raw::RedisModuleIO, value: *mut c_vo
         });
 
     let envelope =
-        RDBCalendarDump {
-            version:  BUILD_VERSION.map(String::from),
+        RDBCalendarEnvelope {
+            version:      BUILD_VERSION.map(String::from),
             raw_dump,
-            dump:     rdb_calendar,
+            logical_dump: rdb_calendar,
         };
 
     let bytes = bincode::serialize(&envelope).unwrap();
@@ -269,68 +269,68 @@ mod load_tests {
     use pretty_assertions_sorted::assert_eq;
 
     #[test]
-    fn load_from_dump_envelope_with_none_version_uses_ical_fallback() {
+    fn load_from_envelope_with_none_version_uses_logical_dump_fallback() {
         let calendar     = build_test_calendar();
         let rdb_calendar = RDBCalendar::try_from(&calendar).unwrap();
         let raw_dump     = bincode::serialize(&calendar).unwrap();
 
-        let envelope = RDBCalendarDump {
-            version:  None,
+        let envelope = RDBCalendarEnvelope {
+            version:      None,
             raw_dump,
-            dump:     rdb_calendar,
+            logical_dump: rdb_calendar,
         };
 
-        let result = load_from_dump_envelope(envelope);
+        let result = load_from_envelope(envelope);
 
         assert_eq!(result, calendar);
     }
 
     #[test]
-    fn load_from_legacy_ical_dump_produces_correct_calendar() {
+    fn load_from_logical_dump_produces_correct_calendar() {
         let calendar     = build_test_calendar();
         let rdb_calendar = RDBCalendar::try_from(&calendar).unwrap();
         let bytes        = bincode::serialize(&rdb_calendar).unwrap();
 
-        let result = load_from_legacy_ical_dump(&bytes);
+        let result = load_from_logical_dump(&bytes);
 
         assert_eq!(result, calendar);
     }
 
     #[test]
-    fn load_from_dump_envelope_with_corrupted_raw_dump_falls_back_to_ical() {
+    fn load_from_envelope_with_corrupted_raw_dump_falls_back_to_logical_dump() {
         let calendar     = build_test_calendar();
         let rdb_calendar = RDBCalendar::try_from(&calendar).unwrap();
 
         // BUILD_VERSION is None in tests, so we can't trigger the fast path directly.
-        // Instead, test the iCal fallback path: even with garbage raw_dump, the envelope's
-        // dump field produces the correct Calendar via iCal fallback.
-        let envelope = RDBCalendarDump {
-            version:  None,
-            raw_dump: vec![0xFF, 0xFF, 0xFF],
-            dump:     rdb_calendar,
+        // Instead, test the logical dump fallback: even with garbage raw_dump, the
+        // envelope's logical_dump produces the correct Calendar.
+        let envelope = RDBCalendarEnvelope {
+            version:      None,
+            raw_dump:     vec![0xFF, 0xFF, 0xFF],
+            logical_dump: rdb_calendar,
         };
 
-        let result = load_from_dump_envelope(envelope);
+        let result = load_from_envelope(envelope);
 
         assert_eq!(result, calendar);
     }
 
     #[test]
-    fn load_from_legacy_ical_dump_fixture_produces_correct_calendar() {
-        let bytes = std::fs::read(fixture_path("rdb_calendar_legacy.bin")).unwrap();
+    fn load_from_logical_dump_fixture_produces_correct_calendar() {
+        let bytes = std::fs::read(fixture_path("rdb_calendar_logical_dump.bin")).unwrap();
 
-        let result = load_from_legacy_ical_dump(&bytes);
+        let result = load_from_logical_dump(&bytes);
 
         assert_eq!(result, build_test_calendar());
     }
 
     #[test]
-    fn load_mismatch_fixture_falls_back_to_ical() {
-        let bytes = std::fs::read(fixture_path("rdb_calendar_dump_mismatch.bin")).unwrap();
+    fn load_mismatch_fixture_falls_back_to_logical_dump() {
+        let bytes = std::fs::read(fixture_path("rdb_calendar_envelope_mismatch.bin")).unwrap();
 
-        let envelope: RDBCalendarDump = bincode::deserialize(&bytes).unwrap();
+        let envelope: RDBCalendarEnvelope = bincode::deserialize(&bytes).unwrap();
 
-        let result = load_from_dump_envelope(envelope);
+        let result = load_from_envelope(envelope);
 
         assert_eq!(result, build_test_calendar());
     }
@@ -341,16 +341,16 @@ mod load_tests {
         let rdb_calendar = RDBCalendar::try_from(&calendar).unwrap();
         let raw_dump     = bincode::serialize(&calendar).unwrap();
 
-        let envelope = RDBCalendarDump {
-            version:  BUILD_VERSION.map(String::from),
+        let envelope = RDBCalendarEnvelope {
+            version:      BUILD_VERSION.map(String::from),
             raw_dump,
-            dump:     rdb_calendar,
+            logical_dump: rdb_calendar,
         };
 
         let bytes        = bincode::serialize(&envelope).unwrap();
-        let deserialized = bincode::deserialize::<RDBCalendarDump>(&bytes).unwrap();
+        let deserialized = bincode::deserialize::<RDBCalendarEnvelope>(&bytes).unwrap();
 
-        let result = load_from_dump_envelope(deserialized);
+        let result = load_from_envelope(deserialized);
 
         assert_eq!(result, calendar);
     }

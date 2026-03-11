@@ -52,10 +52,10 @@ impl std::fmt::Display for ParseRDBEntityError {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct RDBCalendarDump {
-    pub version:  Option<String>,
-    pub raw_dump: Vec<u8>,
-    pub dump:     RDBCalendar,
+pub struct RDBCalendarEnvelope {
+    pub version:      Option<String>,
+    pub raw_dump:     Vec<u8>,
+    pub logical_dump: RDBCalendar,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
@@ -407,7 +407,7 @@ mod test {
     }
 
     #[test]
-    fn test_rdb_calendar_dump_round_trip_with_version() {
+    fn test_rdb_calendar_envelope_round_trip_with_version() {
         let mut calendar = Calendar::new(String::from("DUMP_UID"));
 
         let event = Event::parse_ical(
@@ -425,40 +425,40 @@ mod test {
 
         let rdb_calendar = RDBCalendar::try_from(&calendar).unwrap();
 
-        let envelope = RDBCalendarDump {
-            version:  Some(String::from("abc123")),
-            raw_dump: raw_dump.clone(),
-            dump:     rdb_calendar.clone(),
+        let envelope = RDBCalendarEnvelope {
+            version:      Some(String::from("abc123")),
+            raw_dump:     raw_dump.clone(),
+            logical_dump: rdb_calendar.clone(),
         };
 
         let envelope_bytes = bincode::serialize(&envelope).unwrap();
-        let deserialized: RDBCalendarDump = bincode::deserialize(&envelope_bytes).unwrap();
+        let deserialized: RDBCalendarEnvelope = bincode::deserialize(&envelope_bytes).unwrap();
 
         assert_eq!(deserialized.version, Some(String::from("abc123")));
         assert_eq!(deserialized.raw_dump, raw_dump);
-        assert_eq!(deserialized.dump, rdb_calendar);
+        assert_eq!(deserialized.logical_dump, rdb_calendar);
     }
 
     #[test]
-    fn test_rdb_calendar_dump_round_trip_with_no_version() {
+    fn test_rdb_calendar_envelope_round_trip_with_no_version() {
         let calendar = Calendar::new(String::from("EMPTY_DUMP_UID"));
 
         let raw_dump = bincode::serialize(&calendar).unwrap();
 
         let rdb_calendar = RDBCalendar::try_from(&calendar).unwrap();
 
-        let envelope = RDBCalendarDump {
-            version:  None,
-            raw_dump: raw_dump.clone(),
-            dump:     rdb_calendar.clone(),
+        let envelope = RDBCalendarEnvelope {
+            version:      None,
+            raw_dump:     raw_dump.clone(),
+            logical_dump: rdb_calendar.clone(),
         };
 
         let envelope_bytes = bincode::serialize(&envelope).unwrap();
-        let deserialized: RDBCalendarDump = bincode::deserialize(&envelope_bytes).unwrap();
+        let deserialized: RDBCalendarEnvelope = bincode::deserialize(&envelope_bytes).unwrap();
 
         assert_eq!(deserialized.version, None);
         assert_eq!(deserialized.raw_dump, raw_dump);
-        assert_eq!(deserialized.dump, rdb_calendar);
+        assert_eq!(deserialized.logical_dump, rdb_calendar);
     }
 
     #[test]
@@ -530,14 +530,14 @@ mod test {
 
         let rdb_calendar = RDBCalendar::try_from(&calendar).unwrap();
 
-        // Legacy fixture: bare RDBCalendar bincode bytes
-        let legacy_bytes = bincode::serialize(&rdb_calendar).unwrap();
+        // Logical dump fixture: bare RDBCalendar bincode bytes
+        let logical_dump_bytes = bincode::serialize(&rdb_calendar).unwrap();
 
-        // Mismatch fixture: RDBCalendarDump with non-matching version
-        let envelope = RDBCalendarDump {
-            version:  Some(String::from("fixture_mismatch")),
-            raw_dump: bincode::serialize(&calendar).unwrap(),
-            dump:     rdb_calendar,
+        // Mismatch fixture: RDBCalendarEnvelope with non-matching version
+        let envelope = RDBCalendarEnvelope {
+            version:      Some(String::from("fixture_mismatch")),
+            raw_dump:     bincode::serialize(&calendar).unwrap(),
+            logical_dump: rdb_calendar,
         };
 
         let mismatch_bytes = bincode::serialize(&envelope).unwrap();
@@ -546,8 +546,8 @@ mod test {
 
         std::fs::create_dir_all(&fixtures_dir).unwrap();
 
-        std::fs::write(fixture_path("rdb_calendar_legacy.bin"), &legacy_bytes).unwrap();
-        std::fs::write(fixture_path("rdb_calendar_dump_mismatch.bin"), &mismatch_bytes).unwrap();
+        std::fs::write(fixture_path("rdb_calendar_logical_dump.bin"), &logical_dump_bytes).unwrap();
+        std::fs::write(fixture_path("rdb_calendar_envelope_mismatch.bin"), &mismatch_bytes).unwrap();
     }
 
     #[test]
