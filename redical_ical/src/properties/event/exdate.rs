@@ -182,6 +182,25 @@ impl ExDateProperty {
     pub fn get_date_times(&self) -> Vec<DateTime> {
         self.date_times.to_vec()
     }
+
+    /// Resolves each datetime in `self.date_times` against the TZID param (if present) to
+    /// handle DST transition gaps and ambiguities per industry convention.
+    ///
+    /// Must be called during parsing (within `map_res` in `parse_ical`) before validation,
+    /// so that stored datetimes are always valid wall-clock times in the target timezone.
+    pub fn resolve_dst_transitions(&mut self) -> Result<(), String> {
+        if let Some(tzid) = self.params.tzid.as_ref() {
+            let resolved: Result<Vec<DateTime>, String> =
+                self.date_times
+                    .iter()
+                    .map(|dt| tzid.resolve_dst_transition(dt))
+                    .collect();
+
+            self.date_times = List(resolved?);
+        }
+
+        Ok(())
+    }
 }
 
 impl ICalendarEntity for ExDateProperty {
@@ -203,11 +222,15 @@ impl ICalendarEntity for ExDateProperty {
                             ),
                         ),
                         |(params, date_times)| {
-                            let ex_date_property =
+                            let mut ex_date_property =
                                 ExDateProperty {
                                     params: params.unwrap_or(ExDatePropertyParams::default()),
                                     date_times,
                                 };
+
+                            // Resolve DST transition gaps/ambiguities before validation.
+                            ex_date_property.resolve_dst_transitions()
+                                .map_err(|error| ParserError::new(error, input))?;
 
                             if let Err(error) = ICalendarEntity::validate(&ex_date_property) {
                                 return Err(
@@ -395,18 +418,77 @@ mod tests {
     }
 
     #[test]
-    fn parse_ical_wth_tz_dst_gap_date_time() {
-        // Assert impossible date/time fails validation.
-        assert_parser_error!(
+    fn parse_ical_with_tz_dst_transition() {
+        // Gap at exact boundary: 02:00 Auckland -> adjusted to 03:00
+        assert_parser_output!(
             ExDateProperty::parse_ical("EXDATE;TZID=Pacific/Auckland:20240929T020000".into()),
-            nom::Err::Failure(
-                span: ";TZID=Pacific/Auckland:20240929T020000",
-                message: "Error - detected timezone aware datetime within a DST transition gap (supply this as UTC or fully DST adjusted) at \"EXDATE;TZID=Pacific/Auckland:20240929T020000\"",
-                context: ["EXDATE"],
+            (
+                "",
+                ExDateProperty {
+                    params: ExDatePropertyParams {
+                        value_type: None,
+                        tzid: Some(Tzid(Tz::Pacific__Auckland)),
+                        other: HashMap::new(),
+                    },
+                    date_times: vec![
+                        DateTime::LocalDateTime(
+                            NaiveDateTime::new(
+                                NaiveDate::from_ymd_opt(2024_i32, 9_u32, 29_u32).unwrap(),
+                                NaiveTime::from_hms_opt(3_u32, 0_u32, 0_u32).unwrap(),
+                            )
+                        ),
+                    ].into(),
+                },
             ),
         );
 
-        // Assert possible date/time does not fail validation.
+        // Gap with offset: 02:30 Auckland -> adjusted to 03:30
+        assert_parser_output!(
+            ExDateProperty::parse_ical("EXDATE;TZID=Pacific/Auckland:20240929T023000".into()),
+            (
+                "",
+                ExDateProperty {
+                    params: ExDatePropertyParams {
+                        value_type: None,
+                        tzid: Some(Tzid(Tz::Pacific__Auckland)),
+                        other: HashMap::new(),
+                    },
+                    date_times: vec![
+                        DateTime::LocalDateTime(
+                            NaiveDateTime::new(
+                                NaiveDate::from_ymd_opt(2024_i32, 9_u32, 29_u32).unwrap(),
+                                NaiveTime::from_hms_opt(3_u32, 30_u32, 0_u32).unwrap(),
+                            )
+                        ),
+                    ].into(),
+                },
+            ),
+        );
+
+        // Ambiguous fall-back: 01:15 London Oct 25 2026 — accepted as-is
+        assert_parser_output!(
+            ExDateProperty::parse_ical("EXDATE;TZID=Europe/London:20261025T011500".into()),
+            (
+                "",
+                ExDateProperty {
+                    params: ExDatePropertyParams {
+                        value_type: None,
+                        tzid: Some(Tzid(Tz::Europe__London)),
+                        other: HashMap::new(),
+                    },
+                    date_times: vec![
+                        DateTime::LocalDateTime(
+                            NaiveDateTime::new(
+                                NaiveDate::from_ymd_opt(2026_i32, 10_u32, 25_u32).unwrap(),
+                                NaiveTime::from_hms_opt(1_u32, 15_u32, 0_u32).unwrap(),
+                            )
+                        ),
+                    ].into(),
+                },
+            ),
+        );
+
+        // Non-transition times still work
         assert_parser_output!(
             ExDateProperty::parse_ical("EXDATE;TZID=Pacific/Auckland:20240929T010000".into()),
             (
