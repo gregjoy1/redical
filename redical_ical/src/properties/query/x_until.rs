@@ -139,6 +139,21 @@ impl ICalendarDateTimeProperty for XUntilProperty {
     }
 }
 
+impl XUntilProperty {
+    /// Resolves `self.date_time` against the TZID param (if present) to handle DST
+    /// transition gaps and ambiguities per industry convention.
+    ///
+    /// Must be called during parsing (within `map_res` in `parse_ical`) before validation,
+    /// so that the stored datetime is always a valid wall-clock time in the target timezone.
+    pub fn resolve_dst_transitions(&mut self) -> Result<(), String> {
+        if let Some(tzid) = self.params.tzid.as_ref() {
+            self.date_time = tzid.resolve_dst_transition(&self.date_time)?;
+        }
+
+        Ok(())
+    }
+}
+
 impl ICalendarEntity for XUntilProperty {
     fn parse_ical(input: ParserInput) -> ParserResult<Self> {
         context(
@@ -152,11 +167,15 @@ impl ICalendarEntity for XUntilProperty {
                             preceded(colon, DateTime::parse_ical),
                         ),
                         |(params, date_time)| {
-                            let x_until_property =
+                            let mut x_until_property =
                                 XUntilProperty {
                                     params: params.unwrap_or(XUntilPropertyParams::default()),
                                     date_time,
                                 };
+
+                            // Resolve DST transition gaps/ambiguities before validation.
+                            x_until_property.resolve_dst_transitions()
+                                .map_err(|error| ParserError::new(error, input))?;
 
                             if let Err(error) = ICalendarEntity::validate(&x_until_property) {
                                 return Err(
@@ -164,9 +183,7 @@ impl ICalendarEntity for XUntilProperty {
                                 );
                             }
 
-                            Ok(
-                                x_until_property
-                            )
+                            Ok(x_until_property)
                         }
                     )
                 )
@@ -230,7 +247,7 @@ mod tests {
     use chrono::{NaiveDate, NaiveTime, NaiveDateTime};
     use chrono_tz::Tz;
 
-    use crate::tests::{assert_parser_output, assert_parser_error};
+    use crate::tests::assert_parser_output;
 
     #[test]
     fn parse_ical() {
@@ -291,18 +308,71 @@ mod tests {
     }
 
     #[test]
-    fn parse_ical_wth_tz_dst_gap_date_time() {
-        // Assert impossible date/time fails validation.
-        assert_parser_error!(
+    fn parse_ical_with_tz_dst_transition() {
+        // Gap at exact boundary: 02:00 Auckland -> adjusted to 03:00
+        assert_parser_output!(
             XUntilProperty::parse_ical("X-UNTIL;TZID=Pacific/Auckland:20240929T020000".into()),
-            nom::Err::Failure(
-                span: ";TZID=Pacific/Auckland:20240929T020000",
-                message: "Error - detected timezone aware datetime within a DST transition gap (supply this as UTC or fully DST adjusted) at \"X-UNTIL;TZID=Pacific/Auckland:20240929T020000\"",
-                context: ["X-UNTIL"],
+            (
+                "",
+                XUntilProperty {
+                    params: XUntilPropertyParams {
+                        prop: WhereRangeProperty::DTStart,
+                        op: WhereUntilRangeOperator::LessThan,
+                        tzid: Some(Tzid(Tz::Pacific__Auckland)),
+                    },
+                    date_time: DateTime::LocalDateTime(
+                        NaiveDateTime::new(
+                            NaiveDate::from_ymd_opt(2024_i32, 9_u32, 29_u32).unwrap(),
+                            NaiveTime::from_hms_opt(3_u32, 0_u32, 0_u32).unwrap(),
+                        )
+                    ),
+                },
             ),
         );
 
-        // Assert possible date/time does not fail validation.
+        // Gap with offset: 02:30 Auckland -> adjusted to 03:30
+        assert_parser_output!(
+            XUntilProperty::parse_ical("X-UNTIL;TZID=Pacific/Auckland:20240929T023000".into()),
+            (
+                "",
+                XUntilProperty {
+                    params: XUntilPropertyParams {
+                        prop: WhereRangeProperty::DTStart,
+                        op: WhereUntilRangeOperator::LessThan,
+                        tzid: Some(Tzid(Tz::Pacific__Auckland)),
+                    },
+                    date_time: DateTime::LocalDateTime(
+                        NaiveDateTime::new(
+                            NaiveDate::from_ymd_opt(2024_i32, 9_u32, 29_u32).unwrap(),
+                            NaiveTime::from_hms_opt(3_u32, 30_u32, 0_u32).unwrap(),
+                        )
+                    ),
+                },
+            ),
+        );
+
+        // Ambiguous fall-back: 01:15 London Oct 25 2026 — accepted as-is
+        assert_parser_output!(
+            XUntilProperty::parse_ical("X-UNTIL;TZID=Europe/London:20261025T011500".into()),
+            (
+                "",
+                XUntilProperty {
+                    params: XUntilPropertyParams {
+                        prop: WhereRangeProperty::DTStart,
+                        op: WhereUntilRangeOperator::LessThan,
+                        tzid: Some(Tzid(Tz::Europe__London)),
+                    },
+                    date_time: DateTime::LocalDateTime(
+                        NaiveDateTime::new(
+                            NaiveDate::from_ymd_opt(2026_i32, 10_u32, 25_u32).unwrap(),
+                            NaiveTime::from_hms_opt(1_u32, 15_u32, 0_u32).unwrap(),
+                        )
+                    ),
+                },
+            ),
+        );
+
+        // Non-transition times still work
         assert_parser_output!(
             XUntilProperty::parse_ical("X-UNTIL;TZID=Pacific/Auckland:20240929T010000".into()),
             (
