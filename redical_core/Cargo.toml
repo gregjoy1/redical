@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 serde = { workspace = true }
 nom = "6.0"
-rrule = { version = "0.10", features = ["serde", "exrule"] }
+rrule = { version = "0.14", features = ["serde", "exrule"] }
 chrono = { workspace = true }
 chrono-tz = { workspace = true }
 lazy_static = { workspace = true }

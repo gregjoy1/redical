@@ -305,7 +305,7 @@ impl Ord for EventInstance {
 #[derive(Debug)]
 pub struct EventInstanceIterator<'a> {
     event: &'a Event,
-    internal_iter: EventOccurrenceIterator<'a>,
+    internal_iter: EventOccurrenceIterator,
 }
 
 impl<'a> EventInstanceIterator<'a> {
