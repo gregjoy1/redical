@@ -190,15 +190,15 @@ impl DateTime {
         match self {
             Self::LocalDate(date) => {
                 let date_time: NaiveDateTime = date.to_owned().into();
-                let utc_timestamp = current_tz.from_local_datetime(&date_time).unwrap().timestamp();
-                let tz_adjusted_naive_date_time = new_tz.timestamp_opt(utc_timestamp, 0_u32).unwrap().naive_local();
+                let utc_timestamp = current_tz.from_local_datetime(&date_time).earliest().unwrap().timestamp();
+                let tz_adjusted_naive_date_time = new_tz.timestamp_opt(utc_timestamp, 0_u32).earliest().unwrap().naive_local();
 
                 Self::LocalDate(tz_adjusted_naive_date_time.into())
             },
 
             Self::LocalDateTime(date_time) => {
-                let utc_timestamp = current_tz.from_local_datetime(date_time).unwrap().timestamp();
-                let tz_adjusted_naive_date_time = new_tz.timestamp_opt(utc_timestamp, 0_u32).unwrap().naive_local();
+                let utc_timestamp = current_tz.from_local_datetime(date_time).earliest().unwrap().timestamp();
+                let tz_adjusted_naive_date_time = new_tz.timestamp_opt(utc_timestamp, 0_u32).earliest().unwrap().naive_local();
 
                 Self::LocalDateTime(tz_adjusted_naive_date_time)
             },
@@ -207,8 +207,8 @@ impl DateTime {
                 if new_tz == &Tz::UTC {
                     self.clone()
                 } else {
-                    let utc_timestamp = Tz::UTC.from_local_datetime(date_time).unwrap().timestamp();
-                    let tz_adjusted_naive_date_time = new_tz.timestamp_opt(utc_timestamp, 0_u32).unwrap().naive_local();
+                    let utc_timestamp = Tz::UTC.from_local_datetime(date_time).earliest().unwrap().timestamp();
+                    let tz_adjusted_naive_date_time = new_tz.timestamp_opt(utc_timestamp, 0_u32).earliest().unwrap().naive_local();
 
                     Self::LocalDateTime(tz_adjusted_naive_date_time)
                 }
@@ -240,7 +240,7 @@ impl DateTime {
                 },
             };
 
-        date_time_result.unwrap()
+        date_time_result.earliest().unwrap()
                         .timestamp()
     }
 
@@ -267,7 +267,7 @@ impl DateTime {
     }
 
     fn serialize_date_time(naive_date_time: &NaiveDateTime, tz: &Tz) -> String {
-        let local_date_time = tz.from_local_datetime(naive_date_time).unwrap();
+        let local_date_time = tz.from_local_datetime(naive_date_time).earliest().unwrap();
 
         if matches!(tz, &Tz::UTC) {
             local_date_time.format("%Y%m%dT%H%M%SZ").to_string()
@@ -280,6 +280,7 @@ impl DateTime {
         let naive_date_time = NaiveDateTime::new(naive_date.to_owned(), NaiveTime::default());
 
         tz.from_local_datetime(&naive_date_time)
+          .earliest()
           .unwrap()
           .format("%Y%m%d")
           .to_string()
@@ -682,6 +683,37 @@ mod tests {
                     NaiveTime::from_hms_opt(23_u32, 0_u32, 0_u32).unwrap(),
                 )
             ),
+        );
+    }
+
+    #[test]
+    fn date_time_with_tz_ambiguous_fall_back() {
+        // Europe/London fall-back: Oct 25 2026 01:15
+        // Ambiguous: occurs in BST (UTC+1) and GMT (UTC+0)
+        // .earliest() picks BST (UTC+1), so UTC timestamp = 00:15
+        let date_time =
+            DateTime::LocalDateTime(
+                NaiveDateTime::new(
+                    NaiveDate::from_ymd_opt(2026, 10, 25).unwrap(),
+                    NaiveTime::from_hms_opt(1, 15, 0).unwrap(),
+                )
+            );
+
+        let utc_timestamp =
+            date_time.get_utc_timestamp(Some(&Tz::Europe__London));
+
+        // 2026-10-25T00:15:00Z (BST interpretation, pre-transition)
+        let expected_utc =
+            DateTime::UtcDateTime(
+                NaiveDateTime::new(
+                    NaiveDate::from_ymd_opt(2026, 10, 25).unwrap(),
+                    NaiveTime::from_hms_opt(0, 15, 0).unwrap(),
+                )
+            );
+
+        assert_eq!(
+            utc_timestamp,
+            expected_utc.get_utc_timestamp(None)
         );
     }
 
