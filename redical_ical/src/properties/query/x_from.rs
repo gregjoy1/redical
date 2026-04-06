@@ -183,8 +183,6 @@ impl ICalendarEntity for XFromProperty {
 
         if let Some(tzid) = self.params.tzid.as_ref() {
             tzid.validate()?;
-
-            tzid.validate_with_datetime_value(&self.date_time)?;
         };
 
         Ok(())

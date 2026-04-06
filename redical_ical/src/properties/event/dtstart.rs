@@ -220,8 +220,6 @@ impl ICalendarEntity for DTStartProperty {
 
         if let Some(tzid) = self.params.tzid.as_ref() {
             tzid.validate()?;
-
-            tzid.validate_with_datetime_value(&self.date_time)?;
         };
 
         if let Some(value_type) = self.params.value_type.as_ref() {

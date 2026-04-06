@@ -1,6 +1,6 @@
 use chrono::prelude::TimeZone;
-use chrono::LocalResult;
-use chrono_tz::Tz;
+use chrono::{LocalResult, NaiveDateTime};
+use chrono_tz::{Tz, GapInfo};
 
 use serde::{Serialize, Deserialize, Serializer, Deserializer};
 
@@ -52,30 +52,65 @@ impl ICalendarEntity for Tzid {
 }
 
 impl Tzid {
-    /// Validates the given `DateTime` value against the timezone represented by `Tzid`.
+    /// Resolves the given `DateTime` against this timezone, handling DST transitions per
+    /// industry convention:
     ///
-    /// This function checks if the provided `DateTime` can be represented in the timezone
-    /// without ambiguity, such as during daylight saving time transitions.
+    /// - **Unambiguous**:
+    ///     - Returned as-is.
     ///
-    /// # Arguments
+    /// - **Ambiguous** (fall-back, time occurs twice):
+    ///     - Returned as-is; downstream code uses `.earliest()` to pick
+    ///       the pre-transition offset.
     ///
-    /// * `date_time` - A reference to a `DateTime` object to be validated.
+    /// - **Gap** (spring-forward, time doesn't exist):
+    ///     - Adjusted forward by the gap amount using `GapInfo`.
+    ///       E.g. 02:30 in a 02:00 -> 03:00 gap becomes 03:30.
     ///
-    /// # Returns
-    ///
-    /// * `Ok(())` if the `DateTime` is valid within the timezone.
-    /// * `Err(String)` with an error message if the `DateTime` is invalid, possibly due to
-    ///   being on a daylight savings threshold.
-    pub fn validate_with_datetime_value(&self, date_time: &DateTime) -> Result<(), String> {
-        // TODO: Watch chrono_tz crate for the release of the code in the following PR:
-        //       -  https://github.com/chronotope/chrono-tz/pull/188
-        //
-        //       Once released, implement better TZ DST gap handling instead of regarding as
-        //       invalid.
-        match self.0.offset_from_local_datetime(&date_time.into()) {
-            LocalResult::Single(_) => Ok(()),
+    pub fn resolve_dst_transition(&self, date_time: &DateTime) -> Result<DateTime, String> {
+        let naive_date_time: NaiveDateTime = date_time.into();
 
-            _ => Err(String::from("detected timezone aware datetime within a DST transition gap (supply this as UTC or fully DST adjusted)")),
+        match self.0.offset_from_local_datetime(&naive_date_time) {
+            LocalResult::Single(_) |
+            LocalResult::Ambiguous(_, _) => {
+                Ok(date_time.clone())
+            },
+
+            LocalResult::None => {
+                self.resolve_dst_transition_gap(&naive_date_time)
+            },
+        }
+    }
+
+    /// Uses `GapInfo` to adjust a datetime that falls within a DST transition gap forward
+    /// to the equivalent post-transition time.
+    ///
+    /// The adjustment preserves the offset into the gap: if the input is N minutes past the
+    /// gap start, the result is N minutes past the gap end.
+    fn resolve_dst_transition_gap(&self, naive: &NaiveDateTime) -> Result<DateTime, String> {
+        let gap_info =
+            GapInfo::new(naive, &self.0).ok_or_else(|| {
+                format!(
+                    "datetime falls in unresolvable DST transition gap in timezone {}",
+                    self.0
+                )
+            })?;
+
+        match (gap_info.begin, gap_info.end) {
+            (Some((gap_start, _)), Some(gap_end)) => {
+                let offset_into_gap = *naive - gap_start;
+                let adjusted_naive = gap_end.naive_local() + offset_into_gap;
+
+                Ok(DateTime::LocalDateTime(adjusted_naive))
+            },
+
+            _ => {
+                Err(
+                    format!(
+                        "datetime falls in unresolvable DST transition gap in timezone {}",
+                        self.0,
+                    )
+                )
+            },
         }
     }
 }
@@ -317,5 +352,95 @@ mod tests {
             Tzid(Tz::America__New_York).render_ical(),
             String::from("America/New_York"),
         );
+    }
+
+    mod resolve_dst_transition_tests {
+        use super::*;
+
+        use chrono::{NaiveDate, NaiveTime, NaiveDateTime};
+
+        use crate::values::date_time::DateTime;
+
+        #[test]
+        fn resolve_ambiguous_datetime_accepted() {
+            // Europe/London fall-back: Oct 25 2026, 01:15 occurs twice — accepted as-is
+            let tzid = Tzid(Tz::Europe__London);
+
+            let date_time =
+                DateTime::LocalDateTime(NaiveDateTime::new(
+                    NaiveDate::from_ymd_opt(2026, 10, 25).unwrap(),
+                    NaiveTime::from_hms_opt(1, 15, 0).unwrap(),
+                ));
+
+            assert_eq!(
+                tzid.resolve_dst_transition(&date_time),
+                Ok(date_time)
+            );
+        }
+
+        #[test]
+        fn resolve_gap_datetime_adjusted_forward() {
+            // Pacific/Auckland spring-forward: Sep 29 2024, 02:00 -> 03:00
+            // Input 02:30 -> adjusted to 03:30 (preserves 30min offset into gap)
+            let tzid = Tzid(Tz::Pacific__Auckland);
+
+            let date_time =
+                DateTime::LocalDateTime(NaiveDateTime::new(
+                    NaiveDate::from_ymd_opt(2024, 9, 29).unwrap(),
+                    NaiveTime::from_hms_opt(2, 30, 0).unwrap(),
+                ));
+
+            let expected =
+                DateTime::LocalDateTime(NaiveDateTime::new(
+                    NaiveDate::from_ymd_opt(2024, 9, 29).unwrap(),
+                    NaiveTime::from_hms_opt(3, 30, 0).unwrap(),
+                ));
+
+            assert_eq!(
+                tzid.resolve_dst_transition(&date_time),
+                Ok(expected)
+            );
+        }
+
+        #[test]
+        fn resolve_gap_datetime_at_exact_boundary() {
+            // Pacific/Auckland spring-forward: Sep 29 2024, 02:00 -> 03:00
+            // Input 02:00 -> adjusted to 03:00 (0 offset into gap)
+            let tzid = Tzid(Tz::Pacific__Auckland);
+
+            let date_time =
+                DateTime::LocalDateTime(NaiveDateTime::new(
+                    NaiveDate::from_ymd_opt(2024, 9, 29).unwrap(),
+                    NaiveTime::from_hms_opt(2, 0, 0).unwrap(),
+                ));
+
+            let expected =
+                DateTime::LocalDateTime(NaiveDateTime::new(
+                    NaiveDate::from_ymd_opt(2024, 9, 29).unwrap(),
+                    NaiveTime::from_hms_opt(3, 0, 0).unwrap(),
+                ));
+
+            assert_eq!(
+                tzid.resolve_dst_transition(&date_time),
+                Ok(expected)
+            );
+        }
+
+        #[test]
+        fn resolve_unambiguous_datetime_unchanged() {
+            // Non-transition time — passes through unchanged
+            let tzid = Tzid(Tz::Pacific__Auckland);
+
+            let date_time =
+                DateTime::LocalDateTime(NaiveDateTime::new(
+                    NaiveDate::from_ymd_opt(2024, 9, 29).unwrap(),
+                    NaiveTime::from_hms_opt(12, 0, 0).unwrap(),
+                ));
+
+            assert_eq!(
+                tzid.resolve_dst_transition(&date_time),
+                Ok(date_time)
+            );
+        }
     }
 }

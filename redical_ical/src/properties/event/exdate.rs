@@ -234,10 +234,6 @@ impl ICalendarEntity for ExDateProperty {
 
         if let Some(tzid) = self.params.tzid.as_ref() {
             tzid.validate()?;
-
-            for date_time in self.date_times.iter() {
-                tzid.validate_with_datetime_value(date_time)?;
-            }
         };
 
         if let Some(value_type) = self.params.value_type.as_ref() {
