@@ -2,6 +2,8 @@ use std::collections::BTreeSet;
 
 use std::str::FromStr;
 
+use serde::{Serialize, Deserialize};
+
 use crate::event::{IndexedProperties, PassiveProperties};
 
 use redical_ical::{
@@ -22,7 +24,7 @@ use redical_ical::{
 
 use redical_ical::values::date_time::DateTime as ICalDateTime;
 
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, Serialize, Deserialize)]
 pub struct EventOccurrenceOverride {
     pub last_modified: LastModifiedProperty,
 

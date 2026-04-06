@@ -14,11 +14,13 @@ use crate::properties::{ICalendarProperty, ICalendarPropertyParams, define_prope
 
 use crate::content_line::{ContentLineParams, ContentLine};
 
+use serde::{Serialize, Deserialize};
+
 use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
 
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, Eq, PartialEq, Default)]
+#[derive(Debug, Clone, Eq, PartialEq, Default, Serialize, Deserialize)]
 pub struct RRulePropertyParams {
     pub other: HashMap<String, String>,
 }
@@ -90,7 +92,7 @@ impl From<RRulePropertyParams> for ContentLineParams {
 //
 //     DTSTART;TZID=America/New_York:19970902T090000
 //     RRULE:FREQ=DAILY;COUNT=10
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct RRuleProperty {
     pub params: RRulePropertyParams,
     pub value: Recur,

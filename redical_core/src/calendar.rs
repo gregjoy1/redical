@@ -1,5 +1,7 @@
 use std::collections::{BTreeSet, BTreeMap, HashMap};
 
+use serde::{Serialize, Deserialize};
+
 use crate::inverted_index::{IndexedConclusion, InvertedCalendarIndex};
 
 use crate::utils::{KeyValuePair, UpdatedHashMapMembers};
@@ -19,15 +21,35 @@ use redical_ical::{
     },
 };
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct Calendar {
     pub uid: UIDProperty,
     pub events: BTreeMap<String, Box<Event>>,
     pub indexes_active: bool,
+
+    // Computed index field -- rebuilt by validate_and_rebuild_indexes() after deserialization.
+    // Not serialized because it's derived from indexed_properties, not source data.
+    #[serde(skip)]
     pub indexed_categories: InvertedCalendarIndex<String>,
+
+    // Computed index field -- rebuilt by validate_and_rebuild_indexes() after deserialization.
+    // Not serialized because it's derived from indexed_properties, not source data.
+    #[serde(skip)]
     pub indexed_location_type: InvertedCalendarIndex<String>,
+
+    // Computed index field -- rebuilt by validate_and_rebuild_indexes() after deserialization.
+    // Not serialized because it's derived from indexed_properties, not source data.
+    #[serde(skip)]
     pub indexed_related_to: InvertedCalendarIndex<KeyValuePair>,
+
+    // Computed index field -- rebuilt by validate_and_rebuild_indexes() after deserialization.
+    // Not serialized because it's derived from indexed_properties, not source data.
+    #[serde(skip)]
     pub indexed_geo: GeoSpatialCalendarIndex,
+
+    // Computed index field -- rebuilt by validate_and_rebuild_indexes() after deserialization.
+    // Not serialized because it's derived from indexed_properties, not source data.
+    #[serde(skip)]
     pub indexed_class: InvertedCalendarIndex<String>,
 }
 
@@ -110,7 +132,7 @@ impl Calendar {
 
     // Rebuild the Calendar indexes from scratch, very helpful to perform at the tail
     // end of a bulk data import.
-    pub fn rebuild_indexes(&mut self) -> Result<bool, String> {
+    pub fn validate_and_rebuild_indexes(&mut self) -> Result<bool, String> {
         // Clear the indexes first to ensure full clean rebuild.
         self.clear_indexes();
 
@@ -126,7 +148,7 @@ impl Calendar {
         for event in self.events.values_mut() {
             let event_uid = event.uid.uid.to_string();
 
-            event.rebuild_indexes()?;
+            event.validate_and_rebuild_indexes()?;
 
             if let Some(indexed_event_categories) = &event.indexed_categories {
                 for (indexed_term, indexed_conclusion) in &indexed_event_categories.terms {

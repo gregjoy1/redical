@@ -1433,7 +1433,9 @@ pub fn control(input: ParserInput) -> ParserResult<ParserInput> {
     )(input)
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+use serde::{Serialize, Deserialize};
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub enum PositiveNegative {
     Positive,
     Negative,

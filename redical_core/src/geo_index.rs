@@ -4,6 +4,8 @@ use std::cmp::Ordering;
 
 use rstar::primitives::GeomWithData;
 
+use serde::{Serialize, Deserialize};
+
 use std::hash::{Hash, Hasher};
 
 use crate::{IndexedConclusion, InvertedCalendarIndexTerm};
@@ -144,7 +146,7 @@ impl Ord for GeoDistance {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GeoPoint {
     pub lat: f64,
     pub long: f64,

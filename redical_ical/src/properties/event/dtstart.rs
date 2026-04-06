@@ -15,11 +15,13 @@ use crate::properties::{ICalendarProperty, ICalendarPropertyParams, ICalendarDat
 
 use crate::content_line::{ContentLineParams, ContentLine};
 
+use serde::{Serialize, Deserialize};
+
 use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, ParserError, impl_icalendar_entity_traits};
 
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, Eq, PartialEq, Default)]
+#[derive(Debug, Clone, Eq, PartialEq, Default, Serialize, Deserialize)]
 pub struct DTStartPropertyParams {
     pub tzid: Option<Tzid>,
     pub value_type: Option<ValueType>,
@@ -142,7 +144,7 @@ impl DTStartPropertyParams {
 // Example:  The following is an example of this property:
 //
 //     DTSTART:19980118T073000Z
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct DTStartProperty {
     pub params: DTStartPropertyParams,
     pub date_time: DateTime,

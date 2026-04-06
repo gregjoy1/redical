@@ -51,6 +51,13 @@ impl std::fmt::Display for ParseRDBEntityError {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct RDBCalendarEnvelope {
+    pub version:      Option<String>,
+    pub raw_dump:     Vec<u8>,
+    pub logical_dump: RDBCalendar,
+}
+
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct RDBCalendar(String, Vec<String>, Vec<RDBEvent>);
 
@@ -111,7 +118,11 @@ impl TryFrom<&RDBCalendar> for Calendar {
             calendar.insert_event(parse_event_result?);
         }
 
-        calendar.rebuild_indexes().map_err(|error| ParseRDBEntityError::OnSelf(rdb_calendar_uid.to_string(), error))?;
+        calendar
+            .validate_and_rebuild_indexes()
+            .map_err(|error| {
+                ParseRDBEntityError::OnSelf(rdb_calendar_uid.to_string(), error)
+            })?;
 
         Ok(
             calendar
@@ -187,7 +198,7 @@ impl TryFrom<&RDBEvent> for Event {
             event.override_occurrence(&parse_event_occurrence_override_result?, false).map_err(|error| ParseRDBEntityError::OnSelf(rdb_event_uid.to_string(), error))?;
         }
 
-        event.rebuild_indexes().map_err(|error| ParseRDBEntityError::OnSelf(rdb_event_uid.to_string(), error))?;
+        event.validate_and_rebuild_indexes().map_err(|error| ParseRDBEntityError::OnSelf(rdb_event_uid.to_string(), error))?;
 
         Ok(
             event
@@ -274,13 +285,13 @@ mod test {
         event.override_occurrence(&event_occurrence_override, true).unwrap();
 
         event.validate().unwrap();
-        event.rebuild_indexes().unwrap();
+        event.validate_and_rebuild_indexes().unwrap();
 
         let mut calendar = Calendar::new(String::from("CALENDAR_UID"));
 
         calendar.insert_event(event.clone());
 
-        calendar.rebuild_indexes().unwrap();
+        calendar.validate_and_rebuild_indexes().unwrap();
 
         let rdb_calendar = RDBCalendar::try_from(&calendar).unwrap();
 
@@ -341,13 +352,13 @@ mod test {
         event.override_occurrence(&event_occurrence_override, true).unwrap();
 
         event.validate().unwrap();
-        event.rebuild_indexes().unwrap();
+        event.validate_and_rebuild_indexes().unwrap();
 
         let mut calendar = Calendar::new(String::from("CALENDAR_UID"));
 
         calendar.insert_event(event.clone());
 
-        calendar.rebuild_indexes().unwrap();
+        calendar.validate_and_rebuild_indexes().unwrap();
 
         let invalid_rdb_calendar =
             RDBCalendar(
@@ -396,6 +407,61 @@ mod test {
     }
 
     #[test]
+    fn test_rdb_calendar_envelope_round_trip_with_version() {
+        let mut calendar = Calendar::new(String::from("DUMP_UID"));
+
+        let event = Event::parse_ical(
+            "EVENT_UID",
+            "RRULE:FREQ=WEEKLY;UNTIL=19700101T000500Z;INTERVAL=1 \
+             CLASS:PUBLIC CATEGORIES:CATEGORY_ONE \
+             DTSTART:19700101T000500Z \
+             LAST-MODIFIED:19700101T010500Z",
+        ).unwrap();
+
+        calendar.insert_event(event);
+        calendar.validate_and_rebuild_indexes().unwrap();
+
+        let raw_dump = bincode::serialize(&calendar).unwrap();
+
+        let rdb_calendar = RDBCalendar::try_from(&calendar).unwrap();
+
+        let envelope = RDBCalendarEnvelope {
+            version:      Some(String::from("abc123")),
+            raw_dump:     raw_dump.clone(),
+            logical_dump: rdb_calendar.clone(),
+        };
+
+        let envelope_bytes = bincode::serialize(&envelope).unwrap();
+        let deserialized: RDBCalendarEnvelope = bincode::deserialize(&envelope_bytes).unwrap();
+
+        assert_eq!(deserialized.version, Some(String::from("abc123")));
+        assert_eq!(deserialized.raw_dump, raw_dump);
+        assert_eq!(deserialized.logical_dump, rdb_calendar);
+    }
+
+    #[test]
+    fn test_rdb_calendar_envelope_round_trip_with_no_version() {
+        let calendar = Calendar::new(String::from("EMPTY_DUMP_UID"));
+
+        let raw_dump = bincode::serialize(&calendar).unwrap();
+
+        let rdb_calendar = RDBCalendar::try_from(&calendar).unwrap();
+
+        let envelope = RDBCalendarEnvelope {
+            version:      None,
+            raw_dump:     raw_dump.clone(),
+            logical_dump: rdb_calendar.clone(),
+        };
+
+        let envelope_bytes = bincode::serialize(&envelope).unwrap();
+        let deserialized: RDBCalendarEnvelope = bincode::deserialize(&envelope_bytes).unwrap();
+
+        assert_eq!(deserialized.version, None);
+        assert_eq!(deserialized.raw_dump, raw_dump);
+        assert_eq!(deserialized.logical_dump, rdb_calendar);
+    }
+
+    #[test]
     fn test_calendar_level_parse_rdb_entity_error_to_string() {
         assert_eq!(
             ParseRDBEntityError::OnSelf(
@@ -420,6 +486,68 @@ mod test {
             ).to_string(),
             String::from("Error at CALENDAR_UID -> EVENT_UID:Event error message."),
         );
+    }
+
+    #[test]
+    fn test_calendar_bincode_round_trip() {
+        let mut calendar = Calendar::new(String::from("TEST_UID"));
+
+        let event = Event::parse_ical(
+            "EVENT_UID",
+            "RRULE:FREQ=WEEKLY;UNTIL=19700101T000500Z;INTERVAL=1 \
+             CLASS:PUBLIC CATEGORIES:CATEGORY_ONE \
+             DTSTART:19700101T000500Z \
+             LAST-MODIFIED:19700101T010500Z",
+        ).unwrap();
+
+        calendar.insert_event(event);
+        calendar.validate_and_rebuild_indexes().unwrap();
+
+        let bytes = bincode::serialize(&calendar).unwrap();
+        let mut deserialized: Calendar = bincode::deserialize(&bytes).unwrap();
+        deserialized.validate_and_rebuild_indexes().unwrap();
+
+        assert_eq!(calendar, deserialized);
+    }
+
+    #[test]
+    fn test_empty_calendar_bincode_round_trip() {
+        let calendar = Calendar::new(String::from("EMPTY_UID"));
+
+        let bytes = bincode::serialize(&calendar).unwrap();
+        let mut deserialized: Calendar = bincode::deserialize(&bytes).unwrap();
+        deserialized.validate_and_rebuild_indexes().unwrap();
+
+        assert_eq!(calendar, deserialized);
+    }
+
+    #[test]
+    #[ignore]
+    fn generate_fixtures() {
+        use crate::datatype::test_helpers::{build_test_calendar, fixture_path};
+
+        let calendar = build_test_calendar();
+
+        let rdb_calendar = RDBCalendar::try_from(&calendar).unwrap();
+
+        // Logical dump fixture: bare RDBCalendar bincode bytes
+        let logical_dump_bytes = bincode::serialize(&rdb_calendar).unwrap();
+
+        // Mismatch fixture: RDBCalendarEnvelope with non-matching version
+        let envelope = RDBCalendarEnvelope {
+            version:      Some(String::from("fixture_mismatch")),
+            raw_dump:     bincode::serialize(&calendar).unwrap(),
+            logical_dump: rdb_calendar,
+        };
+
+        let mismatch_bytes = bincode::serialize(&envelope).unwrap();
+
+        let fixtures_dir = fixture_path("");
+
+        std::fs::create_dir_all(&fixtures_dir).unwrap();
+
+        std::fs::write(fixture_path("rdb_calendar_logical_dump.bin"), &logical_dump_bytes).unwrap();
+        std::fs::write(fixture_path("rdb_calendar_envelope_mismatch.bin"), &mismatch_bytes).unwrap();
     }
 
     #[test]

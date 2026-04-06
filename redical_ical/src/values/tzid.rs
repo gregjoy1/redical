@@ -2,6 +2,8 @@ use chrono::prelude::TimeZone;
 use chrono::LocalResult;
 use chrono_tz::Tz;
 
+use serde::{Serialize, Deserialize, Serializer, Deserializer};
+
 use nom::error::context;
 use nom::sequence::pair;
 use nom::combinator::{opt, map_res, recognize};
@@ -75,6 +77,21 @@ impl Tzid {
 
             _ => Err(String::from("detected timezone aware datetime within a DST transition gap (supply this as UTC or fully DST adjusted)")),
         }
+    }
+}
+
+impl Serialize for Tzid {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&self.0.to_string())
+    }
+}
+
+impl<'de> Deserialize<'de> for Tzid {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let tzid_string = String::deserialize(deserializer)?;
+        let tz: Tz = tzid_string.parse().map_err(serde::de::Error::custom)?;
+
+        Ok(Tzid(tz))
     }
 }
 

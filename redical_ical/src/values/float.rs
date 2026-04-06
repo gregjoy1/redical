@@ -2,6 +2,8 @@ use nom::combinator::{recognize, map, cut, map_res, opt};
 use nom::character::complete::{one_of, digit1};
 use nom::sequence::{preceded, tuple};
 
+use serde::{Serialize, Deserialize};
+
 use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
 
 use crate::grammar::period;
@@ -29,7 +31,7 @@ pub fn float(input: ParserInput) -> ParserResult<f64> {
 //       notation:
 //
 //        float      = (["+"] / "-") 1*DIGIT ["." 1*DIGIT]
-#[derive(Debug, Clone, PartialOrd, PartialEq)]
+#[derive(Debug, Clone, PartialOrd, PartialEq, Serialize, Deserialize)]
 pub struct Float(pub f64);
 
 impl Eq for Float {}

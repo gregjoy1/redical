@@ -4,6 +4,8 @@ use nom::combinator::{recognize, map_res, opt};
 use nom::bytes::complete::{tag, take_while_m_n};
 use nom::character::is_digit;
 
+use serde::{Serialize, Deserialize};
+
 use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, ParserError, impl_icalendar_entity_traits, map_err_message};
 
 /// Parse time chars.
@@ -179,7 +181,7 @@ pub fn time_utc(input: ParserInput) -> ParserResult<ParserInput> {
 //     ;The "60" value is used to account for positive "leap" seconds.
 //
 //     time-utc     = "Z"
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct Time {
     pub hour: u32,
     pub minute: u32,

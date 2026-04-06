@@ -1,6 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::str::FromStr;
 
+use serde::{Serialize, Deserialize};
+
 use rrule::{RRuleError, RRuleSet};
 
 use redical_ical::{
@@ -49,7 +51,7 @@ use crate::geo_index::GeoPoint;
 
 use crate::utils::KeyValuePair;
 
-#[derive(Default, Debug, Eq, PartialEq, Clone)]
+#[derive(Default, Debug, Eq, PartialEq, Clone, Serialize, Deserialize)]
 pub struct ScheduleProperties {
     pub rrule: Option<RRuleProperty>,
     pub exrule: Option<ExRuleProperty>,
@@ -58,6 +60,10 @@ pub struct ScheduleProperties {
     pub duration: Option<DurationProperty>,
     pub dtstart: Option<DTStartProperty>,
     pub dtend: Option<DTEndProperty>,
+
+    // Computed field -- cached parse of RRULE/EXRULE/RDATE/EXDATE properties.
+    // Rebuilt by validate_and_rebuild_indexes() after deserialization.
+    #[serde(skip)]
     pub parsed_rrule_set: Option<rrule::RRuleSet>,
 }
 
@@ -244,7 +250,7 @@ impl ScheduleProperties {
     }
 }
 
-#[derive(Default, Debug, Eq, PartialEq, Clone)]
+#[derive(Default, Debug, Eq, PartialEq, Clone, Serialize, Deserialize)]
 pub struct IndexedProperties {
     pub geo: Option<GeoProperty>,
     pub related_to: Option<HashSet<RelatedToProperty>>,
@@ -373,7 +379,7 @@ impl IndexedProperties {
     }
 }
 
-#[derive(Default, Debug, Eq, PartialEq, Clone)]
+#[derive(Default, Debug, Eq, PartialEq, Clone, Serialize, Deserialize)]
 pub struct PassiveProperties {
     pub properties: BTreeSet<PassiveProperty>,
 }
@@ -442,7 +448,7 @@ impl PassiveProperties {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, Serialize, Deserialize)]
 pub struct Event {
     pub uid: UIDProperty,
     pub last_modified: LastModifiedProperty,
@@ -453,10 +459,30 @@ pub struct Event {
     pub passive_properties: PassiveProperties,
 
     pub overrides: BTreeMap<i64, EventOccurrenceOverride>,
+
+    // Computed index field -- rebuilt by validate_and_rebuild_indexes() after deserialization.
+    // Not serialized because it's derived from indexed_properties, not source data.
+    #[serde(skip)]
     pub indexed_categories: Option<InvertedEventIndex<String>>,
+
+    // Computed index field -- rebuilt by validate_and_rebuild_indexes() after deserialization.
+    // Not serialized because it's derived from indexed_properties, not source data.
+    #[serde(skip)]
     pub indexed_location_type: Option<InvertedEventIndex<String>>,
+
+    // Computed index field -- rebuilt by validate_and_rebuild_indexes() after deserialization.
+    // Not serialized because it's derived from indexed_properties, not source data.
+    #[serde(skip)]
     pub indexed_related_to: Option<InvertedEventIndex<KeyValuePair>>,
+
+    // Computed index field -- rebuilt by validate_and_rebuild_indexes() after deserialization.
+    // Not serialized because it's derived from indexed_properties, not source data.
+    #[serde(skip)]
     pub indexed_geo: Option<InvertedEventIndex<GeoPoint>>,
+
+    // Computed index field -- rebuilt by validate_and_rebuild_indexes() after deserialization.
+    // Not serialized because it's derived from indexed_properties, not source data.
+    #[serde(skip)]
     pub indexed_class: Option<InvertedEventIndex<String>>,
 }
 
@@ -489,7 +515,9 @@ impl Event {
         Ok(true)
     }
 
-    pub fn rebuild_indexes(&mut self) -> Result<bool, String> {
+    pub fn validate_and_rebuild_indexes(&mut self) -> Result<bool, String> {
+        self.validate()?;
+
         self.rebuild_indexed_categories()?;
         self.rebuild_indexed_location_type()?;
         self.rebuild_indexed_related_to()?;

@@ -5,6 +5,8 @@ use nom::multi::many0;
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take_while_m_n};
 
+use serde::{Serialize, Deserialize};
+
 use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits, terminated_lookahead};
 use crate::grammar::{colon, dquote, is_safe_char};
 
@@ -79,7 +81,7 @@ pub fn is_tsafe_char(input: char) -> bool {
 //                 %x5D-7E / NON-US-ASCII
 //       ; Any character except CONTROLs not needed by the current
 //       ; character set, DQUOTE, ";", ":", "\", ","
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct Text(pub String);
 
 impl ICalendarEntity for Text {

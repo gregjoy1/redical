@@ -9,6 +9,8 @@ use nom::{
 
 use crate::grammar::PositiveNegative;
 
+use serde::{Serialize, Deserialize};
+
 use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits, map_err_message};
 
 const SECONDS_IN_MINUTE: i64 = 60;
@@ -153,7 +155,7 @@ pub fn dur_second(input: ParserInput) -> ParserResult<i64> {
 }
 
 
-#[derive(Default, Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Default, Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct Duration {
     pub positive_negative: Option<PositiveNegative>,
     pub weeks: Option<i64>,

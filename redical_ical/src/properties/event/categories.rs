@@ -15,11 +15,13 @@ use crate::properties::{ICalendarProperty, ICalendarPropertyParams, define_prope
 
 use crate::content_line::{ContentLineParams, ContentLine};
 
+use serde::{Serialize, Deserialize};
+
 use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
 
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, Eq, PartialEq, Default)]
+#[derive(Debug, Clone, Eq, PartialEq, Default, Serialize, Deserialize)]
 pub struct CategoriesPropertyParams {
     pub language: Option<String>,
     pub other: HashMap<String, String>,
@@ -107,7 +109,7 @@ impl From<CategoriesPropertyParams> for ContentLineParams {
 //     CATEGORIES:APPOINTMENT,EDUCATION
 //
 //     CATEGORIES:MEETING
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct CategoriesProperty {
     pub params: CategoriesPropertyParams,
     pub categories: List<Text>,

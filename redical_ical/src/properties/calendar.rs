@@ -9,9 +9,11 @@ use crate::grammar::wsp;
 
 use crate::properties::uid::UIDProperty;
 
+use serde::{Serialize, Deserialize};
+
 use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits, convert_error};
 
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, Serialize, Deserialize)]
 pub enum CalendarProperty {
     UID(UIDProperty),
 }
@@ -38,7 +40,7 @@ impl std::hash::Hash for CalendarProperty {
 
 impl_icalendar_entity_traits!(CalendarProperty);
 
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, Serialize, Deserialize)]
 pub struct CalendarProperties(pub Vec<CalendarProperty>);
 
 impl FromStr for CalendarProperties {

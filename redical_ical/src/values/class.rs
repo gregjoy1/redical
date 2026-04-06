@@ -4,12 +4,14 @@ use nom::combinator::map;
 
 use crate::grammar::{tag, x_name, iana_token};
 
+use serde::{Serialize, Deserialize};
+
 use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits, map_err_message};
 
 // classvalue = "PUBLIC" / "PRIVATE" / "CONFIDENTIAL" / iana-token
 //            / x-name
 // ;Default is PUBLIC
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub enum ClassValue {
     Public,
     Private,

@@ -14,11 +14,13 @@ use crate::properties::{ICalendarProperty, ICalendarPropertyParams, define_prope
 
 use crate::content_line::{ContentLineParams, ContentLine};
 
+use serde::{Serialize, Deserialize};
+
 use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
 
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, Eq, PartialEq, Default)]
+#[derive(Debug, Clone, Eq, PartialEq, Default, Serialize, Deserialize)]
 pub struct ExRulePropertyParams {
     pub other: HashMap<String, String>,
 }
@@ -85,7 +87,7 @@ impl From<ExRulePropertyParams> for ContentLineParams {
 //     exrule      = "EXRULE" rrulparam ":" recur CRLF
 //
 //     rrulparam  = *(";" other-param)
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ExRuleProperty {
     pub params: ExRulePropertyParams,
     pub value: Recur,

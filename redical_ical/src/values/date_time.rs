@@ -8,6 +8,8 @@ use nom::sequence::{pair, preceded};
 use nom::error::context;
 use nom::combinator::{recognize, map, map_res, opt, cut};
 
+use serde::{Serialize, Deserialize};
+
 use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits, map_err_message};
 
 use crate::grammar::latin_capital_letter_t;
@@ -18,7 +20,7 @@ use crate::values::{
 };
 
 // VALUE = ("DATE-TIME" / "DATE")
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub enum ValueType {
     DateTime,
     Date,
@@ -113,7 +115,7 @@ pub fn date_time(input: ParserInput) -> ParserResult<ParserInput> {
 //
 //     date-time  = date "T" time ;As specified in the DATE and TIME
 //                                ;value definitions
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub enum DateTime {
     LocalDate(NaiveDate),
     LocalDateTime(NaiveDateTime),

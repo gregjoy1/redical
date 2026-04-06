@@ -14,11 +14,13 @@ use crate::properties::{ICalendarProperty, ICalendarPropertyParams, ICalendarGeo
 
 use crate::content_line::{ContentLineParams, ContentLine};
 
+use serde::{Serialize, Deserialize};
+
 use crate::{RenderingContext, ICalendarEntity, ParserInput, ParserResult, impl_icalendar_entity_traits};
 
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, Eq, PartialEq, Default)]
+#[derive(Debug, Clone, Eq, PartialEq, Default, Serialize, Deserialize)]
 pub struct GeoPropertyParams {
     pub other: HashMap<String, String>,
 }
@@ -86,7 +88,7 @@ impl From<GeoPropertyParams> for ContentLineParams {
 // Example:  The following is an example of this property:
 //
 //     GEO:37.386013;-122.082932
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct GeoProperty {
     pub params: GeoPropertyParams,
     pub latitude: Option<Float>,

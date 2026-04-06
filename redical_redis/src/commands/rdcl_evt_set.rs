@@ -100,7 +100,7 @@ pub fn redical_event_set(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     }
 
     if calendar.indexes_active {
-        event.rebuild_indexes().map_err(RedisError::String)?;
+        event.validate_and_rebuild_indexes().map_err(RedisError::String)?;
 
         let updated_event_categories_diff = InvertedEventIndex::diff_indexed_terms(
             existing_event
