@@ -56,9 +56,9 @@ impl UpperBoundFilterCondition {
 }
 
 #[derive(Debug)]
-pub struct EventOccurrenceIterator<'a> {
+pub struct EventOccurrenceIterator {
     event_occurrence_overrides: BTreeMap<i64, EventOccurrenceOverride>,
-    rrule_set_iter: Option<rrule::RRuleSetIter<'a>>,
+    rrule_set_iter: Option<rrule::RRuleSetIter>,
     base_duration: i64,
     limit: Option<usize>,
     count: usize,
@@ -69,15 +69,15 @@ pub struct EventOccurrenceIterator<'a> {
     internal_min_max_bounds: Option<(i64, i64)>,
 }
 
-impl<'a> EventOccurrenceIterator<'a> {
+impl EventOccurrenceIterator {
     pub fn new(
-        schedule_properties: &'a ScheduleProperties,
-        event_occurrence_overrides: &'a BTreeMap<i64, EventOccurrenceOverride>,
+        schedule_properties: &ScheduleProperties,
+        event_occurrence_overrides: &BTreeMap<i64, EventOccurrenceOverride>,
         limit: Option<usize>,
         filter_from: Option<LowerBoundFilterCondition>,
         filter_until: Option<UpperBoundFilterCondition>,
         filtering_indexed_conclusion: Option<IndexedConclusion>,
-    ) -> Result<EventOccurrenceIterator<'a>, String> {
+    ) -> Result<EventOccurrenceIterator, String> {
         let rrule_set_iter =
             schedule_properties.parsed_rrule_set
                                .as_ref()
@@ -287,13 +287,16 @@ impl<'a> EventOccurrenceIterator<'a> {
 
     fn rrule_set_iter_next(&mut self) -> Option<chrono::DateTime<rrule::Tz>> {
         match &mut self.rrule_set_iter {
-            Some(rrule_set_iter) => rrule_set_iter.next(),
+            Some(rrule_set_iter) => {
+                Iterator::next(rrule_set_iter)
+            },
+
             None => None,
         }
     }
 }
 
-impl Iterator for EventOccurrenceIterator<'_> {
+impl Iterator for EventOccurrenceIterator {
     type Item = (i64, i64, Option<EventOccurrenceOverride>);
     fn next(&mut self) -> Option<Self::Item> {
         if self.is_ended {
